@@ -616,15 +616,16 @@ def test_mit_rueckfall_stehen_die_weiteren_anbieter_hinter_ihm(anbieter):
     assert [t.provider_id for t in tuer.backups] == [2, 3]
 
 
-def test_ohne_rueckfall_fragt_die_tuer_niemanden_sonst(anbieter):
-    """Wer im Admin keinen Rückfall einträgt, will kein Umschalten, auch nicht zu weiteren Anbietern."""
+def test_ohne_rueckfall_fragt_die_tuer_die_anbieter_mit_modell_aus_der_liste(anbieter):
+    """Ein eingetragenes Modell reicht, damit ein Anbieter einspringt, auch ohne Rückfall."""
     from src.services.feature_router import FeatureBinding
 
     anbieter["providers"][3] = dict(GWDG)
     anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
     anbieter["route"]["fallback_provider_id"] = None
+    anbieter["providers"][2]["capabilities"] = ["chat"]
     tuer = pt.transport_for(FeatureBinding(feature="chat", provider=anbieter["providers"][1], model="gemma-hpc"))._door
-    assert tuer.backups == []
+    assert [t.provider_id for t in tuer.backups] == [2, 3]
 
 
 def test_der_rueckfall_kommt_aus_dem_adminbereich(anbieter):
