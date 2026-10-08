@@ -19,6 +19,7 @@ from src.features.ai_assistant.tasks._instruction import (
     spots_by_source,
 )
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
+from src.features.ai_assistant.tasks._json_commas import close_brackets, drop_trailing_commas
 from src.features.ai_assistant.tasks._source_tags import SourceTags
 from src.features.ai_assistant.tasks.studio import _mindmap_condensed as _condensed
 from src.services.llm_call import create_logged
@@ -52,7 +53,8 @@ def _ask_json(client, model, messages: list[dict], mindmap_id: int,
             if think_end != -1:
                 answer = answer[think_end + 8:].strip()
         try:
-            data = _json.loads(answer)
+            # Both attempts get the same prompt and nearly the same answer, a slip has to be fixed here.
+            data = _json.loads(close_brackets(drop_trailing_commas(answer)))
             return tags.decode(data) if tags is not None else data
         except _json.JSONDecodeError as e:
             logger.warning("mindmap {} JSON parse failed (attempt {}/2): {}",

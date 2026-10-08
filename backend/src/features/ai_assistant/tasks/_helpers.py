@@ -4,7 +4,7 @@ import re
 
 from langfuse.decorators import langfuse_context
 
-from src.features.ai_assistant.tasks._json_commas import drop_trailing_commas
+from src.features.ai_assistant.tasks._json_commas import close_brackets, drop_trailing_commas
 
 
 def _format_ts(seconds: float) -> str:
@@ -91,4 +91,4 @@ def _clean_llm_json(text: str) -> str:
         # Remove closing fence
         text = re.sub(r"\n?```\s*$", "", text)
     # In load run 15 gemma left a comma after the last option and two quizzes failed on it.
-    return drop_trailing_commas(text.strip())
+    return close_brackets(drop_trailing_commas(text.strip()))
