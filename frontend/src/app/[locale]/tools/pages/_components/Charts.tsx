@@ -67,15 +67,42 @@ export function Chart({ b }: { b: ChartBlock }) {
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
 
+/** A label on one line, or broken into two at the word nearest the middle, each line cut to its room. */
+function lines(s: string, room: number): string[] {
+  if (s.length <= room) return [s];
+  const words = s.split(" ");
+  let best = 1, gap = Infinity;
+  for (let k = 1; k < words.length; k++) {
+    const d = Math.abs(words.slice(0, k).join(" ").length - words.slice(k).join(" ").length);
+    if (d < gap) { gap = d; best = k; }
+  }
+  if (words.length < 2) return [cut(s, room)];
+  return [cut(words.slice(0, best).join(" "), room), cut(words.slice(best).join(" "), room)];
+}
+
+/** Text lines centred on y, as many tspans as there are lines. */
+function Lines({ x, y, list, lh, ...rest }: { x: number; y: number; list: string[]; lh: number } & React.SVGProps<SVGTextElement>) {
+  const top = y - ((list.length - 1) * lh) / 2;
+  return (
+    <text x={x} {...rest}>
+      {list.map((l, k) => <tspan key={k} x={x} y={top + k * lh}>{l}</tspan>)}
+    </text>
+  );
+}
+
 /** The page's sections around its title, right side top to bottom, then the left side back up. */
 export function MindMap({ b }: { b: MindBlock }) {
   const t = useTranslations("tools.pages");
-  const W = 1280, CX = 640, NODE_DX = 250, LEAF_GAP = 30;
+  const W = 1280, CX = 640, NODE_DX = 250, LEAF_LINE = 19, LEAF_GAP = 14;
   const n = b.branches.length;
   const right = b.branches.slice(0, Math.ceil(n / 2));
   const left = b.branches.slice(Math.ceil(n / 2)).reverse();
-  const slot = (br: MindBlock["branches"][number]) => Math.max(70, br.leaves.length * LEAF_GAP + 20);
-  const H = Math.max(260, Math.max(right.reduce((a, br) => a + slot(br), 0), left.reduce((a, br) => a + slot(br), 0)) + 60);
+  // Every label may take two lines, the room of a line follows the place it has.
+  const leafLines = (br: MindBlock["branches"][number]) => br.leaves.map((l) => lines(l, 24));
+  const leafHeight = (br: MindBlock["branches"][number]) =>
+    leafLines(br).reduce((a, ls) => a + ls.length * LEAF_LINE + LEAF_GAP, -LEAF_GAP);
+  const slot = (br: MindBlock["branches"][number]) => Math.max(80, leafHeight(br) + 28);
+  const H = Math.max(280, Math.max(right.reduce((a, br) => a + slot(br), 0), left.reduce((a, br) => a + slot(br), 0)) + 60);
   const CY = H / 2;
   const go = (to: string) => {
     const el = to ? document.getElementById(to) : null;
@@ -87,40 +114,47 @@ export function MindMap({ b }: { b: MindBlock }) {
     return list.map((br, k) => {
       const ny = y + slot(br) / 2;
       y += slot(br);
-      const title = cut(br.title, 26);
-      const hw = Math.min(124, Math.max(56, title.length * 4.6 + 24));
+      const title = lines(br.title, 20);
+      const longest = Math.max(...title.map((l) => l.length));
+      const hw = Math.min(118, Math.max(56, longest * 4.7 + 24));
+      const hh = title.length > 1 ? 32 : 22;
       const nodeX = CX + dir * NODE_DX;
       const mx = (CX + nodeX) / 2;
       const ex = nodeX + dir * hw, dx = nodeX + dir * (hw + 40);
+      const ll = leafLines(br);
+      let ly0 = ny - leafHeight(br) / 2;
       return (
         <g key={`${dir}${k}`} className="mm-br" tabIndex={0} role="link" aria-label={t("jumpTo", { title: br.title })}
           onClick={() => go(br.to)} onKeyDown={(e) => { if (e.key === "Enter") go(br.to); }}>
           <path className="mm-edge" d={`M${CX},${CY} C${mx},${CY} ${mx},${ny} ${nodeX},${ny}`} strokeWidth={5} strokeLinecap="round" />
-          {br.leaves.map((l, i) => {
-            const ly = ny + (i - (br.leaves.length - 1) / 2) * LEAF_GAP;
+          {ll.map((ls, i) => {
+            const h = ls.length * LEAF_LINE;
+            const ly = ly0 + h / 2;
+            ly0 += h + LEAF_GAP;
             return (
               <g key={i}>
                 <path className="mm-edge" d={`M${ex},${ny} C${(ex + dx) / 2},${ny} ${(ex + dx) / 2},${ly} ${dx},${ly}`} strokeWidth={2.5} />
                 <circle className="mm-leaf-dot" cx={dx} cy={ly} r={4.5} />
-                <text className="mm-leaf" x={dx + dir * 12} y={ly + 5} textAnchor={dir < 0 ? "end" : "start"} fontSize={15}>{cut(l, 26)}</text>
+                <Lines className="mm-leaf" x={dx + dir * 12} y={ly + 5} list={ls} lh={LEAF_LINE} textAnchor={dir < 0 ? "end" : "start"} fontSize={15} />
               </g>
             );
           })}
-          <rect className="mm-node" x={nodeX - hw} y={ny - 22} width={hw * 2} height={44} rx={22} strokeWidth={3} />
-          <text className="mm-node-text" x={nodeX} y={ny + 6} textAnchor="middle" fontSize={16}>{title}</text>
+          <rect className="mm-node" x={nodeX - hw} y={ny - hh} width={hw * 2} height={hh * 2} rx={22} strokeWidth={3} />
+          <Lines className="mm-node-text" x={nodeX} y={ny + 6} list={title} lh={19} textAnchor="middle" fontSize={16} />
         </g>
       );
     });
   };
 
-  const center = cut(b.center, 22);
-  const cw = Math.min(240, center.length * 11 + 44);
+  const center = lines(b.center, 20);
+  const cw = Math.min(250, Math.max(...center.map((l) => l.length)) * 11 + 48);
+  const ch = center.length > 1 ? 40 : 28;
   return (
     <svg className="mm-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t("mindmapAria")}>
       {side(right, 1)}
       {side(left, -1)}
-      <rect className="mm-center" x={CX - cw / 2} y={CY - 28} width={cw} height={56} rx={28} />
-      <text className="mm-center-text" x={CX} y={CY + 7} textAnchor="middle" fontSize={20}>{center}</text>
+      <rect className="mm-center" x={CX - cw / 2} y={CY - ch} width={cw} height={ch * 2} rx={28} />
+      <Lines className="mm-center-text" x={CX} y={CY + 7} list={center} lh={23} textAnchor="middle" fontSize={20} />
     </svg>
   );
 }

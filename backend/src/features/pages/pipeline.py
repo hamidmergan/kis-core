@@ -64,11 +64,18 @@ IMAGE_STYLE = (
     "soft mist grey palette with a single warm amber accent. Clean, modern, generous negative "
     "space."
 )
-NO_TEXT = "No text, no letters, no numbers, no labels, no logos."
+NO_TEXT = ("Absolutely no text, letters, numbers, words, labels, signs, logos, charts, diagrams, "
+           "calendars or screens.")
 HERO_IMAGE = "img_0.webp"
 SECTION_IMAGE = "img_1.webp"
 HERO_SIZE = "1536x864"
+# The banner looks run the title picture across the whole width.
+BANNER_SIZE = "1536x656"
 SECTION_SIZE = "1152x864"
+# Designs that open with a wide picture above the title, and the one that opens without.
+BANNER_DESIGNS = ("timeline", "magazine")
+NO_HERO_DESIGNS = ("guide",)
+MIN_MAP_SECTIONS = 4
 # Words a reader gets through per minute, for the reading time under the title.
 WORDS_PER_MINUTE = 200
 MIN_CLOUD_WORDS = 6
@@ -88,16 +95,22 @@ class RunStore(summary_pipeline.RunStore, Protocol):
     def save_frame(self, data: dict) -> None: ...
 
 
-def _bullets_from_prose(text: str) -> list[dict]:
-    """A section the block call could not shape, its prose turned into one list."""
-    zeilen = [re.sub(r"^\s*(?:[-*]|\d+[.)])\s+", "", z).strip() for z in text.split("\n")]
-    punkte = [z for z in zeilen if z and not z.startswith("#") and not z.startswith("|")]
-    return [{"kind": "bullets", "items": punkte}] if punkte else []
+def _text_from_prose(text: str) -> list[dict]:
+    """A section the block call could not shape: a list stays a list, prose stays text."""
+    zeilen = [z.strip() for z in text.split("\n") if z.strip() and not z.strip().startswith(("#", "|"))]
+    punkte = [re.sub(r"^(?:[-*]|\d+[.)])\s+", "", z) for z in zeilen if re.match(r"^(?:[-*]|\d+[.)])\s+", z)]
+    if len(punkte) >= len(zeilen) / 2:
+        return [{"kind": "bullets", "items": punkte}] if punkte else []
+    return [{"kind": "text", "text": " ".join(zeilen)}]
 
 
 async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Karte,
-                  store: RunStore, should_stop, instructions: str) -> dict[int, dict]:
-    """Every section as blocks, several sections per call, one at a time when that fails."""
+                  store: RunStore, should_stop, instructions: str,
+                  schon: list[str] | None = None) -> dict[int, dict]:
+    """Every section as blocks, several sections per call, one at a time when that fails.
+
+    ``schon`` is what the frame already put on the page, the writers leave it out.
+    """
     fertig = dict(store.load_blocks())
     gruppen = summary_writing.group_sections(plan.sections, summary_pipeline._costs(plan.sections),
                                              SUMMARY_SECTION_GROUP_CHARS)
@@ -111,14 +124,14 @@ async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Kar
                                 budget=je) for a in abschnitte]
         ergebnis = await write_blocks(caller, language=language, group=abschnitte, indices=gruppe,
                                       others=andere, material=stoff, names=plan.names,
-                                      instructions=instructions)
+                                      instructions=instructions, on_page=schon)
         if ergebnis is None:
             ergebnis = []
             for i in gruppe:
                 einzeln = await write_blocks(
                     caller, language=language, group=[plan.sections[i]], indices=[i],
                     others=andere, material=[stoff[gruppe.index(i)]], names=plan.names,
-                    instructions=instructions)
+                    instructions=instructions, on_page=schon)
                 ergebnis.append((einzeln or [None])[0])
         for i, teil in zip(gruppe, ergebnis):
             if teil is None or not any(schema.clean_block(b) for b in teil["blocks"]):
@@ -130,7 +143,7 @@ async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Kar
                     material=[stoff[gruppe.index(i)]], budget=SUMMARY_SECTION_GROUP_CHARS,
                     names=plan.names, instructions=instructions)
                 teil = {"lead": (teil or {}).get("lead", ""), "map_label": "",
-                        "blocks": _bullets_from_prose((prosa or [""])[0]),
+                        "blocks": _text_from_prose((prosa or [""])[0]),
                         "keywords": (teil or {}).get("keywords", [])}
             fertig[i] = teil
             store.save_blocks(i, teil)
@@ -167,8 +180,9 @@ async def run(caller: Caller, *, sources: list[Source], store: RunStore,
     if frame is None:
         frame = await write_frame(caller, language=language, plan=plan, instructions=wirksam)
         store.save_frame(frame)
+    schon = [g for g in (frame.get("gist") or []) if isinstance(g, str)]
     bloecke = await _blocks(caller, language=language, plan=plan, karte=karte, store=store,
-                            should_stop=should_stop, instructions=wirksam)
+                            should_stop=should_stop, instructions=wirksam, schon=schon)
     return draft(plan, bloecke, frame, sources=sources, language=language)
 
 
@@ -210,8 +224,9 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     if not lead and plan.intro:
         lead = re.split(r"(?<=[.!?])\s+", plan.intro.strip())[0]
 
+    design = frame.get("design") if frame.get("design") in schema.DESIGNS else schema.DESIGNS[0]
     hero = {"id": "top", "hero": True, "title": titel, "lead": lead, "meta": "", "blocks": []}
-    if str(frame.get("hero_prompt") or "").strip():
+    if str(frame.get("hero_prompt") or "").strip() and design not in NO_HERO_DESIGNS:
         hero["blocks"].append({"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
                                "prompt": image_prompt(frame["hero_prompt"]), "caption": ""})
     seiten = [hero]
@@ -219,9 +234,9 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     kurz_bloecke: list[dict] = []
     if gist:
         kurz_bloecke.append({"kind": "bullets", "items": gist[:4]})
-    key = frame.get("key")
-    if isinstance(key, dict) and (key.get("key") or "").strip():
-        kurz_bloecke.append({"kind": "highlight", "key": key.get("key"), "text": key.get("text")})
+    formel = frame.get("formula")
+    if isinstance(formel, dict) and (formel.get("key") or "").strip():
+        kurz_bloecke.append({"kind": "highlight", "key": formel.get("key"), "text": formel.get("text")})
     if kurz_bloecke:
         seiten.append({"id": "gist", "title": t("pages.gistTitle", loc), "lead": "",
                        "blocks": kurz_bloecke})
@@ -242,7 +257,10 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
                                       "alt": bild.get("alt") or "", "caption": bild.get("caption") or "",
                                       "prompt": image_prompt(bild["prompt"])})
 
-    if len(inhalt) >= 3:
+    _one_highlight([kurz_bloecke] + [s["blocks"] for _, s, _ in inhalt])
+
+    # A timeline is its own overview, the map would only repeat it.
+    if len(inhalt) >= MIN_MAP_SECTIONS and design != "timeline":
         seiten.append({"id": "map", "title": t("pages.mapTitle", loc), "lead": t("pages.mapLead", loc),
                        "blocks": [{"kind": "mindmap", "center": _short_title(titel), "caption": t("pages.mapCaption", loc),
                                    "branches": [{"title": teil.get("map_label") or s["title"],
@@ -258,7 +276,25 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
                                    "words": woerter}]})
 
     # The line under the title is the page's one AI notice, so there is no footer repeating it.
-    return schema.clean_page({"lang": loc, "sections": seiten, "footer": ""})
+    return schema.clean_page({"lang": loc, "design": design, "sections": seiten, "footer": ""})
+
+
+def _one_highlight(listen: list[list[dict]]) -> None:
+    """The blue box stands once on a page, every later one becomes plain text."""
+    gesehen = False
+    for bloecke in listen:
+        for k, b in enumerate(bloecke):
+            if b.get("kind") != "highlight":
+                continue
+            if gesehen:
+                teile = [str(b.get("key") or "").strip(), str(b.get("text") or "").strip()]
+                bloecke[k] = {"kind": "text", "text": ": ".join(x for x in teile if x)}
+            gesehen = True
+
+
+def hero_size(page: dict) -> str:
+    """The pixel size of the title picture, wide for the banner looks."""
+    return BANNER_SIZE if page.get("design") in BANNER_DESIGNS else HERO_SIZE
 
 
 def _words_on(page: dict) -> int:

@@ -235,7 +235,7 @@ export default function PagesSeite() {
                         <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
                           <div className="flex items-center justify-between gap-3">
                             <span className="truncate">{f.name}</span>
-                            <span className="flex items-center gap-3 shrink-0">
+                            <span className="flex items-center gap-3 shrink-0 whitespace-nowrap">
                               <MeasureNote messung={messung.forFile(f)} />
                               {!sending && (
                                 <button type="button" onClick={() => setFiles((alt) => alt.filter((_, j) => j !== i))}
@@ -278,14 +278,20 @@ export default function PagesSeite() {
                       {sources.map((q) => (
                         <li key={q.uuid}>
                           <div className="flex items-center justify-between gap-3">
-                            <Checkbox
-                              checked={sourceIds.includes(q.uuid)}
-                              disabled={sending || (voll && !sourceIds.includes(q.uuid))}
-                              onChange={() => setSourceIds((alt) => alt.includes(q.uuid) ? alt.filter((id) => id !== q.uuid) : alt.length >= maxSources ? alt : [...alt, q.uuid])}
-                              label={q.filename}
-                              labelClassName="text-sm text-foreground"
-                            />
-                            {sourceIds.includes(q.uuid) && <MeasureNote messung={messung.forSource(q.uuid)} />}
+                            {/* The card is narrow, a long name is cut so the count stays inside it. */}
+                            <span className="min-w-0 flex-1" title={q.filename}>
+                              <Checkbox
+                                checked={sourceIds.includes(q.uuid)}
+                                disabled={sending || (voll && !sourceIds.includes(q.uuid))}
+                                onChange={() => setSourceIds((alt) => alt.includes(q.uuid) ? alt.filter((id) => id !== q.uuid) : alt.length >= maxSources ? alt : [...alt, q.uuid])}
+                                label={q.filename}
+                                className="min-w-0 max-w-full"
+                                labelClassName="text-sm text-foreground truncate min-w-0"
+                              />
+                            </span>
+                            {sourceIds.includes(q.uuid) && (
+                              <span className="shrink-0 whitespace-nowrap"><MeasureNote messung={messung.forSource(q.uuid)} /></span>
+                            )}
                           </div>
                           {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
                         </li>

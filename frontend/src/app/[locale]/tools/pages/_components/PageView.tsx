@@ -17,7 +17,7 @@ import {
   Warning,
   X,
 } from "@phosphor-icons/react";
-import type { Block, CardIcon, Limits, Page, Section } from "../_lib/types";
+import type { Block, CardIcon, Design, Limits, Page, Section } from "../_lib/types";
 import { Chart, MindMap, WordCloud, useNumber } from "./Charts";
 import { EditCtx, Txt } from "./Txt";
 import "./page.css";
@@ -65,9 +65,15 @@ export default function PageView({ page, limits, imageBase, edit }: Props) {
   const { editing } = useContext(EditCtx);
   const nums = numbering(page, editing);
   const n = page.sections.length;
+  const design: Design = page.design ?? "chapters";
+  // Chapters count only the sections of the subject, not the title, summary, map or words.
+  const chapters = new Map<number, number>();
+  page.sections.forEach((s, i) => {
+    if (isContent(s) && !(s.hidden && !editing)) chapters.set(i, chapters.size + 1);
+  });
 
   return (
-    <div className={`kis-page${editing ? " editing" : ""}`}>
+    <div className={`kis-page d-${design}${editing ? " editing" : ""}`} lang={page.lang}>
       <main className="wrap">
         {edit && (
           <div className="ed-only ed-actions">
@@ -87,7 +93,8 @@ export default function PageView({ page, limits, imageBase, edit }: Props) {
           </div>
         )}
         {page.sections.map((s, i) => (
-          <SectionView key={s.id} s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit} />
+          <SectionView key={s.id} s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
+            design={design} chapter={chapters.get(i)} />
         ))}
         {edit && (
           <div className="ed-only ed-save" style={{ flexDirection: "column", alignItems: "flex-end" }}>
@@ -126,7 +133,14 @@ function Tools({ s, i, n, edit }: { s: Section; i: number; n: number; edit: Edit
   );
 }
 
+/** The fixed parts of a page carry these ids, every other section belongs to the subject. */
+const FRAME_IDS = new Set(["gist", "map", "words"]);
+const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
+
 interface SectionProps {
+  design: Design;
+  /** Its number among the subject's sections, absent for the frame. */
+  chapter?: number;
   s: Section;
   i: number;
   n: number;
@@ -136,26 +150,32 @@ interface SectionProps {
   edit?: EditControls | null;
 }
 
-function SectionView({ s, i, n, limits, imageBase, nums, edit }: SectionProps) {
+/** A long title gets a smaller size, so it never breaks into a tower of single words. */
+const titleSize = (title: string) => (title.length > 48 ? " t-xl" : title.length > 26 ? " t-l" : "");
+
+function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }: SectionProps) {
   const p = `sections.${i}`;
   const cls = s.hidden ? " is-hidden" : "";
   if (s.hero) {
     const j = s.blocks.findIndex((b) => b.kind === "image");
     const img = j >= 0 ? (s.blocks[j] as Extract<Block, { kind: "image" }>) : null;
+    const banner = design === "timeline" || design === "magazine";
+    const figure = img && (
+      <figure className="img" data-d={`${p}.blocks.${j}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session */}
+        <img src={`${imageBase}/${img.src}`} alt={img.alt} />
+      </figure>
+    );
     return (
-      <section id={s.id} className={`hero${img ? "" : " solo"}${cls}`} data-i={i}>
+      <section id={s.id} className={`hero${img ? "" : " solo"}${banner ? " banner" : ""}${titleSize(s.title)}${cls}`} data-i={i}>
         {edit && <Tools s={s} i={i} n={n} edit={edit} />}
-        <div>
+        {banner && figure}
+        <div className="hero-text">
           <Txt path={`${p}.title`} value={s.title} as="h1" max={limits.short} />
           <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
           <Txt path={`${p}.meta`} value={s.meta} as="p" className="meta" max={limits.long} />
         </div>
-        {img && (
-          <figure className="img" data-d={`${p}.blocks.${j}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session */}
-            <img src={`${imageBase}/${img.src}`} alt={img.alt} />
-          </figure>
-        )}
+        {!banner && figure}
       </section>
     );
   }
@@ -164,16 +184,26 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit }: SectionProps) {
       <BlockView b={b} p={`${p}.blocks.${j}`} limits={limits} imageBase={imageBase} num={nums.get(`${i}.${j}`)} />
     </div>
   ));
-  // An image beside one other block sits side by side, everything else stacks.
-  const duo = s.blocks.length === 2 && s.blocks.some((b) => b.kind === "image");
+  // An image sits beside one short block, a long one would turn into a narrow column. The magazine turns every second pair.
+  const other = s.blocks.find((b) => b.kind !== "image");
+  const short = !!other && (other.kind === "text" ? other.text.length <= 500
+    : other.kind === "bullets" ? other.items.length <= 4 : other.kind === "figures");
+  const duo = s.blocks.length === 2 && s.blocks.some((b) => b.kind === "image") && short;
+  const even = chapter != null && chapter % 2 === 0;
+  const flip = design === "magazine" && even;
+  const band = design === "magazine" && even ? " band" : "";
   return (
-    <section id={s.id} className={cls.trim()} data-i={i}>
+    <section id={s.id} className={`${chapter != null ? "content" : "frame"}${band}${cls}`} data-i={i}>
       {edit && <Tools s={s} i={i} n={n} edit={edit} />}
       <div className="txt">
+        {design === "chapters" && chapter != null && (
+          <span className="chap" aria-hidden="true">{String(chapter).padStart(2, "0")}</span>
+        )}
+        {design === "timeline" && chapter != null && <span className="tl-dot" aria-hidden="true" />}
         <Txt path={`${p}.title`} value={s.title} as="h2" max={limits.short} />
         <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
       </div>
-      {duo ? <div className="duo">{blocks}</div> : blocks}
+      <div className="body">{duo ? <div className={`duo${flip ? " flip" : ""}`}>{blocks}</div> : blocks}</div>
     </section>
   );
 }
@@ -194,14 +224,10 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
   const fmt = useNumber();
   const S = limits.short, I = limits.item;
   switch (b.kind) {
+    case "text":
+      return <Txt path={`${p}.text`} value={b.text} as="p" className="prose" max={limits.long} />;
     case "bullets":
-      return b.items.length <= 4 ? (
-        <div className="gist">
-          {b.items.map((v, i) => (
-            <div key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></div>
-          ))}
-        </div>
-      ) : (
+      return (
         <ul className="bul">
           {b.items.map((v, i) => (
             <li key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></li>

@@ -17,17 +17,18 @@ from src.limits import SUMMARY_WRITE_MAX_TOKENS
 from src.services import anweisung
 
 _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
-- bullets: {"kind":"bullets","items":["statement","statement"]} two to eight statements, each one sentence.
-- highlight: {"kind":"highlight","key":"y = a + bx","text":"what it means"} only for a formula or a rule of a few words that the whole section turns on, at most one on the whole run of sections you write, most sections have none. key is at most 5 words or a formula, under 40 characters, everything else goes into text.
-- cards: {"kind":"cards","cards":[{"icon":"info","title":"term","text":"one or two sentences"}]} two to six parallel things such as terms with their definitions, kinds or options. icon is check for what applies or is right, x for what does not apply or is wrong, warning for a caveat, idea for a tip, info otherwise.
+- text: {"kind":"text","text":"two to five sentences"} plain running text, for an explanation, a reason or an argument. Many sections need nothing else.
+- bullets: {"kind":"bullets","items":["statement","statement"]} three to eight statements of a list, each one sentence. The page shows them with a dot in front.
 - steps: {"kind":"steps","steps":[{"title":"step","text":"one sentence"}]} two to eight steps, only where the material gives an order.
-- figures: {"kind":"figures","figures":[{"value":"3,9","label":"what the number is"}]} two to four key figures exactly as the material states them.
-- table: {"kind":"table","caption":"what is compared","header":["","A","B"],"rows":[["attribute","value","value"]]} only where several things are compared along the same attributes. At most 6 columns and 12 rows, short cells.
-- chart: {"kind":"chart","chart_type":"bar","caption":"what it shows","x_label":"","y_label":"unit","categories":["a","b","c"],"series":[{"name":"","values":[1,2,3]}]} wherever the material states at least three numbers of the same quantity, such as measured values, value pairs or a series over time. Such numbers belong in a chart, not in a list. line for a development along an ordered axis such as time or hours, bar to compare things. At most 10 categories, at most 2 series for line, 1 for bar.
-- bars: {"kind":"bars","max":1,"bars":[{"label":"thing","value":0.62,"text":"one sentence on the value"}]} two to ten things measured on one scale, such as shares. max is the top of the scale, 1 for shares, 100 for percent. Each text says something of its own about its value.
+- cards: {"kind":"cards","cards":[{"icon":"info","title":"term","text":"one or two sentences"}]} three to six parallel things that each need a name and a definition, such as terms or kinds. icon is check for what applies or is right, x for what does not apply or is wrong, warning for a caveat, idea for a tip, info otherwise.
+- figures: {"kind":"figures","figures":[{"value":"30 Min.","label":"what the number is"}]} two to four key figures with their unit, exactly as the material states them.
+- table: {"kind":"table","caption":"what is compared","header":["","A","B"],"rows":[["attribute","value","value"]]} where several things are compared along the same attributes. At most 6 columns and 12 rows, short cells.
+- chart: {"kind":"chart","chart_type":"bar","caption":"what it shows","x_label":"","y_label":"unit","categories":["a","b","c"],"series":[{"name":"","values":[1,2,3]}]} wherever the material states at least three numbers of the same quantity, such as measured values, value pairs or a series over time. line for a development along an ordered axis such as time, bar to compare things. At most 10 categories, at most 2 series for line, 1 for bar.
+- bars: {"kind":"bars","max":1,"bars":[{"label":"thing","value":0.62,"text":"one sentence on the value"}]} two to ten things measured on one scale, such as shares. max is the top of the scale, 1 for shares, 100 for percent.
+- highlight: {"kind":"highlight","key":"y = a + bx","text":"what it means"} only for a formula or an equation the material states. Never for a sentence or a rule in words.
 
-EXAMPLE of one section:
-{"section_index":2,"map_label":"Vorgehen","lead":"So kommt man von den Punkten zur fertigen Geraden.","blocks":[{"kind":"steps","steps":[{"title":"Punkte eintragen","text":"Jedes Wertepaar wird ein Punkt."},{"title":"Steigung berechnen","text":"Durch den Schwerpunkt ergibt sich b = 3,9."}]},{"kind":"highlight","key":"y = a + bx","text":"Jede Vorhersage folgt dieser Gleichung."}],"keywords":["Steigung","Achsenabschnitt","Schwerpunkt"]}"""
+EXAMPLE of two sections:
+{"sections":[{"section_index":2,"map_label":"Vorgehen","lead":"So kommt man von den Punkten zur fertigen Geraden.","blocks":[{"kind":"steps","steps":[{"title":"Punkte eintragen","text":"Jedes Wertepaar wird ein Punkt."},{"title":"Steigung berechnen","text":"Durch den Schwerpunkt ergibt sich b = 3,9."}]}],"keywords":["Steigung","Schwerpunkt"]},{"section_index":3,"map_label":"Grenzen","lead":"Eine Gerade passt nicht auf jeden Zusammenhang.","blocks":[{"kind":"text","text":"Liegen die Punkte auf einer Kurve, liegt die Gerade in der Mitte zu hoch und an den Rändern zu tief. Ein einzelner Ausreißer kann sie stark kippen."}],"keywords":["Ausreißer"]}]}"""
 
 
 def _blocks_system(language: str, count: int) -> str:
@@ -35,39 +36,44 @@ def _blocks_system(language: str, count: int) -> str:
         f"You turn passages of teaching material into {count} section(s) of a learning web page "
         "for students. The page condenses, it never asks questions and holds no quiz.\n"
         + GROUND_RULES.format(language=language) + "\n"
-        "Rule 8: Each section gets one to three blocks. Pick the kinds that show its content "
-        "best and vary them across sections. A page is meant to be seen, not read like a list: "
-        "key numbers with their unit, such as hours, minutes, euros or percent, become figures, "
-        "parallel things become cards, an order becomes steps, a comparison becomes a table. "
-        "bullets is only for what fits none of these, at most one bullets block per section. "
-        "Never force a chart or a table onto content that is not numbers or a comparison.\n"
+        "Rule 8: Each section gets one or two blocks. Choose each block by its content, the "
+        "first match wins: at least three numbers of the same quantity become a chart, things "
+        "compared along the same attributes become a table, two to four key numbers with their "
+        "units become figures, an order becomes steps, an explanation or a reason becomes text, "
+        "separate statements become bullets, three or more terms that each need a definition "
+        "become cards. No kind may fill more than half of your sections, and at least one of "
+        "your sections is plain text.\n"
         "Rule 9: Never invent a number, a value in a chart, bars or figures block comes from "
         "the material as it stands.\n"
-        "Rule 10: Every text is short and stands on its own. No Markdown, no asterisks, no "
-        "headings inside the texts.\n"
-        "Rule 11: lead is one or two sentences saying what the section shows. map_label names "
+        "Rule 10: Say every statement once on the whole page. What is listed as already on "
+        "the page is not repeated, and within a section a lead, a text and a list never say "
+        "the same thing twice. A figure belongs to the one section whose scope it concerns.\n"
+        "Rule 11: No Markdown, no asterisks, no headings inside the texts.\n"
+        "Rule 12: lead is one sentence saying what the section is about. map_label names "
         "the section in one to three words. keywords are two to four technical terms of the "
         "section, each one to three words, written as they appear in the material.\n"
-        "Rule 12: Write only what belongs under the heading. The other sections are listed so "
-        "you stay off their ground, and a figure belongs to the one section whose scope it "
-        "concerns, it never appears in two.\n"
-        "Rule 13: Never cite a page, a slide or a file.\n"
-        "Rule 14: Answer with one JSON object and nothing else: "
+        "Rule 13: Write only what belongs under the heading. The other sections are listed so "
+        "you stay off their ground.\n"
+        "Rule 14: Never cite a page, a slide or a file.\n"
+        "Rule 15: Answer with one JSON object and nothing else: "
         '{"sections":[ one object per section, in the given order ]}.\n\n'
         + _BLOCKS_GUIDE
     )
 
 
 def _blocks_user(group: list[Section], indices: list[int], others: list[Section],
-                 material: list[str], names: dict[str, str], instructions: str) -> str:
+                 material: list[str], names: dict[str, str], instructions: str,
+                 on_page: list[str] | None = None) -> str:
     fremd = "\n".join(f"- {a.title}: {a.scope}" for a in others) or "- none"
+    schon = ("ALREADY ON THE PAGE, never repeat these statements:\n"
+             + "\n".join(f"- {x}" for x in on_page) + "\n\n") if on_page else ""
     namen = ("DOCUMENT NAMES, use these and never a file name:\n"
              + "\n".join(f"- {d} = {k}" for d, k in names.items()) + "\n\n") if names else ""
     teile = [f"=== SECTION section_index {i} ===\nHEADING: {a.title}\nSCOPE: {a.scope}\n"
              f"MATERIAL:\n{m}" for i, a, m in zip(indices, group, material)]
     zusatz = ("\n" + anweisung.schreib_zusatz(instructions, anweisung.STIL)
               if instructions.strip() else "")
-    return (f"/no_think\nOther sections of the page, stay off these:\n{fremd}\n\n{namen}"
+    return (f"/no_think\nOther sections of the page, stay off these:\n{fremd}\n\n{schon}{namen}"
             "YOUR SECTIONS:\n\n" + "\n\n".join(teile) + zusatz)
 
 
@@ -95,13 +101,14 @@ def _words(value, most: int) -> list[str]:
 
 async def write_blocks(caller: Caller, *, language: str, group: list[Section],
                        indices: list[int], others: list[Section], material: list[str],
-                       names: dict[str, str], instructions: str = "") -> list[dict] | None:
+                       names: dict[str, str], instructions: str = "",
+                       on_page: list[str] | None = None) -> list[dict] | None:
     """The blocks of a run of sections, None when the answer cannot be matched to them."""
     antwort = await caller.create(
         messages=[
             {"role": "system", "content": _blocks_system(language, len(group))},
             {"role": "user", "content": _blocks_user(group, indices, others, material, names,
-                                                     instructions)},
+                                                     instructions, on_page)},
         ],
         temperature=0.3, name=f"blocks:{len(group)}:{group[0].title}",
         response_format={"type": "json_object"}, max_tokens=SUMMARY_WRITE_MAX_TOKENS,
@@ -128,6 +135,20 @@ async def write_blocks(caller: Caller, *, language: str, group: list[Section],
     return raus
 
 
+DESIGNS = {
+    "chapters": "a subject that builds up step by step, such as a theory, a method or a textbook chapter",
+    "timeline": "events in time or a process that runs in stages, such as history, a procedure or a project",
+    "magazine": "cases, examples, people or a debate, where pictures and stories carry the subject",
+    "guide": "rules, duties, a law, a regulation or instructions a reader looks things up in",
+}
+
+# What a picture prompt must never ask for, the image models paint such things with broken lettering.
+NO_WRITING = (
+    "It shows people, objects or a calm scene and never anything that carries writing: no "
+    "document, page, screen, sign, calendar, clock face, chart, diagram, map, table, label or "
+    "book cover."
+)
+
 _FRAME_SYSTEM = (
     "You write the frame of a learning web page whose sections are already planned.\n"
     + GROUND_RULES + "\n"
@@ -135,18 +156,20 @@ _FRAME_SYSTEM = (
     "and why it matters, under 220 characters.\n"
     "Rule 9: gist holds the three or four most important statements of the whole material, "
     "each one sentence with its figures, taken from the opening summary.\n"
-    "Rule 10: key is the one formula, rule or core statement everything turns on, with a "
-    "sentence on what it means. Leave key as null when there is none.\n"
-    "Rule 11: hero_prompt describes in English a calm illustration for the top of the page: "
-    "objects or a scene that stand for the subject. It never asks for text, letters, numbers, "
-    "labels, logos or diagrams with writing. hero_alt describes the picture in {language} "
-    "in one short sentence.\n"
-    "Rule 12: section_image picks the one section an illustration helps most, by its "
-    "section_index, with an English prompt as in Rule 11, a caption and an alt text in "
+    "Rule 10: formula is a formula or equation the whole material turns on, with a sentence "
+    "on what it means. Leave formula as null when the material has none, a rule in words "
+    "is no formula.\n"
+    "Rule 11: design is the look of the page, pick the one that fits the material best:\n"
+    + "\n".join(f"- {k}: {v}" for k, v in DESIGNS.items()) + "\n"
+    "Rule 12: hero_prompt describes in English a calm illustration for the top of the page "
+    "that stands for the subject. " + NO_WRITING + " hero_alt describes the picture in "
+    "{language} in one short sentence.\n"
+    "Rule 13: section_image picks the one section a picture helps most, by its "
+    "section_index, with an English prompt as in Rule 12, a caption and an alt text in "
     "{language}. Leave it as null when no section gains from a picture.\n"
-    "Rule 13: Answer with one JSON object and nothing else, in this shape: "
-    '{{"lead":"","gist":["",""],"key":{{"key":"","text":""}},"hero_prompt":"","hero_alt":"",'
-    '"section_image":{{"section_index":0,"prompt":"","caption":"","alt":""}}}}'
+    "Rule 14: Answer with one JSON object and nothing else, in this shape: "
+    '{{"lead":"","gist":["",""],"formula":{{"key":"","text":""}},"design":"chapters",'
+    '"hero_prompt":"","hero_alt":"","section_image":{{"section_index":0,"prompt":"","caption":"","alt":""}}}}'
 )
 
 

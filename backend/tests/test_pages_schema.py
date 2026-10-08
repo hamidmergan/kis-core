@@ -74,7 +74,8 @@ def test_draft_builds_title_gist_map_sections_and_cloud():
                    "keywords": ["Steigung", "Achsenabschnitt", "Residuum", "Korrelation", "Varianz",
                                 "Modell"][i:i + 3]}
                for i in range(4)}
-    frame = {"lead": "Kurz", "gist": ["Eins.", "Zwei."], "key": {"key": "y = a + bx", "text": "t"},
+    frame = {"lead": "Kurz", "gist": ["Eins.", "Zwei."], "formula": {"key": "y = a + bx", "text": "t"},
+             "design": "magazine",
              "hero_prompt": "a desk", "section_image": {"section_index": 1, "prompt": "a lamp"}}
     quelle = Source(dateiname="Skript.pdf", fassung="x", text=stoff, stuecke=[], seiten=1)
     seite = pl.draft(plan, bloecke, frame, sources=[quelle], language="German")
@@ -95,3 +96,19 @@ def test_long_highlight_key_becomes_text_and_dashes_go():
     assert schema.text("Arbeitszeitgesetz – Überblick", 120) == "Arbeitszeitgesetz: Überblick"
     assert schema.text("lang – aber gut", 120) == "lang, aber gut"
     assert pl._short_title("Arbeitszeitgesetz: Überblick für Studierende") == "Arbeitszeitgesetz"
+
+
+def test_only_one_blue_box_and_the_design_is_kept():
+    plan = Outline(title="T", intro="I.", sections=[Section(title=f"S{i}") for i in range(4)])
+    hl = {"kind": "highlight", "key": "A", "text": "B"}
+    bloecke = {i: {"lead": "", "blocks": [dict(hl)], "keywords": []} for i in range(4)}
+    seite = pl.draft(plan, bloecke, {"formula": {"key": "F", "text": "x"}, "design": "guide",
+                                     "hero_prompt": "a desk"},
+                     sources=[Source(dateiname="a.pdf", fassung="x", text="t", stuecke=[], seiten=1)],
+                     language="German")
+    arten = [b["kind"] for s in seite["sections"] for b in s["blocks"]]
+    assert arten.count("highlight") == 1
+    assert seite["design"] == "guide"
+    # The guide opens without a title picture.
+    assert seite["sections"][0]["blocks"] == []
+    assert schema.clean_block({"kind": "text", "text": "Ein Satz."}) == {"kind": "text", "text": "Ein Satz."}

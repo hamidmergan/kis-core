@@ -17,6 +17,7 @@
 .kis-page .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 .kis-page .txt { max-width: 680px; }
 .kis-page section { position: relative; padding-top: 84px; scroll-margin-top: 16px; }
+.kis-page h1, .kis-page h2 { hyphens: manual; overflow-wrap: break-word; }
 .kis-page h2 { color: var(--pg-ink); font-weight: 700; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -0.022em; margin: 0 0 12px; }
 .kis-page .lead { font-size: 20px; line-height: 1.5; color: var(--pg-ink-soft); margin: 0; }
 .kis-page .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 48px; align-items: center; padding-top: 72px; }
@@ -25,6 +26,9 @@
 .kis-page .hero .lead { font-size: 21px; max-width: 30ch; margin-bottom: 18px; }
 .kis-page .meta { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; }
 .kis-page .hero img { display: block; width: 100%; height: auto; border-radius: 20px; }
+/* A long title steps down in size instead of stacking single words. */
+.kis-page .hero.t-l h1 { font-size: clamp(36px, 4.6vw, 58px); }
+.kis-page .hero.t-xl h1 { font-size: clamp(32px, 3.6vw, 46px); }
 @media (max-width: 900px) { .kis-page .hero { grid-template-columns: minmax(0, 1fr); gap: 26px; padding-top: 32px; } }
 .kis-page .blk { margin-top: 26px; }
 .kis-page .duo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: center; margin-top: 26px; background: var(--pg-mist); border-radius: 20px; padding: 24px; }
@@ -40,21 +44,14 @@
 /* A picture in a section is a banner, it never pushes the text a whole screen away. */
 .kis-page .blk > .img img { max-height: 440px; object-fit: cover; }
 .kis-page .duo .blk > .img img { max-height: none; }
-.kis-page .gist { display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid var(--pg-ink); }
-.kis-page .gist > div { padding: 22px 28px 24px 0; border-bottom: 2px solid var(--pg-line); font-size: 21px; line-height: 1.45; }
-.kis-page .gist > div:nth-child(odd) { border-right: 2px solid var(--pg-line); }
-.kis-page .gist > div:nth-child(even) { padding-left: 28px; padding-right: 0; }
-@media (max-width: 720px) {
-  .kis-page .gist { grid-template-columns: 1fr; }
-  .kis-page .gist > div:nth-child(odd) { border-right: none; }
-  .kis-page .gist > div:nth-child(even) { padding-left: 0; }
-}
-.kis-page ul.bul { margin: 0; padding-left: 22px; }
+.kis-page ul.bul { margin: 0; padding-left: 24px; list-style: disc; max-width: 760px; }
+.kis-page ul.bul li::marker { color: var(--pg-accent); }
+.kis-page .prose { margin: 0; max-width: 720px; }
 .kis-page ul.bul li { margin: 6px 0; }
 .kis-page .hl { display: flex; align-items: center; gap: 30px; padding: 26px 30px; background: var(--pg-fill); color: #fff; border-radius: 20px; }
-.kis-page .hl .k { font-style: italic; font-size: 48px; line-height: 1.05; white-space: nowrap; font-weight: 500; }
+.kis-page .hl .k { font-style: italic; font-size: 48px; line-height: 1.05; font-weight: 500; overflow-wrap: anywhere; flex-shrink: 0; max-width: 60%; }
 .kis-page .hl .x { font-size: 18px; line-height: 1.5; color: rgba(255, 255, 255, 0.92); }
-@media (max-width: 600px) { .kis-page .hl { flex-direction: column; align-items: flex-start; gap: 12px; } .kis-page .hl .k { font-size: 38px; white-space: normal; } }
+@media (max-width: 600px) { .kis-page .hl { flex-direction: column; align-items: flex-start; gap: 12px; } .kis-page .hl .k { font-size: 38px; max-width: none; } }
 .kis-page .grid { display: grid; gap: 18px; }
 .kis-page .g1 { grid-template-columns: minmax(0, 1fr); }
 .kis-page .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -129,6 +126,51 @@
 .kis-page svg .cw2 { fill: var(--pg-soft); font-weight: 600; }
 .kis-page .pfoot { margin-top: 96px; padding: 28px 0 100px; border-top: 2px solid var(--pg-mist); font-size: 14.5px; color: var(--muted); }
 .kis-page .pfoot p { margin: 0; }
+
+/* ---------- the four looks of a page ---------- */
+/* Banner: timeline and magazine open with the picture across the whole width, the title below. */
+.kis-page .hero.banner { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 40px; }
+.kis-page .hero.banner .hero-text { max-width: 820px; }
+.kis-page .hero.banner .lead { max-width: 46ch; }
+.kis-page .hero.banner img { aspect-ratio: 21 / 9; object-fit: cover; }
+
+/* Chapters: the subject's sections carry their number, it is a sequence. */
+.kis-page.d-chapters section.content .txt { position: relative; }
+.kis-page.d-chapters .chap { display: block; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--pg-soft); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+@media (min-width: 1240px) { .kis-page.d-chapters .chap { position: absolute; right: calc(100% + 28px); top: 4px; margin: 0; } }
+
+/* Timeline: a line runs down the subject's sections, a dot marks each one. */
+.kis-page.d-timeline section.content { padding-left: 48px; }
+.kis-page.d-timeline section.content::after { content: ""; position: absolute; left: 11px; top: 0; bottom: -84px; width: 3px; border-radius: 2px; background: var(--pg-soft); opacity: 0.55; }
+.kis-page.d-timeline section.content:not(:has(+ section.content))::after { bottom: 0; }
+.kis-page.d-timeline .tl-dot { position: absolute; left: 4px; margin-top: 12px; width: 16px; height: 16px; border-radius: 50%; background: var(--pg-fill); box-shadow: 0 0 0 4px var(--background); z-index: 1; }
+
+/* Magazine: a larger lead, picture and text change sides from section to section. */
+.kis-page.d-magazine section.content .lead { font-size: 22px; }
+.kis-page.d-magazine .duo.flip > .blk:first-child { order: 2; }
+.kis-page.d-magazine .duo { background: none; padding: 0; }
+/* Every second section lies on a band across the whole width, so the page reads in spreads. */
+.kis-page.d-magazine section.content.band { box-shadow: 0 0 0 100vmax var(--pg-mist); clip-path: inset(0 -100vmax); background: var(--pg-mist); padding-bottom: 72px; margin-top: 84px; padding-top: 72px; }
+.kis-page.d-magazine section.content.band .panel { background: var(--pg-cell); }
+.kis-page.d-magazine section.content.band + section { padding-top: 96px; }
+
+/* Guide: a calm title band without a picture, headings on the left, the content on the right. */
+.kis-page.d-guide .hero { background: var(--pg-mist); border-radius: 20px; padding: 48px 40px; margin-top: 40px; }
+.kis-page.d-guide .hero h1 { font-size: clamp(34px, 4.4vw, 54px); }
+.kis-page.d-guide .hero .lead { max-width: 60ch; }
+.kis-page.d-guide section.content { padding-top: 48px; margin-top: 40px; border-top: 2px solid var(--pg-line); }
+.kis-page.d-guide section.content h2 { font-size: clamp(24px, 2.4vw, 30px); }
+.kis-page.d-guide section.content .lead { font-size: 17px; }
+@media (min-width: 900px) {
+  .kis-page.d-guide section.content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 48px; }
+  .kis-page.d-guide section.content > .ed-tools { grid-column: 1 / -1; }
+  .kis-page.d-guide section.content .body > .blk:first-child, .kis-page.d-guide section.content .body > .duo:first-child { margin-top: 0; }
+}
+.kis-page.editing.d-guide section.content::before { top: 24px; }
+/* The right column is narrow for pictures beside text and for three cards in a row. */
+.kis-page.d-guide section.content .duo { grid-template-columns: minmax(0, 1fr); }
+.kis-page.d-guide section.content .g3, .kis-page.d-guide section.content .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 640px) { .kis-page.d-guide section.content .g3, .kis-page.d-guide section.content .g4 { grid-template-columns: minmax(0, 1fr); } }
 
 /* the edit layer, visible only while editing */
 .kis-page .ed-only { display: none; }

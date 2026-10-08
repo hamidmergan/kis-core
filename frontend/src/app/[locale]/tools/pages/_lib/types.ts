@@ -5,6 +5,7 @@ import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 export type CardIcon = "info" | "check" | "x" | "warning" | "idea";
 
 export type Block =
+  | { kind: "text"; text: string }
   | { kind: "bullets"; items: string[] }
   | { kind: "highlight"; key: string; text: string }
   | { kind: "cards"; cards: { icon: CardIcon; title: string; text: string }[]; cols?: 1 }
@@ -40,9 +41,13 @@ export interface Section {
   hidden?: boolean;
 }
 
+/** The look of a page, the run picks it from the material. */
+export type Design = "chapters" | "timeline" | "magazine" | "guide";
+
 export interface Page {
   version: number;
   lang: "de" | "en";
+  design?: Design;
   sections: Section[];
   footer: string;
   saved_at?: string;

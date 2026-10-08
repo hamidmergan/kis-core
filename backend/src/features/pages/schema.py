@@ -21,9 +21,11 @@ from src.limits import (
 )
 
 VERSION = 1
-KINDS = ("bullets", "highlight", "cards", "steps", "figures", "bars", "table", "chart",
+KINDS = ("text", "bullets", "highlight", "cards", "steps", "figures", "bars", "table", "chart",
          "image", "mindmap", "wordcloud")
 ICONS = ("info", "check", "x", "warning", "idea")
+# The looks a page can take, the frame call picks one, the frontend draws each differently.
+DESIGNS = ("chapters", "timeline", "magazine", "guide")
 CHART_TYPES = ("line", "bar")
 MAX_FIGURES = 4
 MAX_SERIES = 2
@@ -86,6 +88,11 @@ def _short(v) -> str:
 
 def _item(v) -> str:
     return text(v, PAGES_MAX_ITEM_CHARS)
+
+
+def _text_block(b: dict) -> dict | None:
+    body = text(b.get("text"), PAGES_MAX_LONG_CHARS)
+    return {"kind": "text", "text": body} if body else None
 
 
 def _bullets(b: dict) -> dict | None:
@@ -235,7 +242,7 @@ def _wordcloud(b: dict) -> dict | None:
     return {"kind": "wordcloud", "caption": _short(b.get("caption")), "words": words}
 
 
-_CLEAN = {"bullets": _bullets, "highlight": _highlight, "cards": _cards, "steps": _steps,
+_CLEAN = {"text": _text_block, "bullets": _bullets, "highlight": _highlight, "cards": _cards, "steps": _steps,
           "figures": _figures, "bars": _bars, "table": _table, "chart": _chart, "image": _image,
           "mindmap": _mindmap, "wordcloud": _wordcloud}
 
@@ -293,7 +300,8 @@ def clean_page(raw) -> dict:
             kept.append(b)
         s["blocks"] = kept
     lang = raw.get("lang") if raw.get("lang") in ("de", "en") else "de"
-    return {"version": VERSION, "lang": lang, "sections": sections,
+    design = raw.get("design") if raw.get("design") in DESIGNS else DESIGNS[0]
+    return {"version": VERSION, "lang": lang, "design": design, "sections": sections,
             "footer": text(raw.get("footer"), PAGES_MAX_LONG_CHARS)}
 
 

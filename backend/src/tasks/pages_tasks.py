@@ -142,7 +142,7 @@ def _draw_images(user_id: int, job_uuid: str, page: dict, clock: StageClock, ver
              if b["src"] not in gescheitert and not job_file_exists(user_id, job_uuid, b["src"])]
     if not offen:
         return
-    groesse = {pl.HERO_IMAGE: pl.HERO_SIZE}
+    groesse = {pl.HERO_IMAGE: pl.hero_size(page)}
     db.update_job_status(job_uuid, "running", progress={"step": "images", "part": 0,
                                                         "total": len(offen)})
 
