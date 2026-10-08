@@ -184,7 +184,7 @@
 .kis-page.editing .ed-only { display: flex; }
 .kis-page .ed-actions { justify-content: flex-end; gap: 8px; margin-left: auto; }
 /* The way back above the title as on every other page, the edit buttons on the same line. */
-.kis-page .top-row { display: flex; align-items: center; gap: 12px; min-height: 30px; padding-top: 16px; margin-bottom: 12px; }
+.kis-page .top-row { display: flex; align-items: center; gap: 12px; min-height: 30px; padding-top: 16px; margin-bottom: 28px; }
 .kis-page .top-row > a { margin: 0; }
 .kis-page .ed-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--pg-line); background: var(--background); border-radius: 8px; padding: 4px 10px; font-size: 13px; line-height: 1.5; font-weight: 600; color: var(--pg-accent); cursor: pointer; transition: border-color 0.15s, background-color 0.15s, color 0.15s; }
 .kis-page .ed-btn:hover:not(:disabled) { border-color: var(--pg-accent); }
