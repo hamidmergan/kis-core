@@ -68,20 +68,14 @@ model works too, KIS measures its window and sizes the context to fit.
 
 ### Fully local with Ollama
 
-KIS also runs without any cloud provider, with every model on your own machine. It is slower
-than a server GPU and needs a strong computer:
+KIS also runs without any cloud provider, with every model on your own machine. Tested on one
+machine only, a MacBook Pro M5 Max with 64 GB. Other machines, Windows and NVIDIA are not tested.
 
-| | Recommended |
-|---|---|
-| Mac | Apple Silicon Pro/Max with 64 GB memory |
-| Windows / Linux | NVIDIA GPU with 32 GB (RTX 5090) and 32 GB memory, not tested |
+`gemma4:31b-mlx` is the smallest model that worked. Smaller ones tested (gemma4 12b and 26b,
+Mistral Small 24b, Qwen 14b and 30b) often claimed the answer was not in the sources. Both models
+loaded take 34 GB.
 
-`gemma4:31b` is the smallest model that works. Smaller ones tested (gemma4 12b and 26b, Mistral
-Small 24b, Qwen 14b and 30b) often claim the answer is not in the sources. Loaded with a 32k
-window the model takes about 30 GB, all of KIS about 45 GB.
-
-Measured on an M5 Max with 64 GB: a chat answer takes 10 to 35 seconds, a mind map about four
-minutes.
+Measured on that Mac: a chat answer takes 9 to 34 seconds, a mind map about four minutes.
 
 1. Start Ollama so the containers can reach it, and fetch the models:
 
@@ -98,8 +92,8 @@ minutes.
 
 2. Under **Admin → AI** add a provider with the base URL `http://host.docker.internal:11434/v1`
    and no API key.
-3. Route chat, transcript translation and document translation to `gemma4:31b-mlx` (Mac) or
-   `gemma4:31b` (NVIDIA), and embedding to `qwen3-embedding:4b`.
+3. Route chat, transcript translation and document translation to `gemma4:31b-mlx`, and
+   embedding to `qwen3-embedding:4b`.
 KIS reads the context window from Ollama when the route is saved, then sizes its context and
 splits large mind maps into smaller steps to fit the model. After changing `OLLAMA_CONTEXT_LENGTH`,
 clear the window field of the model under **Admin → AI** so KIS measures again.
