@@ -132,3 +132,13 @@ def test_a_section_hidden_in_the_page_stays_hidden_in_every_language(monkeypatch
     assert "s1" not in [s["id"] for s in gezeigt["sections"]]
     assert "img_7.webp" not in pt.viewer_images(1, "j", seite)
     assert "img_0.webp" in pt.viewer_images(1, "j", seite)
+
+
+def test_only_listed_languages_become_file_names():
+    import pytest
+    from src.tasks import pages_tasks as pt
+
+    assert pt.variant_file("en") == "page_en.json"
+    with pytest.raises(ValueError):
+        pt.variant_file("../../x")
+    assert pt.load_variant(1, "j", "../../x") is None

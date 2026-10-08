@@ -317,12 +317,21 @@ def draw_image(self, user_id: int, job_uuid: str, name: str, prompt: str, size: 
 
 # --- Other languages ----------------------------------------------------------------------------
 
+def _known(key: str) -> str:
+    """Only a listed language becomes part of a file name, nothing a request made up."""
+    from src.features.pages.translate import LANGUAGES
+
+    if key not in LANGUAGES:
+        raise ValueError(f"unknown language {key!r}")
+    return key
+
+
 def variant_file(key: str) -> str:
-    return f"page_{key}.json"
+    return f"page_{_known(key)}.json"
 
 
 def _state_file(key: str) -> str:
-    return f"lang_{key}.json"
+    return f"lang_{_known(key)}.json"
 
 
 def stamp(page: dict) -> str:
@@ -332,6 +341,10 @@ def stamp(page: dict) -> str:
 
 
 def load_variant(user_id: int, job_uuid: str, key: str) -> dict | None:
+    from src.features.pages.translate import LANGUAGES
+
+    if key not in LANGUAGES:
+        return None
     try:
         return json.loads(get_job_file(user_id, job_uuid, variant_file(key)))
     except Exception:  # noqa: BLE001 - a missing file means no such language yet

@@ -189,7 +189,7 @@ def _variant_key(job: dict, page: dict, sprache: str, locale: str) -> str | None
     """The language the owner edits, None for the page itself, 404 for a language it lacks."""
     if not sprache or sprache == pt.key_of(page):
         return None
-    if pt.load_variant(job["user_id"], job["job_uuid"], sprache) is None:
+    if sprache not in LANGUAGES or pt.load_variant(job["user_id"], job["job_uuid"], sprache) is None:
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     return sprache
 
