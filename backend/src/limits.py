@@ -62,6 +62,9 @@ RETRY_BACKOFF_SECONDS  = (60, 180, 600)
 # uncounted, and only after this many hours of full provider it counts as a normal attempt.
 PROVIDER_BUSY_WAIT_SECONDS = (60, 180)
 PROVIDER_BUSY_MAX_HOURS    = 12
+# A learning tool has a person waiting in front of it, after this long of full provider it gives up
+# with an error instead of requeueing for hours, measured 08.10.2026: a mind map waited 28 Min.
+AIA_TOOL_BUSY_MAX_MINUTES  = 15
 
 # --- Upload sizes ------------------------------------------------------------
 MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)

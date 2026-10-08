@@ -10,7 +10,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.limits import (
-    AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT, PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS,
+    AIA_TOOL_BUSY_MAX_MINUTES, AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT, PROVIDER_BUSY_WAIT_SECONDS,
 )
 from src.services.upstream_errors import is_upstream_busy
 from src.features.ai_assistant.tasks._helpers import (
@@ -410,7 +410,7 @@ def _wieder_einreihen(e: Exception, erstellt, anlauf: int, args: list, kwargs: d
     elif not is_upstream_busy(e):
         return False
     jetzt = datetime.now(timezone.utc).replace(tzinfo=None)
-    if erstellt and jetzt - erstellt > timedelta(hours=PROVIDER_BUSY_MAX_HOURS):
+    if erstellt and jetzt - erstellt > timedelta(minutes=AIA_TOOL_BUSY_MAX_MINUTES):
         return False
     warte = random.uniform(*PROVIDER_BUSY_WAIT_SECONDS)
     try:

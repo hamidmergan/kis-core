@@ -109,13 +109,23 @@ def test_eine_versteckte_zeitgrenze_darf_vorher_neu_einreihen(werkzeug):
     assert len(stand["neu"]) == 1
 
 
-def test_nach_zwoelf_stunden_warten_ist_schluss(werkzeug):
+def test_nach_einer_viertelstunde_warten_ist_schluss(werkzeug):
+    # A person waits in front of the tool, twelve hours like a service was far too long.
     task, args, stand = werkzeug
     stand["fehler"] = RuntimeError("503 service unavailable")
 
-    task.run(*args, _aia_job_uuid="a1", anlauf=5, seit=time.time() - 13 * 3600)
+    task.run(*args, _aia_job_uuid="a1", anlauf=5, seit=time.time() - 16 * 60)
 
     assert stand["status"][-1] == "failed" and stand["neu"] == []
+
+
+def test_vor_einer_viertelstunde_wartet_das_tool_noch(werkzeug):
+    task, args, stand = werkzeug
+    stand["fehler"] = RuntimeError("503 service unavailable")
+
+    task.run(*args, _aia_job_uuid="a1", anlauf=5, seit=time.time() - 10 * 60)
+
+    assert len(stand["neu"]) == 1
 
 
 class _NeuerLauf:

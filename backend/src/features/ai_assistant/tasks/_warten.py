@@ -6,7 +6,7 @@ import time
 from celery.exceptions import SoftTimeLimitExceeded
 from loguru import logger
 
-from src.limits import PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS
+from src.limits import AIA_TOOL_BUSY_MAX_MINUTES, PROVIDER_BUSY_WAIT_SECONDS
 from src.services.upstream_errors import is_upstream_busy
 
 # A job that hits the time limit this often is too big and not merely waiting.
@@ -35,7 +35,7 @@ def wieder_einreihen(task, e: Exception, *, anlauf: int, seit: float | None, arg
     elif not is_upstream_busy(e):
         return False
     seit = seit or time.time()
-    if time.time() - seit > PROVIDER_BUSY_MAX_HOURS * 3600:
+    if time.time() - seit > AIA_TOOL_BUSY_MAX_MINUTES * 60:
         return False
     warte = random.uniform(*PROVIDER_BUSY_WAIT_SECONDS)
     try:
