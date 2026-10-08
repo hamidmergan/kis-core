@@ -13,7 +13,6 @@ from src.features.podcast import store
 from src.features.podcast.schemas import LENGTH_PLAN, Line
 from src.i18n import t
 from src.limits import (
-    MAP_MATERIAL_MAX_CHARS,
     MAP_PASSAGE_NEIGHBOURS,
     PODCAST_LINES_PER_CALL,
     PODCAST_MAX_LINES,
@@ -173,7 +172,8 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
         db.update_job_status(job_uuid, "running", progress={"step": "script", "part": i - 1,
                                                             "total": len(plan)})
         material = karte.passagen(teil["stellen"], vorrang=teil["genannt"],
-                                  nachbarn=MAP_PASSAGE_NEIGHBOURS, budget=MAP_MATERIAL_MAX_CHARS)
+                                  nachbarn=MAP_PASSAGE_NEIGHBOURS,
+                                  budget=tm.schreib_budget(_fenster(params.llm_provider_id)))
         nachrichten = skript.build_messages(
             material, params, anzahl=anzahl, teil=i, teile=len(plan), plan=uebersicht,
             bisher=zeilen[-_BISHER_ZEILEN:], opening=plan[0].get("opening", ""),

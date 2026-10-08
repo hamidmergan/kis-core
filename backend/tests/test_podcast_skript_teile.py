@@ -127,7 +127,7 @@ def test_eine_von_zwei_teilen_genannte_stelle_bleibt_beim_ersten(monkeypatch):
 
 
 def test_ein_knappes_budget_behaelt_die_vom_plan_genannte_stelle(monkeypatch):
-    monkeypatch.setattr(_script, "MAP_MATERIAL_MAX_CHARS", 160)
+    monkeypatch.setattr(_script.tm, "schreib_budget", lambda fenster: 160)
     plan = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [4]},
                                  {"title": "B", "gist": "g", "refs": [8]}]})
     _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(10), _zeilen(10, 10)], _params("medium"))

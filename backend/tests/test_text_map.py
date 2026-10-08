@@ -411,3 +411,67 @@ def test_aufgefuellt_wird_nur_innerhalb_der_datei():
 def test_eine_datei_ohne_eintrag_geht_an_den_naechsten():
     datei = lambda n: 0 if n <= 2 else 1  # noqa: E731
     assert tm.abdecken([[1, 2], []], 4, datei=datei) == [[1, 2, 3, 4], []]
+
+
+# ── Abgeschriebene Anfangsworte ──────────────────────────────────────────────
+
+def _gesetz() -> Source:
+    """Drei Paragrafen, jeder in seinem eigenen Stueck."""
+    absaetze = ["§ 1\n(1) Der Betrieb eines Handwerks ist erlaubt.",
+                "§ 2\n(1) Lehrlinge darf nur einstellen, wer geeignet ist.",
+                "§ 3\n(1) Ordnungswidrig handelt, wer ohne Eintragung arbeitet."]
+    text, teile, pos = "", [], 0
+    for a in absaetze:
+        teile.append(Piece(seite=1, von=pos, bis=pos + len(a)))
+        text += a + "\n\n"
+        pos = len(text)
+    return Source(dateiname="g.pdf", fassung="x", text=text, seiten=1, stuecke=teile)
+
+
+def test_anfangsworte_finden_ihre_stelle_auch_mit_anderem_leerraum():
+    karte = tm.Karte([_gesetz()])
+    assert karte.finde("§ 3 (1)   Ordnungswidrig handelt, wer") == 3
+    assert karte.finde("lehrlinge darf nur einstellen") == 2
+
+
+def test_falsche_nummern_ruecken_an_die_abgeschriebenen_worte():
+    karte = tm.Karte([_gesetz()])
+    assert karte.verankern([1], "§ 3 (1) Ordnungswidrig handelt") == [3]
+
+
+def test_richtige_oder_unauffindbare_nummern_bleiben():
+    karte = tm.Karte([_gesetz()])
+    assert karte.verankern([3], "§ 3 (1) Ordnungswidrig handelt") == [3]
+    assert karte.verankern([1], "Dieser Satz steht nirgends im Text") == [1]
+    assert karte.verankern([1], "") == [1]
+
+
+def test_zu_kurze_worte_werden_nicht_gesucht():
+    karte = tm.Karte([_gesetz()])
+    assert karte.finde("§ 3") is None
+
+
+def test_ein_thema_rueckt_nur_innerhalb_seines_teils():
+    karte = tm.Karte([_gesetz()])
+    antwort = json.dumps({"topics": [{"title": "Bussgeld", "gist": "g", "start": "§ 3 (1) Ordnungswidrig handelt",
+                                      "refs": ["SZ1"]}]})
+    assert tm.parse_themen(antwort, karte, 1)[0].stellen == (3,)
+    assert tm.parse_themen(antwort, karte, 1, bereich=range(1, 3))[0].stellen == (1,)
+
+
+def test_ein_lokales_32k_fenster_wird_angenommen():
+    assert tm.window_chars(32_768) > 0
+
+
+def test_ein_schreibaufruf_bekommt_hoechstens_was_ins_fenster_passt():
+    from src.limits import MAP_MATERIAL_MAX_CHARS
+    assert tm.schreib_budget(32_768) == tm.window_chars(32_768) < MAP_MATERIAL_MAX_CHARS
+    assert tm.schreib_budget(262_144) == MAP_MATERIAL_MAX_CHARS
+
+
+def test_ein_inhaltsverzeichnis_verliert_gegen_den_paragrafen_selbst():
+    text = ("Inhalt\n§ 2 Auskunftsrecht\n§ 3 Löschung\n\n" + "x " * 20
+            + "\n§ 2 Auskunftsrecht (1) Jede Person darf fragen.")
+    teile = [Piece(seite=1, von=0, bis=40), Piece(seite=1, von=40, bis=len(text))]
+    karte = tm.Karte([Source(dateiname="g.pdf", fassung="x", text=text, seiten=1, stuecke=teile)])
+    assert karte.finde("§ 2 Auskunftsrecht (1) Jede Person darf fragen, wenn", nahe=[1]) == 2

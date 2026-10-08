@@ -11,6 +11,7 @@ that writes one part of the result writes little too, so every call stays short.
 
 from __future__ import annotations
 
+import bisect
 import json
 import math
 import re
@@ -18,6 +19,9 @@ from dataclasses import dataclass
 from typing import Callable
 
 from src.limits import (
+    MAP_ANKER_MIN_ANTEIL,
+    MAP_ANKER_MIN_ZEICHEN,
+    MAP_MATERIAL_MAX_CHARS,
     MAP_FILE_WEIGHT_FLOOR,
     MAP_MAX_REFS,
     MAP_MIN_FILE_SHARE,
@@ -34,6 +38,8 @@ from src.services.source_reading import Source
 
 # What the answer of a planning call calls its passage or topic numbers.
 REFS = "refs"
+# The first words of an entry's text, copied, so KIS finds the passage itself.
+ANFANG = "start"
 
 STELLEN = "stellen"
 THEMEN = "themen"
@@ -75,6 +81,44 @@ def window_chars(window_tokens: int) -> int:
         raise WindowTooSmall(window_tokens)
     fenster = window_tokens or MAP_UNMEASURED_WINDOW_TOKENS
     return max(1, int((fenster - MAP_PROMPT_TOKENS - MAP_OUTPUT_TOKENS) * CHARS_PER_TOKEN))
+
+
+_LEERRAUM = re.compile(r"\s+")
+# Soft hyphen and the like vanish, every dash becomes one, so a copied quote still matches.
+_ZEICHEN = str.maketrans({"\u00ad": None, "\u2010": "-", "\u2011": "-", "\u2012": "-",
+                          "\u2013": "-", "\u2014": "-", "\u2212": "-", "\u201e": '"',
+                          "\u201c": '"', "\u201d": '"', "\u2019": "'"})
+
+
+def _normal(text: str) -> str:
+    return _LEERRAUM.sub(" ", text.translate(_ZEICHEN)).strip().casefold()
+
+
+def _normal_mit_orten(text: str) -> tuple[str, list[int]]:
+    """The text as ``_normal`` makes it, with the original position of every character kept."""
+    zeichen: list[str] = []
+    orte: list[int] = []
+    leer = True
+    for i, z in enumerate(text):
+        z = z.translate(_ZEICHEN)
+        if not z:
+            continue
+        if z.isspace():
+            if not leer:
+                zeichen.append(" ")
+                orte.append(i)
+            leer = True
+            continue
+        for teil in z.casefold():
+            zeichen.append(teil)
+            orte.append(i)
+        leer = False
+    return "".join(zeichen), orte
+
+
+def schreib_budget(window_tokens: int) -> int:
+    """How much original text one writing call may carry, the fixed cap or what the window leaves."""
+    return min(MAP_MATERIAL_MAX_CHARS, window_chars(window_tokens))
 
 
 class Karte:
@@ -187,6 +231,71 @@ class Karte:
         answer cannot pull in a whole document.
         """
         return _nummern(roh, len(self))
+
+    def finde(self, zitat, *, bereich: range | None = None,
+              nahe: list[int] | None = None) -> int | None:
+        ort = self.finde_mit_anteil(zitat, bereich=bereich, nahe=nahe)
+        return ort[0] if ort else None
+
+    def finde_mit_anteil(self, zitat, *, bereich: range | None = None,
+                         nahe: list[int] | None = None) -> tuple[int, float] | None:
+        """The passage where these copied words stand, None when they stand nowhere.
+
+        A model copies text far more reliably than it keeps numbers apart from the
+        paragraph numbers of a law, so its first words find the place it meant. Words
+        cut off at the end still count, the shorter the rest the likelier it repeats,
+        so it never gets shorter than MAP_ANKER_MIN_ZEICHEN. Of several places the one
+        where most of the copied words go on matching wins, a table of contents repeats
+        a heading but not the sentence after it. A tie goes to the one closest to ``nahe``.
+        """
+        ganz = _normal(str(zitat or ""))
+        woerter = ganz.split(" ")
+        if not hasattr(self, "_index"):
+            self._index = [_normal_mit_orten(q.text) for q in self.sources]
+        for laenge in range(len(woerter), 0, -1):
+            nadel = " ".join(woerter[:laenge])
+            if len(nadel) < MAP_ANKER_MIN_ZEICHEN:
+                return None
+            orte = [(n, gleich) for n, gleich in self._orte(nadel, ganz) if bereich is None or n in bereich]
+            if orte:
+                naehe = (lambda n: min(abs(n - m) for m in nahe)) if nahe else (lambda n: 0)
+                ort, gleich = min(orte, key=lambda o: (-o[1], naehe(o[0])))
+                return ort, gleich / max(1, len(ganz))
+        return None
+
+    def _orte(self, nadel: str, ganz: str) -> list[tuple[int, int]]:
+        """Every passage in which the words begin, with how many characters of ``ganz`` match there."""
+        orte: list[tuple[int, int]] = []
+        vorher = 0
+        for q, (text, positionen) in enumerate(self._index):
+            anfaenge = [s.von for s in self.sources[q].stuecke]
+            start = text.find(nadel)
+            while start != -1:
+                gleich = len(nadel)
+                while gleich < len(ganz) and start + gleich < len(text) and text[start + gleich] == ganz[gleich]:
+                    gleich += 1
+                orte.append((vorher + bisect.bisect_right(anfaenge, positionen[start]), gleich))
+                start = text.find(nadel, start + 1)
+            vorher += len(anfaenge)
+        return orte
+
+    def verankern(self, stellen: list[int], zitat, *, bereich: range | None = None) -> list[int]:
+        """The passages moved to where the copied first words really stand.
+
+        Unchanged when the words stand nowhere or already at or next to the passages
+        named. Otherwise as many passages as were named, from the found place on, kept
+        inside its file and ``bereich``.
+        """
+        treffer = self.finde_mit_anteil(zitat, bereich=bereich, nahe=stellen or None)
+        if treffer is None or treffer[1] < MAP_ANKER_MIN_ANTEIL:
+            return stellen
+        ort = treffer[0]
+        if any(abs(ort - n) <= 1 for n in stellen):
+            return stellen
+        datei = self.stelle(ort).source
+        ende = max(n for n in range(ort, len(self) + 1) if self.stelle(n).source == datei
+                   and (bereich is None or n in bereich))
+        return list(range(ort, min(ort + max(1, len(set(stellen))), ende + 1, ort + MAP_MAX_REFS)))
 
     def passagen(self, nummern: list[int], *, vorrang: list[int] | None = None,
                  nachbarn: int = 1, budget: int | None = None) -> str:
@@ -466,19 +575,25 @@ def themen_nachrichten(karte: Karte, teil: range, teile: int, nummer: int,
         "text states about it that names the concrete duties, deadlines and figures it gives, "
         f'and the passages it draws on by the labels in front of them, such as "{MARKE_STELLE}4" or '
         f'a range "{MARKE_STELLE}4-{MARKE_STELLE}7". A label is never a paragraph or page: § 4 in '
-        f"the text is not {MARKE_STELLE}4, name the label of the passage that holds it. Every "
-        "passage that carries content belongs to a topic. "
+        f"the text is not {MARKE_STELLE}4, name the label of the passage that holds it. Under "
+        '"start" copy the first six to ten words of the text the topic begins with, exactly as '
+        "they stand, never the label. Every passage that carries content belongs to a topic. "
         f"Write titles and sentences in {language}. The material will be used for: {zweck}.\n"
         'Answer with one JSON object only: {"topics": [{"title": "...", "gist": "...", '
-        f'"refs": ["{MARKE_STELLE}1", "{MARKE_STELLE}4-{MARKE_STELLE}7"]}}]}}'
+        f'"start": "...", "refs": ["{MARKE_STELLE}1", "{MARKE_STELLE}4-{MARKE_STELLE}7"]}}]}}'
     )
     return [{"role": "system", "content": system},
             {"role": "user", "content": f"/no_think\n{karte.block(teil)}"}]
 
 
 def parse_themen(raw: str | None, karte: Karte, erste_nummer: int,
-                 hoechstens: int = MAP_MAX_TOPICS_PER_PART) -> list[Thema]:
-    """The topics out of one answer, numbered on from where the previous part stopped."""
+                 hoechstens: int = MAP_MAX_TOPICS_PER_PART,
+                 bereich: range | None = None) -> list[Thema]:
+    """The topics out of one answer, numbered on from where the previous part stopped.
+
+    The copied first words of a topic move its passages to where they really stand,
+    looked up only inside ``bereich``, the part this answer read.
+    """
     daten = _json_objekt(raw)
     roh = daten.get("topics") if isinstance(daten, dict) else None
     aus: list[Thema] = []
@@ -486,7 +601,8 @@ def parse_themen(raw: str | None, karte: Karte, erste_nummer: int,
         if not isinstance(eintrag, dict):
             continue
         titel = " ".join(str(eintrag.get("title") or "").split())[:120]
-        stellen = karte.gueltig(eintrag.get(REFS))
+        stellen = karte.verankern(karte.gueltig(eintrag.get(REFS)), eintrag.get(ANFANG),
+                                  bereich=bereich)
         if not titel or not stellen:
             continue
         aus.append(Thema(nummer=erste_nummer + len(aus), titel=titel,
@@ -515,8 +631,9 @@ def grundlage(karte: Karte, window_tokens: int, *, language: str, zweck: str,
                                           hoechstens=anzahl)
                        for i, (bereich, anzahl) in enumerate(stuecke)])
     themen: list[Thema] = []
-    for antwort, (_, anzahl) in zip(antworten, stuecke):
-        themen.extend(parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl))
+    for antwort, (bereich, anzahl) in zip(antworten, stuecke):
+        themen.extend(parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl,
+                                   bereich=bereich))
     if not themen:
         raise RuntimeError("Aus keinem Teil des Materials liessen sich Themen gewinnen.")
     return Grundlage(material=themen_block(themen), modus=THEMEN, themen=themen)

@@ -114,6 +114,6 @@ def test_ein_zu_kleines_fenster_wird_in_worten_gemeldet():
     from src.services.text_map import WindowTooSmall
     from src.tasks._errors import window_too_small_message
 
-    text = window_too_small_message(WindowTooSmall(32768), "de")
-    assert "32.768" in text and "50.000" in text
-    assert window_too_small_message(WindowTooSmall(32768), "en").count("32,768") == 1
+    text = window_too_small_message(WindowTooSmall(16384), "de")
+    assert "16.384" in text and "32.768" in text
+    assert window_too_small_message(WindowTooSmall(16384), "en").count("16,384") == 1

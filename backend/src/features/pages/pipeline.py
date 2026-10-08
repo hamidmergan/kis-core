@@ -23,7 +23,6 @@ from src.features.summary.models import Caller, Outline
 from src.features.summary.templates import Template
 from src.i18n import t
 from src.limits import (
-    MAP_MATERIAL_MAX_CHARS,
     MAP_PASSAGE_NEIGHBOURS,
     PAGES_SECTIONS,
     SUMMARY_SECTION_GROUP_CHARS,
@@ -124,7 +123,7 @@ async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Kar
     async def schreibe(gruppe: list[int]) -> None:
         abschnitte = [plan.sections[i] for i in gruppe]
         andere = [a for j, a in enumerate(plan.sections) if j not in gruppe]
-        je = MAP_MATERIAL_MAX_CHARS // max(1, len(abschnitte))
+        je = tm.schreib_budget(caller.window_tokens) // max(1, len(abschnitte))
         stoff = [karte.passagen(a.stellen, vorrang=a.genannt, nachbarn=MAP_PASSAGE_NEIGHBOURS,
                                 budget=je) for a in abschnitte]
         ergebnis = await write_blocks(caller, language=language, group=abschnitte, indices=gruppe,

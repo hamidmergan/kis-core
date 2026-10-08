@@ -88,8 +88,16 @@ OUTLINE_SCHEMA = {
                                     '"SZ12-SZ15", topics as "TZ3".'
                                 ),
                             },
+                            "start": {
+                                "type": "string",
+                                "description": (
+                                    "The first six to ten words of the text this section rests "
+                                    "on, copied exactly from the material, never a label. Empty "
+                                    "when the material is a list of topics."
+                                ),
+                            },
                         },
-                        "required": ["section_index", "title", "description", "refs"],
+                        "required": ["section_index", "title", "description", "refs", "start"],
                         "additionalProperties": False,
                     },
                 },
@@ -158,11 +166,13 @@ def _names(roh, dateien: list[str] | None) -> dict[str, str]:
             if d and k and len(k) <= 40 and _stamm(k) != _stamm(d)}
 
 
-def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = None) -> Outline:
+def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = None,
+                  anker=None) -> Outline:
     """Reads the planning answer, a broken one yields no sections rather than an error.
 
     Headings and the numbers under them come out of the same call. ``stellen`` turns the
-    refs of a section into passage numbers, invented ones drop out there.
+    refs of a section into passage numbers, invented ones drop out there. ``anker`` moves
+    them to where the section's copied first words stand.
     """
     text = _strip_thinking(raw)
     treffer = re.search(r"\{.*\}", text, re.S)
@@ -186,8 +196,11 @@ def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = Non
         if any(a.title.casefold() == titel.casefold() for a in abschnitte):
             continue
         refs = eintrag.get("refs") if isinstance(eintrag, dict) else None
+        nummern = stellen(refs) if stellen else []
+        if anker is not None and isinstance(eintrag, dict):
+            nummern = anker(nummern, eintrag.get("start"))
         abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split()),
-                                  stellen=stellen(refs) if stellen else []))
+                                  stellen=nummern))
     if len(abschnitte) < SUMMARY_MIN_SECTIONS:
         return Outline()
     titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
@@ -272,7 +285,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        span: tuple[int, int] | None = None,
                        fehlt: list[str] | None = None,
                        anfaenge: list[str] | None = None,
-                       instructions: str = "", weg: str = "") -> Outline:
+                       instructions: str = "", weg: str = "", anker=None) -> Outline:
     """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
@@ -289,7 +302,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA, max_tokens=SUMMARY_OUTLINE_MAX_TOKENS,
             )
-            plan = parse_outline(antwort.choices[0].message.content, stellen, sources)
+            plan = parse_outline(antwort.choices[0].message.content, stellen, sources, anker)
             # Without a single passage the writers would have nothing to write from.
             if stellen and not any(a.stellen for a in plan.sections):
                 plan = Outline()

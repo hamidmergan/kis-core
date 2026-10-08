@@ -81,8 +81,9 @@ async def _grundlage(caller: Caller, karte: tm.Karte, language: str,
                                               "a written summary", hoechstens=anzahl), i + 1)
             for i, (bereich, anzahl) in enumerate(stuecke)], SUMMARY_WRITE_CONCURRENCY)
         themen: list[tm.Thema] = []
-        for antwort, (_, anzahl) in zip(antworten, stuecke):
-            themen.extend(tm.parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl))
+        for antwort, (bereich, anzahl) in zip(antworten, stuecke):
+            themen.extend(tm.parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl,
+                                          bereich=bereich))
         if not themen:
             raise RuntimeError("Aus keinem Teil des Materials liessen sich Themen gewinnen.")
         g = tm.Grundlage(material=tm.themen_block(themen), modus=tm.THEMEN, themen=themen)
@@ -131,7 +132,10 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
             modus=g.modus, stellen=lambda refs: g.stellen(refs, karte),
             span=vorlage.sections, fehlt=fehlt,
             anfaenge=[q.text[:SUMMARY_SOURCE_OPENING_CHARS] for q in sources],
-            instructions=instructions, weg=weg)
+            instructions=instructions, weg=weg,
+            # Over the full text the copied first words find the passage, topics carry their own.
+            anker=(lambda nummern, zitat: karte.verankern(nummern, zitat))
+            if g.modus == tm.STELLEN else None)
 
     plan = await planen(None)
     plan.instruction_way = weg
@@ -189,7 +193,7 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
     async def schreibe(gruppe: list[int], geschrieben: list[tuple[str, str]] | None) -> None:
         abschnitte = [plan.sections[i] for i in gruppe]
         andere = [a for j, a in enumerate(plan.sections) if j not in gruppe]
-        je = MAP_MATERIAL_MAX_CHARS // max(1, len(abschnitte))
+        je = tm.schreib_budget(caller.window_tokens) // max(1, len(abschnitte))
         stoff = [karte.passagen(a.stellen, vorrang=a.genannt, nachbarn=MAP_PASSAGE_NEIGHBOURS,
                                 budget=je)
                  for a in abschnitte]
@@ -251,7 +255,8 @@ async def run(caller: Caller, *, sources: list[Source], template: Template,
         return await writing.compose_single(
             caller, language=language, template_body=template_body(template),
             sources=[q.dateiname for q in sources],
-            material=karte.block()[:MAP_MATERIAL_MAX_CHARS * 4], instructions=wirksam,
+            material=karte.block()[:min(MAP_MATERIAL_MAX_CHARS * 4, tm.window_chars(caller.window_tokens))],
+            instructions=wirksam,
             weg=plan.instruction_way)
 
     fertig = await _sections(caller, language=language, vorlage=template, plan=plan,

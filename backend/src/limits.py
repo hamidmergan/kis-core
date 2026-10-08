@@ -268,8 +268,9 @@ SOURCES_MAX_TOTAL_CHARS  = 500_000
 MAP_PROMPT_TOKENS        = 3_000
 # Deckel eines Planungsaufrufs, nur als Alarm. Eine Gliederung schreibt etwa 2.000 Token.
 MAP_OUTPUT_TOKENS        = 4_000
-# Darunter passt nicht einmal ein Teil einer grossen Datei, das wird abgelehnt.
-MAP_MIN_WINDOW_TOKENS    = 50_000
+# Darunter wird abgelehnt. 32k wie ein lokales Ollama tragen etwa 77.000 Zeichen je Aufruf,
+# groesseres Material geht ueber die Themen, die Schreibaufrufe kuerzen sich aufs Fenster.
+MAP_MIN_WINDOW_TOKENS    = 32_768
 # Ein nie vermessenes Modell wird wie das kleinste zugelassene Fenster behandelt.
 MAP_UNMEASURED_WINDOW_TOKENS = 131_072
 # Themen je Teil, wenn der Text nicht in einen Planungsaufruf passt.
@@ -288,6 +289,11 @@ MAP_FILE_WEIGHT_FLOOR    = 0.25
 MAP_MIN_FILE_SHARE       = 0.05
 # Stuecke davor und danach, die jede Stelle mitbringt.
 MAP_PASSAGE_NEIGHBOURS   = 1
+# Kuerzer werden abgeschriebene Anfangsworte nie gesucht, sie stuenden an zu vielen Orten.
+MAP_ANKER_MIN_ZEICHEN    = 16
+# Verschoben wird nur, wenn so viel der abgeschriebenen Worte dort steht. Ein Inhaltsverzeichnis
+# traegt die Ueberschrift, aber nicht den Satz danach.
+MAP_ANKER_MIN_ANTEIL     = 0.8
 # Was ein Schreibaufruf hoechstens schreiben soll: (270 s - 15 s Lesen) mal 10 Token/s.
 SERVICE_WRITE_TOKENS     = 2_500
 # Unsere Zeitgrenze je Aufruf, sie muss vor der des Anbieters greifen.
