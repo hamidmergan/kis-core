@@ -78,7 +78,7 @@ than a server GPU and needs a strong computer:
 
 `gemma4:31b` is the smallest model that works. Smaller ones tested (gemma4 12b and 26b, Mistral
 Small 24b, Qwen 14b and 30b) often claim the answer is not in the sources. Loaded with a 32k
-window the model takes about 31 GB, all of KIS about 50 GB.
+window the model takes about 30 GB, all of KIS about 45 GB.
 
 Measured on an M5 Max with 64 GB: a chat answer takes 10 to 35 seconds, a mind map about four
 minutes.

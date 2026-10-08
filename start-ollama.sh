@@ -53,6 +53,11 @@ fi
 
 "$BIN" pull "$CHAT_MODEL"
 "$BIN" pull "$EMBED_MODEL"
+# KIS embeds at most about 1,000 tokens at once, a 4k window halves the memory with identical vectors.
+MODELFILE="$(mktemp)"
+printf 'FROM %s\nPARAMETER num_ctx 4096\n' "$EMBED_MODEL" > "$MODELFILE"
+"$BIN" create "$EMBED_MODEL" -f "$MODELFILE"
+rm -f "$MODELFILE"
 
 cat <<EOF
 
