@@ -73,6 +73,9 @@ SECTION_SIZE = "1152x864"
 # Designs that open with a wide picture above the title, and every design whose title picture is wide.
 BANNER_DESIGNS = ("timeline", "magazine")
 WIDE_HERO_DESIGNS = BANNER_DESIGNS + ("guide",)
+# Designs whose picture stands above the title as a section of its own, and that section's id.
+COVER_DESIGNS = ("guide",)
+COVER_ID = "cover"
 MIN_MAP_SECTIONS = 4
 # Words a reader gets through per minute, for the reading time under the title.
 WORDS_PER_MINUTE = 200
@@ -233,9 +236,14 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     hero = {"id": "top", "hero": True, "title": titel, "lead": lead, "meta": "", "blocks": []}
     # Every page opens with a picture of its subject, the title stands in when the frame named none.
     motiv = str(frame.get("hero_prompt") or "").strip() or f"a calm symbolic scene that stands for the topic {titel}"
-    hero["blocks"].append({"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
-                           "prompt": image_prompt(motiv, image_style), "caption": ""})
-    seiten = [hero]
+    bild = {"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
+            "prompt": image_prompt(motiv, image_style), "caption": ""}
+    if design in COVER_DESIGNS:
+        # The picture is a section of its own above the title box, the owner moves or hides it alone.
+        seiten = [{"id": COVER_ID, "title": "", "lead": "", "blocks": [bild]}, hero]
+    else:
+        hero["blocks"].append(bild)
+        seiten = [hero]
 
     kurz_bloecke: list[dict] = []
     if gist:

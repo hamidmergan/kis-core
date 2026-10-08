@@ -90,7 +90,8 @@ function numbering(page: Page, editing: boolean): Map<string, number> {
   const nums = new Map<string, number>();
   let fig = 0, tab = 0;
   page.sections.forEach((s, i) => {
-    if (s.hero || (s.hidden && !editing)) return;
+    // The title picture is no figure of the text, it gets no number.
+    if (s.hero || s.id === "cover" || (s.hidden && !editing)) return;
     s.blocks.forEach((b, j) => {
       const key = `${i}.${j}`;
       if (b.kind === "table") nums.set(key, ++tab);
@@ -106,6 +107,7 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
   const nums = numbering(page, editing);
   const n = page.sections.length;
   const design: Design = page.design ?? "chapters";
+  const hasCover = page.sections.some((x) => x.id === "cover" && x.blocks.some((b) => b.kind === "image"));
   // Chapters count only the sections of the subject, not the title, summary, map or words.
   const chapters = new Map<number, number>();
   page.sections.forEach((s, i) => {
@@ -140,7 +142,7 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
         {page.sections.map((s, i) => (
           <Fragment key={s.id}>
             <SectionView s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
-              design={design} chapter={chapters.get(i)} />
+              design={design} chapter={chapters.get(i)} hasCover={hasCover} />
             {edit && <AddSection after={i} full={n >= limits.sections} max={limits.sections} onAdd={edit.onAddSection} />}
           </Fragment>
         ))}
@@ -268,7 +270,7 @@ function Tools({ s, i, n, edit }: { s: Section; i: number; n: number; edit: Edit
 }
 
 /** The fixed parts of a page carry these ids, every other section belongs to the subject. */
-const FRAME_IDS = new Set(["gist", "map", "words"]);
+const FRAME_IDS = new Set(["cover", "gist", "map", "words"]);
 const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
 
 interface SectionProps {
@@ -282,6 +284,8 @@ interface SectionProps {
   imageBase: string;
   nums: Map<string, number>;
   edit?: EditControls | null;
+  /** The page's picture stands as a section of its own above the title. */
+  hasCover?: boolean;
 }
 
 /** A long title gets a smaller size, so it never breaks into a tower of single words. */
@@ -290,7 +294,7 @@ const titleSize = (title: string) =>
   // A very long word would break in the middle on a phone, the title shrinks there instead.
   + (Math.max(...title.split(/\s+/).map((w) => w.length)) > 13 ? " t-word" : "");
 
-function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }: SectionProps) {
+function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter, hasCover }: SectionProps) {
   const t = useTranslations("tools.pages");
   const p = `sections.${i}`;
   const cls = s.hidden ? " is-hidden" : "";
@@ -313,7 +317,7 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
           <Txt path={`${p}.meta`} value={s.meta} as="p" className="meta" max={limits.long} />
         </div>
         {!banner && figure}
-        {edit && !img && (
+        {edit && !img && !hasCover && (
           <div className="ed-only ed-hero-add">
             <button type="button" className="ed-btn" disabled={edit.imagesFull} onClick={() => edit.onHeroImage(i)}>
               <ImageIcon size={13} weight="bold" />{t("addHeroImage")}
@@ -361,7 +365,7 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
   const flip = design === "magazine" && even;
   const band = design === "magazine" && even ? " band" : "";
   return (
-    <section id={s.id} className={`${chapter != null ? "content" : "frame"}${band}${cls}`} data-i={i}>
+    <section id={s.id} className={`${chapter != null ? "content" : "frame"}${s.id === "cover" ? " cover" : ""}${band}${cls}`} data-i={i}>
       {edit && <Tools s={s} i={i} n={n} edit={edit} />}
       <div className="txt">
         {design === "chapters" && chapter != null && (

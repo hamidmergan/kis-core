@@ -12,7 +12,8 @@ made in the background, its card under Your pages shows the progress.
 The system decides how each section is shown, by its content: terms as cards, a procedure as
 steps, measured values as a chart, comparisons as a table. On top come a summary, a mind map of
 all sections, a word cloud of the technical terms and one picture at the top that stands for
-the topic of the whole page. Figures always come
+the topic of the whole page. In the guide look the picture is a section of its own above the
+title box, you move, hide or delete it like any section. Figures always come
 from the material. A page holds no quiz questions, it only condenses.
 
 Under the title the page only says that it was made with AI. What it was made from and with is

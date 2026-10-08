@@ -110,8 +110,10 @@ def test_only_one_blue_box_and_the_design_is_kept():
     arten = [b["kind"] for s in seite["sections"] for b in s["blocks"]]
     assert arten.count("highlight") == 1
     assert seite["design"] == "guide"
-    # The guide opens with its title picture too, wide under the title box.
+    # The guide opens with its picture as a section of its own above the title box.
+    assert seite["sections"][0]["id"] == pl.COVER_ID
     assert [b["src"] for b in seite["sections"][0]["blocks"]] == [pl.HERO_IMAGE]
+    assert seite["sections"][1]["hero"] is True and seite["sections"][1]["blocks"] == []
     assert schema.clean_block({"kind": "text", "text": "Ein Satz."}) == {"kind": "text", "text": "Ein Satz."}
 
 
@@ -140,5 +142,6 @@ def test_a_guide_page_gets_its_picture_from_the_title_when_the_frame_names_none(
     quelle = Source(dateiname="AZG.pdf", fassung="x", text="Pause", stuecke=[], seiten=1)
     seite = pl.draft(plan, bloecke, {"design": "guide", "hero_prompt": ""}, sources=[quelle], language="German")
     bild = seite["sections"][0]["blocks"][0]
+    assert seite["sections"][0]["id"] == pl.COVER_ID
     assert bild["src"] == pl.HERO_IMAGE and "Arbeitszeitgesetz" in bild["prompt"]
     assert pl.hero_size(seite) == pl.BANNER_SIZE

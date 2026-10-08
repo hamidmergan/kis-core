@@ -163,7 +163,15 @@
 .kis-page.d-magazine section.content.band + section { padding-top: 96px; }
 
 /* Guide: a calm title band without a picture, headings on the left, the content on the right. */
-/* The guide's title sits in a calm box, its picture runs wide right under it. */
+/* The guide's picture is a section of its own above the title box, as wide as the box. */
+.kis-page section.cover { padding-top: 0; }
+.kis-page section.cover .blk { margin-top: 0; }
+.kis-page section.cover .img img { max-height: none; aspect-ratio: 21 / 9; object-fit: cover; border-radius: 20px; }
+.kis-page.d-guide section.cover ~ section.hero { margin-top: 24px; padding-top: 0; }
+.kis-page.editing.d-guide section.cover ~ section.hero { margin-top: 64px; }
+.kis-page.editing section.cover { padding-top: 8px; }
+.kis-page.editing section.cover::before { top: 0; }
+/* The guide's title sits in a calm box, an older page's picture runs wide right under it. */
 .kis-page.d-guide .hero { grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 40px; }
 .kis-page.d-guide .hero-text { background: var(--pg-mist); border-radius: 20px; padding: 48px 40px; }
 .kis-page.d-guide .hero img { aspect-ratio: 21 / 9; object-fit: cover; }

@@ -124,7 +124,8 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [layoutAt, setLayoutAt] = useState<number | null>(null);
-  const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean; suggesting?: boolean } | null>(null);
+  // A new title picture of the guide becomes a section of its own, inserted at ``cover``.
+  const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean; suggesting?: boolean; cover?: number } | null>(null);
   const [dataAt, setDataAt] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -242,18 +243,21 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
 
   const openImage = (path: string) => {
     const b = getAt(h.page, path) as ImageBlock;
-    const hero = !!h.page.sections[Number(path.split(".")[1])]?.hero;
+    const s = h.page.sections[Number(path.split(".")[1])];
+    const hero = !!s?.hero || s?.id === "cover";
     setImageAt({ path, prompt: b.prompt, isNew: false, hero });
   };
 
   const draw = async (prompt: string) => {
     if (!imageAt) return;
-    const { path, isNew, hero } = imageAt;
+    const { path, isNew, hero, cover } = imageAt;
     const res = await api.drawImage(uuid, { prompt, wrap: isNew, hero });
     const before = isNew ? null : (getAt(h.page, path) as ImageBlock);
     setDrawing((m) => new Map(m).set(res.src, { old: before?.src ?? "", prompt: before?.prompt ?? "", path }));
     change((p) => {
-      if (isNew) setAt(p, path, { kind: "image", src: res.src, alt: "", prompt: res.prompt, caption: "" });
+      const block: ImageBlock = { kind: "image", src: res.src, alt: "", prompt: res.prompt, caption: "" };
+      if (cover != null) p.sections.splice(cover, 0, { id: p.sections.some((x) => x.id === "cover") ? newId(p) : "cover", title: "", lead: "", blocks: [block] });
+      else if (isNew) setAt(p, path, block);
       else Object.assign(getAt(p, path) as ImageBlock, { src: res.src, prompt: res.prompt });
     });
     setImageAt(null);
@@ -279,6 +283,8 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
                 else s.blocks[j] = { kind: "empty" };
               }));
               dropEmptyBlocks(p);
+              // A picture section left without its picture goes with it.
+              p.sections = p.sections.filter((x) => x.hero || x.title || x.lead || x.blocks.length);
             },
           });
         }
@@ -377,10 +383,12 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
           onHeroImage: (i) => {
             flush();
             const path = `sections.${i}.blocks.${h.page.sections[i].blocks.length}`;
+            // The guide's picture stands above its title box as a section of its own.
+            const cover = h.page.design === "guide" ? i : undefined;
             // Without the model's proposal the title is the starting point.
             const fallback = `a calm illustration that stands for the topic ${h.page.sections[i].title}`;
             // The model reads the whole page and proposes a picture for its topic, the owner may change it.
-            setImageAt({ path, isNew: true, hero: true, prompt: "", suggesting: true });
+            setImageAt({ path, isNew: true, hero: true, prompt: "", suggesting: true, cover });
             api.suggestImage(uuid)
               .then((r) => setImageAt((x) => (x?.path === path ? { ...x, prompt: r.prompt || fallback, suggesting: false } : x)))
               .catch(() => setImageAt((x) => (x?.path === path ? { ...x, prompt: fallback, suggesting: false } : x)));
