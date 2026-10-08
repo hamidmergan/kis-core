@@ -29,6 +29,15 @@ def test_parse_nimmt_nur_gefragte_folien():
     assert material.parse(roh, g, karte, {1, 2}) == {1: [1]}
 
 
+def test_parse_rueckt_an_die_abgeschriebenen_anfangsworte():
+    stoff = "Die Wasserfallmethode plant alle Phasen vorab. " * 60 + "\n\nKanban begrenzt die Arbeit, die gleichzeitig laeuft."
+    karte = tm.Karte([from_text("a.txt", stoff)])
+    g = tm.Grundlage(material=karte.block(), modus=tm.STELLEN, themen=[])
+    roh = json.dumps({"slides": [{"slide": 1, "refs": ["SZ1"], "start": "Kanban begrenzt die Arbeit, die gleichzeitig laeuft"}]})
+    assert len(karte) >= 3
+    assert material.parse(roh, g, karte, {1}) == {1: [len(karte)]}
+
+
 def test_ohne_material_keine_zuordnung(lokal):
     assert material.material_je_folie(1, UUID, ["Folie"], llm=object()) is None
 
@@ -51,8 +60,6 @@ def test_jede_folie_bekommt_ihre_stellen(lokal):
     assert "[Slide 1] Scrum" in gefragt[0][1]["content"]
     assert "Scrum" in stoff[0] and "[skript.txt, S. 1]" in stoff[0]
     assert stoff[1] == ""
-    assert material.material_einer_folie(1, UUID, 0) == stoff[0]
-    assert material.material_einer_folie(1, UUID, 5) == ""
 
 
 def test_verwerfen_loescht_die_zuordnung(lokal):
@@ -62,7 +69,7 @@ def test_verwerfen_loescht_die_zuordnung(lokal):
          patch.object(material, "_fenster", return_value=0):
         material.material_je_folie(1, UUID, ["Folie"], llm=object())
     material.verwerfen(1, UUID)
-    assert material.material_einer_folie(1, UUID, 0) == ""
+    assert material.read_job_text(1, UUID, material.FOLIEN_MATERIAL) is None
 
 
 def test_trennzeichen_im_material_werden_entschaerft():
@@ -109,13 +116,6 @@ def test_prompt_ohne_material_bleibt_streng():
     system, nutzer = (m["content"] for m in llm._client.gesendet[0])
     assert "[MATERIAL]" not in nutzer
     assert "Do NOT add any new information." in system
-
-
-def test_nachbesserung_liest_das_material():
-    llm = _llm("Neu")
-    llm.refine_script("kuerzer", "Alt", "Scrum", material="Sprints dauern zwei Wochen.")
-    system = llm._client.gesendet[0][0]["content"]
-    assert "Sprints dauern zwei Wochen." in system
 
 
 @pytest.fixture

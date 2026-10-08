@@ -48,8 +48,9 @@ def nachrichten(material: str, modus: str, folien: list[tuple[int, str]]) -> lis
         "listed below, name the parts of the material that explain, deepen or give examples "
         "for exactly what that slide says. A slide with nothing matching in the material "
         "gets an empty list. Different slides may use the same parts.\n"
-        + tm.hinweis(modus) + "\n"
-        'Answer with one JSON object only: {"slides": [{"slide": 1, "refs": ' + tm.refs_beispiel(modus) + '}]}'
+        + tm.hinweis(modus) + " " + tm.anfang_hinweis(modus) + "\n"
+        'Answer with one JSON object only: {"slides": [{"slide": 1, "refs": ' + tm.refs_beispiel(modus)
+        + tm.anfang_beispiel(modus) + '}]}'
     )
     return [{"role": "system", "content": system},
             {"role": "user", "content": f"/no_think\nMATERIAL:\n{material}\n\nSLIDES:\n{liste}"}]
@@ -68,7 +69,7 @@ def parse(raw: str | None, g: tm.Grundlage, karte: tm.Karte, erlaubt: set[int]) 
         except (TypeError, ValueError):
             continue
         if nr in erlaubt:
-            aus[nr] = g.stellen(e.get(tm.REFS), karte)
+            aus[nr] = g.stellen(e.get(tm.REFS), karte, e.get(tm.ANFANG))
     return aus
 
 
@@ -128,14 +129,6 @@ def material_je_folie(user_id: int, job_uuid: str, slide_texts: list[str], *,
                 job_uuid[:8], sum(1 for m in material if m), len(material), len(karte),
                 "den ganzen Text" if g.modus == tm.STELLEN else f"{len(g.themen)} Themen")
     return material
-
-
-def material_einer_folie(user_id: int, job_uuid: str, index: int) -> str:
-    """What the last generation handed this slide, empty when there was nothing."""
-    liste = parse_job_json(job_uuid, FOLIEN_MATERIAL, read_job_text(user_id, job_uuid, FOLIEN_MATERIAL), [])
-    if isinstance(liste, list) and 0 <= index < len(liste) and isinstance(liste[index], str):
-        return liste[index]
-    return ""
 
 
 def verwerfen(user_id: int, job_uuid: str) -> None:

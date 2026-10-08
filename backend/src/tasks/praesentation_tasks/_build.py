@@ -158,7 +158,7 @@ def _wuensche_verorten(job_uuid, user_id, params, quellenliste, outline: Outline
         nachrichten = gliederung.einzel_messages(g.material, g.modus, params, r.wunsch, outline.rows)
         try:
             antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
-            abgedeckt, titel, gist, stellen = gliederung.parse_einzel(antwort, lambda refs: g.stellen(refs, karte))
+            abgedeckt, titel, gist, stellen = gliederung.parse_einzel(antwort, lambda refs, anfang: g.stellen(refs, karte, anfang))
         except gliederung.Unusable as e:
             logger.warning("Präsentation {}: neue Folie {} nicht verortet: {}", job_uuid[:8], r.id, e)
             continue

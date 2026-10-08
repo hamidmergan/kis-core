@@ -446,6 +446,20 @@ def test_richtige_oder_unauffindbare_nummern_bleiben():
     assert karte.verankern([1], "") == [1]
 
 
+def test_grundlage_rueckt_genannte_stellen_an_die_anfangsworte():
+    karte = tm.Karte([_gesetz()])
+    g = tm.Grundlage(material=karte.block(), modus=tm.STELLEN, themen=[])
+    assert g.stellen(["SZ1"], karte, "§ 3 (1) Ordnungswidrig handelt") == [3]
+    assert g.stellen(["SZ1"], karte) == [1]
+    # An agenda slide names nothing and stays without passages, whatever words it copied.
+    assert g.stellen([], karte, "§ 3 (1) Ordnungswidrig handelt") == []
+
+
+def test_anfangsworte_nur_ueber_den_ganzen_text():
+    assert tm.anfang_hinweis(tm.THEMEN) == "" and tm.anfang_beispiel(tm.THEMEN) == ""
+    assert '"start"' in tm.anfang_hinweis(tm.STELLEN) and '"start"' in tm.anfang_beispiel(tm.STELLEN)
+
+
 def test_zu_kurze_worte_werden_nicht_gesucht():
     karte = tm.Karte([_gesetz()])
     assert karte.finde("§ 3") is None

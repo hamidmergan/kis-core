@@ -327,7 +327,7 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
                   dateien: list[str] | None = None,
                   fehlt: list[str] | None = None) -> list[dict]:
     """The episode laid out in parts, each with the passages it talks about."""
-    from src.services.text_map import hinweis, refs_beispiel
+    from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
 
     sprache = "German" if params.language == "de" else "English"
     # An instruction with a subject of its own decides what the episode is about, not the files.
@@ -340,11 +340,12 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
         "and where documents touch the same subject bring them together, never one file after "
         "the other. Leave out administrative detail on how bodies are organised, elected, "
         "staffed or financed unless the material is mainly about that.\n"
-        f"Write titles, gists, opening and thread in {sprache}.\n{hinweis(modus)}\n"
+        f"Write titles, gists, opening and thread in {sprache}.\n{hinweis(modus)} {anfang_hinweis(modus)}\n"
         + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
            "them is talked about in the episode.\n" if dateien and len(dateien) > 1 else "")
         + 'Answer with one JSON object only: {"opening": "...", "thread": "...", "parts": '
-        '[{"title": "...", "gist": "...", "refs": ' + refs_beispiel(modus) + '}]}. The opening is a '
+        '[{"title": "...", "gist": "...", "refs": ' + refs_beispiel(modus) + anfang_beispiel(modus)
+        + '}]}. The opening is a '
         "small story: one person in one concrete situation from the listeners' own life that "
         "the material decides, ending in a question the episode answers, in two or three "
         "sentences, ideally touching several of the documents, never a list of problems. The thread is one "
@@ -385,7 +386,7 @@ def parse_plan(raw: str, stellen, teile: int) -> list[dict]:
         if not isinstance(eintrag, dict):
             continue
         titel = " ".join(str(eintrag.get("title") or "").split())[:120]
-        nummern = stellen(eintrag.get("refs"))
+        nummern = stellen(eintrag.get("refs"), eintrag.get("start"))
         if not titel or not nummern:
             continue
         kern = _REFS_IM_TEXT.sub("", " ".join(str(eintrag.get("gist") or "").split()))
@@ -462,177 +463,3 @@ def parse_answer(raw: str, person_count: int) -> list[Line]:
         raise ScriptUnusable("nur eine Person kommt vor, obwohl mehrere besetzt sind")
     logger.info("Podcast: {} Beiträge, {} Stimmen", len(lines), len({l.speaker for l in lines}))
     return lines
-
-
-def rephrase_messages(line: Line, params: PodcastParams, nachbarn: list[str]) -> list[dict]:
-    """One contribution said differently, the rest of the conversation stays put."""
-    person = params.persons[line.speaker] if line.speaker < len(params.persons) else params.persons[0]
-    rollen = _ROLE_DE if params.language == "de" else _ROLE_EN
-    umfeld = "\n".join(nachbarn)
-    if params.language == "de":
-        system = ('Du formulierst einen einzelnen Podcast-Beitrag neu. Der Inhalt bleibt, '
-                  'die Wortwahl ändert sich. Du antwortest mit einem JSON-Objekt der Form '
-                  '{"text": "..."} und mit nichts sonst.')
-        auftrag = (f"Sprecher: {person.name} ({rollen.get(person.role, person.role)})\n"
-                   f"Umfeld im Gespräch:\n{umfeld}\n\n"
-                   f"Dieser Beitrag soll neu formuliert werden:\n{line.text}\n\n"
-                   "Gleiche Länge, gleiche Aussage, keine Anführungszeichen, keine Namensnennung "
-                   "vor dem Text.")
-    else:
-        system = ('You rephrase a single podcast contribution. The content stays, the wording '
-                  'changes. You answer with a JSON object of the form '
-                  '{"text": "..."} and nothing else.')
-        auftrag = (f"Speaker: {person.name} ({rollen.get(person.role, person.role)})\n"
-                   f"Surrounding conversation:\n{umfeld}\n\n"
-                   f"This contribution should be rephrased:\n{line.text}\n\n"
-                   "Same length, same statement, no quotation marks, no name in front of the text.")
-    return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
-
-
-# How much of the material one reworking call carries along.
-REFINE_SOURCE_CHARS = 4000
-
-
-def _inhaltswoerter(text: str) -> set[str]:
-    """Words from four letters on, without numbers and punctuation."""
-    return {w for w in re.findall(r"[^\W\d_]{4,}", (text or "").lower())}
-
-
-def source_excerpt(source: str, needles: list[str], limit: int) -> str:
-    """The passages of the material that share words with the contribution."""
-    if not source.strip() or limit <= 0:
-        return ""
-    absaetze = [a.strip() for a in re.split(r"\n\s*\n", source) if a.strip()]
-    gesucht: set[str] = set()
-    for needle in needles:
-        gesucht |= _inhaltswoerter(needle)
-    treffer = [(len(gesucht & _inhaltswoerter(a)), i, a) for i, a in enumerate(absaetze)]
-    genommen: list[tuple[int, str]] = []
-    laenge = 0
-    for zahl, i, absatz in sorted(treffer, key=lambda t: (-t[0], t[1])):
-        if zahl == 0:
-            break
-        if laenge + len(absatz) > limit:
-            continue
-        genommen.append((i, absatz))
-        laenge += len(absatz) + 2
-    if not genommen:
-        # Nothing matched, so the beginning of the material is the honest guess.
-        return source.strip()[:limit].strip()
-    return "\n\n".join(absatz for _, absatz in sorted(genommen))
-
-
-def _stelle_de(position: tuple[int, int] | None) -> str:
-    """Where in the episode this contribution sits, the ends carry their own job."""
-    if not position:
-        return ""
-    nummer, gesamt = position
-    text = f"Stelle im Gespräch: Beitrag {nummer} von {gesamt}.\n"
-    if nummer == 1:
-        text += "Der erste Beitrag begrüßt und nennt das Thema.\n"
-    elif nummer == gesamt:
-        text += "Der letzte Beitrag verabschiedet.\n"
-    return text + "\n"
-
-
-def _stelle_en(position: tuple[int, int] | None) -> str:
-    """Where in the episode this contribution sits, the ends carry their own job."""
-    if not position:
-        return ""
-    nummer, gesamt = position
-    text = f"Place in the conversation: contribution {nummer} of {gesamt}.\n"
-    if nummer == 1:
-        text += "The first contribution greets and names the topic.\n"
-    elif nummer == gesamt:
-        text += "The last contribution says goodbye.\n"
-    return text + "\n"
-
-
-def refine_messages(line: Line, params: PodcastParams, nachbarn: list[str], quelle: str,
-                    verlauf: list[dict], markiert: str = "",
-                    position: tuple[int, int] | None = None) -> list[dict]:
-    """One contribution reworked to a wish, the facts stay inside the material."""
-    person = params.persons[line.speaker] if line.speaker < len(params.persons) else params.persons[0]
-    rollen = _ROLE_DE if params.language == "de" else _ROLE_EN
-    umfeld = "\n".join(nachbarn)
-    wunsch = next((m.get("content", "") for m in reversed(verlauf) if m.get("role") == "user"), "").strip()
-    if params.language == "de":
-        system = ("Du überarbeitest einen einzelnen Podcast-Beitrag nach dem Wunsch der Person. "
-                  "Die Fakten kommen ausschließlich aus dem gelieferten Material, du erfindest nichts "
-                  "dazu. Wortwahl, Ton und Didaktik sind frei. Du antwortest mit einem JSON-Objekt der "
-                  'Form {"text": "..."} und mit nichts sonst.')
-        austausch = "\n".join(
-            f"{'Wunsch' if m.get('role') == 'user' else 'Vorschlag'}: {m.get('content', '')}"
-            for m in verlauf[:-1]
-        )
-        auftrag = (f"Sprecher: {person.name} ({rollen.get(person.role, person.role)})\n\n"
-                   f"Material:\n---\n{quelle}\n---\n\n"
-                   f"Umfeld im Gespräch:\n{umfeld}\n\n")
-        auftrag += _stelle_de(position)
-        if line.text.strip():
-            auftrag += f"Dieser Beitrag steht zur Überarbeitung:\n{line.text}\n\n"
-        else:
-            auftrag += ("Dieser Beitrag ist noch leer und soll geschrieben werden. Schreib nur "
-                        "diesen einen Beitrag, nicht die Antwort darauf und nicht den Beitrag "
-                        "einer anderen Person.\n\n")
-        if markiert:
-            auftrag += (f"Markierte Stelle im Beitrag:\n{markiert}\n\n"
-                        "Antworte nur mit dem Text, der diese Stelle ersetzt.\n\n")
-        if austausch:
-            auftrag += f"Bisheriger Austausch:\n{austausch}\n\n"
-        auftrag += (f"Wunsch: {wunsch}\n"
-                    "Keine Anführungszeichen, keine Namensnennung vor dem Text.")
-    else:
-        system = ("You rework a single podcast contribution following the wish of the person. "
-                  "The facts come only from the material provided, you invent nothing on top. "
-                  "Wording, tone and didactics are free. You answer with a JSON object of the "
-                  'form {"text": "..."} and nothing else.')
-        austausch = "\n".join(
-            f"{'Wish' if m.get('role') == 'user' else 'Suggestion'}: {m.get('content', '')}"
-            for m in verlauf[:-1]
-        )
-        auftrag = (f"Speaker: {person.name} ({rollen.get(person.role, person.role)})\n\n"
-                   f"Material:\n---\n{quelle}\n---\n\n"
-                   f"Surrounding conversation:\n{umfeld}\n\n")
-        auftrag += _stelle_en(position)
-        if line.text.strip():
-            auftrag += f"This contribution is up for reworking:\n{line.text}\n\n"
-        else:
-            auftrag += ("This contribution is still empty and should be written. Write only this "
-                        "one contribution, not the answer to it and not the contribution of "
-                        "another person.\n\n")
-        if markiert:
-            auftrag += (f"Selected passage inside the contribution:\n{markiert}\n\n"
-                        "Answer only with the text that replaces this passage.\n\n")
-        if austausch:
-            auftrag += f"Conversation so far:\n{austausch}\n\n"
-        auftrag += (f"Wish: {wunsch}\n"
-                    "No quotation marks, no name in front of the text.")
-    return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
-
-
-def _aus_json(raw: str) -> str | None:
-    """The answer comes in JSON mode, so the bare sentence sits in a wrapper."""
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1] if "```" in text[3:] else text[3:]
-        text = text.removeprefix("json").strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start < 0 or end <= start:
-        return None
-    try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    return str(data.get("text") or "").strip() if isinstance(data, dict) else None
-
-
-def clean_rephrased(raw: str, fallback: str) -> str:
-    """A model likes to add a frame, only the bare sentence is wanted."""
-    text = (_aus_json(raw) or raw).strip().strip('"').strip()
-    if ":" in text[:40] and "\n" not in text[: text.find(":")]:
-        kopf, rest = text.split(":", 1)
-        if len(kopf.split()) <= 3:
-            text = rest.strip()
-    text = text[:PODCAST_MAX_LINE_CHARS].strip()
-    return text or fallback

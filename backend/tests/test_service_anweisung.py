@@ -160,7 +160,7 @@ class TestPraesentation:
         from src.features.praesentation import gliederung
 
         with pytest.raises(gliederung.Unusable):
-            gliederung.parse_einzel('{"covered": true, "title": "T", "gist": "g", "refs": []}', lambda r: [])
+            gliederung.parse_einzel('{"covered": true, "title": "T", "gist": "g", "refs": []}', lambda r, a: [])
 
     def test_eine_neue_folie_bekommt_ihre_stellen(self, monkeypatch):
         from src.features.praesentation.schemas import Outline, OutlineRow, PraesentationParams

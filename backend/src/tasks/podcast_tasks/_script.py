@@ -131,7 +131,7 @@ def _planen(llm, karte: tm.Karte, g: tm.Grundlage, params, teile: int, job_uuid:
     for versuch_nr in range(1, _VERSUCHE + 1):
         plan = _mit_versuchen(
             llm, skript.plan_messages(g.material, g.modus, params, teile, dateien, hinweis),
-            lambda roh: skript.parse_plan(roh, lambda refs: g.stellen(refs, karte), teile),
+            lambda roh: skript.parse_plan(roh, lambda refs, anfang: g.stellen(refs, karte, anfang), teile),
             job_uuid, "Plan")
         luecken = (tm.zu_kurz([p["stellen"] for p in plan], karte)
                    if len(dateien) > 1 and not fokus else [])

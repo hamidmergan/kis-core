@@ -541,6 +541,19 @@ def refs_beispiel(modus: str) -> str:
     return f'["{m}12", "{m}14-{m}17"]'
 
 
+def anfang_hinweis(modus: str) -> str:
+    """The rule for the copied first words, empty over topics since they carry their own."""
+    if modus == THEMEN:
+        return ""
+    return (f'Under "{ANFANG}" copy the first six to ten words of the text an entry draws on, '
+            "exactly as they stand in the material, never a label. Empty when refs are empty.")
+
+
+def anfang_beispiel(modus: str) -> str:
+    """The first words field of one entry in an answer example, nothing over topics."""
+    return "" if modus == THEMEN else f', "{ANFANG}": "..."'
+
+
 @dataclass
 class Grundlage:
     """What a planning call reads, and how its answer finds its way back to the text."""
@@ -549,10 +562,12 @@ class Grundlage:
     modus: str
     themen: list[Thema]
 
-    def stellen(self, refs, karte: Karte) -> list[int]:
-        """The passage numbers behind the refs of one entry."""
+    def stellen(self, refs, karte: Karte, anfang=None) -> list[int]:
+        """The passage numbers behind the refs of one entry, moved to its copied first words."""
         if self.modus != THEMEN:
-            return karte.gueltig(refs)
+            nummern = karte.gueltig(refs)
+            # Empty refs stay empty, an agenda slide or a slide without material asks for nothing.
+            return karte.verankern(nummern, anfang) if nummern and anfang else nummern
         nach_nummer = {t.nummer: t for t in self.themen}
         aus: list[int] = []
         for n in _nummern(refs, len(self.themen)):

@@ -33,7 +33,7 @@ class TestPrompt:
     def test_die_refs_einer_folie_werden_zu_stellen(self):
         raw = json.dumps({"title": "D", "slides": [
             {"role": "text", "title": f"F{i}", "gist": "g", "refs": [i, "7-8"]} for i in range(1, 5)]})
-        o = gliederung.parse_answer(raw, ROLLEN, lambda refs: [int(str(r).split("-")[0]) for r in refs])
+        o = gliederung.parse_answer(raw, ROLLEN, lambda refs, anfang: [int(str(r).split("-")[0]) for r in refs])
         assert o.rows[1].stellen == [2, 7]
 
     def test_anweisung_kommt_nach_dem_material(self):
@@ -217,3 +217,11 @@ class TestSchief:
         karte = _karte(hwo=337, entgfg=29, bdsg=215, agg=61)
         rows = self._zeilen(*[[1]] * 8, *[[367]] * 3, *[[582]] * 2)
         assert "entgfg: 0 slides instead of 2" in gliederung.schief(rows, karte)
+
+
+def test_parse_reicht_die_anfangsworte_an_die_stellen():
+    raw = json.dumps({"title": "T", "slides": [
+        {"role": r, "title": f"F{i}", "gist": "g", "refs": [1], "start": "Worte" if r == "text" else ""}
+        for i, r in enumerate(["deckblatt", "text", "text", "text", "text", "abschluss"])]})
+    o = gliederung.parse_answer(raw, ROLLEN, lambda refs, anfang: [7] if anfang else [])
+    assert [r.stellen for r in o.rows if r.role == "text"] == [[7]] * 4

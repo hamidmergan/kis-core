@@ -128,7 +128,7 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
                 antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
                 try:
                     kandidat = gliederung.parse_answer(antwort, rollen,
-                                                       lambda refs: g.stellen(refs, karte))
+                                                       lambda refs, anfang: g.stellen(refs, karte, anfang))
                 except gliederung.Unusable as e:
                     letzter = str(e)
                     logger.warning("Präsentation {}: Gliederung Versuch {} unbrauchbar: {}", job_uuid[:8], versuch_nr, e)

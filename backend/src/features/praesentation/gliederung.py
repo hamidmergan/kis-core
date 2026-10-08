@@ -48,11 +48,12 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
                    schief: list[str] | None = None,
                    anteile: dict[str, int] | None = None) -> list[dict]:
     """The outline call, one entry per slide, planned over the numbered material."""
-    from src.services.text_map import hinweis, refs_beispiel
+    from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
 
     lo, hi = FOLIEN_GRENZEN
     rollen_text = "\n".join(f"- {r}: {_ROLLE_TEXT[r]}" for r in rollen if r in _ROLLE_TEXT)
-    eintrag = '{"role": "...", "title": "...", "gist": "...", "refs": ' + refs_beispiel(modus) + '}'
+    eintrag = ('{"role": "...", "title": "...", "gist": "...", "refs": ' + refs_beispiel(modus)
+               + anfang_beispiel(modus) + '}')
     system = (
         "You plan slide decks for university teaching. From the material you pick what matters "
         "and lay it out as an outline, one entry per slide. Each title states the message of "
@@ -69,7 +70,7 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
         "Vary the roles: never the same role on two neighbouring slides except text, and use every "
         "role at least once when the material allows. Roles with an illustration suit topics a "
         "picture can explain, not definitions.\n"
-        f"{hinweis(modus)} Every slide carries its own refs, the slides together cover "
+        f"{hinweis(modus)} {anfang_hinweis(modus)} Every slide carries its own refs, the slides together cover "
         "what matters in the whole material. Work through the material to its last number "
         "before you settle the slides. A slide that draws on everything, such as an agenda "
         "or the closing slide, carries an empty list.\n"
@@ -167,7 +168,7 @@ def json_objekt(raw: str) -> dict:
 
 
 def parse_answer(raw: str, rollen: list[str],
-                 stellen: Callable[[object], list[int]] | None = None) -> Outline:
+                 stellen: Callable[[object, object], list[int]] | None = None) -> Outline:
     """The outline out of the answer, ``stellen`` turns an entry's refs into passages."""
     data = json_objekt(raw)
     roh = data.get("slides")
@@ -183,7 +184,7 @@ def parse_answer(raw: str, rollen: list[str],
         rows.append(OutlineRow(role=str(eintrag.get("role") or "text").strip().lower(),
                                title=titel[:120],
                                gist=str(eintrag.get("gist") or "").strip()[:300],
-                               stellen=stellen(eintrag.get("refs")) if stellen else []))
+                               stellen=stellen(eintrag.get("refs"), eintrag.get("start")) if stellen else []))
     titel = str(data.get("title") or (rows[0].title if rows else "")).strip()[:120]
     outline = Outline(title=titel, subtitle=str(data.get("subtitle") or "").strip()[:160], rows=rows)
     return pruefe(outline, rollen)
@@ -238,13 +239,13 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
 def einzel_messages(material: str, modus: str, params: PraesentationParams, wunsch: str,
                     rows: list[OutlineRow]) -> list[dict]:
     """One slide added by hand placed on the material, or on another subject when the material has none."""
-    from src.services.text_map import hinweis, refs_beispiel
+    from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
 
     deck = "\n".join(f"- {r.title}: {r.gist}" for r in rows if r.title and not r.wunsch)
     system = (
         "You plan ONE additional slide for an existing slide deck in university teaching. "
         f"Write its title and gist in {SPRACHE.get(params.language, 'German')}.\n"
-        f"{hinweis(modus)}\n"
+        f"{hinweis(modus)} {anfang_hinweis(modus)}\n"
         "When the material says something on the teacher's request, plan the slide on exactly "
         "that and set covered to true. When the material says nothing on it, when the request "
         "asks to leave the material or to invent content, or when it makes no sense, set covered "
@@ -252,18 +253,18 @@ def einzel_messages(material: str, modus: str, params: PraesentationParams, wuns
         "The title states the message of the slide, the gist is one sentence saying what it "
         "shows, and refs are never empty.\n"
         'Answer with one JSON object only: {"covered": true, "title": "...", "gist": "...", '
-        f'"refs": {refs_beispiel(modus)}}}.'
+        f'"refs": {refs_beispiel(modus)}{anfang_beispiel(modus)}}}.'
     )
     user = (f"/no_think\nMATERIAL:\n{material}\n\nTHE DECK SO FAR:\n{deck}\n\n"
             f"REQUEST OF THE TEACHER: {anweisung.clean(wunsch)}")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def parse_einzel(raw: str, stellen: Callable[[object], list[int]]) -> tuple[bool, str, str, list[int]]:
+def parse_einzel(raw: str, stellen: Callable[[object, object], list[int]]) -> tuple[bool, str, str, list[int]]:
     """Covered, title, gist and passages of the one planned slide, a slide without passages is unusable."""
     data = json_objekt(raw)
     titel = str(data.get("title") or "").strip()[:120]
-    nummern = stellen(data.get("refs"))
+    nummern = stellen(data.get("refs"), data.get("start"))
     if not titel or not nummern:
         raise Unusable("die Folie hat keinen Titel oder keine Stellen")
     return data.get("covered") is not False, titel, str(data.get("gist") or "").strip()[:300], nummern
