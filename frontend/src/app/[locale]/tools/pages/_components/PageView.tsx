@@ -2,6 +2,7 @@
 
 import { useContext } from "react";
 import { useTranslations } from "next-intl";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import {
   ArrowCounterClockwise,
   ArrowDown,
@@ -44,6 +45,7 @@ interface Props {
   limits: Limits;
   imageBase: string;
   edit?: EditControls | null;
+  back?: { href: string; label: string };
 }
 
 /** Figure and table numbers in reading order, counted over what is actually shown. */
@@ -61,7 +63,7 @@ function numbering(page: Page, editing: boolean): Map<string, number> {
   return nums;
 }
 
-export default function PageView({ page, limits, imageBase, edit }: Props) {
+export default function PageView({ page, limits, imageBase, edit, back }: Props) {
   const t = useTranslations("tools.pages");
   const { editing } = useContext(EditCtx);
   const nums = numbering(page, editing);
@@ -76,23 +78,26 @@ export default function PageView({ page, limits, imageBase, edit }: Props) {
   return (
     <div className={`kis-page d-${design}${editing ? " editing" : ""}`} lang={page.lang}>
       <main className="wrap">
-        {edit && (
-          <div className="ed-only ed-actions">
-            <button type="button" className="ed-btn icon-only" disabled={!edit.canUndo} onClick={edit.onUndo} aria-label={t("undo")} title={t("undoTitle")}>
-              <ArrowUUpLeft size={14} weight="bold" />
-            </button>
-            <button type="button" className="ed-btn icon-only" disabled={!edit.canRedo} onClick={edit.onRedo} aria-label={t("redo")} title={t("redoTitle")}>
-              <ArrowUUpRight size={14} weight="bold" />
-            </button>
-            <button type="button" className="ed-btn reset" disabled={!edit.dirty || edit.saving} onClick={edit.onReset} title={t("resetTitle")}>
-              <ArrowCounterClockwise size={12} weight="bold" />
-              {t("reset")}
-            </button>
-            <button type="button" className="ed-btn save" disabled={!edit.dirty || edit.saving} onClick={edit.onSave}>
-              {t("save")}
-            </button>
-          </div>
-        )}
+        <div className="top-row">
+          {back && <ToolBackLink href={back.href} label={back.label} />}
+          {edit && (
+            <div className="ed-only ed-actions">
+              <button type="button" className="ed-btn icon-only" disabled={!edit.canUndo} onClick={edit.onUndo} aria-label={t("undo")} title={t("undoTitle")}>
+                <ArrowUUpLeft size={14} weight="bold" />
+              </button>
+              <button type="button" className="ed-btn icon-only" disabled={!edit.canRedo} onClick={edit.onRedo} aria-label={t("redo")} title={t("redoTitle")}>
+                <ArrowUUpRight size={14} weight="bold" />
+              </button>
+              <button type="button" className="ed-btn reset" disabled={!edit.dirty || edit.saving} onClick={edit.onReset} title={t("resetTitle")}>
+                <ArrowCounterClockwise size={12} weight="bold" />
+                {t("reset")}
+              </button>
+              <button type="button" className="ed-btn save" disabled={!edit.dirty || edit.saving} onClick={edit.onSave}>
+                {t("save")}
+              </button>
+            </div>
+          )}
+        </div>
         {page.sections.map((s, i) => (
           <SectionView key={s.id} s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
             design={design} chapter={chapters.get(i)} />

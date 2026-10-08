@@ -6,8 +6,8 @@ import { Link } from "@/i18n/navigation";
 
 const CLASS = "inline-flex items-center gap-1 text-sm font-medium mb-3 opacity-60 hover:opacity-100 transition-opacity";
 
-/** With onRestart the link leads back to the empty first step instead of the services. */
-export default function ToolBackLink({ onRestart }: { onRestart?: () => void }) {
+/** With onRestart the link leads back to the empty first step, with href and label anywhere else, by default to the services. */
+export default function ToolBackLink({ onRestart, href, label }: { onRestart?: () => void; href?: string; label?: string }) {
   const t = useTranslations("common");
   if (onRestart) {
     return (
@@ -18,9 +18,9 @@ export default function ToolBackLink({ onRestart }: { onRestart?: () => void }) 
     );
   }
   return (
-    <Link href="/services" className={CLASS} style={{ color: "var(--muted)" }}>
+    <Link href={href ?? "/services"} className={CLASS} style={{ color: "var(--muted)" }}>
       <CaretLeft size={13} weight="bold" />
-      {t("backToTools")}
+      {label ?? t("backToTools")}
     </Link>
   );
 }

@@ -10,6 +10,7 @@ import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton"
 import * as api from "../_lib/api";
 import { clone, deleteAt, dropEmptyBlocks, setAt } from "../_lib/paths";
 import type { Limits, OwnPage, Page } from "../_lib/types";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import PageBar from "./PageBar";
 import PageView from "./PageView";
 import { ShareModal } from "./Sharing";
@@ -64,7 +65,8 @@ export default function Editor({ uuid }: { uuid: string }) {
   if (loadError) {
     return (
       <>
-        <PageBar back="/tools/pages" backLabel={t("back")} />
+        <PageBar />
+        <div className="max-w-6xl mx-auto px-4 pt-8"><ToolBackLink href="/tools/pages" label={t("back")} /></div>
         <p className="max-w-xl mx-auto mt-24 px-4 text-center text-sm" style={{ color: "var(--muted)" }} role="alert">{loadError}</p>
       </>
     );
@@ -185,7 +187,7 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
 
   return (
     <EditCtx.Provider value={ctx}>
-      <PageBar back="/tools/pages" backLabel={t("back")}>
+      <PageBar>
         <Tabs<"edit" | "view">
           variant="pill"
           className="mr-1.5"
@@ -216,6 +218,7 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
         page={h.page}
         limits={limits}
         imageBase={api.imageBase({ uuid })}
+        back={{ href: "/tools/pages", label: t("back") }}
         edit={{
           canUndo: h.past.length > 0 || typing,
           canRedo: h.future.length > 0,

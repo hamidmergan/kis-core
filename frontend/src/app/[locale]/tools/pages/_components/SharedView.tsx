@@ -33,11 +33,13 @@ export default function SharedView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar
-        back={data.owner.code ? `/u/${data.owner.code}` : undefined}
-        backLabel={data.owner.code ? t("allPagesOf", { name: data.owner.name }) : undefined}
+      <PageBar />
+      <PageView
+        page={data.page}
+        limits={data.limits}
+        imageBase={api.imageBase({ code })}
+        back={data.owner.code ? { href: `/u/${data.owner.code}`, label: t("allPagesOf", { name: data.owner.name }) } : undefined}
       />
-      <PageView page={data.page} limits={data.limits} imageBase={api.imageBase({ code })} />
       <ScrollTopButton />
     </>
   );

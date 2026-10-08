@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useRouter } from "@/i18n/navigation";
 import * as api from "../_lib/api";
 import type { Collection } from "../_lib/types";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import PageBar from "./PageBar";
 import { Thumb, useDate } from "./PagesSeite";
 
@@ -36,8 +37,9 @@ export default function CollectionView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar back={data.own ? "/tools/pages" : undefined} backLabel={data.own ? t("back") : undefined} />
-      <div className="max-w-6xl mx-auto px-4 pt-6 pb-16">
+      <PageBar />
+      <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">
+        {data.own && <ToolBackLink href="/tools/pages" label={t("back")} />}
         <h1 className="text-xl font-bold mb-1">{t("collectionHeading", { name: data.owner.name })}</h1>
         <p className="text-sm text-muted mb-5">{t("collectionIntro", { name: data.owner.name })}</p>
         {data.pages.length === 0 ? (

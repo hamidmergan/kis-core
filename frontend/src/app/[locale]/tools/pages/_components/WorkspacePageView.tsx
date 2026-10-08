@@ -7,6 +7,7 @@ import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import { backendApi } from "@/lib/api";
 import type { Limits, Page } from "../_lib/types";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import PageBar from "./PageBar";
 import PageView from "./PageView";
 
@@ -42,7 +43,8 @@ export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { works
   if (gone) {
     return (
       <>
-        <PageBar back={`/workspace/${workspaceUuid}`} backLabel="Workspace" />
+        <PageBar />
+        <div className="max-w-6xl mx-auto px-4 pt-8"><ToolBackLink href={`/workspace/${workspaceUuid}`} label="Workspace" /></div>
         <div className="max-w-md mx-auto mt-[12vh] px-4 text-center">
           <h1 className="text-xl font-bold mb-1.5">{t("pageGone")}</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("askOwner")}</p>
@@ -53,8 +55,13 @@ export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { works
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar back={`/workspace/${workspaceUuid}`} backLabel={data.workspace.title || "Workspace"} />
-      <PageView page={data.page} limits={data.limits} imageBase={`/api${base}/images`} />
+      <PageBar />
+      <PageView
+        page={data.page}
+        limits={data.limits}
+        imageBase={`/api${base}/images`}
+        back={{ href: `/workspace/${workspaceUuid}`, label: data.workspace.title || "Workspace" }}
+      />
       <ScrollTopButton />
     </>
   );
