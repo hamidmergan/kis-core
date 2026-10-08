@@ -107,6 +107,9 @@ IMAGE_PROVIDER_MAX_CONCURRENT = 2
 
 # How long any call waits for a seat at a provider whose admin field sets a cap, below the watchdog.
 PROVIDER_SEAT_WAIT_SECONDS    = 120
+# A tutor tool waits as long as one call may take, giving up costs a requeue of one to three minutes
+# while the seat may already be free again, measured 08.10.2026 with four tools on one local Ollama seat.
+AIA_TOOL_SEAT_WAIT_SECONDS    = 270
 # From this many characters an LLM call counts as a lot of material, measured 27.09.2026: five of them at
 # once at myLab delivered almost nothing and most ran into our time limits.
 LLM_LARGE_INPUT_CHARS         = 100_000
@@ -176,16 +179,17 @@ STAGE_SECONDS           = 600    # 10 min of work per stage, checked before each
 STAGE_SOFT_TIME_LIMIT   = 1200   # 20 min, SoftTimeLimitExceeded -> one failed attempt
 STAGE_TIME_LIMIT        = 1320   # 22 min, SIGKILL fallback, the watchdog picks the job up
 
-# Timeouts of the tutor tools, generous because an overrun throws everything away.
-AIA_TOOL_SOFT_TIME_LIMIT        = 300    # 5 min, SoftTimeLimitExceeded -> Set sauber auf failed
-AIA_TOOL_TIME_LIMIT             = 360    # 6 min, SIGKILL als letzte Instanz
+# Timeouts of the tutor tools, generous because an overrun throws everything away and starts over.
+# A local model needs up to 270 s for one call, a set is a chain of up to four calls.
+AIA_TOOL_SOFT_TIME_LIMIT        = 600    # 10 min, SoftTimeLimitExceeded -> Set sauber auf failed
+AIA_TOOL_TIME_LIMIT             = 720    # 12 min, SIGKILL als letzte Instanz
 
 # How many packets one table may cost, measured against its own time limit.
 AIA_TABLE_MAX_PACKETS           = 10
 
 # The table asks packet by packet, several calls need more room than a single one.
-AIA_TABLE_SOFT_TIME_LIMIT       = 600    # 10 min
-AIA_TABLE_TIME_LIMIT            = 720    # 12 min
+AIA_TABLE_SOFT_TIME_LIMIT       = 1200   # 20 min
+AIA_TABLE_TIME_LIMIT            = 1320   # 22 min
 
 # The schedule spans the whole course and needs more room.
 AIA_SCHEDULE_SOFT_TIME_LIMIT    = 1200   # 20 min

@@ -209,6 +209,7 @@ def on_task_prerun(task=None, **kwargs):
 
     info = getattr(getattr(task, "request", None), "delivery_info", None) or {}
     provider_transport.set_seat_rank(provider_transport.seat_rank_for(info.get("routing_key"), info.get("priority")))
+    provider_transport.set_seat_wait(provider_transport.seat_wait_for(info.get("routing_key")))
 
 
 @worker_ready.connect

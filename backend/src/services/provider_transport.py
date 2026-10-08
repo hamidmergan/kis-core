@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover - older SDKs use httpx itself
     _sdk_http = httpx
 
 from src.limits import (
+    AIA_TOOL_SEAT_WAIT_SECONDS,
     LLM_LARGE_INPUT_CHARS,
     LLM_LARGE_INPUT_SHARE,
     PROVIDER_DOWN_SECONDS,
@@ -63,6 +64,9 @@ _exempt: contextvars.ContextVar[bool] = contextvars.ContextVar("provider_seat_ex
 
 # The rank this process queues with at the door, a worker runs one job at a time and sets it per job.
 _rank = 0
+
+# How long the calls of this process wait for a seat, None takes the default, set per job like the rank.
+_seat_wait: Optional[float] = None
 
 # Who really answered in the current job of this process, None while no job records it.
 _answered: Optional[list[str]] = None
@@ -105,6 +109,22 @@ def set_seat_rank(rank: int) -> None:
     """Sets the rank for every call of this process until the next job sets its own."""
     global _rank
     _rank = rank
+
+
+def seat_wait_for(queue: Optional[str]) -> Optional[float]:
+    """A tutor tool waits longer in line, None keeps the default for everyone else."""
+    return AIA_TOOL_SEAT_WAIT_SECONDS if queue == "aia" else None
+
+
+def set_seat_wait(seconds: Optional[float]) -> None:
+    """Sets the seat wait for every call of this process until the next job sets its own."""
+    global _seat_wait
+    _seat_wait = seconds
+
+
+def _default_seat_wait() -> float:
+    """The seat wait of this process, the general one unless the job set its own."""
+    return PROVIDER_SEAT_WAIT_SECONDS if _seat_wait is None else _seat_wait
 
 
 def record_answering() -> None:
@@ -488,7 +508,7 @@ def _build(lib, full=provider_slots.ProviderFull):
             try:
                 for key, limit in wanted:
                     held.append((key, provider_slots.claim_ranked(
-                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS if wait is None else wait, rank=_rank,
+                        key, limit=limit, wait_seconds=_default_seat_wait() if wait is None else wait, rank=_rank,
                         stale_seconds=_SEAT_STALE_SECONDS)))
             except provider_slots.ProviderFull as e:
                 _releaser(held)()
@@ -563,7 +583,7 @@ def _build(lib, full=provider_slots.ProviderFull):
             try:
                 for key, limit in wanted:
                     held.append((key, await provider_slots.claim_ranked_async(
-                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS if wait is None else wait, rank=_rank,
+                        key, limit=limit, wait_seconds=_default_seat_wait() if wait is None else wait, rank=_rank,
                         stale_seconds=_SEAT_STALE_SECONDS)))
             except provider_slots.ProviderFull as e:
                 _releaser(held)()

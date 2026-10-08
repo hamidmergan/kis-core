@@ -801,6 +801,52 @@ def test_der_arbeiter_setzt_die_stufe_vor_jedem_auftrag(monkeypatch):
     assert pt._rank == 2
 
 
+@pytest.mark.parametrize("queue, wait", [
+    ("aia", 270),           # Tools warten so lange wie ein Aufruf darf
+    ("aia_ingest", None),
+    ("general", None),
+    ("long", None),
+    (None, None),
+])
+def test_nur_die_tools_warten_laenger_auf_einen_platz(queue, wait):
+    assert pt.seat_wait_for(queue) == wait
+
+
+def test_die_tuer_wartet_so_lange_wie_der_auftrag_es_setzt(redis, monkeypatch):
+    """Ein einziger Platz bei Ollama: ein Tool reihte sich nach 120 s neu ein, obwohl der Platz bald frei war."""
+    gesehen = []
+
+    def claim_ranked(key, **k):
+        gesehen.append(k["wait_seconds"])
+        return "t"
+
+    monkeypatch.setattr(provider_slots, "claim_ranked", claim_ranked)
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 120)
+    eng = _ziel(1, "https://mylab.example", "chat-fast", caps={"llm": 10})
+    monkeypatch.setattr(pt, "_seat_wait", 270)
+    _chat(_client(lambda req: httpx.Response(200, json={"ok": 1}), primary=eng, fallback=None))
+    monkeypatch.setattr(pt, "_seat_wait", None)
+    _chat(_client(lambda req: httpx.Response(200, json={"ok": 1}), primary=eng, fallback=None))
+    assert gesehen == [270, 120]
+
+
+def test_der_arbeiter_setzt_die_wartezeit_vor_jedem_auftrag(monkeypatch):
+    from src import celery_app as ca
+
+    class _Req:
+        delivery_info = {"routing_key": "aia", "priority": 0}
+
+    class _Task:
+        request = _Req()
+
+    monkeypatch.setattr(pt, "_seat_wait", None)
+    ca.on_task_prerun(task=_Task())
+    assert pt._seat_wait == 270
+    _Req.delivery_info = {"routing_key": "general", "priority": 0}
+    ca.on_task_prerun(task=_Task())
+    assert pt._seat_wait is None
+
+
 def test_ohne_rueckfall_wird_nichts_vermerkt(redis):
     """Ohne zweite Wahl hilft ein Sperrvermerk niemandem und die Zeile im Protokoll führt in die Irre."""
     def handler(req):

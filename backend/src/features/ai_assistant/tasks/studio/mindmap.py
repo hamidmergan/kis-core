@@ -193,7 +193,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         # 2. Call LLM, through the shared tool client so the deadline and the thinking switch apply.
         from src.features.ai_assistant.tasks._helpers import _get_llm_client
-        client, model, _ = _get_llm_client(timeout=240)
+        client, model, _ = _get_llm_client()
 
         # The level block hangs on the person, not on the course room. The instruction
         # travels with it so every call of both ways carries it.

@@ -28,11 +28,11 @@ def _tasks():
 
 
 @pytest.mark.parametrize("name", ["exercise_set", "mindmap"])
-def test_a_single_call_tool_gets_five_minutes(name):
-    """An exercise set is a chain, and the writing speed varies a lot."""
+def test_a_single_call_tool_gets_ten_minutes(name):
+    """An exercise set is a chain, and a local model writes slowly."""
     soft, hard = _limits(_tasks()[name])
-    assert soft == AIA_TOOL_SOFT_TIME_LIMIT == 300
-    assert hard == AIA_TOOL_TIME_LIMIT == 360
+    assert soft == AIA_TOOL_SOFT_TIME_LIMIT == 600
+    assert hard == AIA_TOOL_TIME_LIMIT == 720
 
 
 def test_the_table_gets_room_for_several_packets():

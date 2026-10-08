@@ -56,16 +56,19 @@ def tool_output_language(workspace_id) -> tuple[str, str]:
     return code, TRANSCRIPT_LANGUAGES[code]["name"]
 
 
-def _get_llm_client(timeout: float = 120):
+def _get_llm_client(timeout: float | None = None):
     """Return (client, model, provider) using the configured LLM provider."""
     from langfuse.openai import OpenAI
+    from src.limits import SERVICE_CALL_TIMEOUT_SECONDS
     from src.dependencies import _binding_tuple, _resolve_llm_binding
     from src.services import provider_transport
     binding = _resolve_llm_binding()
     _api_key, _base_url, _model, _provider = _binding_tuple(binding)
     from src.features.ai_assistant.tasks._retry import RetryingClient
     # max_retries=0 stays, RetryingClient makes the distinction.
-    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=timeout,
+    # A local model reads 20k tokens for over a minute, a shorter limit cut the call off mid-answer.
+    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0,
+                    timeout=timeout or SERVICE_CALL_TIMEOUT_SECONDS,
                     http_client=provider_transport.sdk_http_client(binding))
     langfuse_context.update_current_observation(
         metadata={"provider": _provider, "base_url": _base_url, "model": _model},
