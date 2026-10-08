@@ -74,11 +74,14 @@ than a server GPU and needs a strong computer:
 | | Recommended |
 |---|---|
 | Mac | Apple Silicon Pro/Max with 64 GB memory |
-| Windows / Linux | NVIDIA GPU with 24–32 GB (RTX 4090/5090) and 32 GB memory |
+| Windows / Linux | NVIDIA GPU with 32 GB (RTX 5090) and 32 GB memory, not tested |
 
-Measured on an M5 Max with 64 GB: a chat answer takes 10 to 70 seconds, a mind map several
-minutes. Smaller models answer faster but do not yet follow the study assistant's answer format
-reliably.
+`gemma4:31b` is the smallest model that works. Smaller ones tested (gemma4 12b and 26b, Mistral
+Small 24b, Qwen 14b and 30b) often claim the answer is not in the sources. Loaded with a 32k
+window the model takes about 31 GB, all of KIS about 50 GB.
+
+Measured on an M5 Max with 64 GB: a chat answer takes 10 to 35 seconds, a mind map about four
+minutes.
 
 1. Start Ollama so the containers can reach it, and fetch the models:
 
