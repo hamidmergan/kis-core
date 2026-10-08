@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Eye, PencilSimple, ShareNetwork, Trash } from "@phosphor-icons/react";
+import Tabs from "@/components/ui/Tabs";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
@@ -11,8 +12,7 @@ import { clone, dropEmptyBlocks, getAt, imageCount, removeAt, setAt } from "../_
 import { LAYOUTS, type Block, type Heading, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { DataModal, ImageModal, LayoutModal } from "./EditModals";
-import { LanguageSwitch, readableOf } from "./Languages";
-import PageBar, { BAR_BUTTON } from "./PageBar";
+import { readableOf } from "./Languages";
 import PageView, { type FieldKind } from "./PageView";
 import { ShareModal } from "./Sharing";
 import { EditCtx } from "./Txt";
@@ -58,36 +58,32 @@ function reducer(h: History, a: Action): History {
   }
 }
 
-// A translation still running is asked for again at this pace.
-const POLL_MS = 4000;
-
 /** Compares two pages by content, the save stamp is no change. */
 const same = (a: Page, b: Page) => JSON.stringify({ ...a, saved_at: 0 }) === JSON.stringify({ ...b, saved_at: 0 });
 
 export default function Editor({ uuid }: { uuid: string }) {
   const t = useTranslations("tools.pages");
-  // The language being edited, null for the page's own.
-  const [lang, setLang] = useState<string | null>(null);
+  const locale = useLocale();
   const [loaded, setLoaded] = useState<OwnPage | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [languages, setLanguages] = useState<Languages | null>(null);
+  const [languagesKnown, setLanguagesKnown] = useState(false);
   useEffect(() => {
+    setLanguagesKnown(false);
+    api.getLanguages(uuid).then(setLanguages).catch(() => {}).finally(() => setLanguagesKnown(true));
+  }, [uuid, locale]);
+  // The page opens in the language set in the settings when it has it, else in its own; null is its own.
+  const lang = languages && locale !== languages.own.key
+    && languages.languages.some((l) => l.key === locale && l.state === "done") ? locale : null;
+  useEffect(() => {
+    if (!languagesKnown) return;
     setLoaded(null);
     api.getPage(uuid, lang).then(setLoaded).catch((e: Error) => setLoadError(e.message || t("loadFailed")));
-  }, [uuid, lang, t]);
-  useEffect(() => { api.getLanguages(uuid).then(setLanguages).catch(() => {}); }, [uuid]);
-  // The second language is written after the page, so it is asked for again until it is done.
-  const translating = !!languages?.languages.some((l) => l.state === "running");
-  useEffect(() => {
-    if (!translating) return;
-    const id = window.setInterval(() => { api.getLanguages(uuid).then(setLanguages).catch(() => {}); }, POLL_MS);
-    return () => window.clearInterval(id);
-  }, [translating, uuid]);
+  }, [uuid, lang, languagesKnown, t]);
 
   if (loadError) {
     return (
       <>
-        <PageBar />
         <div className="max-w-6xl mx-auto px-4 pt-8"><ToolBackLink href="/tools/pages" label={t("back")} /></div>
         <p className="max-w-xl mx-auto mt-24 px-4 text-center text-sm" style={{ color: "var(--muted)" }} role="alert">{loadError}</p>
       </>
@@ -99,8 +95,7 @@ export default function Editor({ uuid }: { uuid: string }) {
     );
   }
   return (
-    <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages}
-      onLang={(k) => setLang(k === languages?.own.key ? null : k)} />
+    <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages} />
   );
 }
 
@@ -109,7 +104,6 @@ interface LoadedProps {
   data: OwnPage;
   lang: string | null;
   languages: Languages | null;
-  onLang: (key: string) => void;
 }
 
 /** A fresh id for an added section, lower case like the run's own. */
@@ -120,7 +114,7 @@ function newId(page: Page): string {
   return id;
 }
 
-function Loaded({ uuid, data, lang, languages, onLang }: LoadedProps) {
+function Loaded({ uuid, data, lang, languages }: LoadedProps) {
   const t = useTranslations("tools.pages");
   const [h, dispatch] = useReducer(reducer, { rev: 0, page: data.page, past: [], future: [] });
   const [saved, setSaved] = useState<Page>(data.page);
@@ -331,40 +325,6 @@ function Loaded({ uuid, data, lang, languages, onLang }: LoadedProps) {
 
   return (
     <EditCtx.Provider value={ctx}>
-      <PageBar>
-        {([["edit", PencilSimple, t("modeEdit")], ["view", Eye, t("modeView")]] as const).map(([key, Icon, label]) => {
-          const on = (key === "edit") === editing;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={on}
-              onClick={() => { flush(); setEditing(key === "edit"); }}
-              className={`${BAR_BUTTON} px-3${on ? " is-active" : ""}`}
-              title={label}
-            >
-              <Icon size={17} weight="bold" />
-              <span className="text-sm font-medium hidden sm:inline">{label}</span>
-            </button>
-          );
-        })}
-        {/* A little air sets the two views apart from language and sharing. */}
-        <span className="w-1.5" aria-hidden="true" />
-        <LanguageSwitch value={lang ?? languages?.own.key ?? ""} choices={readableOf(languages)} disabled={dirty}
-          title={dirty ? t("saveFirst") : undefined} onChange={onLang} />
-        <button
-          type="button"
-          onClick={() => setShareOpen(true)}
-          className={`${BAR_BUTTON} relative w-9`}
-          title={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
-          aria-label={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
-        >
-          <ShareNetwork size={17} weight="bold" />
-          {share.shared && (
-            <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--success)", border: "2px solid var(--header-bg)" }} />
-          )}
-        </button>
-      </PageBar>
       {editing && (
         <div className="kis-page-hint px-4 py-1.5 text-xs" style={{ background: "rgba(var(--kb-rgb),.05)", borderBottom: "2px solid rgba(var(--kb-rgb),.15)", color: "var(--kb-dark)" }}>
           {t("editHint")}
@@ -376,6 +336,33 @@ function Loaded({ uuid, data, lang, languages, onLang }: LoadedProps) {
         limits={limits}
         imageBase={api.imageBase({ uuid })}
         back={{ href: "/tools/pages", label: t("back") }}
+        tools={(
+          <>
+            <Tabs<"edit" | "view">
+              variant="pill"
+              className="mr-1.5"
+              active={editing ? "edit" : "view"}
+              onChange={(k) => { flush(); setEditing(k === "edit"); }}
+              items={[
+                { key: "edit", label: <><PencilSimple size={17} weight="bold" /><span className="hidden sm:inline">{t("modeEdit")}</span></> },
+                { key: "view", label: <><Eye size={17} weight="bold" /><span className="hidden sm:inline">{t("modeView")}</span></> },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="relative w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
+              style={{ backgroundColor: "var(--surface-dim)" }}
+              title={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
+              aria-label={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
+            >
+              <ShareNetwork size={17} weight="regular" />
+              {share.shared && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--success)", border: "2px solid var(--background)" }} />
+              )}
+            </button>
+          </>
+        )}
         edit={{
           canUndo: h.past.length > 0 || typing,
           canRedo: h.future.length > 0,

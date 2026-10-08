@@ -9,7 +9,6 @@ import { useRouter } from "@/i18n/navigation";
 import * as api from "../_lib/api";
 import type { Collection } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
-import PageBar from "./PageBar";
 import { CopyButton } from "./Sharing";
 import { Thumb, useDate } from "./PagesSeite";
 
@@ -32,7 +31,6 @@ export default function CollectionView({ code }: { code: string }) {
   if (gone) {
     return (
       <>
-        <PageBar />
         <div className="max-w-md mx-auto mt-[12vh] px-4 text-center">
           <h1 className="text-xl font-bold mb-1.5">{t("collectionMissing")}</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("askOwner")}</p>
@@ -43,14 +41,14 @@ export default function CollectionView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar>
-        {data.own && (
-          <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="bold" />} bar />
-        )}
-      </PageBar>
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">
         {data.own && <ToolBackLink href="/tools/pages" label={t("back")} />}
-        <h1 className="text-xl font-bold mb-1">{t("collectionHeading", { name: data.owner.name })}</h1>
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-xl font-bold flex-1">{t("collectionHeading", { name: data.owner.name })}</h1>
+          {data.own && (
+            <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="regular" />} />
+          )}
+        </div>
         <p className="text-sm text-muted mb-5">{t("collectionIntro", { name: data.owner.name })}</p>
         {data.pages.length === 0 ? (
           <EmptyState size="sm" text={t("collectionEmpty")} />

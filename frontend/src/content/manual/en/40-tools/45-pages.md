@@ -58,18 +58,19 @@ to private and the link stops working. Switch on again and the same link works a
 
 **Shared pages** above your list opens an overview of every page you currently share, under one
 fixed link. Newly shared pages appear there by themselves. Visitors without an account only see
-the pages shared with all. Copy its link there with the share icon at the top right.
+the pages shared with all. Copy its link there with the share icon next to the heading.
 
 
 ## Languages
 
 Every page comes in German and in English. German material gives a German page and right after
 it the English version, material in any other language the other way round. The second version
-takes one to two minutes longer, until then the language choice at the top is missing. Readers
-switch at the top right, and the link remembers the language.
+takes one to two minutes longer.
 
-Both versions are pages of their own. Edit changes the language chosen at the top, the other one
-stays as it is. The learning assistant in a workspace reads only the original.
+Which version you see follows the language in the settings, for everyone who reads the page. If
+the version in that language is not there yet, the other one appears. Both versions are pages of
+their own: Edit changes the version shown, the other one stays as it is. The learning assistant
+in a workspace reads only the original.
 
 ## In a workspace
 

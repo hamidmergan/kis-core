@@ -7,7 +7,6 @@ import Modal from "@/components/ui/Modal";
 import Tabs from "@/components/ui/Tabs";
 import ActiveToggle from "@/app/[locale]/workspace/_components/ActiveToggle";
 import { copyTextFromPromise } from "@/lib/clipboard";
-import { BAR_BUTTON } from "./PageBar";
 
 /** The share switch of a page, the module list's switch with the words of Pages. */
 export function ShareSwitch({ on, isPublic, disabled, onToggle }: {
@@ -24,8 +23,8 @@ export function ShareSwitch({ on, isPublic, disabled, onToggle }: {
   );
 }
 
-/** A small round copy button, it shows a tick for a moment after copying; ``bar`` sizes it for the blue bar. */
-export function CopyButton({ text, label, icon, bar }: { text: () => string; label: string; icon?: React.ReactNode; bar?: boolean }) {
+/** A small round copy button, it shows a tick for a moment after copying. */
+export function CopyButton({ text, label, icon }: { text: () => string; label: string; icon?: React.ReactNode }) {
   const t = useTranslations("tools.pages");
   const [done, setDone] = useState(false);
   return (
@@ -37,12 +36,12 @@ export function CopyButton({ text, label, icon, bar }: { text: () => string; lab
         setDone(true);
         window.setTimeout(() => setDone(false), 1400);
       }}
-      className={bar ? `${BAR_BUTTON} w-9` : "w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"}
-      style={bar ? undefined : { backgroundColor: "var(--surface-dim)" }}
+      className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
+      style={{ backgroundColor: "var(--surface-dim)" }}
       title={done ? t("copied") : label}
       aria-label={label}
     >
-      {done ? <Check size={bar ? 17 : 13} weight="bold" /> : icon ?? <Copy size={13} weight="bold" />}
+      {done ? <Check size={13} weight="bold" /> : icon ?? <Copy size={13} weight="bold" />}
     </button>
   );
 }

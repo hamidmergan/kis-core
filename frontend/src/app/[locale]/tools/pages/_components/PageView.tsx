@@ -86,6 +86,8 @@ interface Props {
   imageBase: string;
   edit?: EditControls | null;
   back?: { href: string; label: string };
+  /** Buttons on the right of the back link's row. */
+  tools?: React.ReactNode;
 }
 
 /** Figure and table numbers in reading order, counted over what is actually shown. */
@@ -104,7 +106,7 @@ function numbering(page: Page, editing: boolean): Map<string, number> {
   return nums;
 }
 
-export default function PageView({ page, limits, imageBase, edit, back }: Props) {
+export default function PageView({ page, limits, imageBase, edit, back, tools }: Props) {
   const t = useTranslations("tools.pages");
   const { editing } = useContext(EditCtx);
   const nums = numbering(page, editing);
@@ -124,24 +126,25 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
       <main className="wrap">
         <div className="top-row">
           {back && <ToolBackLink href={back.href} label={back.label} />}
-          {edit && (
-            <div className="ed-only ed-actions">
-              <button type="button" className="ed-btn icon-only" disabled={!edit.canUndo} onClick={edit.onUndo} aria-label={t("undo")} title={t("undoTitle")}>
-                <ArrowUUpLeft size={14} weight="bold" />
-              </button>
-              <button type="button" className="ed-btn icon-only" disabled={!edit.canRedo} onClick={edit.onRedo} aria-label={t("redo")} title={t("redoTitle")}>
-                <ArrowUUpRight size={14} weight="bold" />
-              </button>
-              <button type="button" className="ed-btn reset" disabled={!edit.dirty || edit.saving} onClick={edit.onReset} title={t("resetTitle")}>
-                <ArrowCounterClockwise size={12} weight="bold" />
-                {t("reset")}
-              </button>
-              <button type="button" className="ed-btn save" disabled={!edit.dirty || edit.saving} onClick={edit.onSave}>
-                {t("save")}
-              </button>
-            </div>
-          )}
+          {tools && <div className="top-tools">{tools}</div>}
         </div>
+        {edit && (
+          <div className="ed-only ed-actions ed-row">
+            <button type="button" className="ed-btn icon-only" disabled={!edit.canUndo} onClick={edit.onUndo} aria-label={t("undo")} title={t("undoTitle")}>
+              <ArrowUUpLeft size={14} weight="bold" />
+            </button>
+            <button type="button" className="ed-btn icon-only" disabled={!edit.canRedo} onClick={edit.onRedo} aria-label={t("redo")} title={t("redoTitle")}>
+              <ArrowUUpRight size={14} weight="bold" />
+            </button>
+            <button type="button" className="ed-btn reset" disabled={!edit.dirty || edit.saving} onClick={edit.onReset} title={t("resetTitle")}>
+              <ArrowCounterClockwise size={12} weight="bold" />
+              {t("reset")}
+            </button>
+            <button type="button" className="ed-btn save" disabled={!edit.dirty || edit.saving} onClick={edit.onSave}>
+              {t("save")}
+            </button>
+          </div>
+        )}
         {page.sections.map((s, i) => (
           <Fragment key={s.id}>
             <SectionView s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}

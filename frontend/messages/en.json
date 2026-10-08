@@ -711,7 +711,6 @@
       "leaves": "Terms, separated by commas",
       "word": "Word",
       "weight": "Weight",
-      "languageSelect": "Language",
       "saveFirst": "Save first",
       "editingLanguage": "You are editing the version in {label}.",
       "addHeroImage": "Add image",

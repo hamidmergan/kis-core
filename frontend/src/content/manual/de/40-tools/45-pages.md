@@ -62,17 +62,18 @@ ein, gilt derselbe Link.
 
 **Geteilte Seiten** über Ihrer Liste öffnet eine Übersicht aller Seiten, die Sie gerade teilen,
 unter einem festen Link. Neue geteilte Seiten erscheinen dort von selbst. Wer ohne Konto kommt,
-sieht dort nur die Seiten für alle. Den Link kopieren Sie dort mit dem Teilen-Symbol oben rechts.
+sieht dort nur die Seiten für alle. Den Link kopieren Sie dort mit dem Teilen-Symbol neben der Überschrift.
 
 ## Sprachen
 
 Jede Seite gibt es auf Deutsch und auf Englisch. Ist Ihr Material deutsch, entsteht die Seite auf
 Deutsch und gleich danach die englische Fassung, bei Material in jeder anderen Sprache umgekehrt.
-Die zweite Fassung braucht ein bis zwei Minuten länger, bis dahin fehlt oben die Sprachauswahl.
-Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
+Die zweite Fassung braucht ein bis zwei Minuten länger.
 
-Beide Fassungen sind eigene Seiten. Bearbeiten ändert die Sprache, die oben gewählt ist, die
-andere bleibt, wie sie ist. Der Lernassistent im Workspace liest nur das Original.
+Welche Fassung Sie sehen, richtet sich nach der Sprache in den Einstellungen, bei allen, die
+die Seite lesen. Fehlt die Fassung in dieser Sprache noch, erscheint die andere. Beide Fassungen
+sind eigene Seiten: Bearbeiten ändert die Fassung, die gerade angezeigt wird, die andere bleibt,
+wie sie ist. Der Lernassistent im Workspace liest nur das Original.
 
 ## Im Workspace
 
