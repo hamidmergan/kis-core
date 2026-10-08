@@ -42,7 +42,7 @@ def stack(monkeypatch):
     monkeypatch.setattr("src.features.ai_assistant.tasks._context_budget.small_model", lambda: False)
     monkeypatch.setattr(mod, "build_adaptive_tool_suffix", lambda uid: "")
 
-    def _ask(client, model, messages, mid):
+    def _ask(client, model, messages, mid, **_kw):
         seen["messages"].append(messages)
         return {"topic": "T", "children": []}
 

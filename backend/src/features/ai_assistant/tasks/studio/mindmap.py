@@ -19,6 +19,7 @@ from src.features.ai_assistant.tasks._instruction import (
     spots_by_source,
 )
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
+from src.features.ai_assistant.tasks._source_tags import SourceTags
 from src.features.ai_assistant.tasks.studio import _mindmap_condensed as _condensed
 from src.services.llm_call import create_logged
 
@@ -29,10 +30,12 @@ def _is_media_source(filename: str) -> bool:
 
 
 def _ask_json(client, model, messages: list[dict], mindmap_id: int,
-              max_tokens: int | None = None) -> dict | None:
+              max_tokens: int | None = None, tags: SourceTags | None = None) -> dict | None:
     """One request that must answer JSON, with a second try on a broken answer."""
     import json as _json
     grenze = {"max_tokens": max_tokens} if max_tokens else {}
+    if tags is not None:
+        messages = tags.encode(messages)
     for attempt in range(2):
         response = create_logged(client, endpoint="mindmap", model=model,
                                  messages=messages, temperature=0.2, **grenze)
@@ -49,7 +52,8 @@ def _ask_json(client, model, messages: list[dict], mindmap_id: int,
             if think_end != -1:
                 answer = answer[think_end + 8:].strip()
         try:
-            return _json.loads(answer)
+            data = _json.loads(answer)
+            return tags.decode(data) if tags is not None else data
         except _json.JSONDecodeError as e:
             logger.warning("mindmap {} JSON parse failed (attempt {}/2): {}",
                            mindmap_id, attempt + 1, e)
@@ -194,6 +198,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         # 2. Call LLM, through the shared tool client so the deadline and the thinking switch apply.
         from src.features.ai_assistant.tasks._helpers import _get_llm_client
         client, model, _ = _get_llm_client()
+        # Every node names its file, a short tag instead of the name saves a fifth of the writing.
+        tags = SourceTags([label for _sid, label, _alle, _p in gesammelt])
 
         # The level block hangs on the person, not on the course room. The instruction
         # travels with it so every call of both ways carries it.
@@ -249,7 +255,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                 mindmap = _condensed.build_small(
                     sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
                     ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id,
-                                                      max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS),
+                                                      max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS,
+                                                      tags=tags),
                     embed=_provider_emb.embed_one, search=_suche,
                     limit_chars=model_limits.cap_for_window(tool_context_budget(),
                                                             model_limits.CHAT_SHARE),
@@ -260,13 +267,13 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             else:
                 mindmap = _condensed.build(
                     sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
-                    ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id),
+                    ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id, tags=tags),
                     embed=_provider_emb.embed_one, search=_suche,
                     verify=lambda label, stelle: _stellen.get((label, str(stelle)), ""),
                     locate=_im_eigenen_dokument,
                 )
         else:
-            mindmap = _ask_json(client, model, messages, mindmap_id)
+            mindmap = _ask_json(client, model, messages, mindmap_id, tags=tags)
 
         if mindmap is None:
             db.update_aia_mindmap(mindmap_id, "failed", error="LLM returned unparseable JSON")
