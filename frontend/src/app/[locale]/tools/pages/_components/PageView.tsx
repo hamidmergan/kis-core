@@ -24,8 +24,9 @@ import {
   Warning,
   X,
 } from "@phosphor-icons/react";
+import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
-import type { Block, CardIcon, Design, Limits, Page, Section } from "../_lib/types";
+import { HEADINGS, type Block, type CardIcon, type Design, type Heading, type Limits, type Page, type Section } from "../_lib/types";
 import { Chart, MindMap, WordCloud, useNumber } from "./Charts";
 import { EditCtx, Txt } from "./Txt";
 import "./page.css";
@@ -45,6 +46,8 @@ export interface EditControls {
   onReset: () => void;
   onSave: () => void;
   onSection: (index: number, action: "up" | "down" | "hide" | "del") => void;
+  /** Where an added section shows its title. */
+  onHeading: (index: number, heading: Heading) => void;
   /** Pictures being drawn: the new name and the one it replaces, "" for a new picture. */
   pending: ReadonlyMap<string, string>;
   imagesFull: boolean;
@@ -111,7 +114,7 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
   // Chapters count only the sections of the subject, not the title, summary, map or words.
   const chapters = new Map<number, number>();
   page.sections.forEach((s, i) => {
-    if (isContent(s) && !(s.hidden && !editing)) chapters.set(i, chapters.size + 1);
+    if (isContent(s) && s.heading !== "none" && !(s.hidden && !editing)) chapters.set(i, chapters.size + 1);
   });
 
   return (
@@ -265,6 +268,10 @@ function Tools({ s, i, n, edit }: { s: Section; i: number; n: number; edit: Edit
       <button type="button" className="ed-btn del" onClick={() => edit.onSection(i, "del")}>
         <Trash size={12} weight="bold" />{t("remove")}
       </button>
+      {s.layout && (
+        <Select<Heading> size="sm" value={s.heading ?? "top"} ariaLabel={t("headingLabel")} onChange={(h) => edit.onHeading(i, h)}
+          options={HEADINGS.map((h) => ({ value: h, label: t(`headings.${h}`) }))} />
+      )}
     </div>
   );
 }
@@ -328,17 +335,19 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter, 
     );
   }
   if (s.layout) {
+    // The owner places title and lead above, beside, below the fields or leaves them out.
+    const heading: Heading = s.heading ?? "top";
     return (
-      <section id={s.id} className={`${chapter != null ? "content" : "frame"} added${cls}`} data-i={i}>
+      <section id={s.id} className={`${chapter != null ? "content" : "frame"} added h-${heading}${cls}`} data-i={i}>
         {edit && <Tools s={s} i={i} n={n} edit={edit} />}
-        <div className="txt">
+        {heading !== "none" && <div className="txt">
           {design === "chapters" && chapter != null && (
             <span className="chap" aria-hidden="true">{String(chapter).padStart(2, "0")}</span>
           )}
           {design === "timeline" && chapter != null && <span className="tl-dot" aria-hidden="true" />}
           <Txt path={`${p}.title`} value={s.title} as="h2" max={limits.short} />
           <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
-        </div>
+        </div>}
         <div className="body">
           <div className={`lay lay-${s.layout}`}>
             {s.blocks.map((b, j) => (b.kind === "empty" ? <EmptyField key={j} i={i} j={j} limits={limits} /> : (
@@ -352,7 +361,7 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter, 
     );
   }
   const blocks = s.blocks.map((b, j) => (
-    <div className="blk" data-d={`${p}.blocks.${j}`} key={j}>
+    <div className={`blk k-${b.kind}`} data-d={`${p}.blocks.${j}`} key={j}>
       <BlockView b={b} p={`${p}.blocks.${j}`} limits={limits} imageBase={imageBase} num={nums.get(`${i}.${j}`)} />
     </div>
   ));

@@ -9,7 +9,7 @@ import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
 import { clone, dropEmptyBlocks, getAt, imageCount, removeAt, setAt } from "../_lib/paths";
-import { LAYOUTS, type Block, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
+import { LAYOUTS, type Block, type Heading, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { DataModal, ImageModal, LayoutModal } from "./EditModals";
 import { LanguageSwitch, LanguagesButton, LanguagesModal, readableOf } from "./Languages";
@@ -197,13 +197,13 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
 
   const change = (fn: (p: Page) => void) => { flush(); dispatch({ type: "change", fn }); };
 
-  const addSection = (layout: Layout) => {
+  const addSection = (layout: Layout, heading: Heading) => {
     const after = layoutAt ?? h.page.sections.length - 1;
     const id = newId(h.page);
     setLayoutAt(null);
     change((p) => {
       p.sections.splice(after + 1, 0, {
-        id, title: t("newSection"), lead: t("newLead"), layout,
+        id, title: t("newSection"), lead: t("newLead"), layout, ...(heading === "top" ? {} : { heading }),
         blocks: Array.from({ length: LAYOUTS[layout] }, () => ({ kind: "empty" as const })),
       });
     });
@@ -374,6 +374,10 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
           onReset: () => { flush(); setTyping(false); dispatch({ type: "change", fn: (p) => Object.assign(p, clone(saved)) }); },
           onSave: save,
           onSection,
+          onHeading: (i, heading) => change((p) => {
+            if (heading === "top") delete p.sections[i].heading;
+            else p.sections[i].heading = heading;
+          }),
           pending,
           imagesFull: imageCount(h.page) >= limits.images,
           onAddSection: (after) => { flush(); setLayoutAt(after); },
@@ -420,12 +424,12 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         shared={share.shared}
+        isPublic={share.isPublic}
         link={share.code ? api.shareUrl(share.code) : null}
         busy={shareBusy}
         onToggle={(on) => toggleShare(on)}
         onAudience={(isPublic) => toggleShare(true, isPublic)}
       />
-        isPublic={share.isPublic}
     </EditCtx.Provider>
   );
 }

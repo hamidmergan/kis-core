@@ -39,6 +39,10 @@ export type BlockKind = Block["kind"];
 export const LAYOUTS = { "1": 1, "2": 2, "21": 2, "12": 2, "3": 3, "4": 4, "1-2": 3 } as const;
 export type Layout = keyof typeof LAYOUTS;
 
+/** Where an added section shows its title and lead, "none" shows neither. */
+export const HEADINGS = ["top", "left", "right", "bottom", "none"] as const;
+export type Heading = (typeof HEADINGS)[number];
+
 export interface Section {
   id: string;
   title: string;
@@ -49,6 +53,7 @@ export interface Section {
   hidden?: boolean;
   /** Set on a section the owner added, its blocks are the fields of this grid. */
   layout?: Layout;
+  heading?: Heading;
 }
 
 /** The look of a page, the run picks it from the material. */
@@ -108,13 +113,13 @@ export interface PageCard {
   created_at: string | null;
   updated_at: string | null;
   shared: boolean;
+  /** The link opens without a KIS account. */
+  public: boolean;
   code: string | null;
   /** What the page was made with, for the owner's info icon. */
   info: ErgebnisAngaben;
 }
 
-  /** The link opens without a KIS account. */
-  public: boolean;
 export interface PagesList {
   pages: PageCard[];
   collection: { code: string; count: number };
@@ -132,13 +137,13 @@ export interface OwnPage {
   edited: boolean;
   limits: Limits;
   shared: boolean;
+  /** The link opens without a KIS account. */
+  public: boolean;
   code: string | null;
   collection: string;
 }
 
 export interface SharedPage {
-  /** The link opens without a KIS account. */
-  public: boolean;
   page: Page;
   owner: { name: string; code: string | null };
   limits: Limits;

@@ -152,3 +152,15 @@ def test_a_finished_page_starts_its_other_language(monkeypatch):
     monkeypatch.setattr(pt.translate_page, "delay", lambda u, j, k: gestartet.append(k))
     pt._start_other_language(1, "j", SAMPLE)
     assert zustand == [("en", "running")] and gestartet == ["en"]
+
+
+def test_an_added_section_keeps_where_its_title_stands():
+    page = schema.clean_page(_page(
+        {"id": "n1", "title": "Links", "layout": "2", "heading": "left", "blocks": [{"kind": "text", "text": "x"}]},
+        {"id": "n2", "title": "Ohne", "lead": "L", "layout": "1", "heading": "none", "blocks": [{"kind": "text", "text": "y"}]},
+        {"id": "s1", "title": "Alt", "heading": "left", "blocks": [{"kind": "text", "text": "z"}]},
+        {"id": "n3", "title": "Quatsch", "layout": "1", "heading": "diagonal", "blocks": [{"kind": "text", "text": "q"}]}))
+    assert page["sections"][0]["heading"] == "left"
+    assert "heading" not in page["sections"][2] and "heading" not in page["sections"][3]
+    sichtbar = schema.for_viewers(page)["sections"][1]
+    assert sichtbar["title"] == "" and sichtbar["lead"] == "" and page["sections"][1]["title"] == "Ohne"

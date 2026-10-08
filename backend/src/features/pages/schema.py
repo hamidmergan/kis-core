@@ -26,6 +26,8 @@ KINDS = ("text", "bullets", "highlight", "cards", "steps", "figures", "bars", "t
 # A section the owner adds is a grid of fields, the key names the grid and the value its field count.
 LAYOUTS = {"1": 1, "2": 2, "21": 2, "12": 2, "3": 3, "4": 4, "1-2": 3}
 EMPTY = {"kind": "empty"}
+# Where an added section shows its title and lead, "none" shows neither. "top" is the default.
+HEADINGS = ("top", "left", "right", "bottom", "none")
 # The languages a page is written or translated in.
 LANGS = ("de", "en")
 # "none" is the rule, a sign only where it tells cards apart. "info" is what older pages carry for none.
@@ -286,6 +288,8 @@ def _section(raw, taken: set[str], index: int) -> dict | None:
            "lead": text(raw.get("lead"), PAGES_MAX_LONG_CHARS), "blocks": blocks}
     if layout:
         out["layout"] = layout
+        if raw.get("heading") in HEADINGS and raw["heading"] != "top":
+            out["heading"] = raw["heading"]
     if raw.get("hero"):
         out["hero"] = True
         out["meta"] = text(raw.get("meta"), PAGES_MAX_LONG_CHARS)
@@ -350,8 +354,9 @@ def first_image(page: dict) -> str:
 
 
 def for_viewers(page: dict) -> dict:
-    """The page as others see it, hidden sections never leave the server."""
-    return {**page, "sections": [s for s in page.get("sections") or [] if not s.get("hidden")]}
+    """The page as others see it, hidden sections and switched off titles never leave the server."""
+    return {**page, "sections": [{**s, "title": "", "lead": ""} if s.get("heading") == "none" else s
+                                 for s in page.get("sections") or [] if not s.get("hidden")]}
 
 
 def images_of(page: dict) -> set[str]:

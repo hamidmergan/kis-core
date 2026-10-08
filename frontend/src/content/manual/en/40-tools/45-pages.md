@@ -31,7 +31,8 @@ Top right you switch between Edit and Preview.
 - Only Save keeps your changes. Reset brings back the last saved version.
 
 The plus between two sections inserts a new one. You choose a layout with one to four fields
-and decide for each field what goes in: text, image, table, chart, list or note. Nobody sees an
+and whether title and subtitle stand at the top, left, right, bottom or not at all, then decide
+for each field what goes in: text, image, table, chart, list or note. Nobody sees an
 empty field when reading. Under lists and tables, Point, Row and Column add further entries.
 
 If the top picture is missing, Add image puts one in, the AI suggests a description of the

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { X } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
-import { LAYOUTS, type Block, type Layout, type Limits } from "../_lib/types";
+import { HEADINGS, LAYOUTS, type Block, type Heading, type Layout, type Limits } from "../_lib/types";
 
 const FIELD = "px-3 py-1.5 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft";
 const LAYOUT_KEYS: Record<Layout, string> = {
@@ -31,21 +31,56 @@ function Footer({ onCancel, onOk, ok, busy, disabled }: { onCancel: () => void; 
   );
 }
 
-/** The choice of a grid for a new section, each one drawn as a small sketch. */
-export function LayoutModal({ open, left, onClose, onPick }: { open: boolean; left: number; onClose: () => void; onPick: (l: Layout) => void }) {
+// Where the title bar sits in each sketch, as grid areas around the fields.
+const HEAD_SKETCH: Record<Heading, { cols: string; rows: string; areas: string } | null> = {
+  top: { cols: "1fr", rows: "10px 1fr", areas: '"h" "f"' },
+  bottom: { cols: "1fr", rows: "1fr 10px", areas: '"f" "h"' },
+  left: { cols: "28% 1fr", rows: "1fr", areas: '"h f"' },
+  right: { cols: "1fr 28%", rows: "1fr", areas: '"f h"' },
+  none: null,
+};
+
+/** The fields of a grid as a small sketch, with the title bar where it will stand. */
+function Sketch({ l, heading }: { l: Layout; heading: Heading }) {
+  const head = HEAD_SKETCH[heading];
+  const fields = (
+    <span className="grid gap-1 h-full" style={{ gridTemplateColumns: SKETCH[l], gridArea: "f" }}>
+      {Array.from({ length: LAYOUTS[l] }, (_, i) => (
+        <i key={i} className="rounded" style={{ background: "var(--surface-dim)", gridColumn: l === "1-2" && i === 0 ? "1 / -1" : undefined }} />
+      ))}
+    </span>
+  );
+  if (!head) return <span className="block h-[52px]" aria-hidden="true">{fields}</span>;
+  return (
+    <span className="grid gap-1 h-[52px]" style={{ gridTemplateColumns: head.cols, gridTemplateRows: head.rows, gridTemplateAreas: head.areas }} aria-hidden="true">
+      <i className="rounded" style={{ background: "var(--kb60)", gridArea: "h" }} />
+      {fields}
+    </span>
+  );
+}
+
+/** The choice of a grid for a new section and of where its title stands, each drawn as a small sketch. */
+export function LayoutModal({ open, left, onClose, onPick }: { open: boolean; left: number; onClose: () => void; onPick: (l: Layout, h: Heading) => void }) {
   const t = useTranslations("tools.pages");
+  const [heading, setHeading] = useState<Heading>("top");
   return (
     <Modal open={open} onClose={onClose} size="md" title={t("addSection")} footer={<Footer onCancel={onClose} />}>
       <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>{t("layoutHint", { left })}</p>
+      <p className="text-sm font-medium text-foreground mb-1.5">{t("headingLabel")}</p>
+      <div className="flex flex-wrap gap-1.5 mb-4" role="radiogroup" aria-label={t("headingLabel")}>
+        {HEADINGS.map((h) => (
+          <button key={h} type="button" role="radio" aria-checked={heading === h} onClick={() => setHeading(h)}
+            className={`px-3 py-1 text-xs font-medium rounded-lg border-2 transition-colors ${heading === h ? "border-kb bg-kb text-white" : "border-border-soft bg-background hover:border-kb"}`}>
+            {t(`headings.${h}`)}
+          </button>
+        ))}
+      </div>
+      <p className="text-sm font-medium text-foreground mb-1.5">{t("layoutLabel")}</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {(Object.keys(LAYOUTS) as Layout[]).map((l) => (
-          <button key={l} type="button" onClick={() => onPick(l)}
+          <button key={l} type="button" onClick={() => onPick(l, heading)}
             className="flex flex-col gap-2 p-2.5 text-left text-xs font-medium rounded-lg border-2 border-border-soft bg-background hover:border-kb focus-visible:border-kb focus-visible:outline-none transition-colors">
-            <span className="grid gap-1 h-[52px]" style={{ gridTemplateColumns: SKETCH[l] }} aria-hidden="true">
-              {Array.from({ length: LAYOUTS[l] }, (_, i) => (
-                <i key={i} className="rounded" style={{ background: "var(--surface-dim)", gridColumn: l === "1-2" && i === 0 ? "1 / -1" : undefined }} />
-              ))}
-            </span>
+            <Sketch l={l} heading={heading} />
             {t(`layouts.${LAYOUT_KEYS[l]}`)}
           </button>
         ))}

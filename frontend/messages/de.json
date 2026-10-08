@@ -730,7 +730,16 @@
       "saveFirst": "Erst speichern",
       "editingLanguage": "Du bearbeitest die Fassung in {label}.",
       "addHeroImage": "Bild hinzufügen",
-      "imageSuggesting": "Ein passendes Bild wird vorgeschlagen …"
+      "imageSuggesting": "Ein passendes Bild wird vorgeschlagen …",
+      "headingLabel": "Titel und Untertitel",
+      "layoutLabel": "Layout",
+      "headings": {
+        "top": "Oben",
+        "left": "Links",
+        "right": "Rechts",
+        "bottom": "Unten",
+        "none": "Ohne Titel"
+      }
     },
     "translate": {
       "title": "Übersetzung",

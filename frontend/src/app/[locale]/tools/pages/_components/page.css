@@ -182,9 +182,13 @@
 .kis-page.d-guide section.content h2 { font-size: clamp(24px, 2.4vw, 30px); }
 .kis-page.d-guide section.content .lead { font-size: 17px; }
 @media (min-width: 900px) {
-  .kis-page.d-guide section.content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 48px; }
-  .kis-page.d-guide section.content > .ed-tools { grid-column: 1 / -1; }
-  .kis-page.d-guide section.content .body > .blk:first-child, .kis-page.d-guide section.content .body > .duo:first-child { margin-top: 0; }
+  .kis-page.d-guide section.content:not(.added) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 48px; }
+  .kis-page.d-guide section.content:not(.added) > .ed-tools { grid-column: 1 / -1; }
+  .kis-page.d-guide section.content:not(.added) .body > .blk:first-child, .kis-page.d-guide section.content:not(.added) .body > .duo:first-child { margin-top: 0; }
+  /* The blocks stand in the right column, a table takes the whole width under the heading. */
+  .kis-page.d-guide section.content:not(.added) > .body { display: contents; }
+  .kis-page.d-guide section.content:not(.added) > .body > * { grid-column: 2; }
+  .kis-page.d-guide section.content:not(.added) > .body > .k-table { grid-column: 1 / -1; }
 }
 .kis-page.editing.d-guide section.content::before { top: 24px; }
 /* The right column is narrow for pictures beside text and for three cards in a row. */
@@ -195,9 +199,9 @@
 /* the edit layer, visible only while editing */
 .kis-page .ed-only { display: none; }
 .kis-page.editing .ed-only { display: flex; }
-.kis-page .ed-actions { justify-content: flex-end; gap: 8px; margin-left: auto; }
+.kis-page .ed-actions { flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; }
 /* The way back above the title as on every other page, the edit buttons on the same line. */
-.kis-page .top-row { display: flex; align-items: center; gap: 12px; min-height: 30px; padding-top: 16px; margin-bottom: 28px; }
+.kis-page .top-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 30px; padding-top: 16px; margin-bottom: 28px; }
 .kis-page .top-row > a { margin: 0; }
 .kis-page .ed-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--pg-line); background: var(--background); border-radius: 8px; padding: 4px 10px; font-size: 13px; line-height: 1.5; font-weight: 600; color: var(--pg-accent); cursor: pointer; transition: border-color 0.15s, background-color 0.15s, color 0.15s; }
 .kis-page .ed-btn:hover:not(:disabled) { border-color: var(--pg-accent); }
@@ -260,6 +264,21 @@
 .kis-page .pic.drawing img { opacity: 0.3; }
 .kis-page .pic-empty { aspect-ratio: 4 / 3; border-radius: 14px; background: var(--pg-mist); }
 .kis-page .pic-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--pg-accent); }
+
+/* An added section shows title and lead where the owner placed them. */
+.kis-page section.added.h-bottom { display: flex; flex-direction: column; }
+.kis-page section.added.h-bottom > .body { order: 1; }
+.kis-page section.added.h-bottom > .txt { order: 2; margin-top: 22px; }
+.kis-page section.added.h-bottom .lay, .kis-page section.added.h-none .lay { margin-top: 0; }
+@media (min-width: 720px) {
+  .kis-page section.added.h-left, .kis-page section.added.h-right { display: grid; column-gap: 40px; align-items: start; }
+  .kis-page section.added.h-left { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .kis-page section.added.h-right { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .kis-page section.added.h-left > .ed-tools, .kis-page section.added.h-right > .ed-tools { grid-column: 1 / -1; }
+  .kis-page section.added.h-right > .body { order: 1; }
+  .kis-page section.added.h-right > .txt { order: 2; }
+  .kis-page section.added.h-left .lay, .kis-page section.added.h-right .lay { margin-top: 0; }
+}
 
 .kis-page-del { position: absolute; z-index: 20; width: 28px; height: 28px; border-radius: 9999px; display: none; align-items: center; justify-content: center; border: 0; padding: 0; background: var(--surface-dim); color: var(--muted); cursor: pointer; outline: 2px solid transparent; transition: outline-color 0.15s, color 0.15s; }
 .kis-page-del.on { display: flex; }

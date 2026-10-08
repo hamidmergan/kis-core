@@ -32,7 +32,8 @@ Oben rechts wechseln Sie zwischen Bearbeiten und Vorschau.
 - Erst Speichern übernimmt die Änderungen. Zurücksetzen holt den zuletzt gespeicherten Stand.
 
 Über das Plus zwischen zwei Abschnitten fügen Sie einen neuen ein. Sie wählen ein Layout mit
-einem bis vier Feldern und legen pro Feld fest, was hineinkommt: Text, Bild, Tabelle, Diagramm,
+einem bis vier Feldern, legen fest, ob Titel und Untertitel oben, links, rechts, unten oder gar
+nicht stehen, und bestimmen pro Feld, was hineinkommt: Text, Bild, Tabelle, Diagramm,
 Liste oder Hinweis. Ein leeres Feld sieht beim Lesen niemand. Unter Listen und Tabellen fügen
 Punkt, Zeile und Spalte weitere Einträge an.
 

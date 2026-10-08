@@ -730,7 +730,16 @@
       "saveFirst": "Save first",
       "editingLanguage": "You are editing the version in {label}.",
       "addHeroImage": "Add image",
-      "imageSuggesting": "A fitting image is being suggested …"
+      "imageSuggesting": "A fitting image is being suggested …",
+      "headingLabel": "Title and subtitle",
+      "layoutLabel": "Layout",
+      "headings": {
+        "top": "Top",
+        "left": "Left",
+        "right": "Right",
+        "bottom": "Bottom",
+        "none": "No title"
+      }
     },
     "translate": {
       "title": "Translation",
