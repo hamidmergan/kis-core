@@ -23,6 +23,7 @@ from src.limits import (
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
+    AIA_WORKSPACE_MAX_SOURCES_CAP,
 )
 
 import json
@@ -368,10 +369,10 @@ def update_settings(
     # Limit of sources per course room, capped against typos.
     if body.aia_workspace_max_sources is not None:
         value = body.aia_workspace_max_sources
-        if value < 1 or value > 1000:
+        if value < 1 or value > AIA_WORKSPACE_MAX_SOURCES_CAP:
             raise HTTPException(
                 status_code=400,
-                detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=1000),
+                detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=AIA_WORKSPACE_MAX_SOURCES_CAP),
             )
         db.set_setting("aia_workspace_max_sources", str(value))
 

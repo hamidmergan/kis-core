@@ -4,7 +4,6 @@ import re
 
 from src.services import model_limits
 from src.limits import (
-    AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
     AIA_SPECIFIC_MAX_CHARS,
     AIA_TOOL_CONTEXT_MAX_CHARS,
@@ -17,12 +16,15 @@ _COVERAGE_BLOCKS = 12
 
 
 def context_budget() -> int:
-    """Character budget for the context, the same admin setting as in the chat."""
+    """Character budget of the chat for an overview, the one chat field it shares with a specific question.
+
+    The window still caps the two differently, an overview may fill more of it.
+    """
     from src import database as db
     try:
-        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
+        value = int(db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS)))
     except (ValueError, TypeError):
-        value = AIA_CONTEXT_MAX_CHARS
+        value = AIA_SPECIFIC_MAX_CHARS
     return model_limits.cap_for_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
                                        model_limits.CHAT_SHARE)
 

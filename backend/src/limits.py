@@ -201,7 +201,9 @@ AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX uplo
 # still fits alone into podcast, presentation and summary.
 AIA_SOURCE_MAX_CHARS                = 500_000
 # Very large documents are rejected so the overview does not become front-heavy.
-AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..1000)
+AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..200)
+# Mehr nicht: ein Ueberblick teilt 60.000 Zeichen auf alle Quellen, bei 200 bleiben je 300 Zeichen.
+AIA_WORKSPACE_MAX_SOURCES_CAP          = 200
 
 # --- Web page as a source ---------------------------------------------------
 WEB_PAGE_MAX_URL_CHARS           = 2000

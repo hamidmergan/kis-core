@@ -251,14 +251,15 @@ async def chat(
             search_source_ids = [popup_source["id"]]
 
     # A greeting only names the topics, the summaries are enough for that.
-    _gruss_chunks = (await asyncio.to_thread(greeting_chunks, source_ids, resolved_sources)
+    _gruss_chunks = (await asyncio.to_thread(greeting_chunks, source_ids, resolved_sources,
+                                             context_budget)
                      if _gruss else [])
     if _gruss_chunks:
         logger.info("Greeting: {} summaries stand in for the text, skipping retrieval",
                     len(_gruss_chunks))
 
     # An overview reads the summaries, they cover every source and are short.
-    _ueberblick_chunks = (overview_chunks(source_ids, resolved_sources)
+    _ueberblick_chunks = (overview_chunks(source_ids, resolved_sources, context_budget)
                           if intent == "GENERIC" and not (body.source_text or _umformen or scope_chunks)
                           else [])
     if _ueberblick_chunks:

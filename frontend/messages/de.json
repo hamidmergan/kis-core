@@ -2793,7 +2793,7 @@
       "title": "Maximale Materialien pro {label}",
       "hint": "Wie viele Materialien Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
       "unit": "Materialien",
-      "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "outOfRange": "Wert muss zwischen 1 und 200 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "scheduleRetentionCard": {
@@ -2815,8 +2815,8 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "specificBudgetCard": {
-      "title": "Chat Kontext-Budget für gezielte Fragen",
-      "hint": "Wie viel Text der KI-Tutor bei einer gezielten Frage ins Modell gibt.",
+      "title": "Chat-Kontext-Budget",
+      "hint": "Wie viel Text der Lernassistent bei einer Frage ins Modell gibt. Bei einer Überblicksfrage teilen sich alle Materialien diesen Platz.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 800000 liegen.",

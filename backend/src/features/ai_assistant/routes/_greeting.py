@@ -1,19 +1,26 @@
 """The greeting only needs the topics, so it reads the summaries instead of the text."""
 
 from src import database as db
-from src.features.ai_assistant.summaries import summary_chunks
+from src.features.ai_assistant.summaries import gekuerzt, summary_chunks
 
 
-def overview_chunks(source_ids: list[int] | None, sources_by_id: dict[int, dict]) -> list[dict]:
-    """The summaries for an overview, only when every chosen source has one, else nothing."""
+def overview_chunks(source_ids: list[int] | None, sources_by_id: dict[int, dict],
+                    budget: int | None = None) -> list[dict]:
+    """The summaries for an overview, only when every chosen source has one, else nothing.
+
+    With ``budget`` they share it, many sources each get a shorter beginning.
+    """
     if not source_ids:
         return []
     sources = [sources_by_id[sid] for sid in source_ids if sid in sources_by_id]
     chunks = summary_chunks(sources)
-    return chunks if sources and len(chunks) == len(source_ids) else []
+    if not (sources and len(chunks) == len(source_ids)):
+        return []
+    return gekuerzt(chunks, budget) if budget else chunks
 
 
-def greeting_chunks(source_ids: list[int] | None, sources_by_id: dict[int, dict]) -> list[dict]:
+def greeting_chunks(source_ids: list[int] | None, sources_by_id: dict[int, dict],
+                    budget: int | None = None) -> list[dict]:
     """A summary per source, the first chunk where one is missing, nothing when no source has one."""
     if not source_ids:
         return []
@@ -29,4 +36,4 @@ def greeting_chunks(source_ids: list[int] | None, sources_by_id: dict[int, dict]
         raw = db.get_aia_chunks_by_source(sid)
         if raw:
             out.append(raw[0])
-    return out
+    return gekuerzt(out, budget) if budget else out

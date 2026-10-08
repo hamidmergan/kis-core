@@ -103,3 +103,20 @@ def test_fehlt_eine_zusammenfassung_bleibt_der_alte_weg():
 def test_ohne_gewaehlte_quellen_bleibt_der_alte_weg():
     assert overview_chunks(None, {}) == []
     assert overview_chunks([], {}) == []
+
+
+def test_viele_zusammenfassungen_teilen_sich_das_budget():
+    from src.features.ai_assistant.summaries import gekuerzt
+
+    satz = "Das Gesetz regelt eine Sache. "
+    chunks = [{"source_id": i, "page_number": None, "content": satz * 40} for i in range(4)]
+    aus = gekuerzt(chunks, 400)
+    assert len(aus) == 4
+    assert all(len(c["content"]) <= 100 and c["content"].endswith(".") for c in aus)
+
+
+def test_wenige_zusammenfassungen_bleiben_ganz():
+    from src.features.ai_assistant.summaries import gekuerzt
+
+    chunks = [{"source_id": 1, "page_number": None, "content": "Kurz und gut."}]
+    assert gekuerzt(chunks, 60_000) == chunks

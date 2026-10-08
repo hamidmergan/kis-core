@@ -2793,7 +2793,7 @@
       "title": "Max sources per {label}",
       "hint": "How many sources users may upload per {label}. Takes effect immediately for new uploads.",
       "unit": "sources",
-      "outOfRange": "Value must be between 1 and 1000.",
+      "outOfRange": "Value must be between 1 and 200.",
       "saveFailed": "Save failed."
     },
     "scheduleRetentionCard": {
@@ -2815,8 +2815,8 @@
       "saveFailed": "Save failed."
     },
     "specificBudgetCard": {
-      "title": "Chat context budget for precise questions",
-      "hint": "How much text the AI tutor sends to the model for a precise question.",
+      "title": "Chat context budget",
+      "hint": "How much text the learning assistant gives the model for a question. For an overview question all materials share this room.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 800000.",

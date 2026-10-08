@@ -66,7 +66,7 @@ export default function GrenzenMaterialPage() {
           hint={tLimits("hint", { label: "Workspace" })}
           unit={tLimits("unit")}
           min={1}
-          max={1000}
+          max={200}
           outOfRange={tLimits("outOfRange")}
         />
         <ToolNumbers tool="aia" />

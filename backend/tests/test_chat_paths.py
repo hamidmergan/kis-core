@@ -214,14 +214,14 @@ def _admin_sagt(monkeypatch, wert):
 
 
 def test_context_budget_folgt_der_admin_einstellung(monkeypatch):
-    """The budget is a number from the admin area again, one for chat and one for tools."""
-    from src.limits import AIA_CONTEXT_MAX_CHARS
+    """The budget is a number from the admin area, one chat field for overview and specific question."""
+    from src.limits import AIA_SPECIFIC_MAX_CHARS
 
     _admin_sagt(monkeypatch, "180000")
     assert _context_budget() == 180000
 
     _admin_sagt(monkeypatch, None)
-    assert _context_budget() == AIA_CONTEXT_MAX_CHARS
+    assert _context_budget() == AIA_SPECIFIC_MAX_CHARS
 
 
 def test_admin_zahl_wird_nach_oben_und_unten_begrenzt(monkeypatch):
@@ -237,10 +237,10 @@ def test_admin_zahl_wird_nach_oben_und_unten_begrenzt(monkeypatch):
 
 def test_unlesbare_zahl_faellt_auf_den_standard_zurueck(monkeypatch):
     """If there is nonsense in there, the chat must not fail."""
-    from src.limits import AIA_CONTEXT_MAX_CHARS
+    from src.limits import AIA_SPECIFIC_MAX_CHARS
 
     _admin_sagt(monkeypatch, "viel")
-    assert _context_budget() == AIA_CONTEXT_MAX_CHARS
+    assert _context_budget() == AIA_SPECIFIC_MAX_CHARS
 
 
 # The admin number is the ceiling, a window entered by hand or measured shortens it.
@@ -360,15 +360,15 @@ def test_unbekanntes_fenster_aendert_die_obergrenze_nicht(monkeypatch):
     assert specific_context_budget() == AIA_SPECIFIC_MAX_CHARS
 
 
-def test_gezielte_frage_liegt_unter_dem_chat_budget(monkeypatch):
-    """The chat may see more than a specific question, das trennen jetzt die Felder."""
+def test_ueberblick_und_gezielte_frage_lesen_dasselbe_feld(monkeypatch):
+    """One chat field, the old overview field no longer counts."""
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
 
     werte = {"aia_context_max_chars": "250000", "aia_specific_max_chars": "60000"}
     _kenne_fenster(monkeypatch, None)
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: werte.get(k, d))
     assert specific_context_budget() == 60000
-    assert specific_context_budget() < _context_budget()
+    assert _context_budget() == 60000
 
 
 # ── Shortcut: send everything without a search, but only in the overview ─────
