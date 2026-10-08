@@ -308,22 +308,21 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter, 
   if (s.hero) {
     const j = s.blocks.findIndex((b) => b.kind === "image");
     const img = j >= 0 ? (s.blocks[j] as Extract<Block, { kind: "image" }>) : null;
-    const banner = design === "timeline" || design === "magazine";
     const figure = img && (
       <figure className="img" data-d={`${p}.blocks.${j}`}>
         <Picture src={img.src} alt={img.alt} p={`${p}.blocks.${j}`} imageBase={imageBase} />
       </figure>
     );
     return (
-      <section id={s.id} className={`hero${img ? "" : " solo"}${banner ? " banner" : ""}${titleSize(s.title)}${cls}`} data-i={i}>
+      <section id={s.id} className={`hero${titleSize(s.title)}${cls}`} data-i={i}>
         {edit && <Tools s={s} i={i} n={n} edit={edit} />}
-        {banner && figure}
+        {/* An older page keeps its picture inside the title, it runs wide above the text there too. */}
+        {figure}
         <div className="hero-text">
           <Txt path={`${p}.title`} value={s.title} as="h1" max={limits.short} />
           <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
           <Txt path={`${p}.meta`} value={s.meta} as="p" className="meta" max={limits.long} />
         </div>
-        {!banner && figure}
         {edit && !img && !hasCover && (
           <div className="ed-only ed-hero-add">
             <button type="button" className="ed-btn" disabled={edit.imagesFull} onClick={() => edit.onHeroImage(i)}>

@@ -124,7 +124,7 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [layoutAt, setLayoutAt] = useState<number | null>(null);
-  // A new title picture of the guide becomes a section of its own, inserted at ``cover``.
+  // A new title picture becomes a section of its own, inserted at ``cover``.
   const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean; suggesting?: boolean; cover?: number } | null>(null);
   const [dataAt, setDataAt] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
@@ -387,8 +387,8 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
           onHeroImage: (i) => {
             flush();
             const path = `sections.${i}.blocks.${h.page.sections[i].blocks.length}`;
-            // The guide's picture stands above its title box as a section of its own.
-            const cover = h.page.design === "guide" ? i : undefined;
+            // The title picture stands above the title as a section of its own.
+            const cover = i;
             // Without the model's proposal the title is the starting point.
             const fallback = `a calm illustration that stands for the topic ${h.page.sections[i].title}`;
             // The model reads the whole page and proposes a picture for its topic, the owner may change it.

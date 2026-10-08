@@ -12,8 +12,8 @@ entsteht im Hintergrund, die Karte unter Deine Seiten zeigt den Fortschritt.
 Welche Darstellung ein Abschnitt bekommt, entscheidet das System nach dem Inhalt: Begriffe als
 Karten, ein Vorgehen als Schritte, Messwerte als Diagramm, Vergleiche als Tabelle. Dazu kommen
 eine Kurzfassung, eine Mindmap über alle Abschnitte, eine Wortwolke der Fachwörter und oben ein
-Bild, das für das Thema der ganzen Seite steht. Im Leitfaden ist das Bild ein eigener Abschnitt
-über dem Titelkasten, Sie verschieben, verbergen oder löschen es wie jeden Abschnitt. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie
+Bild, das für das Thema der ganzen Seite steht. Das Bild ist ein eigener Abschnitt
+über dem Titel, Sie verschieben, verbergen oder löschen es wie jeden Abschnitt. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie
 fasst nur zusammen.
 
 Unter dem Titel steht nur, dass die Seite mit KI erstellt wurde. Woraus und womit, zeigt das

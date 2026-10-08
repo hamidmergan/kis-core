@@ -80,15 +80,15 @@ def test_draft_builds_title_gist_map_sections_and_cloud():
     quelle = Source(dateiname="Skript.pdf", fassung="x", text=stoff, stuecke=[], seiten=1)
     seite = pl.draft(plan, bloecke, frame, sources=[quelle], language="German")
     ids = [s["id"] for s in seite["sections"]]
-    assert ids == ["top", "gist", "map", "s1", "s2", "s3", "s4", "words"]
+    assert ids == [pl.COVER_ID, "top", "gist", "map", "s1", "s2", "s3", "s4", "words"]
     assert seite["sections"][0]["blocks"][0]["src"] == pl.HERO_IMAGE
     # One picture per page, at the top, an older frame's section picture is left out.
     assert [b["src"] for x in seite["sections"] for b in x["blocks"] if b["kind"] == "image"] == [pl.HERO_IMAGE]
     assert seite["footer"] == ""
     fertig = pl.finish(schema.clean_page(seite), today=__import__("datetime").date(2026, 10, 8))
     # The page names no source, that stays with the owner behind the info icon.
-    assert fertig["sections"][0]["meta"].startswith("Erstellt mit KI am 08.10.2026, etwa ")
-    assert "Skript" not in fertig["sections"][0]["meta"]
+    assert fertig["sections"][1]["meta"].startswith("Erstellt mit KI am 08.10.2026, etwa ")
+    assert "Skript" not in fertig["sections"][1]["meta"]
 
 
 def test_long_highlight_key_becomes_text_and_dashes_go():
@@ -110,7 +110,7 @@ def test_only_one_blue_box_and_the_design_is_kept():
     arten = [b["kind"] for s in seite["sections"] for b in s["blocks"]]
     assert arten.count("highlight") == 1
     assert seite["design"] == "guide"
-    # The guide opens with its picture as a section of its own above the title box.
+    # Every page opens with its picture as a section of its own above the title.
     assert seite["sections"][0]["id"] == pl.COVER_ID
     assert [b["src"] for b in seite["sections"][0]["blocks"]] == [pl.HERO_IMAGE]
     assert seite["sections"][1]["hero"] is True and seite["sections"][1]["blocks"] == []
@@ -136,12 +136,12 @@ def test_page_as_text_keeps_sections_and_spells_out_charts():
     assert "geheim" not in pt.as_text(page)
 
 
-def test_a_guide_page_gets_its_picture_from_the_title_when_the_frame_names_none():
+def test_a_page_gets_its_picture_from_the_title_when_the_frame_names_none():
     plan = Outline(title="Arbeitszeitgesetz", intro="Regeln.", sections=[Section(title="Pausen")])
     bloecke = {0: {"lead": "", "blocks": [{"kind": "text", "text": "Nach sechs Stunden Pause."}], "keywords": []}}
     quelle = Source(dateiname="AZG.pdf", fassung="x", text="Pause", stuecke=[], seiten=1)
-    seite = pl.draft(plan, bloecke, {"design": "guide", "hero_prompt": ""}, sources=[quelle], language="German")
+    seite = pl.draft(plan, bloecke, {"design": "chapters", "hero_prompt": ""}, sources=[quelle], language="German")
     bild = seite["sections"][0]["blocks"][0]
     assert seite["sections"][0]["id"] == pl.COVER_ID
     assert bild["src"] == pl.HERO_IMAGE and "Arbeitszeitgesetz" in bild["prompt"]
-    assert pl.hero_size(seite) == pl.BANNER_SIZE
+    assert seite["sections"][1]["hero"] is True and seite["sections"][1]["blocks"] == []

@@ -20,17 +20,18 @@
 .kis-page h1, .kis-page h2 { hyphens: manual; overflow-wrap: break-word; }
 .kis-page h2 { color: var(--pg-ink); font-weight: 700; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -0.022em; margin: 0 0 12px; }
 .kis-page .lead { font-size: 20px; line-height: 1.5; color: var(--pg-ink-soft); margin: 0; }
-.kis-page .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 48px; align-items: center; padding-top: 72px; }
-.kis-page .hero.solo { grid-template-columns: minmax(0, 1fr); }
+/* The title picture stands wide above, title, lead and meta line follow below it. */
+.kis-page .hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 40px; }
+.kis-page .hero .hero-text { max-width: 820px; }
 .kis-page .hero h1 { font-weight: 800; font-size: clamp(44px, 6vw, 76px); line-height: 0.98; letter-spacing: -0.035em; margin: 0 0 20px; color: var(--pg-ink); }
-.kis-page .hero .lead { font-size: 21px; max-width: 30ch; margin-bottom: 18px; }
+.kis-page .hero .lead { font-size: 21px; max-width: 46ch; margin-bottom: 18px; }
 .kis-page .meta { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; }
-.kis-page .hero img { display: block; width: 100%; height: auto; border-radius: 20px; }
+.kis-page .hero img { display: block; width: 100%; height: auto; border-radius: 20px; aspect-ratio: 21 / 9; object-fit: cover; }
 /* A long title steps down in size instead of stacking single words. */
 .kis-page .hero.t-l h1 { font-size: clamp(36px, 4.6vw, 58px); }
 .kis-page .hero.t-xl h1 { font-size: clamp(32px, 3.6vw, 46px); }
 @media (max-width: 640px) { .kis-page .hero.t-word h1, .kis-page.d-guide .hero.t-word h1 { font-size: 28px; } }
-@media (max-width: 900px) { .kis-page .hero { grid-template-columns: minmax(0, 1fr); gap: 26px; padding-top: 32px; } }
+@media (max-width: 900px) { .kis-page .hero { gap: 26px; padding-top: 32px; } }
 .kis-page .blk { margin-top: 26px; }
 .kis-page .duo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: center; margin-top: 26px; background: var(--pg-mist); border-radius: 20px; padding: 24px; }
 .kis-page .duo .blk { margin-top: 0; }
@@ -136,12 +137,6 @@
 .kis-page .pfoot p { margin: 0; }
 
 /* ---------- the four looks of a page ---------- */
-/* Banner: timeline and magazine open with the picture across the whole width, the title below. */
-.kis-page .hero.banner { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 40px; }
-.kis-page .hero.banner .hero-text { max-width: 820px; }
-.kis-page .hero.banner .lead { max-width: 46ch; }
-.kis-page .hero.banner img { aspect-ratio: 21 / 9; object-fit: cover; }
-
 /* Chapters: the subject's sections carry their number, it is a sequence. */
 .kis-page.d-chapters section.content .txt { position: relative; }
 .kis-page.d-chapters .chap { display: block; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--pg-soft); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
@@ -162,19 +157,17 @@
 .kis-page.d-magazine section.content.band .panel { background: var(--pg-cell); }
 .kis-page.d-magazine section.content.band + section { padding-top: 96px; }
 
-/* Guide: a calm title band without a picture, headings on the left, the content on the right. */
-/* The guide's picture is a section of its own above the title box, as wide as the box. */
+/* The title picture is a section of its own above the title, as wide as the page. */
 .kis-page section.cover { padding-top: 0; }
 .kis-page section.cover .blk { margin-top: 0; }
 .kis-page section.cover .img img { max-height: none; aspect-ratio: 21 / 9; object-fit: cover; border-radius: 20px; }
-.kis-page.d-guide section.cover ~ section.hero { margin-top: 24px; padding-top: 0; }
-.kis-page.editing.d-guide section.cover ~ section.hero { margin-top: 64px; }
+.kis-page section.cover ~ section.hero { margin-top: 32px; padding-top: 0; }
+.kis-page.editing section.cover ~ section.hero { margin-top: 64px; }
 .kis-page.editing section.cover { padding-top: 8px; }
 .kis-page.editing section.cover::before { top: 0; }
-/* The guide's title sits in a calm box, an older page's picture runs wide right under it. */
-.kis-page.d-guide .hero { grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 40px; }
-.kis-page.d-guide .hero-text { background: var(--pg-mist); border-radius: 20px; padding: 48px 40px; }
-.kis-page.d-guide .hero img { aspect-ratio: 21 / 9; object-fit: cover; }
+/* Guide: the title sits in a calm box. */
+.kis-page.d-guide .hero { gap: 24px; margin-top: 40px; }
+.kis-page.d-guide .hero-text { max-width: none; background: var(--pg-mist); border-radius: 20px; padding: 48px 40px; }
 @media (max-width: 640px) { .kis-page.d-guide .hero-text { padding: 28px 22px; } }
 .kis-page.d-guide .hero h1 { font-size: clamp(34px, 4.4vw, 54px); }
 .kis-page.d-guide .hero .lead { max-width: 60ch; }

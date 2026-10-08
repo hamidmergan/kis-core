@@ -309,8 +309,7 @@ def draw_page_image(job_uuid: str, body: DrawBody, current_user: dict = Depends(
     if body.wrap:
         params = json.loads(get_job_file_text_or(user_id, job_uuid, PARAMS_FILE) or "{}")
         wunsch = pl.image_prompt(wunsch, params.get("image_style") or "")
-    page, _ = load_page(user_id, job_uuid)
-    groesse = pl.hero_size(page or {}) if body.hero else pl.SECTION_SIZE
+    groesse = pl.HERO_SIZE if body.hero else pl.SECTION_SIZE
     pt.mark_draw(user_id, job_uuid, name, "pending")
     pt.draw_image.delay(user_id, job_uuid, name, wunsch, groesse)
     return {"src": name, "prompt": wunsch}

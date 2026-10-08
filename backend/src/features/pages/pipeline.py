@@ -67,15 +67,10 @@ IMAGE_STYLE = (
 NO_TEXT = ("Absolutely no text, letters, numbers, words, labels, signs, logos, charts, diagrams, "
            "calendars or screens.")
 HERO_IMAGE = "img_0.webp"
-HERO_SIZE = "1536x864"
-# The banner looks run the title picture across the whole width.
-BANNER_SIZE = "1536x656"
+# The title picture runs across the whole width above the title.
+HERO_SIZE = "1536x656"
 SECTION_SIZE = "1152x864"
-# Designs that open with a wide picture above the title, and every design whose title picture is wide.
-BANNER_DESIGNS = ("timeline", "magazine")
-WIDE_HERO_DESIGNS = BANNER_DESIGNS + ("guide",)
-# Designs whose picture stands above the title as a section of its own, and that section's id.
-COVER_DESIGNS = ("guide",)
+# The id of the section that holds the title picture above the title.
 COVER_ID = "cover"
 MIN_MAP_SECTIONS = 4
 # Words a reader gets through per minute, for the reading time under the title.
@@ -240,12 +235,8 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     motiv = str(frame.get("hero_prompt") or "").strip() or f"a calm symbolic scene that stands for the topic {titel}"
     bild = {"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
             "prompt": image_prompt(motiv, image_style), "caption": ""}
-    if design in COVER_DESIGNS:
-        # The picture is a section of its own above the title box, the owner moves or hides it alone.
-        seiten = [{"id": COVER_ID, "title": "", "lead": "", "blocks": [bild]}, hero]
-    else:
-        hero["blocks"].append(bild)
-        seiten = [hero]
+    # The picture is a section of its own above the title, the owner moves or hides it alone.
+    seiten = [{"id": COVER_ID, "title": "", "lead": "", "blocks": [bild]}, hero]
 
     kurz_bloecke: list[dict] = []
     if gist:
@@ -298,11 +289,6 @@ def _one_highlight(listen: list[list[dict]]) -> None:
                 teile = [str(b.get("key") or "").strip(), str(b.get("text") or "").strip()]
                 bloecke[k] = {"kind": "text", "text": ": ".join(x for x in teile if x)}
             gesehen = True
-
-
-def hero_size(page: dict) -> str:
-    """The pixel size of the title picture, wide for the banner looks."""
-    return BANNER_SIZE if page.get("design") in WIDE_HERO_DESIGNS else HERO_SIZE
 
 
 def _words_on(page: dict) -> int:
