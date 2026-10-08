@@ -252,7 +252,7 @@ def test_denker_ohne_wirksamen_schalter_bekommt_auch_keine():
 
 
 
-# ── Budget capped by a window the admin entered ─────────────────────────────
+# ── Budget capped by a window entered by hand or measured ───────────────────
 
 def _fenster(monkeypatch, fenster, quelle):
     profil = None if fenster is None else ml.ModelProfile(fenster, quelle, False, "")
@@ -262,22 +262,70 @@ def _fenster(monkeypatch, fenster, quelle):
 def test_von_hand_gesetztes_kleines_fenster_deckelt(monkeypatch):
     """A local model with 32k tokens entered by hand must not get the 250k characters of a big one."""
     _fenster(monkeypatch, 32768, ml.QUELLE_GESETZT)
-    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == ml.context_chars(32768, ml.CHAT_SHARE)
-    assert ml.cap_for_admin_window(500000, ml.TOOL_SHARE) == ml.context_chars(32768, ml.TOOL_SHARE)
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == ml.context_chars(32768, ml.CHAT_SHARE)
+    assert ml.cap_for_window(500000, ml.TOOL_SHARE) == ml.context_chars(32768, ml.TOOL_SHARE)
 
 
 def test_von_hand_gesetztes_grosses_fenster_laesst_die_admin_zahl(monkeypatch):
     _fenster(monkeypatch, 262144, ml.QUELLE_GESETZT)
-    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000
 
 
-@pytest.mark.parametrize("quelle", [ml.QUELLE_GEMESSEN, ml.QUELLE_GELERNT, ml.QUELLE_UNBEKANNT])
-def test_gemessene_oder_gelernte_fenster_deckeln_nie(monkeypatch, quelle):
-    """Only the admin's own number may shrink the budget, nothing guessed or learned."""
+def test_gemessenes_kleines_fenster_deckelt_ohne_handeintrag(monkeypatch):
+    """Ollama reports its 32k itself, nobody has to enter it (Hamid, 08.10.2026)."""
+    _fenster(monkeypatch, 32768, ml.QUELLE_GEMESSEN)
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == ml.context_chars(32768, ml.CHAT_SHARE)
+
+
+def test_gemessenes_cloud_fenster_laesst_die_admin_zahlen(monkeypatch):
+    """GWDG measures 262k, every admin budget stays as it is."""
+    _fenster(monkeypatch, 262144, ml.QUELLE_GEMESSEN)
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000
+    assert ml.cap_for_window(500000, ml.TOOL_SHARE) == 500000
+    assert ml.cap_for_window(60000, ml.SPECIFIC_SHARE) == 60000
+
+
+@pytest.mark.parametrize("quelle", [ml.QUELLE_GELERNT, ml.QUELLE_UNBEKANNT])
+def test_gelernte_oder_unbekannte_fenster_deckeln_nie(monkeypatch, quelle):
+    """A learned window may stem from a rate limit, see 2cf4b55f."""
     _fenster(monkeypatch, 32768, quelle)
-    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000
+
+
+class _Antwort:
+    def __init__(self, daten):
+        self._daten = daten
+
+    def json(self):
+        return self._daten
+
+
+def test_ollama_meldet_das_fenster_des_geladenen_modells(monkeypatch):
+    import httpx
+    gesehen = []
+    def get(url, **kw):
+        gesehen.append(url)
+        return _Antwort({"models": [{"name": "gemma4:31b-mlx", "context_length": 32768}]})
+    monkeypatch.setattr(httpx, "get", get)
+    assert ml._loaded_window("http://host.docker.internal:11434/v1", "", "gemma4:31b-mlx") == 32768
+    assert gesehen == ["http://host.docker.internal:11434/api/ps"]
+
+
+def test_server_ohne_api_ps_liefert_kein_fenster(monkeypatch):
+    import httpx
+    def get(url, **kw):
+        raise httpx.ConnectError("404")
+    monkeypatch.setattr(httpx, "get", get)
+    assert ml._loaded_window("https://chat-ai.academiccloud.de/v1", "k", "gemma-4-31b-it") is None
+
+
+def test_messung_nimmt_das_gemeldete_fenster_wenn_die_probe_keins_nennt(monkeypatch):
+    monkeypatch.setattr(ml, "measure_with", lambda call: ml.ModelProfile(0, ml.QUELLE_UNBEKANNT, True, ""))
+    monkeypatch.setattr(ml, "_loaded_window", lambda base, key, model: 32768)
+    profil = ml.measure_provider_model("http://host.docker.internal:11434/v1", "", "gemma4:31b-mlx")
+    assert (profil.window_tokens, profil.source) == (32768, ml.QUELLE_GEMESSEN)
 
 
 def test_ohne_wissen_ueber_das_modell_bleibt_das_budget(monkeypatch):
     _fenster(monkeypatch, None, ml.QUELLE_GESETZT)
-    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000

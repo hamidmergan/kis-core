@@ -59,5 +59,5 @@ cat <<EOF
 Ollama is ready. In KIS under Admin → AI:
   1. Add a provider with base URL http://host.docker.internal:11434/v1, no API key.
   2. Route chat and both translations to $CHAT_MODEL, embedding to $EMBED_MODEL.
-  3. Enter the context window 32768 by hand for $CHAT_MODEL.
+KIS reads the context window from Ollama itself.
 EOF

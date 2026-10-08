@@ -126,7 +126,7 @@ async def campus_chat(
     query, answer_language = await asyncio.to_thread(_understand, llm, question, rounds)
     context = await asyncio.to_thread(
         retrieval.build_context, query, _embed_one, chunk_repo.hybrid_search, chunk_repo.neighbors,
-        budget=model_limits.cap_for_admin_window(CAMPUS_CONTEXT_MAX_CHARS, model_limits.CHAT_SHARE),
+        budget=model_limits.cap_for_window(CAMPUS_CONTEXT_MAX_CHARS, model_limits.CHAT_SHARE),
     )
 
     # Whoever stopped during the search leaves nothing behind, the chat is only written now.

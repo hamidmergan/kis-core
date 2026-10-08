@@ -23,13 +23,13 @@ def context_budget() -> int:
         value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_CONTEXT_MAX_CHARS
-    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
-                                             model_limits.CHAT_SHARE)
+    return model_limits.cap_for_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
+                                       model_limits.CHAT_SHARE)
 
 
 def tool_context_budget() -> int:
     """Character budget of the overview tools, the same admin field for all of them."""
-    return model_limits.cap_for_admin_window(_tool_field(), model_limits.TOOL_SHARE)
+    return model_limits.cap_for_window(_tool_field(), model_limits.TOOL_SHARE)
 
 
 def _tool_field() -> int:
@@ -43,7 +43,7 @@ def _tool_field() -> int:
 
 
 def small_model() -> bool:
-    """True when an admin-entered window shrinks the tools' budget, the tools then work in smaller steps."""
+    """True when a known small window shrinks the tools' budget, the tools then work in smaller steps."""
     return tool_context_budget() < _tool_field()
 
 
@@ -64,8 +64,8 @@ def specific_context_budget() -> int:
         value = int(db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_SPECIFIC_MAX_CHARS
-    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
-                                             model_limits.SPECIFIC_SHARE)
+    return model_limits.cap_for_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
+                                       model_limits.SPECIFIC_SHARE)
 
 
 def select_chunks_for_budget(

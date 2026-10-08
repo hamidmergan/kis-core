@@ -227,7 +227,30 @@ def measure_provider_model(base_url: str, api_key: str, model: str) -> ModelProf
     def call(**kwargs):
         return client.chat.completions.create(model=model, **kwargs)
 
-    return measure_with(call)
+    profil = measure_with(call)
+    if profil.window_tokens <= 0:
+        fenster = _loaded_window(base_url, api_key, model)
+        if fenster:
+            profil.window_tokens, profil.source = fenster, QUELLE_GEMESSEN
+    return profil
+
+
+def _loaded_window(base_url: str, api_key: str, model: str) -> int | None:
+    """The window the server reports for the model the probe just loaded, Ollama names it under /api/ps."""
+    import httpx
+
+    root = (base_url or "").rstrip("/").removesuffix("/v1")
+    try:
+        antwort = httpx.get(f"{root}/api/ps", timeout=5.0,
+                            headers={"Authorization": f"Bearer {api_key}"} if api_key else None)
+        modelle = antwort.json().get("models") or []
+    except Exception:  # noqa: BLE001 — other servers do not know the address, that is no error
+        return None
+    for eintrag in modelle:
+        if model in (eintrag.get("name"), eintrag.get("model")):
+            fenster = eintrag.get("context_length")
+            return fenster if isinstance(fenster, int) and fenster > 0 else None
+    return None
 
 
 # ── Speicher davor ──────────────────────────────────────────────────────────
@@ -413,10 +436,10 @@ def cap_for_provider_model(budget_chars: int, share: float, provider_id: int, mo
     return _capped(budget_chars, share, stored_profile(provider_id, model))
 
 
-def cap_for_admin_window(budget_chars: int, share: float, feature: str = "chat") -> int:
-    """Trims a budget only to a window an admin entered by hand, measured or learned sizes never decide."""
+def cap_for_window(budget_chars: int, share: float, feature: str = "chat") -> int:
+    """Trims a budget to a window entered by hand or measured, a learned one may stem from a rate limit."""
     profil = profile_for_feature(feature)
-    if profil is None or profil.source != QUELLE_GESETZT or profil.window_tokens <= 0:
+    if profil is None or profil.source not in (QUELLE_GESETZT, QUELLE_GEMESSEN) or profil.window_tokens <= 0:
         return budget_chars
     return min(budget_chars, context_chars(profil.window_tokens, share))
 

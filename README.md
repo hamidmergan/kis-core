@@ -64,7 +64,7 @@ Speech and local models run outside the stack and are reached by base URL, for e
 `http://host.docker.internal:11434/v1`.
 
 The study assistant works best with a large context window, we run it with 256k tokens. A smaller
-model works too once its window is entered by hand under **Admin → AI** (see below).
+model works too, KIS measures its window and sizes the context to fit.
 
 ### Fully local with Ollama
 
@@ -97,8 +97,9 @@ reliably.
    and no API key.
 3. Route chat, transcript translation and document translation to `gemma4:31b-mlx` (Mac) or
    `gemma4:31b` (NVIDIA), and embedding to `qwen3-embedding:4b`.
-4. Enter the context window `32768` by hand for the chat model. KIS then sizes its context,
-   and splits large mind maps into smaller steps, to fit the model.
+KIS reads the context window from Ollama when the route is saved, then sizes its context and
+splits large mind maps into smaller steps to fit the model. After changing `OLLAMA_CONTEXT_LENGTH`,
+clear the window field of the model under **Admin → AI** so KIS measures again.
 
 Changing the embedding model later means the sources have to be indexed again.
 
