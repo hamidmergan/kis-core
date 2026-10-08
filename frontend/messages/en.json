@@ -4732,6 +4732,25 @@
         "doc_translate": "Document translation",
         "transcript_translate": "Transcript translation"
       }
+    },
+    "providerStatus": {
+      "title": "AI provider availability",
+      "hint": "Each provider gets a short real request with the model KIS uses there.",
+      "loadError": "Could not load.",
+      "empty": "No provider set up.",
+      "statusActive": "answers",
+      "statusError": "does not answer",
+      "statusUnprobed": "not checked yet",
+      "hpcHint": "HPC is usually the fastest.",
+      "group": {
+        "chat": "Chat",
+        "tts": "Text to audio",
+        "image_gen": "Image generation"
+      },
+      "statusBusy": "busy",
+      "refresh": "Check now",
+      "checking": "Checking",
+      "checkedAt": "Checked at {time}"
     }
   },
   "manual": {

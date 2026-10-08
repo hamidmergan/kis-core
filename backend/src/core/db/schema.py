@@ -1814,6 +1814,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # The screencast_translate route is gone, the screencast reads doc_translate.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")
 
+            # The last real call per provider and function, for the availability page.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS provider_checks (
+                    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+                    feature     TEXT NOT NULL,
+                    status      TEXT NOT NULL,
+                    error       TEXT,
+                    checked_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (provider_id, feature)
+                )
+            """)
+
             # What a model can take, measured once instead of guessed in the admin area.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS model_limits (

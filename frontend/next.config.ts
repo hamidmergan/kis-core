@@ -175,6 +175,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/voices`,
       },
       {
+        source: "/api/providers/status",
+        destination: `${backendUrl}/providers/status`,
+      },
+      {
+        source: "/api/providers/status/refresh",
+        destination: `${backendUrl}/providers/status/refresh`,
+      },
+      {
         source: "/api/admin/:path*",
         destination: `${backendUrl}/admin/:path*`,
       },

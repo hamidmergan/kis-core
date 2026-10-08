@@ -4732,6 +4732,25 @@
         "doc_translate": "Dokumenten-Übersetzung",
         "transcript_translate": "Transkript-Übersetzung"
       }
+    },
+    "providerStatus": {
+      "title": "Erreichbarkeit der KI-Anbieter",
+      "hint": "Jeder Anbieter bekommt eine kurze echte Anfrage mit dem Modell, das KIS dort nutzt.",
+      "loadError": "Konnte nicht geladen werden.",
+      "empty": "Kein Anbieter eingerichtet.",
+      "statusActive": "antwortet",
+      "statusError": "antwortet nicht",
+      "statusUnprobed": "noch nicht geprüft",
+      "hpcHint": "HPC ist meist am schnellsten.",
+      "group": {
+        "chat": "Chat",
+        "tts": "Text in Audio",
+        "image_gen": "Bildgenerierung"
+      },
+      "statusBusy": "ausgelastet",
+      "refresh": "Jetzt prüfen",
+      "checking": "Wird geprüft",
+      "checkedAt": "Geprüft um {time}"
     }
   },
   "manual": {

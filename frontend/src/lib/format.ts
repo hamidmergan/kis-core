@@ -2,9 +2,11 @@ function intlTag(locale: string): string {
   return locale === "en" ? "en-GB" : "de-DE";
 }
 
-/** Backend timestamps carry no zone marker but are UTC. */
+// Most backend timestamps carry no zone marker but are UTC; a few (timestamptz columns) already carry an offset.
+const HAS_ZONE = /[Zz]|[+-]\d{2}:\d{2}$/;
+
 export function toMs(dateStr: string): number {
-  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime();
+  return new Date(HAS_ZONE.test(dateStr) ? dateStr : dateStr + "Z").getTime();
 }
 
 export function formatDate(dateStr: string, locale: string = "de"): string {

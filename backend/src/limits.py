@@ -120,6 +120,13 @@ LLM_LARGE_INPUT_CHARS         = 100_000
 LLM_LARGE_INPUT_SHARE         = 5
 # How long a first choice that did not answer is skipped when it names no time of its own.
 PROVIDER_DOWN_SECONDS         = 60
+# The availability page checks with real calls, which cost quota at GWDG (1000 a day for prod and dev
+# together), so only on opening when the last check is older than this, never in the background.
+PROVIDER_CHECK_MAX_AGE_SECONDS = 600
+# The refresh button runs real calls again at most this often, however many people press it.
+PROVIDER_CHECK_MIN_GAP_SECONDS = 60
+# A check waits this long for a seat, a provider whose seats stay full is busy with our own jobs.
+PROVIDER_CHECK_SEAT_WAIT_SECONDS = 20
 
 # How many slides are voiced at once per screencast, more than the provider's seats only waits.
 SCREENCAST_TTS_PARALLELISM = TTS_PROVIDER_MAX_CONCURRENT
