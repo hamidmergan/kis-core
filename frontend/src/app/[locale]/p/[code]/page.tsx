@@ -1,14 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import SharedView from "../../tools/pages/_components/SharedView";
 
 export default function SharedPagePage() {
   const { code } = useParams<{ code: string }>();
-  return (
-    <ProtectedRoute>
-      <SharedView code={code} />
-    </ProtectedRoute>
-  );
+  // The view asks for the login itself, only when the owner keeps the link to KIS accounts.
+  return <SharedView code={code} />;
 }

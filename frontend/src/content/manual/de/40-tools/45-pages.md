@@ -52,12 +52,15 @@ Bearbeiten erscheinen dort nicht.
 ## Teilen
 
 Jede Seite ist zunächst privat. Der Schalter auf der Karte oder das Teilen-Symbol im Editor
-macht sie teilbar, Sie bekommen einen Link. Öffnen können ihn nur Personen mit KIS-Konto, sie
-sehen die Vorschau und können nichts ändern. Schalten Sie zurück auf Privat, funktioniert der
-Link nicht mehr. Schalten Sie wieder ein, gilt derselbe Link.
+macht sie teilbar, Sie bekommen einen Link. Wer ihn öffnet, sieht die Vorschau und kann nichts
+ändern. Im Teilen-Fenster legen Sie fest, für wen der Link gilt: Mit KIS-Konto heißt, nur
+angemeldete Personen öffnen ihn. Alle mit dem Link heißt, auch Personen ohne Konto, etwa Gäste
+einer Veranstaltung. Die Seite ist auch dann nirgends gelistet, Suchmaschinen sollen sie nicht
+aufnehmen. Schalten Sie zurück auf Privat, funktioniert der Link nicht mehr. Schalten Sie wieder
+ein, gilt derselbe Link.
 
 Ihre Sammelseite zeigt alle Seiten, die Sie gerade teilen, unter einem festen Link. Neue geteilte
-Seiten erscheinen dort von selbst.
+Seiten erscheinen dort von selbst. Wer ohne Konto kommt, sieht dort nur die Seiten für alle.
 
 ## Sprachen
 

@@ -20,8 +20,12 @@ export default function CollectionView({ code }: { code: string }) {
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
-    api.getCollection(code).then(setData).catch(() => setGone(true));
-  }, [code]);
+    api.getCollection(code).then(setData).catch((e) => {
+      // A link for KIS accounts only, after the login the person lands here again.
+      if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/u/${code}`)}`);
+      else setGone(true);
+    });
+  }, [code, router]);
 
   if (gone) {
     return (

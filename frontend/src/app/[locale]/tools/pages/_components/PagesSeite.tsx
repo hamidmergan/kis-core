@@ -161,7 +161,7 @@ export default function PagesSeite() {
     setList({
       ...list,
       collection: res.collection,
-      pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, code: res.code } : x)),
+      pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, public: res.public, code: res.code } : x)),
     });
   };
 
@@ -414,7 +414,7 @@ export default function PagesSeite() {
                             <div className="mx-3.5 mb-3.5 mt-2"><Spinner size="xs" label={undefined} /></div>
                           ) : (
                             <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
-                              {open ? <ShareSwitch on={p.shared} onToggle={(on) => toggleShare(p, on)} /> : <span />}
+                              {open ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} /> : <span />}
                               <div className="flex items-center gap-1.5">
                                 {open && p.shared && p.code && (
                                   <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />

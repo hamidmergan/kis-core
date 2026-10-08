@@ -24,7 +24,7 @@ def list_pages(user_id: int) -> list[dict]:
             cur.execute(
                 """SELECT j.job_uuid, j.status, j.progress, j.original_filename, j.result_filename,
                           j.error_message, j.created_at, j.completed_at,
-                          s.code, COALESCE(s.enabled, FALSE) AS shared
+                          s.code, COALESCE(s.enabled, FALSE) AS shared, COALESCE(s.public, FALSE) AS public
                    FROM jobs j LEFT JOIN page_shares s ON s.job_uuid = j.job_uuid
                    WHERE j.user_id = %s AND j.tool = 'pages'
                    ORDER BY j.created_at DESC""",
@@ -43,23 +43,26 @@ def count_pages(user_id: int) -> int:
 def get_share(job_uuid: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT code, enabled, updated_at FROM page_shares WHERE job_uuid = %s",
+            cur.execute("SELECT code, enabled, public, updated_at FROM page_shares WHERE job_uuid = %s",
                         (job_uuid,))
             row = cur.fetchone()
             return dict(row) if row else None
 
 
-def set_share(job_uuid: str, user_id: int, on: bool) -> dict:
-    """Switches sharing, the code is made once and kept for every later switch."""
+def set_share(job_uuid: str, user_id: int, on: bool, public: bool | None = None) -> dict:
+    """Switches sharing, the code is made once and kept for every later switch.
+
+    ``public`` None keeps who the link opens for, so the switch on a card leaves it as it was.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                """INSERT INTO page_shares (job_uuid, user_id, code, enabled)
-                   VALUES (%s, %s, %s, %s)
+                """INSERT INTO page_shares (job_uuid, user_id, code, enabled, public)
+                   VALUES (%s, %s, %s, %s, COALESCE(%s, FALSE))
                    ON CONFLICT (job_uuid) DO UPDATE SET enabled = EXCLUDED.enabled,
-                       updated_at = NOW()
-                   RETURNING code, enabled""",
-                (job_uuid, user_id, new_code(), on),
+                       public = COALESCE(%s, page_shares.public), updated_at = NOW()
+                   RETURNING code, enabled, public""",
+                (job_uuid, user_id, new_code(), on, public, public),
             )
             row = cur.fetchone()
         conn.commit()
@@ -71,7 +74,7 @@ def shared_page(code: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                """SELECT j.job_uuid, j.user_id, j.status, u.display_name AS owner_name,
+                """SELECT j.job_uuid, j.user_id, j.status, s.public, u.display_name AS owner_name,
                           c.code AS collection_code
                    FROM page_shares s
                    JOIN jobs j ON j.job_uuid = s.job_uuid
@@ -123,8 +126,11 @@ def collection_code(user_id: int) -> str:
     raise RuntimeError("collection code not stored")
 
 
-def collection(code: str) -> dict | None:
-    """The owner behind a collection link and every page they share, None for an unknown link."""
+def collection(code: str, only_public: bool = False) -> dict | None:
+    """The owner behind a collection link and every page they share, None for an unknown link.
+
+    ``only_public`` leaves out what only a KIS account may read.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -139,8 +145,9 @@ def collection(code: str) -> dict | None:
                 """SELECT j.job_uuid, j.result_filename, s.code, s.updated_at, j.completed_at
                    FROM page_shares s JOIN jobs j ON j.job_uuid = s.job_uuid
                    WHERE j.user_id = %s AND s.enabled AND j.tool = 'pages' AND j.status = 'success'
+                     AND (s.public OR NOT %s)
                    ORDER BY j.created_at DESC""",
-                (owner["user_id"],),
+                (owner["user_id"], only_public),
             )
             return {**dict(owner), "pages": [dict(r) for r in cur.fetchall()]}
 

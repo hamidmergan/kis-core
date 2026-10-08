@@ -49,12 +49,14 @@ appear there.
 ## Sharing
 
 Every page starts private. The switch on the card or the share icon in the editor makes it
-shareable, you get a link. Only people with a KIS account can open it, they see the preview and
-cannot change anything. Switch back to private and the link stops working. Switch on again and
-the same link works again.
+shareable, you get a link. Whoever opens it sees the preview and cannot change anything. In the
+share window you set who the link is for: With KIS account means only people who are logged in
+open it. Anyone with the link means people without an account too, such as guests of an event.
+Even then the page is not listed anywhere, search engines are asked to leave it out. Switch back
+to private and the link stops working. Switch on again and the same link works again.
 
 Your collection shows every page you currently share under one fixed link. Newly shared pages
-appear there by themselves.
+appear there by themselves. Visitors without an account only see the pages shared with all.
 
 
 ## Languages

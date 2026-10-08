@@ -120,7 +120,7 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
   const [typing, setTyping] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [share, setShare] = useState({ shared: data.shared, code: data.code });
+  const [share, setShare] = useState({ shared: data.shared, isPublic: data.public, code: data.code });
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [layoutAt, setLayoutAt] = useState<number | null>(null);
@@ -314,11 +314,11 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, t]);
 
-  const toggleShare = async (on: boolean) => {
+  const toggleShare = async (on: boolean, isPublic?: boolean) => {
     setShareBusy(true);
     try {
-      const res = await api.setShare(uuid, on);
-      setShare({ shared: res.shared, code: res.code });
+      const res = await api.setShare(uuid, on, isPublic);
+      setShare({ shared: res.shared, isPublic: res.public, code: res.code });
     } finally {
       setShareBusy(false);
     }
@@ -422,8 +422,10 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
         shared={share.shared}
         link={share.code ? api.shareUrl(share.code) : null}
         busy={shareBusy}
-        onToggle={toggleShare}
+        onToggle={(on) => toggleShare(on)}
+        onAudience={(isPublic) => toggleShare(true, isPublic)}
       />
+        isPublic={share.isPublic}
     </EditCtx.Provider>
   );
 }

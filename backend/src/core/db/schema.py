@@ -716,6 +716,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_page_shares_user ON page_shares (user_id)")
+            # A shared page opens for anyone holding the link only when its owner says so.
+            cur.execute("ALTER TABLE page_shares ADD COLUMN IF NOT EXISTS public BOOLEAN NOT NULL DEFAULT FALSE")
             # One fixed link per person that lists every page they share.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS page_collections (

@@ -113,6 +113,8 @@ export interface PageCard {
   info: ErgebnisAngaben;
 }
 
+  /** The link opens without a KIS account. */
+  public: boolean;
 export interface PagesList {
   pages: PageCard[];
   collection: { code: string; count: number };
@@ -135,6 +137,8 @@ export interface OwnPage {
 }
 
 export interface SharedPage {
+  /** The link opens without a KIS account. */
+  public: boolean;
   page: Page;
   owner: { name: string; code: string | null };
   limits: Limits;

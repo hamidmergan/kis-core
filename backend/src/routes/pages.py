@@ -98,6 +98,7 @@ def _card(user_id: int, row: dict) -> dict:
         "info": angaben_lesen({"user_id": user_id, "job_uuid": row["job_uuid"], "tool": "pages"})
         if row["status"] == "success" else {},
         "shared": bool(row["shared"]),
+        "public": bool(row["public"]),
         "code": row["code"] if row["shared"] else None,
     }
 
@@ -207,7 +208,8 @@ def get_page(job_uuid: str, sprache: str = Query(""), current_user: dict = Depen
     share = repo.get_share(job_uuid) or {}
     return {
         "job_uuid": job_uuid, "page": page, "edited": edited, "limits": schema.limits(),
-        "shared": bool(share.get("enabled")), "code": share.get("code") if share.get("enabled") else None,
+        "shared": bool(share.get("enabled")), "public": bool(share.get("public")),
+        "code": share.get("code") if share.get("enabled") else None,
         "collection": repo.collection_code(job["user_id"]),
     }
 
@@ -413,6 +415,8 @@ def drop_page_language(job_uuid: str, key: str, current_user: dict = Depends(get
 
 class ShareBody(BaseModel):
     on: bool
+    # True opens the link without a KIS account, None keeps what the page had.
+    public: bool | None = None
 
 
 @router.put("/pages/{job_uuid}/share")
@@ -422,8 +426,9 @@ def share_page(job_uuid: str, body: ShareBody, current_user: dict = Depends(get_
     job = _own_job(job_uuid, current_user, locale)
     if job["status"] != "success":
         raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
-    share = repo.set_share(job_uuid, job["user_id"], body.on)
-    return {"shared": share["enabled"], "code": share["code"] if share["enabled"] else None,
+    share = repo.set_share(job_uuid, job["user_id"], body.on, body.public)
+    return {"shared": share["enabled"], "public": share["public"],
+            "code": share["code"] if share["enabled"] else None,
             "collection": {"code": repo.collection_code(job["user_id"]),
                            "count": repo.count_shared(job["user_id"])}}
 
@@ -439,19 +444,38 @@ def _image(user_id: int, job_uuid: str, name: str, locale: str) -> Response:
     return Response(content=data, media_type=art, headers={"Cache-Control": "private, max-age=86400"})
 
 
-def _shared(code: str, locale: str) -> tuple[dict, dict]:
+# A shared link is for the people it is given to, search engines leave it out.
+_NOINDEX = {"X-Robots-Tag": "noindex, nofollow, noarchive"}
+
+
+def _logged_in(user: dict) -> bool:
+    """A session that counts as a KIS account, an expired test access does not."""
+    if not user.get("user_id"):
+        return False
+    ablauf = user.get("access_expires_at")
+    try:
+        return not ablauf or datetime.fromisoformat(ablauf) > datetime.now()
+    except (TypeError, ValueError):
+        return False
+
+
+def _shared(code: str, user: dict, locale: str) -> tuple[dict, dict]:
+    """The page behind a link, 401 when only a KIS account may read it and the reader has none."""
     row = repo.shared_page(code) if _CODE.match(code) else None
     page = load_page(row["user_id"], row["job_uuid"])[0] if row and row["status"] == "success" else None
     if not row or page is None:
-        raise HTTPException(status_code=404, detail=t("pages.notShared", locale))
+        raise HTTPException(status_code=404, detail=t("pages.notShared", locale), headers=_NOINDEX)
+    if not row["public"] and not _logged_in(user):
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
     return row, page
 
 
 @shared_router.get("/pages/shared/{code}")
-def shared_page(code: str, sprache: str = Query(""), current_user: dict = Depends(get_current_user),
-                locale: str = Depends(get_locale)):
-    """A shared page for anyone logged in, in the asked language when it has one, hidden sections left out."""
-    row, page = _shared(code, locale)
+def shared_page(code: str, response: Response, sprache: str = Query(""),
+                current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
+    """A shared page for whoever its link is meant for, in the asked language, hidden sections left out."""
+    response.headers.update(_NOINDEX)
+    row, page = _shared(code, current_user, locale)
     gezeigt = pt.in_language(row["user_id"], row["job_uuid"], page, sprache)
     return {"page": schema.for_viewers(gezeigt), "owner": {"name": row["owner_name"], "code": row["collection_code"]},
             "limits": schema.limits(), "languages": pt.readable(row["user_id"], row["job_uuid"], page),
@@ -461,19 +485,26 @@ def shared_page(code: str, sprache: str = Query(""), current_user: dict = Depend
 @shared_router.get("/pages/shared/{code}/images/{name}")
 def shared_image(code: str, name: str, current_user: dict = Depends(get_current_user),
                  locale: str = Depends(get_locale)):
-    row, page = _shared(code, locale)
+    row, page = _shared(code, current_user, locale)
     if name not in pt.viewer_images(row["user_id"], row["job_uuid"], page):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
-    return _image(row["user_id"], row["job_uuid"], name, locale)
+    bild = _image(row["user_id"], row["job_uuid"], name, locale)
+    bild.headers.update(_NOINDEX)
+    return bild
 
 
 @shared_router.get("/pages/collection/{code}")
-def shared_collection(code: str, current_user: dict = Depends(get_current_user),
+def shared_collection(code: str, response: Response, current_user: dict = Depends(get_current_user),
                       locale: str = Depends(get_locale)):
-    """Every page one person shares, newest first, as cards."""
-    daten = repo.collection(code) if _CODE.match(code) else None
+    """Every page one person shares, newest first, as cards; without an account only the open ones."""
+    response.headers.update(_NOINDEX)
+    angemeldet = _logged_in(current_user)
+    daten = repo.collection(code, only_public=not angemeldet) if _CODE.match(code) else None
     if not daten:
-        raise HTTPException(status_code=404, detail=t("pages.collectionNotFound", locale))
+        raise HTTPException(status_code=404, detail=t("pages.collectionNotFound", locale), headers=_NOINDEX)
+    # Nothing open to show, the login may reveal the pages meant for KIS accounts.
+    if not angemeldet and not daten["pages"]:
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
     karten = []
     for row in daten["pages"]:
         page = load_page(daten["user_id"], row["job_uuid"])[0]

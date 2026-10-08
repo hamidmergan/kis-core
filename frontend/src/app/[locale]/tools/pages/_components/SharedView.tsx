@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
@@ -11,17 +12,22 @@ import { LanguageSwitch } from "./Languages";
 import PageBar from "./PageBar";
 import PageView from "./PageView";
 
-/** A shared page as anyone with a KIS account reads it, only the preview, never the editor. */
+/** A shared page as its link's readers see it, only the preview, never the editor. */
 export default function SharedView({ code }: { code: string }) {
   const t = useTranslations("tools.pages");
+  const router = useRouter();
   const [data, setData] = useState<SharedPage | null>(null);
   const [gone, setGone] = useState(false);
   // The language sits in the link, so a shared link can open the page in it directly.
   const [lang, setLang] = useState<string | null>(useSearchParams().get("sprache"));
 
   useEffect(() => {
-    api.getShared(code, lang).then(setData).catch(() => setGone(true));
-  }, [code, lang]);
+    api.getShared(code, lang).then(setData).catch((e) => {
+      // A link for KIS accounts only, after the login the person lands here again.
+      if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/p/${code}`)}`);
+      else setGone(true);
+    });
+  }, [code, lang, router]);
 
   const switchTo = (key: string) => {
     const url = new URL(window.location.href);

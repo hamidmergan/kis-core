@@ -4,18 +4,21 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
+import Tabs from "@/components/ui/Tabs";
 import ActiveToggle from "@/app/[locale]/workspace/_components/ActiveToggle";
 import { copyTextFromPromise } from "@/lib/clipboard";
 
 /** The share switch of a page, the module list's switch with the words of Pages. */
-export function ShareSwitch({ on, disabled, onToggle }: { on: boolean; disabled?: boolean; onToggle: (on: boolean) => void }) {
+export function ShareSwitch({ on, isPublic, disabled, onToggle }: {
+  on: boolean; isPublic?: boolean; disabled?: boolean; onToggle: (on: boolean) => void;
+}) {
   const t = useTranslations("tools.pages");
   return (
     <ActiveToggle
       active={on}
       disabled={disabled}
       onToggle={onToggle}
-      labels={{ on: t("shared"), off: t("private"), turnOn: t("shareOn"), turnOff: t("shareOff") }}
+      labels={{ on: isPublic ? t("sharedPublic") : t("shared"), off: t("private"), turnOn: t("shareOn"), turnOff: t("shareOff") }}
     />
   );
 }
@@ -47,13 +50,15 @@ interface ShareModalProps {
   open: boolean;
   onClose: () => void;
   shared: boolean;
+  isPublic: boolean;
   link: string | null;
   busy: boolean;
   onToggle: (on: boolean) => void;
+  onAudience: (isPublic: boolean) => void;
 }
 
-/** Sharing one page: the switch, and the link once it is on. */
-export function ShareModal({ open, onClose, shared, link, busy, onToggle }: ShareModalProps) {
+/** Sharing one page: the switch, who the link opens for, and the link once it is on. */
+export function ShareModal({ open, onClose, shared, isPublic, link, busy, onToggle, onAudience }: ShareModalProps) {
   const t = useTranslations("tools.pages");
   const [copied, setCopied] = useState(false);
   return (
@@ -64,8 +69,17 @@ export function ShareModal({ open, onClose, shared, link, busy, onToggle }: Shar
       title={t("shareModalTitle")}
       footer={<button type="button" className="px-4 py-2 text-sm btn-primary rounded-lg" onClick={onClose}>{t("done")}</button>}
     >
-      <ShareSwitch on={shared} disabled={busy} onToggle={onToggle} />
-      <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>{t("shareNote")}</p>
+      <ShareSwitch on={shared} isPublic={isPublic} disabled={busy} onToggle={onToggle} />
+      {shared && (
+        <Tabs<"intern" | "extern">
+          variant="pill"
+          className="mt-4"
+          active={isPublic ? "extern" : "intern"}
+          onChange={(k) => { if (!busy) onAudience(k === "extern"); }}
+          items={[{ key: "intern", label: t("audienceInternal") }, { key: "extern", label: t("audiencePublic") }]}
+        />
+      )}
+      <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>{shared && isPublic ? t("sharePublicNote") : t("shareNote")}</p>
       {shared && link && (
         <>
           <div className="flex gap-2 mt-4">
