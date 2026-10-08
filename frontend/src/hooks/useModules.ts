@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { canManage, type WorkspaceAccess } from "@/app/[locale]/workspace/_shared";
 
 export interface ModuleEntry {
   uuid: string;
@@ -16,6 +17,7 @@ interface WorkspaceRow {
   uuid: string;
   title: string;
   is_active?: boolean;
+  access?: WorkspaceAccess;
 }
 
 interface SourceRow {
@@ -24,7 +26,10 @@ interface SourceRow {
   status: string;
 }
 
-/** The real modules of this account, an inactive one is left out because it answers 423. */
+/**
+ * The real modules of this account. An inactive one only shuts out students, it answers them
+ * 423, so its owner and tutors still take material from it.
+ */
 export function useModules(selectedUuid: string) {
   const [modules, setModules] = useState<ModuleEntry[] | null>(null);
   const [sources, setSources] = useState<ModuleSource[] | null>(null);
@@ -35,7 +40,9 @@ export function useModules(selectedUuid: string) {
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: WorkspaceRow[]) => {
         if (cancelled) return;
-        setModules(rows.filter((m) => m.is_active !== false).map((m) => ({ uuid: m.uuid, title: m.title })));
+        setModules(rows
+          .filter((m) => m.is_active !== false || (!!m.access && canManage(m.access)))
+          .map((m) => ({ uuid: m.uuid, title: m.title })));
       })
       .catch(() => {
         if (!cancelled) setModules([]);
