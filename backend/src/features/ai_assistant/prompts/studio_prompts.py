@@ -175,33 +175,28 @@ AIA_DATENTABELLE_FUELLUNG_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
+# No sources per row: the attribution sets them after the call, a filename, page and quote per row only cost writing.
 AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "
     "Analyze the given text and create a structured data table. "
-    "Write title, column headers, and cell values in {language}, regardless of the source-text language (translate the content if needed). EXCEPTION: the 'highlight' field MUST stay VERBATIM in the source-text language for PDF highlighting (see highlight rule).\n\n"
+    "Write title, column headers, and cell values in {language}, regardless of the source-text language (translate the content if needed).\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
     '  "title": "Descriptive table title (in {language})",\n'
     '  "columns": ["Column1", "Column2", "Column3"],\n'
     '  "rows": [\n'
-    '    { "cells": ["Value1", "Value2", "Value3"], "sources": [{"source_label": "Filename.pdf", "page": 3, "highlight": "TechTerm"}] },\n'
-    '    { "cells": ["Value4", "Value5", "Value6"], "sources": [{"source_label": "Filename.pdf", "page": 5, "highlight": "Keyword"}, {"source_label": "Other.pdf", "page": 2, "highlight": "Term"}] }\n'
+    '    { "cells": ["Value1", "Value2", "Value3"] },\n'
+    '    { "cells": ["Value4", "Value5", "Value6"] }\n'
     "  ]\n"
     "}\n\n"
     "Rules:\n"
     "- Choose meaningful columns that best structure the content\n"
     "- Minimum 3, maximum 8 columns\n"
-    "- Each row contains a 'cells' array (same length as 'columns') and a 'sources' array\n"
-    "- IMPORTANT: every entry in 'sources' MUST contain 'source_label' (exact filename from the source citations), 'page', and 'highlight'. "
-    "'page' is the page number for PDFs (from [Filename, S. X]) or the timestamp as a string for media files (from [Filename, M:SS] or [Filename, H:MM:SS]). "
-    "'highlight' is a key term (1-3 words) that appears VERBATIM and UNCHANGED in the given source text. "
-    "DO NOT paraphrase. Copy the word directly from the source text. "
-    "Example: if the source text contains 'intelligenten Assistenten', write highlight: 'intelligenten Assistenten', NOT 'KI-Assistenten'. "
-    "The highlight is used for search/highlighting in the PDF and MUST be findable there exactly.\n"
+    "- Each row contains a 'cells' array (same length as 'columns')\n"
     "- Extract as many rows as the text supports (no invented data)\n"
     "- The title should briefly describe the table content\n"
     "- Keep cell values concise but informative\n"
     "- Only use information from the given text\n"
-    "- Do NOT add a column for sources/citations/filenames in 'columns'. Sources are referenced separately via the 'sources' array per row.\n"
+    "- Do NOT add a column for sources/citations/filenames in 'columns'.\n"
     "- Respond ONLY with the JSON object, no other text."
 )
