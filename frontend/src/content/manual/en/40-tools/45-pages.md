@@ -65,12 +65,11 @@ the pages shared with all. Copy its link there with the share icon at the top ri
 
 Every page comes in German and in English. German material gives a German page and right after
 it the English version, material in any other language the other way round. The second version
-takes one to two minutes longer, the languages icon in the editor shows how far it is. Readers
+takes one to two minutes longer, until then the language choice at the top is missing. Readers
 switch at the top right, and the link remembers the language.
 
-You edit the second version like the original. If you change the original afterwards, it
-shows as older than the page in the window. Update carries it over again and overwrites changes
-you made in this language. The learning assistant in a workspace reads only the original.
+Both versions are pages of their own. Edit changes the language chosen at the top, the other one
+stays as it is. The learning assistant in a workspace reads only the original.
 
 ## In a workspace
 

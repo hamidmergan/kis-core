@@ -68,13 +68,11 @@ sieht dort nur die Seiten für alle. Den Link kopieren Sie dort mit dem Teilen-S
 
 Jede Seite gibt es auf Deutsch und auf Englisch. Ist Ihr Material deutsch, entsteht die Seite auf
 Deutsch und gleich danach die englische Fassung, bei Material in jeder anderen Sprache umgekehrt.
-Die zweite Fassung braucht ein bis zwei Minuten länger, das Sprachen-Symbol im Editor zeigt den
-Stand. Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
+Die zweite Fassung braucht ein bis zwei Minuten länger, bis dahin fehlt oben die Sprachauswahl.
+Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
 
-Die zweite Fassung bearbeiten Sie wie das Original. Ändern Sie danach das Original, steht sie
-im Fenster als älter als die Seite. Aktualisieren überträgt sie neu und überschreibt dabei
-Änderungen, die Sie in dieser Sprache gemacht haben. Der Lernassistent im Workspace liest nur
-das Original.
+Beide Fassungen sind eigene Seiten. Bearbeiten ändert die Sprache, die oben gewählt ist, die
+andere bleibt, wie sie ist. Der Lernassistent im Workspace liest nur das Original.
 
 ## Im Workspace
 

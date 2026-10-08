@@ -33,10 +33,6 @@ export const suggestImage = (uuid: string) =>
 export const imageState = (uuid: string, name: string) =>
   backendApi.fetch(`/pages/${uuid}/images/${name}/state`).then((r) => json<{ state: "pending" | "done" | "failed" }>(r));
 export const getLanguages = (uuid: string) => backendApi.fetch(`/pages/${uuid}/languages`).then((r) => json<Languages>(r));
-export const addLanguage = (uuid: string, key: string) =>
-  send(`/pages/${uuid}/languages`, "POST", { key }).then((r) => json<Languages>(r));
-export const dropLanguage = (uuid: string, key: string) =>
-  send(`/pages/${uuid}/languages/${key}`, "DELETE").then((r) => json<Languages>(r));
 /** ``isPublic`` opens the link without a KIS account, left out it stays as it was. */
 export const setShare = (uuid: string, on: boolean, isPublic?: boolean) =>
   send(`/pages/${uuid}/share`, "PUT", { on, public: isPublic }).then((r) =>

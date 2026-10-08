@@ -12,7 +12,7 @@ import { clone, dropEmptyBlocks, getAt, imageCount, removeAt, setAt } from "../_
 import { LAYOUTS, type Block, type Heading, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { DataModal, ImageModal, LayoutModal } from "./EditModals";
-import { LanguageSwitch, LanguagesButton, LanguagesModal, readableOf } from "./Languages";
+import { LanguageSwitch, readableOf } from "./Languages";
 import PageBar from "./PageBar";
 import PageView, { type FieldKind } from "./PageView";
 import { ShareModal } from "./Sharing";
@@ -59,6 +59,9 @@ function reducer(h: History, a: Action): History {
   }
 }
 
+// A translation still running is asked for again at this pace.
+const POLL_MS = 4000;
+
 /** Compares two pages by content, the save stamp is no change. */
 const same = (a: Page, b: Page) => JSON.stringify({ ...a, saved_at: 0 }) === JSON.stringify({ ...b, saved_at: 0 });
 
@@ -74,6 +77,13 @@ export default function Editor({ uuid }: { uuid: string }) {
     api.getPage(uuid, lang).then(setLoaded).catch((e: Error) => setLoadError(e.message || t("loadFailed")));
   }, [uuid, lang, t]);
   useEffect(() => { api.getLanguages(uuid).then(setLanguages).catch(() => {}); }, [uuid]);
+  // The second language is written after the page, so it is asked for again until it is done.
+  const translating = !!languages?.languages.some((l) => l.state === "running");
+  useEffect(() => {
+    if (!translating) return;
+    const id = window.setInterval(() => { api.getLanguages(uuid).then(setLanguages).catch(() => {}); }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [translating, uuid]);
 
   if (loadError) {
     return (
@@ -91,7 +101,7 @@ export default function Editor({ uuid }: { uuid: string }) {
   }
   return (
     <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages}
-      onLanguages={setLanguages} onLang={(k) => setLang(k === languages?.own.key ? null : k)} />
+      onLang={(k) => setLang(k === languages?.own.key ? null : k)} />
   );
 }
 
@@ -100,7 +110,6 @@ interface LoadedProps {
   data: OwnPage;
   lang: string | null;
   languages: Languages | null;
-  onLanguages: (l: Languages) => void;
   onLang: (key: string) => void;
 }
 
@@ -112,7 +121,7 @@ function newId(page: Page): string {
   return id;
 }
 
-function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProps) {
+function Loaded({ uuid, data, lang, languages, onLang }: LoadedProps) {
   const t = useTranslations("tools.pages");
   const [h, dispatch] = useReducer(reducer, { rev: 0, page: data.page, past: [], future: [] });
   const [saved, setSaved] = useState<Page>(data.page);
@@ -127,7 +136,6 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
   // A new title picture becomes a section of its own, inserted at ``cover``.
   const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean; suggesting?: boolean; cover?: number } | null>(null);
   const [dataAt, setDataAt] = useState<string | null>(null);
-  const [langOpen, setLangOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // Pictures being drawn: the new name with the name and prompt it replaces.
   const [drawing, setDrawing] = useState<Map<string, { old: string; prompt: string; path: string }>>(new Map());
@@ -166,8 +174,6 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
       const res = await api.savePage(uuid, pageRef.current, lang);
       setSaved(res.page);
       dispatch({ type: "replace", page: res.page });
-      // A save of the page's own text leaves its languages behind, the button shows it.
-      if (!lang) api.getLanguages(uuid).then(onLanguages).catch(() => {});
     } catch {
       setSaveError(t("saveFailed"));
     } finally {
@@ -328,7 +334,7 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
     <EditCtx.Provider value={ctx}>
       <PageBar>
         <LanguageSwitch value={lang ?? languages?.own.key ?? ""} choices={readableOf(languages)} disabled={dirty}
-          title={dirty ? t("saveFirst") : undefined} onChange={onLang} className="hidden sm:block" />
+          title={dirty ? t("saveFirst") : undefined} onChange={onLang} />
         <Tabs<"edit" | "view">
           variant="pill"
           className="mr-1.5"
@@ -349,7 +355,6 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--success)", border: "2px solid var(--background)" }} />
           )}
         </button>
-        <LanguagesButton languages={languages} onClick={() => setLangOpen(true)} />
       </PageBar>
       {editing && (
         <div className="kis-page-hint px-4 py-1.5 text-xs" style={{ background: "rgba(var(--kb-rgb),.05)", borderBottom: "2px solid rgba(var(--kb-rgb),.15)", color: "var(--kb-dark)" }}>
@@ -417,9 +422,6 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
         onClose={() => setImageAt(null)} onDraw={draw} />
       <DataModal block={dataAt ? (getAt(h.page, dataAt) as DataBlock) : null} limits={limits} onClose={() => setDataAt(null)}
         onApply={(b) => { const at = dataAt!; setDataAt(null); change((p) => setAt(p, at, b)); }} />
-      <LanguagesModal open={langOpen} uuid={uuid} languages={languages} dirty={dirty}
-        onClose={() => setLangOpen(false)} onChange={onLanguages}
-        onEdit={(k) => { setLangOpen(false); onLang(k); }} />
       <ShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
