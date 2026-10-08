@@ -11,6 +11,7 @@ TOOLS_CONFIG = [
     {"key": "image",         "label": "Bild-KI"},
     {"key": "glossary",      "label": "Glossaries"},
     {"key": "summary",       "label": "Report"},
+    {"key": "pages",         "label": "Pages"},
     {"key": "campus",        "label": "Infoassistent"},
 ]
 
@@ -27,6 +28,7 @@ TOOL_LABELS = {
     "image_edit": "Bild-Bearbeitung",
     "image_analyze": "Bild-Analyse",
     "summary": "Report",
+    "pages": "Pages",
 }
 
 

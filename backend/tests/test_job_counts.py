@@ -126,5 +126,5 @@ def test_screencast_uebersetzung_gilt_als_screencast():
 
 def test_jedes_werkzeug_hat_einen_namen():
     """Otherwise the bars show an empty key instead of a name."""
-    assert len(WERKZEUGE) == 8
+    assert len(WERKZEUGE) == 9
     assert set(ZUSAMMEN.values()) <= set(WERKZEUGE)

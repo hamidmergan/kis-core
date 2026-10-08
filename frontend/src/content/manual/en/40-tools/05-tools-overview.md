@@ -9,6 +9,7 @@ the tag Teachers, it is aimed at teaching staff.
 - **Text to audio** reads texts and documents aloud
 - **Audio to text** writes audio and video down
 - **Report** brings several sources together into one text
+- **Pages** turns material into a learning page you can edit and share
 - **Screencast** turns slides into a narrated video
 - **Podcast** turns material into a conversation to listen to
 - **Presentation** turns material into a PowerPoint file in the university's design

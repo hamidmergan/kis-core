@@ -705,6 +705,24 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             )
             # The deadline is gone, only the pool of recent jobs counts now.
             cur.execute("UPDATE jobs SET expires_at = NULL WHERE expires_at IS NOT NULL")
+            # A page keeps its link when it is switched off and on again, the row goes with the page.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS page_shares (
+                    job_uuid   TEXT PRIMARY KEY REFERENCES jobs(job_uuid) ON DELETE CASCADE,
+                    user_id    INTEGER NOT NULL,
+                    code       TEXT NOT NULL UNIQUE,
+                    enabled    BOOLEAN NOT NULL DEFAULT FALSE,
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_page_shares_user ON page_shares (user_id)")
+            # One fixed link per person that lists every page they share.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS page_collections (
+                    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                    code    TEXT NOT NULL UNIQUE
+                )
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,

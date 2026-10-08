@@ -9,6 +9,7 @@ Marke Lehrende, sie richtet sich an Lehrende.
 - **Text in Audio** liest Texte und Dokumente vor
 - **Audio in Text** schreibt Audio und Video mit
 - **Report** führt mehrere Materialien zu einem Text zusammen
+- **Pages** macht aus Material eine Lernseite, die Sie ändern und teilen können
 - **Screencast** macht aus Folien ein vertontes Video
 - **Podcast** macht aus Material ein Gespräch zum Anhören
 - **Präsentation** macht aus Material eine PowerPoint-Datei im Design der Hochschule

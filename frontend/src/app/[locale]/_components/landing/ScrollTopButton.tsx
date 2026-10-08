@@ -28,7 +28,7 @@ export default function ScrollTopButton() {
       type="button"
       onClick={toTop}
       aria-label={t("toTop")}
-      className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-10 h-10 rounded-full btn-icon border border-border bg-background shadow-sm transition-colors"
+      className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-10 h-10 rounded-full btn-icon border border-border bg-background shadow-sm transition-colors print:hidden"
       data-testid="scroll-top"
     >
       <ArrowUp size={18} weight="bold" aria-hidden="true" />

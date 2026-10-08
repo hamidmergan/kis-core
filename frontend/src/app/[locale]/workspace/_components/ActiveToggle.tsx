@@ -6,10 +6,12 @@ interface ActiveToggleProps {
   active: boolean;
   disabled?: boolean;
   onToggle: (newVal: boolean) => void;
+  /** Other words for the same switch, a page in Pages is shared or private. */
+  labels?: { on: string; off: string; turnOn: string; turnOff: string };
 }
 
-/** The active switch of a module, shared by the module list and the sharing window. */
-export default function ActiveToggle({ active, disabled, onToggle }: ActiveToggleProps) {
+/** The active switch of a module, shared by the module list, the sharing window and Pages. */
+export default function ActiveToggle({ active, disabled, onToggle, labels }: ActiveToggleProps) {
   const t = useTranslations("workspace.list");
 
   return (
@@ -18,7 +20,9 @@ export default function ActiveToggle({ active, disabled, onToggle }: ActiveToggl
         type="button"
         role="switch"
         aria-checked={active}
-        aria-label={active ? t("deactivate", { label: "Workspace" }) : t("activate", { label: "Workspace" })}
+        aria-label={active
+          ? labels?.turnOff ?? t("deactivate", { label: "Workspace" })
+          : labels?.turnOn ?? t("activate", { label: "Workspace" })}
         onClick={(e) => { e.stopPropagation(); onToggle(!active); }}
         disabled={disabled}
         className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
@@ -31,7 +35,7 @@ export default function ActiveToggle({ active, disabled, onToggle }: ActiveToggl
         />
       </button>
       <span className="text-xs font-medium" style={{ color: active ? "var(--kb)" : "var(--muted)" }}>
-        {active ? t("active") : t("inactive")}
+        {active ? labels?.on ?? t("active") : labels?.off ?? t("inactive")}
       </span>
     </div>
   );

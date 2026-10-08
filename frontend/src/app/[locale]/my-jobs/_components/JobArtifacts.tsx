@@ -7,6 +7,7 @@ import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump
 import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 import { summaryJumpHref, summaryJumpKind } from "@/components/jobs/_summaryJump";
+import { pagesJumpHref, pagesJumpKind } from "@/components/jobs/_pagesJump";
 import { translateJumpHref, translateJumpKind } from "@/components/jobs/_translateJump";
 import { ttsJumpHref, ttsJumpKind } from "@/components/jobs/_ttsJump";
 import { sttJumpHref, sttJumpKind } from "@/components/jobs/_sttJump";
@@ -187,6 +188,16 @@ export function JobArtifacts({ job }: { job: MyJob }) {
           />
         )}
         {sprung === "open" && <OpenChip href={praesentationJumpHref(job.job_uuid)} label={t("openPraesentation")} />}
+      </div>
+    );
+  }
+
+  // Pages: a page lives in its editor, there is no file to download.
+  if (job.tool === "pages") {
+    if (pagesJumpKind(job) !== "open") return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <OpenChip href={pagesJumpHref(job.job_uuid)} label={t("openPage")} />
       </div>
     );
   }

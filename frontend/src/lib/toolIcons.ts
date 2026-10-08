@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  BookOpenText,
   ChatsCircle,
   Image as ImageIcon,
   Microphone,
@@ -23,6 +24,7 @@ export const TOOL_ICONS: Record<ToolKey, Icon> = {
   transcription: Microphone,
   image: ImageIcon,
   summary: TextAlignLeft,
+  pages: BookOpenText,
   glossary: BookOpen,
   screencast: MonitorPlay,
   podcast: MicrophoneStage,

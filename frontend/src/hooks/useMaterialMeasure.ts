@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { backendApi, parseDetail } from "@/lib/api";
 import { bilanz, dateiSchluessel, MAX_MATERIAL_CHARS, type Messung } from "@/lib/materialMeasure";
 
-export type Dienst = "podcast" | "praesentation" | "summary" | "screencast";
+export type Dienst = "podcast" | "praesentation" | "summary" | "screencast" | "pages";
 
 type Auftrag = { key: string; file?: File; sourceId?: string };
 

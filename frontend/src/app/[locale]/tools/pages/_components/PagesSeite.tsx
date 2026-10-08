@@ -1,0 +1,422 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { BookOpenText, Trash } from "@phosphor-icons/react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
+import Spinner from "@/components/ui/Spinner";
+import Select from "@/components/ui/Select";
+import Tabs from "@/components/ui/Tabs";
+import Checkbox from "@/components/ui/Checkbox";
+import Modal from "@/components/ui/Modal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import { useRouter } from "@/i18n/navigation";
+import { backendApi, parseDetail } from "@/lib/api";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
+import { notifyJobsChanged } from "@/lib/jobs-events";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
+import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
+import { useModules } from "@/hooks/useModules";
+import { usePermissions } from "@/hooks/usePermissions";
+import * as api from "../_lib/api";
+import type { PageCard, PagesList } from "../_lib/types";
+import { CopyButton, ShareSwitch } from "./Sharing";
+
+type SourceMode = "files" | "module";
+const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
+// A page in the making is asked for this often.
+const POLL_MS = 3000;
+const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
+
+/** The card picture: the page's first picture, a book when it has none. */
+export function Thumb({ src }: { src: string | null }) {
+  return (
+    <div className="relative overflow-hidden" style={{ aspectRatio: "16 / 9", background: "var(--tile-bg)" }}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session
+        <img src={src} alt="" className="block w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--kb60)" }}>
+          <BookOpenText size={44} weight="regular" aria-hidden="true" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function useDate() {
+  const locale = useLocale();
+  return (iso: string | null) =>
+    iso ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso)) : "";
+}
+
+export default function PagesSeite() {
+  const t = useTranslations("tools.pages");
+  const tCommon = useTranslations("common");
+  const router = useRouter();
+  const date = useDate();
+  const { providers, providerId, setProviderId } = useFeatureProviders("/pages/providers");
+  const { permissions } = usePermissions();
+  const [list, setList] = useState<PagesList | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [gewaehlterModus, setModus] = useState<SourceMode>("files");
+  const [moduleId, setModuleId] = useState("");
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [instructions, setInstructions] = useState("");
+  const [sending, setSending] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [toDelete, setToDelete] = useState<PageCard | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const extensions = list?.extensions ?? FALLBACK_EXTENSIONS;
+  const maxSources = list?.maxSources ?? 10;
+  const canUseModules = !!permissions.allow_aia;
+  const mode: SourceMode = canUseModules ? gewaehlterModus : "files";
+  const { modules, sources } = useModules(mode === "module" ? moduleId : "");
+  const messung = useMaterialMeasure("pages", mode, files, moduleId, sourceIds);
+  const hatInhalt = mode === "files" ? files.length > 0 : sourceIds.length > 0;
+  const full = files.length >= maxSources;
+  const voll = sourceIds.length >= maxSources;
+
+  const load = useCallback(() => api.listPages().then(setList).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+
+  // While a page is being made, its card follows the run.
+  const running = !!list?.pages.some((p) => RUNNING.has(p.status));
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setInterval(load, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [running, load]);
+
+  useEffect(() => {
+    if (!sources) return;
+    const vorhanden = new Set(sources.map((q) => q.uuid));
+    setSourceIds((alt) => alt.filter((id) => vorhanden.has(id)));
+  }, [sources]);
+
+  const addFiles = (neue: File[]) => {
+    setUploadError(null);
+    setErrorMessage("");
+    setFiles((alt) => {
+      const gesamt = [...alt];
+      for (const f of neue) {
+        const ext = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
+        if (!extensions.includes(ext)) { setUploadError(tCommon("onlyExtsAllowed", { exts: extensions.join(", ") })); continue; }
+        if (f.size > MAX_UPLOAD_BYTES) { setUploadError(tCommon("fileTooLarge", { n: MAX_UPLOAD_MB })); continue; }
+        if (gesamt.length >= maxSources) { setUploadError(t("tooManySources", { max: maxSources })); break; }
+        if (!gesamt.some((g) => g.name === f.name && g.size === f.size)) gesamt.push(f);
+      }
+      return gesamt;
+    });
+  };
+
+  const submit = async () => {
+    if (!hatInhalt || !messung.ready || sending) return;
+    setSending(true);
+    setErrorMessage("");
+    try {
+      const form = new FormData();
+      form.append("mode", mode);
+      if (mode === "files") files.forEach((f) => form.append("files", f));
+      else {
+        form.append("workspace_uuid", moduleId);
+        form.append("source_uuids", JSON.stringify(sourceIds));
+      }
+      if (providerId != null) form.append("provider_id", String(providerId));
+      if (instructions.trim()) form.append("instructions", instructions.trim());
+      const res = await backendApi.fetch("/pages", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
+      }
+      notifyJobsChanged();
+      setFiles([]);
+      setSourceIds([]);
+      setInstructions("");
+      await load();
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const toggleShare = async (p: PageCard, on: boolean) => {
+    const res = await api.setShare(p.job_uuid, on).catch(() => null);
+    if (!res || !list) return;
+    setList({
+      ...list,
+      collection: res.collection,
+      pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, code: res.code } : x)),
+    });
+  };
+
+  const remove = async () => {
+    if (!toDelete) return;
+    await api.deletePage(toDelete.job_uuid).catch(() => {});
+    setToDelete(null);
+    notifyJobsChanged();
+    load();
+  };
+
+  const stepText = (p: PageCard) => {
+    const s = p.progress?.step;
+    if (!s || !t.has(`step.${s}`)) return t("creating");
+    return typeof p.progress.part === "number" && typeof p.progress.total === "number" && p.progress.part > 0
+      ? t(`step.${s}Counted`, { part: p.progress.part, total: p.progress.total })
+      : t(`step.${s}`);
+  };
+
+  return (
+    <ProtectedRoute>
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <ToolBackLink />
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <p className="text-sm text-muted mb-6">{t("intro")}</p>
+
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
+          <section className="min-w-0 self-start rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
+            {canUseModules && (
+              <Tabs<SourceMode>
+                className="mb-4"
+                active={mode}
+                onChange={(next) => { setModus(next); setUploadError(null); setErrorMessage(""); }}
+                items={[{ key: "files", label: t("tabs.files") }, { key: "module", label: "Workspace" }]}
+              />
+            )}
+
+            {mode === "files" ? (
+              <>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t("selectFileAria")}
+                  onClick={() => !sending && !full && inputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && !sending && !full) { e.preventDefault(); inputRef.current?.click(); }
+                  }}
+                  onDrop={(e) => { e.preventDefault(); setDragActive(false); if (!sending) addFiles(Array.from(e.dataTransfer.files)); }}
+                  onDragOver={(e) => { e.preventDefault(); if (!sending && !full) setDragActive(true); }}
+                  onDragLeave={() => setDragActive(false)}
+                  className={[
+                    "border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-background",
+                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
+                    dragActive ? "border-kb bg-info-bg" : files.length ? "border-kb60" : "border-border hover:border-kb",
+                    sending || full ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <p className="text-sm font-medium text-muted">
+                    {tCommon("dropOrBrowse")} <span className="text-kb underline">{tCommon("browse")}</span>
+                  </p>
+                  <p className="text-xs text-muted-soft mt-1">{t("formats", { exts: extensions.join(", "), max: maxSources })}</p>
+                </div>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  accept={extensions.join(",")}
+                  onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); if (inputRef.current) inputRef.current.value = ""; }}
+                  className="hidden"
+                  aria-hidden="true"
+                />
+                {files.length > 0 && (
+                  <div className="mt-4">
+                    <MaterialGauge bilanz={messung} max={messung.max} />
+                    <ul className="space-y-1">
+                      {files.map((f, i) => (
+                        <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="truncate">{f.name}</span>
+                            <span className="flex items-center gap-3 shrink-0">
+                              <MeasureNote messung={messung.forFile(f)} />
+                              {!sending && (
+                                <button type="button" onClick={() => setFiles((alt) => alt.filter((_, j) => j !== i))}
+                                  className="text-xs text-muted hover:text-foreground">
+                                  {t("removeFile")}
+                                </button>
+                              )}
+                            </span>
+                          </div>
+                          <MeasureError messung={messung.forFile(f)} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : modules === null ? (
+              <Spinner className="justify-center py-10" />
+            ) : modules.length === 0 ? (
+              <EmptyState size="sm" text={t("noModules")} />
+            ) : (
+              <div className="space-y-4">
+                <Select
+                  id="pages-module"
+                  ariaLabel="Workspace"
+                  value={moduleId}
+                  onChange={(uuid) => { setModuleId(uuid); setSourceIds([]); }}
+                  disabled={sending}
+                  placeholder={tCommon("pleaseSelect")}
+                  options={modules.map((m) => ({ value: m.uuid, label: m.title }))}
+                />
+                {moduleId && (sources === null ? (
+                  <Spinner className="justify-center py-6" />
+                ) : sources.length === 0 ? (
+                  <EmptyState size="sm" text={t("noSources")} />
+                ) : (
+                  <div>
+                    {sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
+                    <ul className="space-y-2">
+                      {sources.map((q) => (
+                        <li key={q.uuid}>
+                          <div className="flex items-center justify-between gap-3">
+                            <Checkbox
+                              checked={sourceIds.includes(q.uuid)}
+                              disabled={sending || (voll && !sourceIds.includes(q.uuid))}
+                              onChange={() => setSourceIds((alt) => alt.includes(q.uuid) ? alt.filter((id) => id !== q.uuid) : alt.length >= maxSources ? alt : [...alt, q.uuid])}
+                              label={q.filename}
+                              labelClassName="text-sm text-foreground"
+                            />
+                            {sourceIds.includes(q.uuid) && <MeasureNote messung={messung.forSource(q.uuid)} />}
+                          </div>
+                          {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>{t("tooManySources", { max: maxSources })}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploadError && <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>}
+
+            <div className="mt-6">
+              <label htmlFor="pages-instructions" className="block text-sm font-medium text-foreground mb-1">{t("instructionsLabel")}</label>
+              <textarea
+                id="pages-instructions"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                disabled={sending}
+                rows={3}
+                maxLength={500}
+                placeholder={t("instructionsPlaceholder")}
+                className="w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft resize-y"
+              />
+            </div>
+
+            <ProviderSelect id="pages-provider-select" label={t("providerLabel")} providers={providers} value={providerId}
+              onChange={setProviderId} disabled={sending} className="mt-6" showModel />
+
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!hatInhalt || !messung.ready || sending}
+                className="px-5 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {sending && <Spinner size="sm" color="current" />}
+                {t("submit")}
+              </button>
+            </div>
+            {errorMessage && <p className="mt-3 text-sm text-error" role="alert">{errorMessage}</p>}
+          </section>
+
+          <section className="min-w-0">
+            <h2 className="text-base font-semibold mb-2.5">{t("listTitle")}</h2>
+            {list === null ? (
+              <Spinner className="justify-center py-10" />
+            ) : (
+              <>
+                <div className="flex items-center gap-2.5 flex-wrap rounded-lg border border-border-soft bg-surface px-3 py-2.5 mb-3.5">
+                  <div className="flex-1 min-w-[200px] text-xs" style={{ color: "var(--foreground-soft)" }}>
+                    <b className="block text-sm font-semibold text-foreground">{t("collectionTitle")}</b>
+                    {t("collectionText", { count: list.collection.count })}
+                  </div>
+                  <CopyButton text={() => api.collectionUrl(list.collection.code)} label={t("collectionCopy")} />
+                  <button type="button" className="px-2.5 py-1 text-sm font-medium rounded-lg btn-ghost text-kb"
+                    onClick={() => router.push(`/u/${list.collection.code}`)}>
+                    {t("collectionView")}
+                  </button>
+                </div>
+                {list.pages.length === 0 ? (
+                  <EmptyState size="sm" text={t("empty")} />
+                ) : (
+                  <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+                    {list.pages.map((p) => {
+                      const open = p.status === "success";
+                      const go = () => open && router.push(`/tools/pages/${p.job_uuid}`);
+                      return (
+                        <article
+                          key={p.job_uuid}
+                          data-testid="page-card"
+                          tabIndex={open ? 0 : undefined}
+                          onClick={go}
+                          onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) go(); }}
+                          className={`flex flex-col rounded-xl border border-border-soft overflow-hidden bg-background outline-2 outline-transparent transition-[outline-color] ${open ? "cursor-pointer hover:outline-kb focus-visible:outline-kb" : ""}`}
+                          style={{ outlineStyle: "solid" }}
+                        >
+                          <Thumb src={p.image ? `${api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null} />
+                          <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
+                            <div className="font-semibold leading-snug text-foreground">{p.title || p.sources}</div>
+                            <div className="text-xs text-muted mt-0.5 truncate" title={p.sources}>{p.sources}</div>
+                            {open && <div className="text-xs text-muted mt-0.5">{t("changedOn", { date: date(p.updated_at) })}</div>}
+                            {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
+                            {p.status === "paused" && <div className="text-xs text-warn-strong mt-0.5">{t("paused")}</div>}
+                            {p.status === "failed" && <div className="text-xs text-error mt-0.5 line-clamp-2">{p.error || t("failed")}</div>}
+                          </div>
+                          {RUNNING.has(p.status) ? (
+                            <div className="mx-3.5 mb-3.5 mt-2"><Spinner size="xs" label={undefined} /></div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
+                              {open ? <ShareSwitch on={p.shared} onToggle={(on) => toggleShare(p, on)} /> : <span />}
+                              <div className="flex items-center gap-1.5">
+                                {open && p.shared && p.code && (
+                                  <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setToDelete(p)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
+                                  style={{ backgroundColor: "var(--surface-dim)" }}
+                                  title={t("delete")}
+                                  aria-label={t("delete")}
+                                >
+                                  <Trash size={13} weight="bold" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+
+      <Modal
+        open={!!toDelete}
+        onClose={() => setToDelete(null)}
+        size="sm"
+        title={t("deleteTitle")}
+        footer={
+          <>
+            <button type="button" className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg" onClick={() => setToDelete(null)}>{t("cancel")}</button>
+            <button type="button" className="px-4 py-2 text-sm btn-primary rounded-lg" onClick={remove}>{t("delete")}</button>
+          </>
+        }
+      >
+        <p className="text-sm">{t("deleteText", { title: toDelete?.title || toDelete?.sources || "" })}</p>
+      </Modal>
+    </ProtectedRoute>
+  );
+}

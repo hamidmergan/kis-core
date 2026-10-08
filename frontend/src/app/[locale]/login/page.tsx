@@ -11,6 +11,13 @@ import Tabs from "@/components/ui/Tabs";
 import { login, checkAuthStatus } from "@/lib/auth";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkForm } from "../redeem/checkForm";
+import { isReturnPath } from "@/components/auth/ProtectedRoute";
+
+/** Where the login leads: back to a shared page the person came from, else the tiles. */
+function afterLogin(): string {
+  const next = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("next");
+  return isReturnPath(next) ? next : "/services";
+}
 
 const FIELD =
   "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
@@ -40,7 +47,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
-      if (status.authenticated) router.replace("/services");
+      if (status.authenticated) router.replace(afterLogin());
       else setChecking(false);
     });
   }, [router]);
@@ -143,7 +150,7 @@ export default function LoginPage() {
       await login(username.trim(), password);
       await checkAuthStatus();
       // A hard navigation so the server reads the new session cookie.
-      window.location.assign("/services");
+      window.location.assign(afterLogin());
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";

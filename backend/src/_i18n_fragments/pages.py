@@ -1,0 +1,44 @@
+"""Text fragments of the pages tool, the fixed texts on a page in the page's own language."""
+
+MESSAGES: dict[str, dict[str, str]] = {
+    "tool.pages": {"de": "Pages", "en": "Pages"},
+    "quota.label.pages": {"de": "Pages", "en": "Pages"},
+    "pages.gistTitle": {"de": "Das Wichtigste in Kürze", "en": "The key points"},
+    "pages.mapTitle": {"de": "Das Thema auf einer Karte", "en": "The topic at a glance"},
+    "pages.mapLead": {"de": "Ein Klick auf einen Teil springt dorthin.",
+                      "en": "Click a part to jump there."},
+    "pages.mapCaption": {"de": "Aufbau der Seite", "en": "Structure of the page"},
+    "pages.wordsTitle": {"de": "Wörter, die immer wieder fallen", "en": "Words that keep coming up"},
+    "pages.wordsLead": {
+        "de": "Die Fachwörter dieser Seite. Je größer ein Wort, desto öfter steht es im Material.",
+        "en": "The technical terms of this page. The larger a word, the more often the material uses it.",
+    },
+    "pages.wordsCaption": {"de": "Die häufigsten Fachwörter", "en": "The most frequent terms"},
+    "pages.footer": {"de": "Erstellt mit KIS aus {names}.", "en": "Made with KIS from {names}."},
+    "pages.metaImages": {
+        "de": "Aus {names}. Text und Bilder mit KI erstellt am {date}, etwa {minutes} Min. Lesezeit.",
+        "en": "From {names}. Text and pictures made with AI on {date}, about {minutes} min to read.",
+    },
+    "pages.metaText": {
+        "de": "Aus {names}. Text mit KI erstellt am {date}, etwa {minutes} Min. Lesezeit.",
+        "en": "From {names}. Text made with AI on {date}, about {minutes} min to read.",
+    },
+    "pages.notFound": {"de": "Diese Seite gibt es nicht.", "en": "This page does not exist."},
+    "pages.notReady": {"de": "Die Seite ist noch nicht fertig.", "en": "The page is not finished yet."},
+    "pages.notShared": {"de": "Diese Seite ist nicht mehr geteilt.",
+                        "en": "This page is no longer shared."},
+    "pages.collectionNotFound": {"de": "Diese Sammelseite gibt es nicht.",
+                                 "en": "This collection does not exist."},
+    "pages.tooMany": {
+        "de": "Du hast schon {max} Seiten. Lösch eine alte Seite, um eine neue zu erstellen.",
+        "en": "You already have {max} pages. Delete an old page to create a new one.",
+    },
+    "pages.invalid": {"de": "Die Seite ließ sich nicht speichern, ihr Inhalt ist ungültig.",
+                      "en": "The page could not be saved, its content is invalid."},
+    "pages.tooLarge": {"de": "Die Seite ist zu groß zum Speichern.",
+                       "en": "The page is too large to save."},
+    "pages.noPlan": {"de": "Der Aufbau der Seite ließ sich nicht planen, der KI-Anbieter hat nicht brauchbar geantwortet.",
+                     "en": "The structure of the page could not be planned, the AI provider gave no usable answer."},
+    "pages.failed": {"de": "Die Seite ließ sich nicht erstellen.",
+                     "en": "The page could not be created."},
+}

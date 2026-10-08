@@ -30,6 +30,7 @@ export function FilterBar({
     { value: "transcription", label: tt("transcription") },
     { value: "translation", label: tt("translation") },
     { value: "summary", label: tt("summary") },
+    { value: "pages", label: tt("pages") },
     { value: "tts", label: tt("tts") },
     { value: "screencast", label: tt("screencast") },
     { value: "podcast", label: tt("podcast") },

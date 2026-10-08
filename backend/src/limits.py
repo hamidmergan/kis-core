@@ -26,6 +26,7 @@ EVENT_CODE_ATTEMPT_TTL_SECONDS  = 3600
 QUOTA_DEFAULTS: dict[str, dict] = {
     "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Audio"},
     "summary":        {"limit": 100, "window_hours": 4, "label": "Report"},
+    "pages":          {"limit": 100, "window_hours": 4, "label": "Pages"},
     "translate":      {"limit": 100, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 100, "window_hours": 4, "label": "Transkription"},
     "image_generate": {"limit": 100, "window_hours": 4, "label": "Bild-Generierung"},
@@ -346,6 +347,27 @@ SUMMARY_OUTLINE_MAX_TOKENS   = 4_096
 # The fallback call writes the whole document from facts that are already on disk.
 # One dropped call would otherwise cost the stage everything it read.
 SUMMARY_COMPOSE_MAX_ATTEMPTS = 2
+
+# --- Pages tool ---------------------------------------------------------------
+# Pages are kept outside the job pool, so a shared page never vanishes behind newer jobs.
+PAGES_MAX_PER_USER       = 50
+# What one page may hold, so an edit can never break the layout.
+PAGES_MAX_SECTIONS       = 20
+PAGES_MAX_BLOCKS         = 4      # blocks per section
+PAGES_MAX_IMAGES         = 10
+PAGES_MAX_TABLE_ROWS     = 12
+PAGES_MAX_TABLE_COLS     = 6
+PAGES_MAX_ITEMS          = 10     # bullets, cards, steps, bars and chart categories
+PAGES_MAX_SHORT_CHARS    = 120    # headings, labels, table cells
+PAGES_MAX_ITEM_CHARS     = 300    # a bullet, a card text, a step text
+PAGES_MAX_LONG_CHARS     = 1_500  # leads and running text
+# A saved page larger than this is refused, a full page of 20 sections stays far below it.
+PAGES_MAX_JSON_BYTES     = 400_000
+# Long side of a stored picture, enough for the page's full width on a sharp screen.
+PAGES_IMAGE_MAX_PX       = 1_600
+PAGES_IMAGE_QUALITY      = 82
+# Fewer sections than a summary, a page is read on a screen.
+PAGES_SECTIONS           = (4, 10)
 
 # A next stage or a resumed job queues behind fresh work of its queue (with Redis 9 is last), so a job that
 # keeps running into limits never retakes its slot at once.

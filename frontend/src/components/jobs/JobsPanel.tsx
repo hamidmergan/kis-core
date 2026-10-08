@@ -17,6 +17,7 @@ import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
 import { praesentationJumpHref, praesentationJumpKind } from "./_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
 import { summaryJumpHref, summaryJumpKind } from "./_summaryJump";
+import { pagesJumpHref, pagesJumpKind } from "./_pagesJump";
 import { translateJumpHref, translateJumpKind } from "./_translateJump";
 import { ttsJumpHref, ttsJumpKind } from "./_ttsJump";
 import { sttJumpHref, sttJumpKind } from "./_sttJump";
@@ -404,7 +405,7 @@ export default function JobsPanel() {
                           {job.status === "failed" && job.error && (
                             <p className="text-xs text-error mt-1 line-clamp-2">{job.error}</p>
                           )}
-                          {!expired && job.status === "success" && job.has_download && (
+                          {!expired && job.status === "success" && job.has_download && job.tool !== "pages" && (
                             <div className="mt-1.5 flex flex-row flex-wrap gap-2">
                               <button
                                 onClick={(e) => handleDownload(e, job)}
@@ -457,7 +458,7 @@ export default function JobsPanel() {
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
                           {(((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && (job.status === "failed" || job.status === "paused"))
-                            || (job.tool === "summary" && job.status === "paused")) && (
+                            || ((job.tool === "summary" || job.tool === "pages") && job.status === "paused")) && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
@@ -507,6 +508,17 @@ export default function JobsPanel() {
                             className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
                           >
                             {tArtifacts("openScreencast")}
+                          </a>
+                        </div>
+                      )}
+                      {pagesJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={pagesJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openPage")}
                           </a>
                         </div>
                       )}

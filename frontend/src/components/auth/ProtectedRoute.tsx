@@ -13,6 +13,7 @@ const TOOL_KEY_BY_SLUG: Record<string, string> = {
   stt: "transcription",
   image: "image",
   summarize: "summary",
+  pages: "pages",
   screencast: "screencast",
   podcast: "podcast",
   praesentation: "praesentation",
@@ -29,6 +30,11 @@ function toolKeyFromPath(pathname: string | null): string | null {
   return slug ? TOOL_KEY_BY_SLUG[slug] ?? null : null;
 }
 
+/** Shared pages and collections are the only paths a login leads back to. */
+export function isReturnPath(path: string | null | undefined): path is string {
+  return !!path && /^\/(p|u)\/[A-Za-z0-9]{6,32}$/.test(path);
+}
+
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,7 +45,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     checkAuthStatus().then((status) => {
       if (!status.authenticated) {
         // An expired access says so on the login page instead of landing there mute.
-        router.replace(status.reason === "access_expired" ? "/login?expired=1" : "/login");
+        if (status.reason === "access_expired") router.replace("/login?expired=1");
+        // A shared page is opened from a link, after the login the person lands on it again.
+        else router.replace(isReturnPath(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : "/login");
         setLoading(false);
         return;
       }

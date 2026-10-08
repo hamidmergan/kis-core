@@ -80,6 +80,8 @@ def angaben_lesen(job: dict) -> dict:
         if params.get("provider_id"):
             angaben.setdefault("anbieter", anbieter_name(params["provider_id"]))
         angaben.setdefault("anweisung", _job_text(uid, uuid, INSTRUCTIONS_FILE).strip())
+    elif tool == "pages":
+        angaben.setdefault("anweisung", _job_text(uid, uuid, INSTRUCTIONS_FILE).strip())
     elif tool == "podcast":
         from src.features.podcast import store as podcast_store
         from src.features.podcast.angaben import angaben as podcast_angaben

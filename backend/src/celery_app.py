@@ -54,6 +54,7 @@ celery_app = Celery(
         "src.tasks.screencast_tasks",
         "src.tasks.podcast_tasks",
         "src.tasks.praesentation_tasks",
+        "src.tasks.pages_tasks",
         "src.tasks.watchdog_tasks",
         "src.tasks.cleanup_tasks",
         "src.tasks.backup_tasks",
@@ -94,6 +95,7 @@ celery_app.conf.update(
         "podcast.script": {"queue": "long"},
         # Holds a process 6 to 15 minutes under load, in general it kept transcripts waiting (run 15).
         "summary.run": {"queue": "long"},
+        "pages.run": {"queue": "long"},
         # The voicing waits on the voice provider and gets its own worker, so a busy provider
         # never holds up summaries and presentations.
         "podcast.render": {"queue": "tts"},

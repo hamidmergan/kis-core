@@ -13,7 +13,7 @@ ZUSAMMEN = {"screencast_render": "screencast", "screencast_translate": "screenca
 
 # All tools that create jobs, the never run ones included.
 WERKZEUGE = [
-    "screencast", "transcription", "translation", "tts", "summary",
+    "screencast", "transcription", "translation", "tts", "summary", "pages",
     "image_generate", "image_edit", "image_analyze",
 ]
 

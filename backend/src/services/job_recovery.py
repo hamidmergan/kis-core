@@ -30,6 +30,8 @@ def resume_entry(job: dict) -> str | None:
         return "podcast_script" if _progress(job).get("step") == "script" else "podcast"
     if tool == "summary":
         return "summary"
+    if tool == "pages":
+        return "pages"
     if tool == "praesentation":
         schritt = _progress(job).get("step")
         # The outline starts over as a whole, only the build keeps finished texts and pictures.
@@ -156,6 +158,13 @@ def dispatch_resume(job: dict) -> None:
             job_uuid, params["template_slug"], params.get("provider_id"), job["attempts"],
         ], priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
+    elif tuer == "pages":
+        from src.tasks.pages_tasks import run_pages
+
+        params = _pages_params(job)
+        task = run_pages.apply_async(args=[job_uuid, params.get("provider_id"), job["attempts"]],
+                                     priority=CONTINUED_PRIORITY)
+        db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "praesentation":
         from src.tasks.podcast_tasks._shared import clear_cancel
         from src.tasks.praesentation_tasks import run_praesentation_build
@@ -199,6 +208,16 @@ def recover_after_restart() -> int:
                 max_resumes=MAX_AUTO_RESUMES, backoff=(0, 0, 0),
             )
     return len(offen)
+
+
+def _pages_params(job: dict) -> dict:
+    """The provider of that page's run, an empty choice when the file is gone."""
+    from src.storage import get_job_file
+
+    try:
+        return json.loads(get_job_file(job["user_id"], job["job_uuid"], "pages_params.json"))
+    except Exception:  # noqa: BLE001 - the default provider takes over
+        return {}
 
 
 def _summary_params(job: dict) -> dict:

@@ -59,7 +59,7 @@ def retry_job(
     # Owner-only: without this any user could re-queue another user's failed job.
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-    if job["tool"] not in ("tts", "screencast_translate", "screencast_render", "summary"):
+    if job["tool"] not in ("tts", "screencast_translate", "screencast_render", "summary", "pages"):
         raise HTTPException(status_code=400, detail=t("job.retryOnlyTtsScreencast", locale))
     if job["status"] == "success":
         raise HTTPException(status_code=409, detail=t("job.alreadySuccessful", locale))
@@ -86,6 +86,9 @@ def retry_job(
             get_job_file(job["user_id"], job_uuid, "summary_params.json")
         except Exception:
             raise HTTPException(status_code=400, detail=t("job.paramsNotSaved", locale))
+
+    elif job["tool"] == "pages":
+        pass  # a page resumes from its stored material and stage files alone
 
     else:  # screencast_translate / screencast_render
         render_params = None
@@ -126,7 +129,7 @@ def retry_job(
             logger.warning("Could not clear cancel flag in Redis: {}", e)
         db.set_job_celery_task_id(job_uuid, task.id)
 
-    elif job["tool"] == "summary":
+    elif job["tool"] in ("summary", "pages"):
         if not db.claim_job_for_retry(job_uuid):
             raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))
         from src.services import job_recovery
