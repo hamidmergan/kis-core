@@ -87,3 +87,11 @@ def test_draft_builds_title_gist_map_sections_and_cloud():
     # The page names no source, that stays with the owner behind the info icon.
     assert fertig["sections"][0]["meta"].startswith("Erstellt mit KI am 08.10.2026, etwa ")
     assert "Skript" not in fertig["sections"][0]["meta"]
+
+
+def test_long_highlight_key_becomes_text_and_dashes_go():
+    b = schema.clean_block({"kind": "highlight", "key": "Tägliche Höchstarbeitszeit 8 Stunden, Verlängerung bis 10 Stunden", "text": "Gilt immer"})
+    assert b["key"] == "" and b["text"].startswith("Tägliche Höchstarbeitszeit")
+    assert schema.text("Arbeitszeitgesetz – Überblick", 120) == "Arbeitszeitgesetz: Überblick"
+    assert schema.text("lang – aber gut", 120) == "lang, aber gut"
+    assert pl._short_title("Arbeitszeitgesetz: Überblick für Studierende") == "Arbeitszeitgesetz"

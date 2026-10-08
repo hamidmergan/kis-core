@@ -18,7 +18,7 @@ from src.services import anweisung
 
 _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
 - bullets: {"kind":"bullets","items":["statement","statement"]} two to eight statements, each one sentence.
-- highlight: {"kind":"highlight","key":"y = a + bx","text":"what it means"} the one formula, rule or core statement the section turns on. key stays under 40 characters.
+- highlight: {"kind":"highlight","key":"y = a + bx","text":"what it means"} only for a formula or a rule of a few words that the whole section turns on, at most one on the whole run of sections you write, most sections have none. key is at most 5 words or a formula, under 40 characters, everything else goes into text.
 - cards: {"kind":"cards","cards":[{"icon":"info","title":"term","text":"one or two sentences"}]} two to six parallel things such as terms with their definitions, kinds or options. icon is check for what applies or is right, x for what does not apply or is wrong, warning for a caveat, idea for a tip, info otherwise.
 - steps: {"kind":"steps","steps":[{"title":"step","text":"one sentence"}]} two to eight steps, only where the material gives an order.
 - figures: {"kind":"figures","figures":[{"value":"3,9","label":"what the number is"}]} two to four key figures exactly as the material states them.
@@ -36,8 +36,11 @@ def _blocks_system(language: str, count: int) -> str:
         "for students. The page condenses, it never asks questions and holds no quiz.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Each section gets one to three blocks. Pick the kinds that show its content "
-        "best and vary them across sections. Never force a chart or a table onto content that "
-        "is not numbers or a comparison.\n"
+        "best and vary them across sections. A page is meant to be seen, not read like a list: "
+        "key numbers with their unit, such as hours, minutes, euros or percent, become figures, "
+        "parallel things become cards, an order becomes steps, a comparison becomes a table. "
+        "bullets is only for what fits none of these, at most one bullets block per section. "
+        "Never force a chart or a table onto content that is not numbers or a comparison.\n"
         "Rule 9: Never invent a number, a value in a chart, bars or figures block comes from "
         "the material as it stands.\n"
         "Rule 10: Every text is short and stands on its own. No Markdown, no asterisks, no "
@@ -46,7 +49,8 @@ def _blocks_system(language: str, count: int) -> str:
         "the section in one to three words. keywords are two to four technical terms of the "
         "section, each one to three words, written as they appear in the material.\n"
         "Rule 12: Write only what belongs under the heading. The other sections are listed so "
-        "you stay off their ground.\n"
+        "you stay off their ground, and a figure belongs to the one section whose scope it "
+        "concerns, it never appears in two.\n"
         "Rule 13: Never cite a page, a slide or a file.\n"
         "Rule 14: Answer with one JSON object and nothing else: "
         '{"sections":[ one object per section, in the given order ]}.\n\n'

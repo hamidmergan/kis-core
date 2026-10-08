@@ -49,7 +49,10 @@ def text(value, most: int) -> str:
     """One line of plain text, cut at a word where possible."""
     if value is None or isinstance(value, (dict, list)):
         return ""
+    # A spaced dash is not house style: before a capital it opens a subtitle, else it is a pause.
     s = " ".join(str(value).replace("**", "").split())
+    s = re.sub(r"\s+[\u2013\u2014]\s+(?=[A-ZÄÖÜ])", ": ", s)
+    s = re.sub(r"\s+[\u2013\u2014]\s+", ", ", s)
     if len(s) <= most:
         return s
     cut = s[:most].rsplit(" ", 1)[0]
@@ -90,8 +93,14 @@ def _bullets(b: dict) -> dict | None:
     return {"kind": "bullets", "items": items} if items else None
 
 
+# A key longer than this is a sentence, it goes in front of the text in normal type.
+HIGHLIGHT_KEY_CHARS = 40
+
+
 def _highlight(b: dict) -> dict | None:
     key, body = _short(b.get("key")), _item(b.get("text"))
+    if len(key) > HIGHLIGHT_KEY_CHARS:
+        key, body = "", _item(f"{key}. {body}".strip(" ."))
     return {"kind": "highlight", "key": key, "text": body} if key or body else None
 
 

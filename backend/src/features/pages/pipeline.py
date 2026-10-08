@@ -51,7 +51,9 @@ TEMPLATE = Template(
         "Plan a learning web page for students. The sections follow the subject's own "
         "structure: core ideas and terms, how something works or is done, examples with their "
         "figures, comparisons, limits and common mistakes. Each section covers one theme a "
-        "student takes in at a glance. No section for exercises, questions or a quiz."
+        "student takes in at a glance. A heading names its subject only, never the kind of "
+        "section such as example, comparison or overview. No section for exercises, questions "
+        "or a quiz."
     ),
     sections=PAGES_SECTIONS,
 )
@@ -191,6 +193,11 @@ def word_cloud(keywords: list[str], material: str) -> list[list]:
     return sorted(gezaehlt.values(), key=lambda e: -e[1])[:CLOUD_WORDS]
 
 
+def _short_title(titel: str) -> str:
+    """The title's first part for the middle of the mind map, a subtitle after a colon or dash drops."""
+    return re.split(r"\s*[:\u2013\u2014]\s*|\s+-\s+", titel, maxsplit=1)[0].strip() or titel
+
+
 def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list[Source],
           language: str) -> dict:
     """The page with its pictures only named, cleaned to the limits of the schema."""
@@ -237,7 +244,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
 
     if len(inhalt) >= 3:
         seiten.append({"id": "map", "title": t("pages.mapTitle", loc), "lead": t("pages.mapLead", loc),
-                       "blocks": [{"kind": "mindmap", "center": titel, "caption": t("pages.mapCaption", loc),
+                       "blocks": [{"kind": "mindmap", "center": _short_title(titel), "caption": t("pages.mapCaption", loc),
                                    "branches": [{"title": teil.get("map_label") or s["title"],
                                                  "to": s["id"], "leaves": teil.get("keywords", [])[:3]}
                                                 for _, s, teil in inhalt[:schema.MAX_BRANCHES]]}]})
