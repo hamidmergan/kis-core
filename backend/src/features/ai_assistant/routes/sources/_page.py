@@ -132,11 +132,10 @@ def get_page_source_image(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    from src.features.pages import schema
     from src.tasks import pages_tasks as pt
 
     _, note, page = _viewer_page(workspace_uuid, source_uuid, current_user["user_id"], locale)
-    if name not in pt.viewer_images(note["owner_user_id"], note["job_uuid"], schema.for_viewers(page)):
+    if name not in pt.viewer_images(note["owner_user_id"], note["job_uuid"], page):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     try:
         data = get_job_file(note["owner_user_id"], note["job_uuid"], name)

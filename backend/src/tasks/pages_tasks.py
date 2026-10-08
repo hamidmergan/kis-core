@@ -375,17 +375,25 @@ def readable(user_id: int, job_uuid: str, page: dict) -> list[dict]:
 
 
 def in_language(user_id: int, job_uuid: str, page: dict, key: str | None) -> dict:
-    """The page in the asked language when it has one, else the page itself."""
+    """The page in the asked language when it has one, else the page itself.
+
+    A section hidden in the page stays hidden in every language, even one translated before.
+    """
     if not key or key == key_of(page) or key not in {x["key"] for x in readable(user_id, job_uuid, page)}:
         return page
-    return load_variant(user_id, job_uuid, key) or page
+    variante = load_variant(user_id, job_uuid, key)
+    if not variante:
+        return page
+    versteckt = {s.get("id") for s in page.get("sections") or [] if s.get("hidden")}
+    return {**variante, "sections": [{**s, "hidden": True} if s.get("id") in versteckt else s
+                                     for s in variante.get("sections") or []]}
 
 
 def viewer_images(user_id: int, job_uuid: str, page: dict) -> set[str]:
-    """Every picture a reader may load, from the page and from each of its languages."""
+    """Every picture a reader may load, from the page and from each of its languages as readers see them."""
     bilder = set(schema.images_of(page))
     for x in readable(user_id, job_uuid, page)[1:]:
-        bilder |= schema.images_of(load_variant(user_id, job_uuid, x["key"]) or {})
+        bilder |= schema.images_of(in_language(user_id, job_uuid, page, x["key"]))
     return bilder
 
 

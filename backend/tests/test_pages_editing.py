@@ -114,3 +114,21 @@ def test_a_save_without_change_keeps_the_stamp():
     geaendert = json.loads(json.dumps(SAMPLE))
     geaendert["sections"][1]["title"] = "Andere"
     assert stamp(geaendert) != stamp(SAMPLE)
+
+
+def test_a_section_hidden_in_the_page_stays_hidden_in_every_language(monkeypatch):
+    from src.tasks import pages_tasks as pt
+
+    seite = json.loads(json.dumps(SAMPLE))
+    seite["sections"][1]["hidden"] = True
+    variante = json.loads(json.dumps(SAMPLE))
+    variante["lang"] = "en"
+    variante["sections"][1]["blocks"].append(
+        {"kind": "image", "src": "img_7.webp", "alt": "", "prompt": "p", "caption": ""})
+    monkeypatch.setattr(pt, "readable", lambda *a: [{"key": "de", "label": "Deutsch"}, {"key": "en", "label": "English"}])
+    monkeypatch.setattr(pt, "load_variant", lambda *a: json.loads(json.dumps(variante)))
+
+    gezeigt = schema.for_viewers(pt.in_language(1, "j", seite, "en"))
+    assert "s1" not in [s["id"] for s in gezeigt["sections"]]
+    assert "img_7.webp" not in pt.viewer_images(1, "j", seite)
+    assert "img_0.webp" in pt.viewer_images(1, "j", seite)

@@ -444,7 +444,7 @@ def shared_page(code: str, sprache: str = Query(""), current_user: dict = Depend
 def shared_image(code: str, name: str, current_user: dict = Depends(get_current_user),
                  locale: str = Depends(get_locale)):
     row, page = _shared(code, locale)
-    if name not in pt.viewer_images(row["user_id"], row["job_uuid"], schema.for_viewers(page)):
+    if name not in pt.viewer_images(row["user_id"], row["job_uuid"], page):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     return _image(row["user_id"], row["job_uuid"], name, locale)
 
