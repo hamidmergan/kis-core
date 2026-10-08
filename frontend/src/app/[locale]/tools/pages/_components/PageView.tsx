@@ -198,13 +198,13 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
       return b.items.length <= 4 ? (
         <div className="gist">
           {b.items.map((v, i) => (
-            <div key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} max={I} /></div>
+            <div key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></div>
           ))}
         </div>
       ) : (
         <ul className="bul">
           {b.items.map((v, i) => (
-            <li key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} max={I} /></li>
+            <li key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></li>
           ))}
         </ul>
       );
@@ -287,14 +287,14 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
             <div className="tbl">
               <table className="stack">
                 <thead>
-                  <tr>{b.header.map((h, i) => <th key={i}><Txt path={`${p}.header.${i}`} value={h} max={S} keep /></th>)}</tr>
+                  <tr>{b.header.map((h, i) => <th key={i}><Txt path={`${p}.header.${i}`} value={h} as="div" max={S} keep /></th>)}</tr>
                 </thead>
                 <tbody>
                   {b.rows.map((r, i) => (
                     <tr key={i} data-d={`${p}.rows.${i}`}>
                       {r.map((c, j) => (
                         <td key={j} data-label={j ? b.header[j] : undefined}>
-                          <Txt path={`${p}.rows.${i}.${j}`} value={c} max={S} keep />
+                          <Txt path={`${p}.rows.${i}.${j}`} value={c} as="div" max={S} keep />
                         </td>
                       ))}
                     </tr>
