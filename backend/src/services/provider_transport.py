@@ -58,6 +58,8 @@ _SEAT_STALE_SECONDS = provider_slots.HELD_STALE_SECONDS
 _CONNECT_TIMEOUT = 10.0
 # The body leaves in pieces like the SDK sends it, a single write would have to finish within the write timeout.
 _PIECE = 64 * 1024
+# GWDG chooses an image edit model by this header instead of the model field.
+INFERENCE_SERVICE_HEADER = "inference-service"
 _MULTIPART_MODEL = re.compile(rb'(name="model"\r\n(?:[^\r\n]+\r\n)*\r\n)(.*?)(\r\n--)', re.S)
 
 _exempt: contextvars.ContextVar[bool] = contextvars.ContextVar("provider_seat_exempt", default=False)
@@ -224,8 +226,9 @@ def _targets(binding) -> tuple[Target, Optional[Target], str, list[Target]]:
     """First choice, the admin's fallback, the field the call counts against and whoever else may step in."""
     primary = Target.of(binding.provider, binding.model)
     second = fallback_target(binding.feature, primary.provider_id, primary.model)
-    # A route without a fallback wants no switching at all, so nobody further is asked either.
-    rest = further_targets(binding.feature, {primary.provider_id, second.provider_id}, primary.model) if second else []
+    # Every provider with a model for the feature may step in, the admin's fallback only goes first.
+    skip = {primary.provider_id} | ({second.provider_id} if second else set())
+    rest = further_targets(binding.feature, skip, primary.model)
     return primary, second, FEATURE_BUCKET.get(binding.feature, binding.feature), rest
 
 
@@ -342,6 +345,17 @@ def _text_chars(body: bytes) -> int:
     return total
 
 
+def moved_to(response, root: str) -> Optional[str]:
+    """Where a provider moved the call on its own host, kept on https (GWDG sends image edits to http)."""
+    if response.status_code not in (307, 308):
+        return None
+    location = httpx.URL(response.headers.get("location", ""))
+    base = httpx.URL(root)
+    if location.host and location.host != base.host:
+        return None
+    return str(base.copy_with(path=location.path, query=location.query or None))
+
+
 def _with_model(body: bytes, content_type: str, model: str) -> bytes:
     """The same body with the fallback's model name, JSON or a multipart form."""
     if not model:
@@ -395,6 +409,8 @@ class _Door:
         headers = [(k, v) for k, v in request.headers.multi_items()
                    if k.lower() not in ("host", "content-length", "authorization")]
         headers.append(("authorization", f"Bearer {target.api_key}"))
+        # A call that names its model in the header names the fallback's model there too.
+        headers = [(k, target.model if k.lower() == INFERENCE_SERVICE_HEADER else v) for k, v in headers]
         url = target.root + str(request.url)[len(self.primary.root):]
         content = _with_model(body, request.headers.get("content-type", ""), target.model)
         return type(request)(request.method, url, headers=headers, content=content, extensions=extensions)
@@ -547,6 +563,15 @@ def _build(lib, full=provider_slots.ProviderFull):
                 release = _releaser(seats)
                 try:
                     response = self._inner.handle_request(outgoing)
+                    url = moved_to(response, target.root)
+                    if url:
+                        response.read()
+                        response.close()
+                        headers = [(k, v) for k, v in outgoing.headers.multi_items() if k.lower() != "host"]
+                        outgoing = type(outgoing)(outgoing.method, url, headers=headers, content=body,
+                                                  extensions=outgoing.extensions)
+                        outgoing.stream = _Pieces(outgoing.content)
+                        response = self._inner.handle_request(outgoing)
                 except lib.TransportError as e:
                     release()
                     alive = door.slow_but_alive(target, e, lib)

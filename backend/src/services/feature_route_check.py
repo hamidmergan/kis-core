@@ -11,6 +11,7 @@ import httpx
 from loguru import logger
 
 from src.services.protocols import make_adapter
+from src.services.provider_transport import INFERENCE_SERVICE_HEADER, moved_to
 from src.services.protocols.deepl import DeepLAdapter
 from src.services.protocols.docling import DoclingAdapter
 from src.services.protocols.openai_compat import OpenAICompatAdapter
@@ -275,10 +276,9 @@ def _check_image_model(
             if edit:
                 # The same payload as in operation, otherwise the probe raises a false alarm.
                 url = _build_url(base_url, "/v1/images/edits")
-                resp = client.post(
-                    url,
-                    files={"image": ("probe.png", _TINY_PNG, "image/png")},
-                    data={
+                form = {
+                    "files": {"image": ("probe.png", _TINY_PNG, "image/png")},
+                    "data": {
                         "model": model_name,
                         "prompt": "test",
                         "response_format": "b64_json",
@@ -288,7 +288,12 @@ def _check_image_model(
                         "guidance_scale": "3.5",
                         "num_inference_steps": "25",
                     },
-                )
+                    "headers": {INFERENCE_SERVICE_HEADER: model_name},
+                }
+                resp = client.post(url, **form)
+                moved = moved_to(resp, url)
+                if moved:
+                    resp = client.post(moved, **form)
             else:
                 url = _build_url(base_url, "/v1/images/generations")
                 payload = {

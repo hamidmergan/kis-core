@@ -328,8 +328,35 @@ def test_image_edit_posts_standard_openai_form(monkeypatch):
     assert captured["data"]["size"] == "1024x1024"
     assert captured["data"]["guidance_scale"] == "3.5"
     assert captured["data"]["num_inference_steps"] == "25"
-    assert "inference-service" not in captured["headers"]
+    # GWDG picks the edit model only by this header, other providers ignore it.
+    assert captured["headers"]["inference-service"] == "flux.1-kontext"
     assert captured["files"]["image"][1].startswith(b"\x89PNG")
+
+
+def test_image_edit_follows_move_on_same_host_over_https(monkeypatch):
+    """GWDG moves an image edit to the address with a slash on http, the probe stays on https."""
+    from src.services.feature_route_check import run_feature_route_test
+    import httpx
+
+    urls = []
+
+    def fake_post(self, url, **kwargs):
+        urls.append(url)
+        if len(urls) == 1:
+            return httpx.Response(307, headers={"location": "http://img.example.com/v1/images/edits/"})
+        return httpx.Response(200, json={"data": [{"b64_json": "eA=="}]})
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+
+    result = run_feature_route_test(
+        feature="image_edit",
+        protocol="openai_compat",
+        base_url="https://img.example.com",
+        api_key="k",
+        model_name="image-edit-2511",
+    )
+    assert result.status == "ok"
+    assert urls == ["https://img.example.com/v1/images/edits", "https://img.example.com/v1/images/edits/"]
 
 
 def test_image_gen_does_not_use_models_listing(monkeypatch):

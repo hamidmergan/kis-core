@@ -95,6 +95,7 @@ def _image_http_client(
 
 
 from src.tasks._errors import handle_task_exception as _handle_task_exception
+from src.services.provider_transport import INFERENCE_SERVICE_HEADER
 
 
 # -- Translation --------------------------------------------------------------
@@ -369,6 +370,8 @@ def run_image_edit(
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/images/edits",
+                # GWDG picks its edit model only by this header, the others ignore it.
+                headers={INFERENCE_SERVICE_HEADER: edit_model},
                 files={"image": (filename, content, mime)},
                 data={
                     "model": edit_model,
