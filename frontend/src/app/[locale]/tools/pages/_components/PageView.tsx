@@ -52,6 +52,8 @@ export interface EditControls {
   onPick: (section: number, field: number, kind: FieldKind) => void;
   onGrow: (path: string, what: "item" | "row" | "col") => void;
   onImage: (path: string) => void;
+  /** A title block without a picture gets one. */
+  onHeroImage: (section: number) => void;
   onData: (path: string) => void;
 }
 
@@ -283,9 +285,13 @@ interface SectionProps {
 }
 
 /** A long title gets a smaller size, so it never breaks into a tower of single words. */
-const titleSize = (title: string) => (title.length > 48 ? " t-xl" : title.length > 26 ? " t-l" : "");
+const titleSize = (title: string) =>
+  (title.length > 48 ? " t-xl" : title.length > 26 ? " t-l" : "")
+  // A very long word would break in the middle on a phone, the title shrinks there instead.
+  + (Math.max(...title.split(/\s+/).map((w) => w.length)) > 13 ? " t-word" : "");
 
 function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }: SectionProps) {
+  const t = useTranslations("tools.pages");
   const p = `sections.${i}`;
   const cls = s.hidden ? " is-hidden" : "";
   if (s.hero) {
@@ -307,6 +313,13 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
           <Txt path={`${p}.meta`} value={s.meta} as="p" className="meta" max={limits.long} />
         </div>
         {!banner && figure}
+        {edit && !img && (
+          <div className="ed-only ed-hero-add">
+            <button type="button" className="ed-btn" disabled={edit.imagesFull} onClick={() => edit.onHeroImage(i)}>
+              <ImageIcon size={13} weight="bold" />{t("addHeroImage")}
+            </button>
+          </div>
+        )}
       </section>
     );
   }

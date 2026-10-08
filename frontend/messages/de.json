@@ -724,7 +724,9 @@
       "langAddButton": "Hinzufügen",
       "langMax": "Höchstens {max} weitere Sprachen",
       "saveFirst": "Erst speichern",
-      "editingLanguage": "Du bearbeitest die Fassung in {label}."
+      "editingLanguage": "Du bearbeitest die Fassung in {label}.",
+      "addHeroImage": "Bild hinzufügen",
+      "imageSuggesting": "Ein passendes Bild wird vorgeschlagen …"
     },
     "translate": {
       "title": "Übersetzung",

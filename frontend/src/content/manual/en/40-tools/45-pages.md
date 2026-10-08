@@ -11,7 +11,8 @@ made in the background, its card under Your pages shows the progress.
 
 The system decides how each section is shown, by its content: terms as cards, a procedure as
 steps, measured values as a chart, comparisons as a table. On top come a summary, a mind map of
-all sections, a word cloud of the technical terms and up to two pictures. Figures always come
+all sections, a word cloud of the technical terms and one picture at the top that stands for
+the topic of the whole page. Figures always come
 from the material. A page holds no quiz questions, it only condenses.
 
 Under the title the page only says that it was made with AI. What it was made from and with is
@@ -32,7 +33,8 @@ The plus between two sections inserts a new one. You choose a layout with one to
 and decide for each field what goes in: text, image, table, chart, list or note. Nobody sees an
 empty field when reading. Under lists and tables, Point, Row and Column add further entries.
 
-Every image can be replaced with Recreate image. The description is in English, a new image
+If the top picture is missing, Add image puts one in, the AI suggests a description of the
+topic for it. Every image can be replaced with Recreate image. The description is in English, a new image
 also gets the page's image style. The old image stays until the new one is ready, and Undo
 brings it back afterwards too. At most 40 images can be created per page. Charts, the mind map
 and the word cloud are changed with Edit data: labels, values and terms.

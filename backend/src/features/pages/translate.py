@@ -141,11 +141,11 @@ def _batches(items: list[tuple[tuple, str]]) -> list[list[tuple[tuple, str]]]:
     return out
 
 
-async def _create(caller: Caller, **kwargs):
+async def create_patiently(caller: Caller, waits: tuple[int, ...] = _WAITS, **kwargs):
     """One call, again after a wait while the provider is only busy."""
     from src.features.summary import concurrency
 
-    for warten in (*_WAITS, None):
+    for warten in (*waits, None):
         try:
             return await caller.create(**kwargs)
         except Exception as e:  # noqa: BLE001 - only a busy provider is worth waiting for
@@ -160,7 +160,7 @@ async def _ask(caller: Caller, system: str, page: dict, batch: list[tuple[tuple,
     payload = {str(i): {"text": text, "max_chars": _max_chars(text, _limit(page, path), easy)}
                for i, (path, text) in enumerate(batch, 1)}
     title = schema.title_of(page)
-    antwort = await _create(caller,
+    antwort = await create_patiently(caller,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": f"/no_think\nPAGE TITLE: {title}\n\n"

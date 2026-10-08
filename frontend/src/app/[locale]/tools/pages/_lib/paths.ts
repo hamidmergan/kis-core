@@ -29,6 +29,7 @@ const EMPTY: Block = { kind: "empty" };
 
 /** A block with nothing left to read: its last item went, or its only text was cleared. */
 function isBare(b: Block): boolean {
+  if (b.kind === "empty") return true;
   const rec = b as unknown as Record<string, unknown>;
   if (LISTS.some((k) => Array.isArray(rec[k]) && (rec[k] as unknown[]).length === 0)) return true;
   if (b.kind === "text") return !b.text;

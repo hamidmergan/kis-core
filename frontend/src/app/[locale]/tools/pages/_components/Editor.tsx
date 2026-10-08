@@ -124,7 +124,7 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [layoutAt, setLayoutAt] = useState<number | null>(null);
-  const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean } | null>(null);
+  const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean; suggesting?: boolean } | null>(null);
   const [dataAt, setDataAt] = useState<string | null>(null);
   const [langOpen, setLangOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -374,6 +374,17 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
           onPick: pick,
           onGrow: grow,
           onImage: openImage,
+          onHeroImage: (i) => {
+            flush();
+            const path = `sections.${i}.blocks.${h.page.sections[i].blocks.length}`;
+            // Without the model's proposal the title is the starting point.
+            const fallback = `a calm illustration that stands for the topic ${h.page.sections[i].title}`;
+            // The model reads the whole page and proposes a picture for its topic, the owner may change it.
+            setImageAt({ path, isNew: true, hero: true, prompt: "", suggesting: true });
+            api.suggestImage(uuid)
+              .then((r) => setImageAt((x) => (x?.path === path ? { ...x, prompt: r.prompt || fallback, suggesting: false } : x)))
+              .catch(() => setImageAt((x) => (x?.path === path ? { ...x, prompt: fallback, suggesting: false } : x)));
+          },
           onData: (path) => { flush(); setDataAt(path); },
         }}
       />
@@ -390,7 +401,7 @@ function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProp
       <ScrollTopButton />
       <LayoutModal open={layoutAt !== null} left={limits.sections - h.page.sections.length}
         onClose={() => setLayoutAt(null)} onPick={addSection} />
-      <ImageModal open={!!imageAt} isNew={!!imageAt?.isNew} prompt={imageAt?.prompt ?? ""} max={limits.imagePrompt}
+      <ImageModal open={!!imageAt} isNew={!!imageAt?.isNew} prompt={imageAt?.prompt ?? ""} suggesting={!!imageAt?.suggesting} max={limits.imagePrompt}
         onClose={() => setImageAt(null)} onDraw={draw} />
       <DataModal block={dataAt ? (getAt(h.page, dataAt) as DataBlock) : null} limits={limits} onClose={() => setDataAt(null)}
         onApply={(b) => { const at = dataAt!; setDataAt(null); change((p) => setAt(p, at, b)); }} />

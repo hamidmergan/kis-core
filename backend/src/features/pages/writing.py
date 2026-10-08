@@ -162,15 +162,13 @@ _FRAME_SYSTEM = (
     "is no formula.\n"
     "Rule 11: design is the look of the page, pick the one that fits the material best:\n"
     + "\n".join(f"- {k}: {v}" for k, v in DESIGNS.items()) + "\n"
-    "Rule 12: hero_prompt describes in English a calm illustration for the top of the page "
-    "that stands for the subject. " + NO_WRITING + " hero_alt describes the picture in "
-    "{language} in one short sentence.\n"
-    "Rule 13: section_image picks the one section a picture helps most, by its "
-    "section_index, with an English prompt as in Rule 12, a caption and an alt text in "
-    "{language}. Leave it as null when no section gains from a picture.\n"
-    "Rule 14: Answer with one JSON object and nothing else, in this shape: "
+    "Rule 12: hero_prompt describes in English the page's one picture, a calm illustration "
+    "at the top that stands for the subject of the whole material, never for one section or "
+    "one detail. A reader who sees only the picture should guess the topic. " + NO_WRITING
+    + " hero_alt describes the picture in {language} in one short sentence.\n"
+    "Rule 13: Answer with one JSON object and nothing else, in this shape: "
     '{{"lead":"","gist":["",""],"formula":{{"key":"","text":""}},"design":"chapters",'
-    '"hero_prompt":"","hero_alt":"","section_image":{{"section_index":0,"prompt":"","caption":"","alt":""}}}}'
+    '"hero_prompt":"","hero_alt":""}}'
 )
 
 
@@ -198,3 +196,32 @@ async def write_frame(caller: Caller, *, language: str, plan: Outline,
         logger.warning("Pages: Rahmen nicht geschrieben ({})", e)
         return {}
     return parse_json(antwort.choices[0].message.content) or {}
+
+
+_HERO_SYSTEM = (
+    "You describe the one picture at the top of a learning web page.\n"
+    "Describe in English, in one or two sentences, a calm illustration that stands for the "
+    "subject of the whole page, never for one section or one detail. A reader who sees only "
+    "the picture should guess the topic. " + NO_WRITING + "\n"
+    "Answer with the description only, no quotes, no preamble."
+)
+
+
+async def write_hero_prompt(caller: Caller, *, title: str, lead: str, headings: list[str]) -> str:
+    """A description of the title picture from what the page says, "" when the call failed."""
+    from src.features.pages.translate import create_patiently
+
+    try:
+        # The owner waits with the window open, so only two short tries.
+        antwort = await create_patiently(caller, waits=(2, 5),
+            messages=[
+                {"role": "system", "content": _HERO_SYSTEM},
+                {"role": "user", "content": f"/no_think\nTITLE: {title}\nLEAD: {lead}\nSECTIONS:\n"
+                                            + "\n".join(f"- {h}" for h in headings if h)},
+            ],
+            temperature=0.4, name="hero", max_tokens=300,
+        )
+    except Exception as e:  # noqa: BLE001 - the owner still writes the description themselves
+        logger.warning("Pages: Bildvorschlag nicht geschrieben ({})", e)
+        return ""
+    return " ".join(_strip_thinking(antwort.choices[0].message.content or "").split()).strip('"')

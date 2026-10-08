@@ -423,26 +423,31 @@ def drop_language(user_id: int, job_uuid: str, key: str) -> None:
             pass
 
 
+def page_caller(user_id: int, job_uuid: str) -> PagesCaller:
+    """The chat model the page was written with, for every later call about it."""
+    from src.tasks.general_tasks import _get_llm_client
+    from src.tasks.summary_tasks import _fenster
+
+    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
+    provider_id = params.get("provider_id")
+    traeger = _get_llm_client(provider_id)
+    return PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
+                       window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
+                       book=lambda antwort: log_llm_response("pages", traeger, antwort))
+
+
 @celery_app.task(name="pages.translate", acks_late=True,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
 def translate_page(user_id: int, job_uuid: str, key: str):
     """The page as last saved in one more language, written beside the page."""
     from src.features.pages import translate as tr
-    from src.tasks.general_tasks import _get_llm_client
-    from src.tasks.summary_tasks import _fenster
 
     page, _ = load_page(user_id, job_uuid)
     if not page:
         return
     quelle = stamp(page)
-    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
-    provider_id = params.get("provider_id")
     try:
-        traeger = _get_llm_client(provider_id)
-        caller = PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
-                             window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
-                             book=lambda antwort: log_llm_response("pages", traeger, antwort))
-        neu = asyncio.run(tr.translate(caller, page, key))
+        neu = asyncio.run(tr.translate(page_caller(user_id, job_uuid), page, key))
     except Exception as e:  # noqa: BLE001 - the owner sees the failure and may try again
         logger.warning("Pages {}: Sprache {} fehlgeschlagen: {}", job_uuid[:8], key, e)
         set_language_state(user_id, job_uuid, key, "failed", quelle)

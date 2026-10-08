@@ -55,8 +55,8 @@ export function LayoutModal({ open, left, onClose, onPick }: { open: boolean; le
 }
 
 /** The description of a picture: filled with the old one for a redraw, empty for a new picture. */
-export function ImageModal({ open, isNew, prompt, max, onClose, onDraw }: {
-  open: boolean; isNew: boolean; prompt: string; max: number; onClose: () => void; onDraw: (prompt: string) => Promise<void>;
+export function ImageModal({ open, isNew, prompt, suggesting, max, onClose, onDraw }: {
+  open: boolean; isNew: boolean; prompt: string; suggesting?: boolean; max: number; onClose: () => void; onDraw: (prompt: string) => Promise<void>;
 }) {
   const t = useTranslations("tools.pages");
   const [text, setText] = useState(prompt);
@@ -76,10 +76,11 @@ export function ImageModal({ open, isNew, prompt, max, onClose, onDraw }: {
   };
   return (
     <Modal open={open} onClose={onClose} size="md" title={isNew ? t("draw") : t("redraw")}
-      footer={<Footer onCancel={onClose} onOk={go} ok={t("generate")} busy={busy} disabled={!text.trim()} />}>
+      footer={<Footer onCancel={onClose} onOk={go} ok={t("generate")} busy={busy} disabled={!text.trim() || suggesting} />}>
       <label htmlFor="pages-image-prompt" className="block text-sm font-medium text-foreground mb-1">{t("imagePromptLabel")}</label>
       <textarea id="pages-image-prompt" value={text} onChange={(e) => setText(e.target.value)} rows={isNew ? 4 : 8} maxLength={max}
-        placeholder={t("imagePromptPlaceholder")} className={`${FIELD} w-full py-2 resize-y`} autoFocus />
+        placeholder={suggesting ? t("imageSuggesting") : t("imagePromptPlaceholder")} disabled={suggesting}
+        className={`${FIELD} w-full py-2 resize-y disabled:opacity-60`} autoFocus />
       <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>{isNew ? t("imagePromptHintNew") : t("imagePromptHint")}</p>
       {error && <p className="mt-2 text-sm text-error" role="alert">{error}</p>}
     </Modal>

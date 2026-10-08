@@ -66,14 +66,13 @@ IMAGE_STYLE = (
 NO_TEXT = ("Absolutely no text, letters, numbers, words, labels, signs, logos, charts, diagrams, "
            "calendars or screens.")
 HERO_IMAGE = "img_0.webp"
-SECTION_IMAGE = "img_1.webp"
 HERO_SIZE = "1536x864"
 # The banner looks run the title picture across the whole width.
 BANNER_SIZE = "1536x656"
 SECTION_SIZE = "1152x864"
-# Designs that open with a wide picture above the title, and the one that opens without.
+# Designs that open with a wide picture above the title, and every design whose title picture is wide.
 BANNER_DESIGNS = ("timeline", "magazine")
-NO_HERO_DESIGNS = ("guide",)
+WIDE_HERO_DESIGNS = BANNER_DESIGNS + ("guide",)
 MIN_MAP_SECTIONS = 4
 # Words a reader gets through per minute, for the reading time under the title.
 WORDS_PER_MINUTE = 200
@@ -232,9 +231,10 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
 
     design = frame.get("design") if frame.get("design") in schema.DESIGNS else schema.DESIGNS[0]
     hero = {"id": "top", "hero": True, "title": titel, "lead": lead, "meta": "", "blocks": []}
-    if str(frame.get("hero_prompt") or "").strip() and design not in NO_HERO_DESIGNS:
-        hero["blocks"].append({"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
-                               "prompt": image_prompt(frame["hero_prompt"], image_style), "caption": ""})
+    # Every page opens with a picture of its subject, the title stands in when the frame named none.
+    motiv = str(frame.get("hero_prompt") or "").strip() or f"a calm symbolic scene that stands for the topic {titel}"
+    hero["blocks"].append({"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
+                           "prompt": image_prompt(motiv, image_style), "caption": ""})
     seiten = [hero]
 
     kurz_bloecke: list[dict] = []
@@ -254,14 +254,6 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
             continue
         inhalt.append((i, {"id": f"s{i + 1}", "title": abschnitt.title, "lead": teil.get("lead", ""),
                            "blocks": list(teil.get("blocks") or [])}, teil))
-
-    bild = frame.get("section_image")
-    if isinstance(bild, dict) and str(bild.get("prompt") or "").strip():
-        ziel = next((s for i, s, _ in inhalt if i == bild.get("section_index")), None)
-        if ziel is not None:
-            ziel["blocks"].insert(0, {"kind": "image", "src": SECTION_IMAGE,
-                                      "alt": bild.get("alt") or "", "caption": bild.get("caption") or "",
-                                      "prompt": image_prompt(bild["prompt"], image_style)})
 
     _one_highlight([kurz_bloecke] + [s["blocks"] for _, s, _ in inhalt])
 
@@ -300,7 +292,7 @@ def _one_highlight(listen: list[list[dict]]) -> None:
 
 def hero_size(page: dict) -> str:
     """The pixel size of the title picture, wide for the banner looks."""
-    return BANNER_SIZE if page.get("design") in BANNER_DESIGNS else HERO_SIZE
+    return BANNER_SIZE if page.get("design") in WIDE_HERO_DESIGNS else HERO_SIZE
 
 
 def _words_on(page: dict) -> int:

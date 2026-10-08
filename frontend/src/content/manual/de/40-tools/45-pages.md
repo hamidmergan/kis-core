@@ -11,8 +11,8 @@ entsteht im Hintergrund, die Karte unter Deine Seiten zeigt den Fortschritt.
 
 Welche Darstellung ein Abschnitt bekommt, entscheidet das System nach dem Inhalt: Begriffe als
 Karten, ein Vorgehen als Schritte, Messwerte als Diagramm, Vergleiche als Tabelle. Dazu kommen
-eine Kurzfassung, eine Mindmap über alle Abschnitte, eine Wortwolke der Fachwörter und bis zu
-zwei Bilder. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie
+eine Kurzfassung, eine Mindmap über alle Abschnitte, eine Wortwolke der Fachwörter und oben ein
+Bild, das für das Thema der ganzen Seite steht. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie
 fasst nur zusammen.
 
 Unter dem Titel steht nur, dass die Seite mit KI erstellt wurde. Woraus und womit, zeigt das
@@ -35,7 +35,8 @@ einem bis vier Feldern und legen pro Feld fest, was hineinkommt: Text, Bild, Tab
 Liste oder Hinweis. Ein leeres Feld sieht beim Lesen niemand. Unter Listen und Tabellen fügen
 Punkt, Zeile und Spalte weitere Einträge an.
 
-Jedes Bild lässt sich mit Bild neu erzeugen ersetzen. Die Beschreibung ist auf Englisch, beim
+Fehlt oben ein Bild, fügen Sie es mit Bild hinzufügen ein, die KI schlägt dafür eine Beschreibung
+zum Thema vor. Jedes Bild lässt sich mit Bild neu erzeugen ersetzen. Die Beschreibung ist auf Englisch, beim
 neuen Bild kommt der Bildstil der Seite dazu. Bis das neue Bild fertig ist, bleibt das alte
 stehen, Rückgängig holt es auch danach zurück. Pro Seite lassen sich höchstens 40 Bilder
 erzeugen. Diagramme, Mindmap und Wortwolke ändern Sie über Daten ändern: Beschriftungen, Werte

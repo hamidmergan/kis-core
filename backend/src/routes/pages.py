@@ -314,6 +314,24 @@ def draw_page_image(job_uuid: str, body: DrawBody, current_user: dict = Depends(
     return {"src": name, "prompt": wunsch}
 
 
+@router.post("/pages/{job_uuid}/images/suggest")
+def suggest_page_image(job_uuid: str, current_user: dict = Depends(get_current_user),
+                       locale: str = Depends(get_locale)):
+    """A description of a title picture that fits the whole page, the owner may still change it."""
+    from src.features.pages.writing import write_hero_prompt
+
+    job = _own_job(job_uuid, current_user, locale)
+    page, _ = load_page(job["user_id"], job_uuid)
+    if job["status"] != "success" or page is None:
+        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    enforce_tool_burst(job["user_id"], "pages", locale)
+    hero = next((s for s in page["sections"] if s.get("hero")), {})
+    vorschlag = asyncio.run(write_hero_prompt(
+        pt.page_caller(job["user_id"], job_uuid), title=schema.title_of(page), lead=hero.get("lead") or "",
+        headings=[s.get("title") or "" for s in page["sections"] if not s.get("hero") and not s.get("hidden")]))
+    return {"prompt": vorschlag}
+
+
 @router.get("/pages/{job_uuid}/images/{name}/state")
 def page_image_state(job_uuid: str, name: str, current_user: dict = Depends(get_current_user),
                      locale: str = Depends(get_locale)):

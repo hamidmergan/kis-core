@@ -28,6 +28,8 @@ export const savePage = (uuid: string, page: Page, key?: string | null) =>
   send(`/pages/${uuid}${lang(key)}`, "PUT", page).then((r) => json<{ page: Page }>(r));
 export const drawImage = (uuid: string, body: { prompt: string; wrap: boolean; hero: boolean }) =>
   send(`/pages/${uuid}/images`, "POST", body).then((r) => json<{ src: string; prompt: string }>(r));
+export const suggestImage = (uuid: string) =>
+  send(`/pages/${uuid}/images/suggest`, "POST").then((r) => json<{ prompt: string }>(r));
 export const imageState = (uuid: string, name: string) =>
   backendApi.fetch(`/pages/${uuid}/images/${name}/state`).then((r) => json<{ state: "pending" | "done" | "failed" }>(r));
 export const getLanguages = (uuid: string) => backendApi.fetch(`/pages/${uuid}/languages`).then((r) => json<Languages>(r));
