@@ -26,6 +26,7 @@ from src.limits import (
     MAP_MAX_REFS,
     MAP_MIN_FILE_SHARE,
     MAP_MAX_TOPICS_PER_PART,
+    MAP_MAX_TOPICS_TOTAL,
     MAP_MIN_TOPICS_PER_FILE,
     MAP_MIN_WINDOW_TOKENS,
     MAP_OUTPUT_TOKENS,
@@ -203,7 +204,7 @@ class Karte:
         over several files lists the first ones and runs out before the last.
         """
         teile = self.teile(window_tokens)
-        gesamt = MAP_MAX_TOPICS_PER_PART * len(teile)
+        gesamt = min(MAP_MAX_TOPICS_PER_PART * len(teile), MAP_MAX_TOPICS_TOTAL)
         aus: list[tuple[range, int]] = []
         for teil in teile:
             start = teil.start
@@ -522,7 +523,8 @@ def hinweis(modus: str) -> str:
         return (
             f'The material is a list of topics, each written as "[{MARKE_THEMA}n] title: gist". '
             "Together they cover the whole text. Under \"refs\" name the labels of the "
-            f'topics an entry draws on, copied exactly, such as "{MARKE_THEMA}3".'
+            f'topics an entry draws on, copied exactly, such as "{MARKE_THEMA}3". Labels stand '
+            "only under refs, never in a title, intro or any other text you write."
         )
     return (
         f'The material is the full text, cut into passages, each written as "[{MARKE_STELLE}n] text". '
@@ -531,7 +533,8 @@ def hinweis(modus: str) -> str:
         "instead of listing them, and keep refs short: at most 10 entries. Name only labels "
         f"that appear in the material. A label is never a paragraph, article or page: § 45 or "
         f"S. 45 in the text is not {MARKE_STELLE}45, look up the label in front of the passage "
-        "that holds it."
+        "that holds it. Labels stand only under refs, never in a title, intro or any other "
+        "text you write."
     )
 
 
