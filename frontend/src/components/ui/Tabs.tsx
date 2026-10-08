@@ -28,7 +28,7 @@ export default function Tabs<TKey extends string = string>({
     return (
       // A border around the track, so the group stays visible even on a surface-coloured card,
       // and a hover on the inactive side, so it reads as a second thing to click, not plain text.
-      <div className={`inline-flex gap-1 p-1 rounded-full border border-border bg-surface ${className}`} role="tablist">
+      <div className={`inline-flex gap-1 p-1 rounded-lg border border-border bg-surface ${className}`} role="tablist">
         {items.map((item) => {
           const isActive = item.key === active;
           return (
@@ -39,7 +39,7 @@ export default function Tabs<TKey extends string = string>({
               aria-selected={isActive}
               disabled={item.disabled}
               onClick={() => onChange(item.key)}
-              className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 ${
+              className={`px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 ${
                 isActive ? "bg-kb text-white" : "text-muted hover:bg-background hover:text-foreground"
               }`}
             >
