@@ -45,6 +45,9 @@ def stream_source_file(
     # A YouTube source has no file, the player embeds the video instead.
     if source.get("file_type") == "youtube":
         raise HTTPException(status_code=404, detail=t("ai.youtube.noFile", locale))
+    # A page is opened live, it has no file to stream.
+    if source.get("file_type") == "page":
+        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
 
     ext = Path(source["filename"]).suffix.lower()
     media_type_map = {

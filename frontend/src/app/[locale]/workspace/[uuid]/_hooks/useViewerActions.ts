@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import { _isMediaFile, _youtubeIdOf } from "../_utils";
+import { _fileKind, _isMediaFile, _pageSourceHref, _youtubeIdOf } from "../_utils";
 import type { PanelKey, Source, ViewerState } from "../_types";
 
 interface UseViewerActionsOptions {
+  workspaceUuid: string;
   sources: Source[];
   setViewerSource: (v: ViewerState | null) => void;
   setPanels: React.Dispatch<React.SetStateAction<Record<PanelKey, boolean>>>;
@@ -19,6 +20,7 @@ interface UseViewerActionsOptions {
 
 export function useViewerActions(opts: UseViewerActionsOptions) {
   const {
+    workspaceUuid,
     sources,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
@@ -27,10 +29,15 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
 
   // An opened source does not narrow the selection, it used to stick when stored.
   const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, isCitation = false) => {
+    // A page is a live web page, it opens in its own tab instead of the viewer.
+    if (_fileKind(source.filename) === "page") {
+      window.open(_pageSourceHref(workspaceUuid, source.uuid, isCitation ? page : undefined), "_blank", "noopener");
+      return;
+    }
     setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, isCitation, nonce: Date.now(), youtubeId: _youtubeIdOf(source) });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
-  }, [setViewerSource, setPanels, isMobile, setActiveTab]);
+  }, [workspaceUuid, setViewerSource, setPanels, isMobile, setActiveTab]);
 
   const closeViewer = useCallback(() => {
     setViewerSource(null);
@@ -73,6 +80,10 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     const src = sources.find((s) => s.uuid === sourceUuid);
     // A chip can outlive its source, the viewer would only find nothing there.
     if (!src) return;
+    if (_fileKind(filename) === "page") {
+      window.open(_pageSourceHref(workspaceUuid, sourceUuid, page), "_blank", "noopener");
+      return;
+    }
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
       // isCitation marks the jump of a citation chip, sourceText is the claim and no search term.
@@ -90,7 +101,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
-  }, [sources, setViewerSource, setPanels, isMobile, setActiveTab]);
+  }, [workspaceUuid, sources, setViewerSource, setPanels, isMobile, setActiveTab]);
 
   return {
     openViewer,

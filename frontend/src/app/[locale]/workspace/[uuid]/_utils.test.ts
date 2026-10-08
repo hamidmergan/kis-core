@@ -88,6 +88,7 @@ describe("_fileKind", () => {
     ["audio.mp3", "audio"],
     ["sound.flac", "audio"],
     ["notes.docx", "doc"],
+    ["Arbeitszeitgesetz.page", "page"],
   ] as const)("classifies %s as %s", (name, kind) => {
     expect(_fileKind(name)).toBe(kind);
   });
@@ -95,7 +96,7 @@ describe("_fileKind", () => {
 
 describe("_getChipIcon", () => {
   it("returns a component for every file kind", () => {
-    for (const f of ["a.pdf", "a.mp4", "a.mp3", "a.docx", "a.youtube"]) {
+    for (const f of ["a.pdf", "a.mp4", "a.mp3", "a.docx", "a.youtube", "a.page"]) {
       expect(_getChipIcon(f)).toBeTruthy();
     }
   });
@@ -351,5 +352,15 @@ describe("splitFilename", () => {
   it("behandelt einen fuehrenden Punkt als Namensteil", () => {
     // '.gitignore' is the name, not an extension without a name.
     expect(splitFilename(".gitignore")).toEqual([".gitignore", ""]);
+  });
+});
+
+
+describe("page sources", () => {
+  it("are cited by section and open at it", async () => {
+    const { _chunkLabel, _pageSourceHref } = await import("./_utils");
+    expect(_chunkLabel("Gesetz.page", 8)).toBe("Abschnitt 8");
+    expect(_pageSourceHref("ws", "src", 8)).toBe("/workspace/ws/page/src?abschnitt=8");
+    expect(_pageSourceHref("ws", "src")).toBe("/workspace/ws/page/src");
   });
 });

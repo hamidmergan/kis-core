@@ -212,11 +212,13 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     [postSource],
   );
 
+  const addPage = useCallback((jobUuid: string) => postSource("page", { job_uuid: jobUuid }), [postSource]);
+
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, renameSource, retrySource, summarizeSource, uploadFiles, addLink, addYoutube,
+    toggleSource, deleteSource, renameSource, retrySource, summarizeSource, uploadFiles, addLink, addYoutube, addPage,
   };
 }

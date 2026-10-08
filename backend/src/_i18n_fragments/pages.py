@@ -34,6 +34,8 @@ MESSAGES: dict[str, dict[str, str]] = {
                        "en": "The page is too large to save."},
     "pages.noPlan": {"de": "Der Aufbau der Seite ließ sich nicht planen, der KI-Anbieter hat nicht brauchbar geantwortet.",
                      "en": "The structure of the page could not be planned, the AI provider gave no usable answer."},
+    "ai.page.duplicate": {"de": "Diese Seite ist schon in diesem {label}.",
+                          "en": "This page is already in this {label}."},
     "pages.failed": {"de": "Die Seite ließ sich nicht erstellen.",
                      "en": "The page could not be created."},
 }

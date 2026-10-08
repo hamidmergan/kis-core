@@ -1,4 +1,4 @@
-import { FilePdf, FileDoc, FileVideo, FileAudio, YoutubeLogo } from "@phosphor-icons/react";
+import { BookOpenText, FilePdf, FileDoc, FileVideo, FileAudio, YoutubeLogo } from "@phosphor-icons/react";
 import type { LernKarte, QuizQuestion } from "./_types";
 import { isYoutubeSource, youtubeVideoId } from "@/lib/youtube";
 
@@ -33,9 +33,11 @@ export function _isMediaFile(filename: string): boolean {
   return _MEDIA_EXTENSIONS.has(ext);
 }
 
-export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" | "youtube" {
+export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" | "youtube" | "page" {
   const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   if (ext === ".pdf") return "pdf";
+  // A page from Pages has no file, it opens live in its own tab.
+  if (ext === ".page") return "page";
   // A YouTube source is a video without a file, it gets its own icon.
   if (ext === ".youtube") return "youtube";
   if (_VIDEO_EXTENSIONS.has(ext)) return "video";
@@ -58,6 +60,7 @@ export function splitFilename(filename: string): [string, string] {
 export function _getChipIcon(filename: string) {
   const kind = _fileKind(filename);
   if (kind === "youtube") return YoutubeLogo;
+  if (kind === "page") return BookOpenText;
   if (kind === "video") return FileVideo;
   if (kind === "audio") return FileAudio;
   if (kind === "pdf") return FilePdf;
@@ -166,7 +169,7 @@ export function _sourceChipKey(
 }
 
 // Label of a citation chip in the interface language, German without tChip.
-export type ChipLabelT = (key: "page" | "part" | "removed", values?: { num: number }) => string;
+export type ChipLabelT = (key: "page" | "part" | "section" | "removed", values?: { num: number }) => string;
 
 export function _chunkLabel(
   filename: string,
@@ -180,7 +183,14 @@ export function _chunkLabel(
     if (num == null) return "";
     return tChip ? tChip("part", { num }) : `Teil ${num}`;
   }
+  // A page from Pages is cited by its section, the number counts the sections from the top.
+  if (_fileKind(filename) === "page") return tChip ? tChip("section", { num: num ?? 1 }) : `Abschnitt ${num ?? 1}`;
   return tChip ? tChip("page", { num: num ?? 1 }) : `S. ${num ?? 1}`;
+}
+
+/** Where a page source opens, at the cited section when there is one. */
+export function _pageSourceHref(workspaceUuid: string, sourceUuid: string, section?: number): string {
+  return `/workspace/${workspaceUuid}/page/${sourceUuid}${section ? `?abschnitt=${section}` : ""}`;
 }
 
 export function parseFlashcards(text: string): LernKarte[] {

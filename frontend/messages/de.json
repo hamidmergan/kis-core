@@ -2,6 +2,7 @@
   "sourceChip": {
     "page": "S. {num}",
     "part": "Teil {num}",
+    "section": "Abschnitt {num}",
     "removed": "Quelle entfernt"
   },
   "header": {
@@ -637,6 +638,7 @@
       "allPagesOf": "Alle Seiten von {name}",
       "notSharedTitle": "Diese Seite ist nicht mehr geteilt",
       "askOwner": "Frag die Person, die dir den Link gegeben hat.",
+      "pageGone": "Diese Seite gibt es nicht mehr",
       "collectionHeading": "Seiten von {name}",
       "collectionIntro": "Alle Seiten, die {name} in KIS geteilt hat.",
       "collectionEmpty": "Im Moment ist hier keine Seite geteilt.",
@@ -3929,6 +3931,11 @@
         "linkPlaceholder": "https://",
         "linkSubmit": "Einlesen",
         "linkFailed": "Der Link konnte nicht eingelesen werden.",
+        "pageHeading": "Seite aus Pages",
+        "pagePlaceholder": "Seite wählen",
+        "pageSubmit": "Hinzufügen",
+        "pageNone": "Du hast noch keine fertige Seite in Pages.",
+        "pageFailed": "Die Seite ließ sich nicht hinzufügen.",
         "youtubeHeading": "YouTube-Video",
         "youtubeLinkPlaceholder": "https://www.youtube.com/watch?v=",
         "youtubeTranscriptLabel": "Transkript",

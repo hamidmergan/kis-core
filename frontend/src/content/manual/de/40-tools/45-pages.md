@@ -46,6 +46,15 @@ Link nicht mehr. Schalten Sie wieder ein, gilt derselbe Link.
 Ihre Sammelseite zeigt alle Seiten, die Sie gerade teilen, unter einem festen Link. Neue geteilte
 Seiten erscheinen dort von selbst.
 
+## Im Workspace
+
+Eine fertige Seite können Sie als Material in einen Ihrer Workspaces stellen: im Workspace auf
+das Plus bei Materialien, dann unter Seite aus Pages auswählen. Der Lernassistent liest die Seite
+Abschnitt für Abschnitt ein, antwortet daraus und zitiert sie mit Abschnitt und Nummer. Ein Klick
+auf das Material oder auf ein Zitat öffnet die Seite in einem neuen Tab, beim Zitat direkt am
+Abschnitt. Alle Mitglieder des Workspace können sie dort lesen, auch wenn sie nicht geteilt ist.
+Speichern Sie eine Änderung an der Seite, liest der Workspace sie von selbst neu ein.
+
 ## Aufbewahrung
 
 Seiten zählen nicht zum Vorrat Ihrer Aufträge und verschwinden nicht durch neuere Aufträge. Sie

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { UploadSimple } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import HelpTooltip from "@/components/ui/HelpTooltip";
+import Select from "@/components/ui/Select";
 
 const fieldStyle = () => ({
   backgroundColor: "var(--background)",
@@ -16,26 +17,45 @@ const fieldStyle = () => ({
 const fieldBorderClass = (error: boolean) =>
   error ? "border-error-border" : "border-border focus:border-kb";
 
-/** One dialog for three ways in: a file, a web page by link, or a YouTube video with its transcript. */
+/** One dialog for the ways in: a file, a web page by link, a page from Pages, or a YouTube video with its transcript. */
 export function AddMaterialModal({
   open,
   onClose,
   onPickFile,
   onAddLink,
   onAddYoutube,
+  onAddPage,
 }: {
   open: boolean;
   onClose: () => void;
   onPickFile: () => void;
   onAddLink: (url: string) => Promise<void>;
   onAddYoutube?: (url: string, transcript: string) => Promise<void>;
+  onAddPage?: (jobUuid: string) => Promise<void>;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [url, setUrl] = useState("");
   const [ytUrl, setYtUrl] = useState("");
   const [ytTranscript, setYtTranscript] = useState("");
   // Which section is running, the other one waits.
-  const [busy, setBusy] = useState<"link" | "youtube" | null>(null);
+  const [busy, setBusy] = useState<"link" | "youtube" | "page" | null>(null);
+  // The person's finished pages, null while loading or when Pages is not theirs to use.
+  const [pages, setPages] = useState<{ job_uuid: string; title: string }[] | null>(null);
+  const [pageId, setPageId] = useState("");
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !onAddPage) return;
+    let cancelled = false;
+    fetch("/api/pages", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { pages?: { job_uuid: string; title: string; status: string }[] } | null) => {
+        if (cancelled || !d?.pages) return;
+        setPages(d.pages.filter((p) => p.status === "success").map((p) => ({ job_uuid: p.job_uuid, title: p.title })));
+      })
+      .catch(() => { /* Without Pages the section stays away. */ });
+    return () => { cancelled = true; };
+  }, [open, onAddPage]);
   const [error, setError] = useState<string | null>(null);
   const [ytError, setYtError] = useState<string | null>(null);
 
@@ -45,6 +65,8 @@ export function AddMaterialModal({
     setYtTranscript("");
     setError(null);
     setYtError(null);
+    setPageId("");
+    setPageError(null);
   };
 
   const close = () => {
@@ -81,6 +103,21 @@ export function AddMaterialModal({
       onClose();
     } catch (err) {
       setYtError(err instanceof Error ? err.message : t("youtubeFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const submitPage = async () => {
+    if (!pageId || busy || !onAddPage) return;
+    setBusy("page");
+    setPageError(null);
+    try {
+      await onAddPage(pageId);
+      reset();
+      onClose();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : t("pageFailed"));
     } finally {
       setBusy(null);
     }
@@ -138,6 +175,41 @@ export function AddMaterialModal({
           <p id="add-material-link-error" className="text-sm mt-2" style={{ color: "var(--error)" }}>{error}</p>
         )}
       </div>
+
+      {onAddPage && pages && (
+        <div className="mt-4" data-testid="add-material-page">
+          <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+            {t("pageHeading")}
+          </div>
+          {pages.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>{t("pageNone")}</p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Select
+                  id="add-material-page-select"
+                  ariaLabel={t("pageHeading")}
+                  value={pageId}
+                  onChange={(v) => { setPageId(v); setPageError(null); }}
+                  disabled={busy !== null}
+                  placeholder={t("pagePlaceholder")}
+                  options={pages.map((p) => ({ value: p.job_uuid, label: p.title }))}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void submitPage()}
+                disabled={busy !== null || !pageId}
+                data-testid="add-material-page-submit"
+                className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {busy === "page" ? <Spinner size="sm" color="current" /> : t("pageSubmit")}
+              </button>
+            </div>
+          )}
+          {pageError && <p className="text-sm mt-2" style={{ color: "var(--error)" }}>{pageError}</p>}
+        </div>
+      )}
 
       {onAddYoutube && (
         <div className="mt-4">

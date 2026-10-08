@@ -140,3 +140,12 @@ def count_shared(user_id: int) -> int:
                 (user_id,),
             )
             return cur.fetchone()[0]
+
+
+def linked_sources(job_uuid: str) -> list[dict]:
+    """Every workspace source that stands for this page, to read it again after a save."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT uuid, file_path, status FROM aia_sources WHERE source_url = %s",
+                        (f"pages:{job_uuid}",))
+            return [dict(r) for r in cur.fetchall()]

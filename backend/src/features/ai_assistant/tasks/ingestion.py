@@ -111,6 +111,30 @@ def run_summarize_source(source_uuid: str):
     _build_source_summary_safely(source_uuid, db.get_chunks_by_source(source["id"]))
 
 
+def _page_chunks(file_path: str) -> list[dict]:
+    """A page read section by section, each section one numbered part, its anchor noted beside it."""
+    from src.features.ai_assistant.routes.sources._page import read_sidecar, write_sidecar
+    from src.features.pages.text import as_text, parts
+    from src.services.text_pieces import PIECE_CHARS, PIECE_OVERLAP, split_text
+    from src.storage import aia_transcript_key, put_bytes
+    from src.tasks.pages_tasks import load_page
+
+    note = read_sidecar(file_path)
+    job = db.get_job(note.get("job_uuid") or "")
+    page = load_page(job["user_id"], job["job_uuid"])[0] if job else None
+    if not page:
+        raise RuntimeError("The page behind this source is gone.")
+    teile = parts(page)
+    chunks = [{"page_number": n, "content": stueck}
+              for n, teil in enumerate(teile, start=1)
+              for stueck in split_text(f"{teil.title}\n{teil.text}".strip(), PIECE_CHARS, PIECE_OVERLAP)]
+    # The citation names a section by its number, the live page needs its id to jump there.
+    write_sidecar(file_path, {**note, "anchors": [teil.anchor for teil in teile]})
+    # Other services read a workspace source through this text, as they read a transcript.
+    put_bytes(aia_transcript_key(file_path), as_text(page).encode("utf-8"))
+    return chunks
+
+
 @celery_app.task(bind=True, name="aia.index_source", queue="aia_ingest")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
     try:
@@ -144,7 +168,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         suffix = os.path.splitext(filename)[1] or f".{file_type}"
         media_language: str | None = None
         # A YouTube source has no file, its transcript was pasted and stored as VTT.
-        opener = nullcontext(None) if file_type == "youtube" else open_input_file(file_path_stored, suffix=suffix)
+        opener = (nullcontext(None) if file_type in ("youtube", "page")
+                  else open_input_file(file_path_stored, suffix=suffix))
         with opener as local_path:
             # 5. Extract chunks (branch: pasted transcript vs media vs document)
             from src.services import aia_chunker
@@ -160,6 +185,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 media_language = detect_language(segments)
                 media_duration = float(segments[-1]["end"])
                 chunks = _store_transcript_artifacts(file_path_stored, segments, media_language)
+            elif file_type == "page":
+                chunks = _page_chunks(file_path_stored)
+                check_length(chunks)
             elif aia_chunker.is_media_file(file_type):
                 # Audio/Video: transcribe with timestamps, then chunk
                 from src.dependencies import resolve_whisper_client

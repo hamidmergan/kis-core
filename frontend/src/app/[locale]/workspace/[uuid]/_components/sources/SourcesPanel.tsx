@@ -35,6 +35,7 @@ export function SourcesPanel({
   onUpload,
   onAddLink,
   onAddYoutube,
+  onAddPage,
   uploadProgress,
   uploadErrors,
   onDismissUploadErrors,
@@ -67,6 +68,8 @@ export function SourcesPanel({
   onAddLink?: (url: string) => Promise<void>;
   /** Adds a YouTube video with its pasted transcript. */
   onAddYoutube?: (url: string, transcript: string) => Promise<void>;
+  /** Puts one of the person's pages from Pages into the workspace. */
+  onAddPage?: (jobUuid: string) => Promise<void>;
   uploadProgress: { current: number; total: number; percent: number } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
@@ -288,6 +291,7 @@ export function SourcesPanel({
           onPickFile={() => fileInputRef.current?.click()}
           onAddLink={onAddLink}
           onAddYoutube={onAddYoutube}
+          onAddPage={onAddPage}
         />
       )}
 

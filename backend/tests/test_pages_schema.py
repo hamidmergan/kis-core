@@ -117,3 +117,17 @@ def test_only_one_blue_box_and_the_design_is_kept():
 def test_own_picture_style_replaces_the_default():
     assert pl.image_prompt("a desk", "Watercolour, soft greens.").startswith("Watercolour, soft greens. Subject: a desk")
     assert pl.image_prompt("a desk").startswith(pl.default_image_style())
+
+
+def test_page_as_text_keeps_sections_and_spells_out_charts():
+    from src.features.pages import text as pt
+    page = schema.clean_page(_page(
+        {"id": "top", "hero": True, "title": "T", "lead": "L", "meta": "Erstellt mit KI"},
+        {"id": "s1", "title": "Messwerte", "blocks": [{"kind": "chart", "chart_type": "line", "caption": "Punkte",
+            "categories": ["2", "4", "6"], "series": [{"name": "Gemessen", "values": [18, 30, 32.5]}]}]},
+        {"id": "s2", "title": "Versteckt", "hidden": True, "blocks": [{"kind": "text", "text": "geheim"}]},
+        {"id": "map", "title": "Karte", "blocks": []}))
+    teile = pt.parts(page)
+    assert [p.anchor for p in teile] == ["top", "s1"]
+    assert "Gemessen: 2: 18, 4: 30, 6: 32,5" in teile[1].text
+    assert "geheim" not in pt.as_text(page)

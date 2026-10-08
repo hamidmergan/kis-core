@@ -85,6 +85,7 @@ export default function KiTutorWorkspacePage() {
     uploadFiles: handleUpload,
     addLink: handleAddLink,
     addYoutube: handleAddYoutube,
+    addPage: handleAddPage,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
   // Chapters only structure the list, the selection stays the file's checkbox.
@@ -305,6 +306,7 @@ export default function KiTutorWorkspacePage() {
     customQuestion: handleCustomQuestion,
     pillClick: handlePillClick,
   } = useViewerActions({
+    workspaceUuid: uuid,
     sources,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
@@ -577,6 +579,7 @@ export default function KiTutorWorkspacePage() {
         onUpload={handleUpload}
         onAddLink={handleAddLink}
         onAddYoutube={handleAddYoutube}
+        onAddPage={handleAddPage}
         uploadProgress={uploadProgress}
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}

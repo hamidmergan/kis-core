@@ -44,6 +44,15 @@ the same link works again.
 Your collection shows every page you currently share under one fixed link. Newly shared pages
 appear there by themselves.
 
+## In a workspace
+
+You can put a finished page into one of your workspaces as material: in the workspace, use the
+plus at Materials and pick it under Page from Pages. The learning assistant reads the page section
+by section, answers from it and cites it by section number. A click on the material or on a
+citation opens the page in a new tab, at the cited section. Every member of the workspace can
+read it there, even when it is not shared. When you save a change to the page, the workspace
+reads it again by itself.
+
 ## Keeping pages
 
 Pages do not count towards the pool of your jobs and are never pushed out by newer jobs. You can

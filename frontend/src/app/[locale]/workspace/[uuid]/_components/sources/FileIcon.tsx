@@ -47,11 +47,11 @@ export function FileIcon({ filename, sourceUrl }: { filename: string; sourceUrl?
   const t = useTranslations("workspace.detail.sources");
   const kind = _fileKind(filename);
   const isVideo = kind === "video" || kind === "youtube";
-  const bg = isVideo ? "#E0E7FF" : kind === "audio" ? "var(--warn-bg)" : kind === "pdf" ? "var(--error-bg)" : "var(--info-bg)";
-  const color = isVideo ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "var(--error-strong)" : "var(--info-strong)";
+  const bg = isVideo ? "#E0E7FF" : kind === "audio" ? "var(--warn-bg)" : kind === "pdf" ? "var(--error-bg)" : kind === "page" ? "var(--success-bg)" : "var(--info-bg)";
+  const color = isVideo ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "var(--error-strong)" : kind === "page" ? "var(--success-strong)" : "var(--info-strong)";
   const Icon = _getChipIcon(filename);
   // A source read from a web page keeps its file icon and gets a globe in the corner.
-  const fromWeb = !!sourceUrl && kind !== "youtube";
+  const fromWeb = !!sourceUrl && kind !== "youtube" && kind !== "page";
   return (
     <div
       className="relative flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"

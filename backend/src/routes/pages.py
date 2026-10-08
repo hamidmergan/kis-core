@@ -213,7 +213,34 @@ async def save_page(job_uuid: str, request: Request, current_user: dict = Depend
     page["saved_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     save_job_file(job["user_id"], job_uuid, USER_PAGE_FILE,
                   json.dumps(page, ensure_ascii=False).encode("utf-8"))
+    _refresh_workspaces(job_uuid, page, current_user.get("user_id", 0), locale)
     return {"page": page}
+
+
+def _refresh_workspaces(job_uuid: str, page: dict, user_id: int, locale: str) -> None:
+    """Workspaces holding this page read it again, but only when its text really changed."""
+    from src.features.ai_assistant.routes.sources._shared import _enqueue_index_source
+    from src.features.pages.text import as_text
+    from src.storage import aia_transcript_key
+
+    neu = as_text(page)
+    for quelle in repo.linked_sources(job_uuid):
+        if quelle["status"] in ("pending", "indexing"):
+            continue
+        try:
+            alt = get_job_file_text(aia_transcript_key(quelle["file_path"]))
+        except Exception:  # noqa: BLE001 - without the old text the source is simply read again
+            alt = None
+        if alt == neu:
+            continue
+        db.update_aia_source_status(quelle["uuid"], "pending")
+        _enqueue_index_source(quelle["uuid"], user_id, locale)
+        logger.info("Pages {}: Workspace-Quelle {} wird neu gelesen", job_uuid[:8], quelle["uuid"][:8])
+
+
+def get_job_file_text(key: str) -> str:
+    from src.storage import get_file
+    return get_file(key).decode("utf-8")
 
 
 @router.get("/pages/{job_uuid}/images/{name}")

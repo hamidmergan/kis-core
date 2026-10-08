@@ -2,6 +2,7 @@
   "sourceChip": {
     "page": "p. {num}",
     "part": "Part {num}",
+    "section": "Section {num}",
     "removed": "Source removed"
   },
   "header": {
@@ -637,6 +638,7 @@
       "allPagesOf": "All pages by {name}",
       "notSharedTitle": "This page is no longer shared",
       "askOwner": "Ask the person who gave you the link.",
+      "pageGone": "This page no longer exists",
       "collectionHeading": "Pages by {name}",
       "collectionIntro": "Every page {name} has shared in KIS.",
       "collectionEmpty": "No page is shared here at the moment.",
@@ -3929,6 +3931,11 @@
         "linkPlaceholder": "https://",
         "linkSubmit": "Read in",
         "linkFailed": "The link could not be read in.",
+        "pageHeading": "Page from Pages",
+        "pagePlaceholder": "Choose a page",
+        "pageSubmit": "Add",
+        "pageNone": "You have no finished page in Pages yet.",
+        "pageFailed": "The page could not be added.",
         "youtubeHeading": "YouTube video",
         "youtubeLinkPlaceholder": "https://www.youtube.com/watch?v=",
         "youtubeTranscriptLabel": "Transcript",
