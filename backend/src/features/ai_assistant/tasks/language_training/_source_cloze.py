@@ -25,9 +25,6 @@ _SHAPE = (
     'Respond ONLY with a JSON object:\n'
     '{"title": "Short topic title", '
     '"instruction": "What the learner has to do, one or two sentences", '
-    '"example": {"gapped": "One short DEMO sentence with ___ where a word is missing, '
-    'about DIFFERENT material than the passage below", '
-    '"solved": "the same demo sentence with the gap correctly filled in"}, '
     '"text": "A coherent passage where the target words are replaced by {{1}}, {{2}}, ...", '
     '"page": 12, '
     '"gaps": [{"base": "the dictionary form of the word", '
@@ -48,7 +45,6 @@ _RULES = (
     "- Never write a solution somewhere else in the passage, that gives it away.\n"
     "- 'base' is always the plain dictionary form, that is what the learner sees.\n"
     "- The instruction must say that some words keep their form and others do not.\n"
-    "- The example must be about different material than the passage.\n"
 )
 
 
@@ -172,7 +168,7 @@ def _solved(text: str, gaps: list[dict]) -> str:
 def _build_prompt(count: int, language: str, words: list[str] | None) -> str:
     kopf = (
         f"You write a vocabulary gap-fill exercise from the given source text. "
-        f"Write the passage, the instruction and the example in {language}, "
+        f"Write the passage and the instruction in {language}, "
         f"regardless of the source-text language.\n\n"
     )
     auftrag = f"Create a passage with exactly {count} gaps.\n\n"
@@ -232,16 +228,14 @@ def generate_cloze_from_source(
     # The title is decided before the exercise because it travels into extras.
     title = (data.get("title") or "").strip() or ctx.multi_label
 
-    beispiel = data.get("example") or {}
     item = {
         "front": text,
         "back": _solved(text, gaps),
-        # Instruction, example and title live in extras, the pool carries no set columns.
+        # Instruction and title live in extras, the pool carries no set columns. No example
+        # any more, the view dropped it on 31.08.2026 and writing it cost every run.
         "extras": {
             "gaps": gaps,
             "instruction": (data.get("instruction") or "").strip(),
-            "example": {"gapped": (beispiel.get("gapped") or "").strip(),
-                        "solved": (beispiel.get("solved") or "").strip()},
             "title": title,
         },
         # With an underscore, because _attribution.py reads exactly this field.
@@ -330,7 +324,7 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
     # _kind has served its purpose and has no place in the saved set.
     for item in items:
         item.pop("_kind", None)
-    # No header, instruction and example hang in extras on the exercise.
+    # No header, the instruction hangs in extras on the exercise.
     db.finalize_exercise_set(set_id, title, items, user_id=user_id)
 
 

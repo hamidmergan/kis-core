@@ -53,7 +53,6 @@ def _client(payload):
 _GOOD = {
     "title": "Anlage und Filter",
     "instruction": "Setze die Wörter in der passenden Form ein.",
-    "example": {"gapped": "Der Techniker ___ die Anlage. (prüfen)", "solved": "prüft"},
     "text": "Die Anlage {{1}} wieder, weil der Techniker den Filter {{2}} hat.",
     "page": 12,
     "gaps": [
@@ -106,14 +105,20 @@ def test_die_zitierte_seite_erreicht_die_zuordnung_mit_unterstrich(monkeypatch):
     assert "page" not in empfangen[0]
 
 
-def test_anweisung_und_beispiel_haengen_an_der_aufgabe(attributed):
-    # Instruction and example live in extras, otherwise the pool loses them.
+def test_die_anweisung_haengt_an_der_aufgabe(attributed):
+    # The instruction lives in extras, otherwise the pool loses it.
     client, _ = _client(_GOOD)
     items, _ = generate_cloze_from_source(client, "m", _ctx(), 2)
     extras = items[0]["extras"]
     assert extras["instruction"].startswith("Setze die Wörter")
-    assert extras["example"]["gapped"] == "Der Techniker ___ die Anlage. (prüfen)"
-    assert extras["example"]["solved"] == "prüft"
+    assert "example" not in extras
+
+
+def test_kein_beispiel_wird_bestellt(attributed):
+    # The view dropped the example on 31.08.2026, writing it only cost time.
+    client, calls = _client(_GOOD)
+    generate_cloze_from_source(client, "m", _ctx(), 2)
+    assert "example" not in calls[0][0]["content"].lower()
 
 
 def test_so_viele_chips_wie_luecken(attributed):
