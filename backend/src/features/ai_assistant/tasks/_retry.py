@@ -22,7 +22,22 @@ def is_retryable(exc: Exception) -> bool:
         import openai
     except ImportError:  # pragma: no cover - openai gehört zu den Abhängigkeiten
         return False
+    if isinstance(exc, openai.APITimeoutError) and not _never_arrived(exc):
+        # The provider worked the whole time limit, a second attempt costs the same again.
+        return False
     return isinstance(exc, openai.APIConnectionError)
+
+
+def _never_arrived(exc: BaseException) -> bool:
+    """Whether a timeout struck before the request reached the provider."""
+    import httpx
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        if isinstance(exc, (httpx.ConnectTimeout, httpx.PoolTimeout)):
+            return True
+        seen.add(id(exc))
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def _soft_deadline(exc: BaseException):

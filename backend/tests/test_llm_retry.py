@@ -20,13 +20,28 @@ def _status_error(cls, code):
 
 # ─── Which disruption may be retried ─────────────────────────────────────────
 
+def _timeout(cause):
+    exc = openai.APITimeoutError(request=_REQ)
+    exc.__cause__ = cause
+    return exc
+
+
 @pytest.mark.parametrize("exc", [
     openai.APIConnectionError(request=_REQ),
-    openai.APITimeoutError(request=_REQ),
+    _timeout(httpx.ConnectTimeout("langsam", request=_REQ)),
 ])
 def test_a_broken_connection_is_worth_another_try(exc):
     # Costs nothing: the request never arrived.
     assert is_retryable(exc)
+
+
+@pytest.mark.parametrize("exc", [
+    _timeout(httpx.ReadTimeout("rechnet noch", request=_REQ)),
+    openai.APITimeoutError(request=_REQ),
+])
+def test_a_call_that_ran_out_of_time_is_not_sent_again(exc):
+    # 08.10.2026 on Ollama: a quiz ran 270 s, the retry would have cost another 270 s.
+    assert not is_retryable(exc)
 
 
 def test_a_server_fault_is_worth_another_try():
