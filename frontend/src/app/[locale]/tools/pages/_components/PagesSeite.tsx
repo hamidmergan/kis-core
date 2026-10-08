@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowCounterClockwise, BookOpenText, Trash } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowRight, BookOpenText, Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -371,10 +371,11 @@ export default function PagesSeite() {
             <div className="flex items-center gap-2 mb-2.5">
               <h2 className="text-base font-semibold">{t("listTitle")}</h2>
               {list && (
-                <button type="button" className="ml-auto px-2.5 py-1 text-sm font-medium rounded-lg btn-ghost text-kb"
+                <button type="button" className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium btn-secondary rounded-lg whitespace-nowrap"
                   title={t("collectionText", { count: list.collection.count })}
                   onClick={() => router.push(`/u/${list.collection.code}`)}>
                   {t("collectionView")}
+                  <ArrowRight size={15} weight="bold" />
                 </button>
               )}
             </div>
