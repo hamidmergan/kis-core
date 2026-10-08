@@ -403,7 +403,7 @@ export default function PagesSeite() {
                         >
                           <Thumb src={p.image ? `${api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null} />
                           <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
-                            <div className="font-semibold leading-snug text-foreground">{p.title || p.sources}</div>
+                            {p.title && <div className="font-semibold leading-snug text-foreground line-clamp-2 break-words" title={p.title}>{p.title}</div>}
                             <div className="text-xs text-muted mt-0.5 truncate" title={p.sources}>{p.sources}</div>
                             {open && <div className="text-xs text-muted mt-0.5">{t("changedOn", { date: date(p.updated_at) })}</div>}
                             {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
