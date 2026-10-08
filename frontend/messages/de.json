@@ -2824,7 +2824,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Kontext-Budget der Tools",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Tools ins Modell geben. Mindmap, Podcast, Zeitplan und Datentabelle nutzen den Wert voll aus: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung nehmen sich nur so viel, wie die bestellte Anzahl Aufgaben braucht, rund 6.700 Zeichen je Aufgabe, was nicht mehr hineinpasst kommt beim nächsten Satz dran. Der Wert hier ist ihre Obergrenze. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden. Für die Dienste Report, Pages, Präsentation, Podcast und Screencast ist derselbe Wert die Grenze für alle Materialien eines Auftrags zusammen, mehr wird beim Hochladen abgelehnt.",
+      "hint": "Wie viele Zeichen aus den Materialien höchstens ins Modell gehen. Gilt für die Tools im Lernassistenten und für alle Dienste. Schafft das Modell so viel nicht, gibt es eine Fehlermeldung.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",

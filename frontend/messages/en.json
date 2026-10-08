@@ -2824,7 +2824,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools context budget",
-      "hint": "How much text from the material (in characters) the tools hand to the model. Mind map, podcast, schedule and data table use the whole value: the mind map splits it across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. Flashcards, vocab cards, quiz, vocabulary and grammar exercises take only what the requested number of exercises needs, about 6,700 characters per exercise, whatever does not fit comes up in the next set. This value is their ceiling. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down. For the services Report, Pages, Presentation, Podcast and Screencast the same value limits all material of one job together, more is refused on upload.",
+      "hint": "How many characters of the material reach the model at most. Applies to the tools in the learning assistant and to all services. If the model cannot take that much, an error message appears.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
