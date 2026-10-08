@@ -98,5 +98,6 @@ export interface SharedPage {
 
 export interface Collection {
   owner: { name: string };
+  own: boolean;
   pages: { code: string; title: string; image: string; updated_at: string | null }[];
 }

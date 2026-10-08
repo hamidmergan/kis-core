@@ -266,4 +266,6 @@ def shared_collection(code: str, current_user: dict = Depends(get_current_user),
         karten.append({"code": row["code"], "title": schema.title_of(sichtbar),
                        "image": schema.first_image(sichtbar),
                        "updated_at": page.get("saved_at") or _dt(row["completed_at"] or row["updated_at"])})
-    return {"owner": {"name": daten["owner_name"]}, "pages": karten}
+    # The owner gets the way back to their own pages, a reader has the logo.
+    return {"owner": {"name": daten["owner_name"]}, "pages": karten,
+            "own": daten["user_id"] == current_user.get("user_id", 0)}

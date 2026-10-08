@@ -36,7 +36,7 @@ export default function CollectionView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar />
+      <PageBar back={data.own ? "/tools/pages" : undefined} backLabel={data.own ? t("back") : undefined} />
       <div className="max-w-6xl mx-auto px-4 pt-6 pb-16">
         <h1 className="text-xl font-bold mb-1">{t("collectionHeading", { name: data.owner.name })}</h1>
         <p className="text-sm text-muted mb-5">{t("collectionIntro", { name: data.owner.name })}</p>
