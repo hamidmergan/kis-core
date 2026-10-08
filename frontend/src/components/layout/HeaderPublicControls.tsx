@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Moon, Sun } from "@phosphor-icons/react";
+import { Check } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
-import { useTheme } from "@/hooks/useTheme";
 import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
@@ -102,24 +101,11 @@ function LanguageMenu() {
   );
 }
 
-/** Language choice and theme toggle for visitors without a session, there is no settings menu to put them in. */
+/** Language choice for visitors without a session, there is no settings menu to put it in. */
 export default function HeaderPublicControls() {
-  const t = useTranslations("header");
-  const { theme, setTheme } = useTheme();
-  const toDark = theme !== "dark";
-
   return (
     <div className="flex items-center gap-1" data-testid="header-public-controls">
       <LanguageMenu />
-      <button
-        type="button"
-        aria-label={toDark ? t("themeToDarkAria") : t("themeToLightAria")}
-        title={toDark ? t("themeDark") : t("themeLight")}
-        onClick={() => setTheme(toDark ? "dark" : "light")}
-        className="flex items-center justify-center w-9 h-9 rounded-full btn-on-dark"
-      >
-        {toDark ? <Moon size={18} weight="bold" aria-hidden="true" /> : <Sun size={18} weight="bold" aria-hidden="true" />}
-      </button>
     </div>
   );
 }
