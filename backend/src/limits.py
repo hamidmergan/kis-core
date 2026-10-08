@@ -275,9 +275,10 @@ MAP_MIN_WINDOW_TOKENS    = 32_768
 MAP_UNMEASURED_WINDOW_TOKENS = 131_072
 # Themen je Teil, wenn der Text nicht in einen Planungsaufruf passt.
 MAP_MAX_TOPICS_PER_PART  = 25
-# Hoechstens so viele Themen insgesamt, so viele wie bei einem 128k-Fenster und vollem Material.
-# Ein kleines Fenster schneidet in viele Teile, 174 Themen liessen gemma den Plan nie fertig schreiben.
-MAP_MAX_TOPICS_TOTAL     = 75
+# Hoechstens so viele Themen insgesamt, so viele wie ein 128k-Fenster bei 500.000 Zeichen bildet
+# (2 Teile). Ein kleines Fenster schneidet in viele Teile, 174 Themen liessen gemma den Plan nie
+# fertig schreiben.
+MAP_MAX_TOPICS_TOTAL     = 50
 # Themen, die jede Datei in der Themenstufe mindestens bekommt, sonst faellt eine hinten liegende weg.
 MAP_MIN_TOPICS_PER_FILE  = 2
 # Stellen je Eintrag einer Gliederung, und wie weit ein Bereich wie "12-15" reichen darf.
