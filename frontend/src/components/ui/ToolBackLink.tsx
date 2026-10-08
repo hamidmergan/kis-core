@@ -4,7 +4,7 @@ import { CaretLeft } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
-const CLASS = "inline-flex items-center gap-1 text-sm font-medium mb-3 opacity-60 hover:opacity-100 transition-opacity";
+const CLASS = "flex w-fit items-center gap-1 text-sm font-medium -mt-4 mb-3 opacity-60 hover:opacity-100 transition-opacity";
 
 /** With onRestart the link leads back to the empty first step, with href and label anywhere else, by default to the services. */
 export default function ToolBackLink({ onRestart, href, label }: { onRestart?: () => void; href?: string; label?: string }) {
