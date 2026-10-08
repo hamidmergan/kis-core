@@ -146,6 +146,11 @@ def _thl_stil() -> str:
     return json.loads(datei.read_text(encoding="utf-8"))["style_text"].strip()
 
 
+def stiltexte() -> dict[str, str]:
+    """Every style with its sentence, for services that fill their own picture instruction from a choice."""
+    return {k: _thl_stil() if k == "thl" else v for k, v in _STILE.items() if k != "keiner"}
+
+
 def bild_prompt(beschreibung: str, stil: str, *, ohne_schrift: bool) -> str:
     """What goes to the image model: the style first, then the subject, the no-lettering sentence last."""
     if stil not in _STILE:

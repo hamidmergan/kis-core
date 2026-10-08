@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
 from src.dependencies import get_current_user
+from src.features.bild import optionen
 from src.features.praesentation import vorlage, vorlagen, vorlagen_repo
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_TEMPLATES, PRAESENTATION_TEMPLATE_MAX_MB
@@ -28,6 +29,12 @@ def _eintrag(zeile: dict, meta: dict | None, system: bool = False) -> dict:
     meta = meta or {}
     return {"id": zeile["id"], "name": zeile["name"], "stiltext": zeile.get("stiltext", ""), "system": system,
             "roles": meta.get("roles", []), "hasImages": bool(meta.get("hasImages"))}
+
+
+@router.get("/praesentation/bildstile")
+def list_bildstile(_user: dict = Depends(get_current_user)):
+    """The styles of the image tool, the template's own style stands in for the THL one."""
+    return {k: v for k, v in optionen.stiltexte().items() if k != "thl"}
 
 
 @router.get("/praesentation/vorlagen")

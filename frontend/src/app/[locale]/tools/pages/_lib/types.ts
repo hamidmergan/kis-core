@@ -128,6 +128,8 @@ export interface PagesList {
   /** The default look of the pictures, the form starts with it. */
   imageStyle: string;
   imageStyleMax: number;
+  /** The styles of the image tool with their sentences, a choice fills the field. */
+  imageStyles: Record<string, string>;
   extensions: string[];
 }
 

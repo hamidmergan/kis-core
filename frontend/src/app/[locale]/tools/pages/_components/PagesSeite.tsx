@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowCounterClockwise, ArrowRight, BookOpenText, Trash } from "@phosphor-icons/react";
+import { ArrowRight, BookOpenText, Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -25,6 +25,7 @@ import * as api from "../_lib/api";
 import type { PageCard, PagesList } from "../_lib/types";
 import { CopyButton, ShareSwitch } from "./Sharing";
 import { ErgebnisInfoKnopf } from "@/components/jobs/ErgebnisInfo";
+import StilChips from "@/components/tools/StilChips";
 
 type SourceMode = "files" | "module";
 const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
@@ -325,19 +326,11 @@ export default function PagesSeite() {
             </div>
 
             <div className="mt-6">
-              <div className="flex items-center justify-between gap-3 mb-1">
-                <label htmlFor="pages-image-style" className="text-sm font-medium text-foreground">{t("imageStyleLabel")}</label>
-                <button
-                  type="button"
-                  onClick={() => list && setImageStyle(list.imageStyle)}
-                  disabled={sending || !list || imageStyle === list.imageStyle}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-kb px-2 py-1 rounded-md btn-ghost disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={t("imageStyleResetTitle")}
-                >
-                  <ArrowCounterClockwise size={12} weight="bold" aria-hidden="true" />
-                  {t("imageStyleReset")}
-                </button>
-              </div>
+              <label htmlFor="pages-image-style" className="block text-sm font-medium text-foreground mb-1">{t("imageStyleLabel")}</label>
+              {list && (
+                <StilChips stile={{ pages: list.imageStyle, ...list.imageStyles }} standard="pages" wert={imageStyle ?? ""}
+                  onWahl={setImageStyle} disabled={sending} />
+              )}
               <textarea
                 id="pages-image-style"
                 value={imageStyle ?? ""}

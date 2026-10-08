@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.dependencies_rbac import require_tool_access
+from src.features.bild import optionen
 from src.features.pages import repository as repo
 from src.features.pages import schema
 from src.features.summary.models import INSTRUCTIONS_FILE
@@ -121,6 +122,7 @@ def list_pages(current_user: dict = Depends(get_current_user)):
         # The form starts with the look the pictures get by default, the person may change it.
         "imageStyle": default_image_style(),
         "imageStyleMax": PAGES_IMAGE_STYLE_MAX_CHARS,
+        "imageStyles": optionen.stiltexte(),
         "maxSources": SUMMARY_MAX_SOURCES,
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }

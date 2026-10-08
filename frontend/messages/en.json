@@ -569,8 +569,6 @@
       "instructionsLabel": "Instruction, optional",
       "instructionsPlaceholder": "For example: only chapter 4, with many examples.",
       "imageStyleLabel": "Instruction for pictures",
-      "imageStyleReset": "Reset",
-      "imageStyleResetTitle": "Bring back the given instruction",
       "imageStyleHint": "Applies to every picture on the page. Writing in a picture is always ruled out.",
       "providerLabel": "AI provider",
       "submit": "Create page",
@@ -1075,6 +1073,7 @@
         "qualityHint": "Higher quality takes longer.",
         "noText": "No lettering in the image",
         "noTextHint": "Image models often misspell words.",
+        "defaultStyle": "Default",
         "styles": {
           "keiner": "No style",
           "foto": "Photo",
@@ -1083,7 +1082,9 @@
           "aquarell": "Watercolor",
           "3d": "3D",
           "flach": "Flat",
-          "thl": "THL slide style"
+          "thl": "THL slide style",
+          "vorlage": "Template",
+          "pages": "Pages style"
         },
         "formats": {
           "vorlage": "Like source",
@@ -1632,7 +1633,6 @@
         "templateWithoutImages": "without image fields, no images are created",
         "styleLabel": "Instruction for the images",
         "stylePlaceholder": "For example: flat vector illustration, muted blue and grey, white background",
-        "styleReset": "Reset to default",
         "uploadTemplate": "Upload your own template",
         "editTemplate": "Edit {name}",
         "deleteTemplate": "Delete {name}",

@@ -12,11 +12,13 @@ import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import ToggleRow from "@/components/ui/ToggleRow";
 import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
+import StilChips from "@/components/tools/StilChips";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import { listBildstile } from "../_api";
 import { FIELD } from "../_components/VorlageHochladen";
 import StepFooter from "../_components/StepFooter";
 import VorlagenWahl from "../_components/VorlagenWahl";
@@ -79,6 +81,8 @@ export default function ContentStep({ canUseModules, source, language, notes, in
   const [dragOver, setDragOver] = useState(false);
   const [vorlage, setVorlage] = useState<Vorlage | undefined>();
   const [offen, setOffen] = useState<Zeile | null>("material");
+  const [bildstile, setBildstile] = useState<Record<string, string>>({});
+  useEffect(() => { listBildstile().then(setBildstile).catch(() => {}); }, []);
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
   const mode: SourceMode = demo ? "module" : canUseModules || source.mode !== "module" ? source.mode : "files";
   const { modules, sources } = useModules(mode === "module" && !demo ? source.moduleId : "");
@@ -165,14 +169,11 @@ export default function ContentStep({ canUseModules, source, language, notes, in
           {/* Only a template with picture fields gets pictures, the style belongs to the template and follows its choice. */}
           {vorlage?.hasImages && (
             <EinstellungsFeld titel={t("styleLabel")} wert={stil || t("emptyValue")} htmlFor="praesentation-stil" {...zeile("style")}>
+              {/* The template chip means its own style, so it goes back to following the template. */}
+              <StilChips stile={{ vorlage: vorlage.stiltext, ...bildstile }} standard="vorlage" wert={stil} disabled={fest}
+                onWahl={(text) => onImageStyle(text === vorlage.stiltext ? null : text)} />
               <textarea id="praesentation-stil" className={`${FIELD} resize-y`} rows={4} value={stil} maxLength={MAX_STIL}
                 placeholder={t("stylePlaceholder")} onChange={(e) => onImageStyle(e.target.value)} readOnly={fest} />
-              <div className="mt-2 flex justify-end">
-                <button type="button" onClick={() => onImageStyle(null)} disabled={fest || imageStyle === null || imageStyle === vorlage.stiltext}
-                  className="shrink-0 text-xs px-3 py-1.5 border-2 border-border rounded-md transition-colors enabled:hover:border-kb enabled:hover:text-kb disabled:opacity-40">
-                  {t("styleReset")}
-                </button>
-              </div>
             </EinstellungsFeld>
           )}
 

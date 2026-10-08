@@ -569,8 +569,6 @@
       "instructionsLabel": "Anweisung, optional",
       "instructionsPlaceholder": "Zum Beispiel: Nur Kapitel 4, mit vielen Beispielen.",
       "imageStyleLabel": "Anweisung für Bilder",
-      "imageStyleReset": "Zurücksetzen",
-      "imageStyleResetTitle": "Die vorgegebene Anweisung wiederherstellen",
       "imageStyleHint": "Gilt für alle Bilder der Seite. Schrift im Bild wird immer ausgeschlossen.",
       "providerLabel": "KI-Anbieter",
       "submit": "Seite erstellen",
@@ -1075,6 +1073,7 @@
         "qualityHint": "Höhere Qualität dauert länger.",
         "noText": "Keine Schrift im Bild",
         "noTextHint": "Bildmodelle schreiben Wörter oft falsch.",
+        "defaultStyle": "Standard",
         "styles": {
           "keiner": "Kein Stil",
           "foto": "Foto",
@@ -1083,7 +1082,9 @@
           "aquarell": "Aquarell",
           "3d": "3D",
           "flach": "Flach",
-          "thl": "THL-Folienstil"
+          "thl": "THL-Folienstil",
+          "vorlage": "Vorlage",
+          "pages": "Pages-Stil"
         },
         "formats": {
           "vorlage": "Wie Vorlage",
@@ -1632,7 +1633,6 @@
         "templateWithoutImages": "ohne Bildfelder, es entstehen keine Bilder",
         "styleLabel": "Anweisung für die Bilder",
         "stylePlaceholder": "Zum Beispiel: flat vector illustration, muted blue and grey, white background",
-        "styleReset": "Auf Standard zurücksetzen",
         "uploadTemplate": "Eigene Vorlage hochladen",
         "editTemplate": "{name} bearbeiten",
         "deleteTemplate": "{name} löschen",

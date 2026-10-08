@@ -124,6 +124,9 @@ export const imageUrl = (uuid: string, id: string, slot: string, version: number
   `${ablage(uuid)}/image/${id}/${slot}?v=${version}`;
 export const downloadUrl = (uuid: string) => `${ablage(uuid)}/download`;
 
+export const listBildstile = () =>
+  fetch("/api/praesentation/bildstile", { credentials: "include" }).then((r) => json<Record<string, string>>(r));
+
 export const listVorlagen = () =>
   fetch("/api/praesentation/vorlagen", { credentials: "include" }).then((r) => json<Vorlage[]>(r));
 
