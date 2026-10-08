@@ -36,11 +36,16 @@ def test_an_untouched_new_section_without_text_goes():
     assert [s["id"] for s in page["sections"]] == ["s1"]
 
 
-def test_languages_and_easy_survive_cleaning():
-    assert schema.clean_page(_page({"title": "T"}, lang="uk"))["lang"] == "uk"
-    assert schema.clean_page(_page({"title": "T"}, lang="xx"))["lang"] == "de"
-    assert schema.clean_page(_page({"title": "T"}, lang="de", easy=True))["easy"] is True
-    assert "easy" not in schema.clean_page(_page({"title": "T"}, lang="en", easy=True))
+def test_a_page_is_german_or_english():
+    assert schema.clean_page(_page({"title": "T"}, lang="en"))["lang"] == "en"
+    assert schema.clean_page(_page({"title": "T"}, lang="uk"))["lang"] == "de"
+    assert "easy" not in schema.clean_page(_page({"title": "T"}, lang="de", easy=True))
+
+
+def test_the_other_language_is_english_for_german_and_german_for_english():
+    assert tr.other_language({"lang": "de"}) == "en"
+    assert tr.other_language({"lang": "en"}) == "de"
+    assert set(tr.LANGUAGES) == {"de", "en"}
 
 
 SAMPLE = schema.clean_page(_page(
@@ -101,11 +106,6 @@ def test_translate_puts_every_text_back_and_asks_again_for_a_dropped_one():
     assert all(v.startswith("EN ") for _, v in tr.texts(neu))
 
 
-def test_easy_language_is_german_with_its_flag():
-    neu = asyncio.run(tr.translate(_FakeCaller(), SAMPLE, "easy"))
-    assert neu["lang"] == "de" and neu["easy"] is True
-
-
 def test_a_save_without_change_keeps_the_stamp():
     from src.tasks.pages_tasks import stamp
 
@@ -142,3 +142,13 @@ def test_only_listed_languages_become_file_names():
     with pytest.raises(ValueError):
         pt.variant_file("../../x")
     assert pt.load_variant(1, "j", "../../x") is None
+
+
+def test_a_finished_page_starts_its_other_language(monkeypatch):
+    from src.tasks import pages_tasks as pt
+
+    gestartet, zustand = [], []
+    monkeypatch.setattr(pt, "set_language_state", lambda u, j, k, s, q: zustand.append((k, s)))
+    monkeypatch.setattr(pt.translate_page, "delay", lambda u, j, k: gestartet.append(k))
+    pt._start_other_language(1, "j", SAMPLE)
+    assert zustand == [("en", "running")] and gestartet == ["en"]

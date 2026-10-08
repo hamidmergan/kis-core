@@ -710,7 +710,7 @@
       "weight": "Weight",
       "languages": "Languages",
       "languagesStale": "Languages, one is older than the page",
-      "languagesHint": "The page can be carried into further languages and into Leichte Sprache (easy German). Readers can switch at the top. The last saved state is used.",
+      "languagesHint": "Every new page also comes in English, an English one in German. Readers can switch at the top. Update carries the last saved state over again.",
       "languagesUnsaved": "You have unsaved changes, they are only included after saving.",
       "languageSelect": "Language",
       "ownLanguage": "Original",

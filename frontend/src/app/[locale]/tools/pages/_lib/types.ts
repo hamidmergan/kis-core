@@ -57,8 +57,6 @@ export type Design = "chapters" | "timeline" | "magazine" | "guide";
 export interface Page {
   version: number;
   lang: string;
-  /** German in Leichte Sprache. */
-  easy?: boolean;
   design?: Design;
   sections: Section[];
   footer: string;

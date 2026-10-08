@@ -59,12 +59,12 @@ appear there by themselves.
 
 ## Languages
 
-The languages icon in the editor carries the page into up to four further languages: German,
-English, Leichte Sprache (easy German), French, Spanish, Italian, Turkish, Ukrainian, Polish and
-Chinese. The last saved version is used, it takes one to two minutes. Readers switch at the top
-right, and the link remembers the language.
+Every page comes in German and in English. German material gives a German page and right after
+it the English version, material in any other language the other way round. The second version
+takes one to two minutes longer, the languages icon in the editor shows how far it is. Readers
+switch at the top right, and the link remembers the language.
 
-You edit every language like the original. If you change the original afterwards, the language
+You edit the second version like the original. If you change the original afterwards, it
 shows as older than the page in the window. Update carries it over again and overwrites changes
 you made in this language. The learning assistant in a workspace reads only the original.
 

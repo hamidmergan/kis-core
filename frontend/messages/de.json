@@ -710,7 +710,7 @@
       "weight": "Gewicht",
       "languages": "Sprachen",
       "languagesStale": "Sprachen, eine ist älter als die Seite",
-      "languagesHint": "Die Seite lässt sich in weitere Sprachen und in Leichte Sprache übertragen. Wer die Seite liest, kann oben umschalten. Übertragen wird der zuletzt gespeicherte Stand.",
+      "languagesHint": "Jede neue Seite kommt gleich auch auf Englisch, eine englische auf Deutsch. Wer die Seite liest, kann oben umschalten. Aktualisieren überträgt den zuletzt gespeicherten Stand neu.",
       "languagesUnsaved": "Du hast ungespeicherte Änderungen, sie kommen erst nach dem Speichern mit.",
       "languageSelect": "Sprache",
       "ownLanguage": "Original",

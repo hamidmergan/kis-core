@@ -26,8 +26,8 @@ KINDS = ("text", "bullets", "highlight", "cards", "steps", "figures", "bars", "t
 # A section the owner adds is a grid of fields, the key names the grid and the value its field count.
 LAYOUTS = {"1": 1, "2": 2, "21": 2, "12": 2, "3": 3, "4": 4, "1-2": 3}
 EMPTY = {"kind": "empty"}
-# The languages a page is written or translated in. "easy" is German in Leichte Sprache.
-LANGS = ("de", "en", "fr", "es", "it", "tr", "uk", "pl", "zh")
+# The languages a page is written or translated in.
+LANGS = ("de", "en")
 # "none" is the rule, a sign only where it tells cards apart. "info" is what older pages carry for none.
 ICONS = ("none", "check", "x", "warning", "idea", "info")
 # The looks a page can take, the frame call picks one, the frontend draws each differently.
@@ -324,8 +324,6 @@ def clean_page(raw) -> dict:
     design = raw.get("design") if raw.get("design") in DESIGNS else DESIGNS[0]
     out = {"version": VERSION, "lang": lang, "design": design, "sections": sections,
            "footer": text(raw.get("footer"), PAGES_MAX_LONG_CHARS)}
-    if raw.get("easy") and lang == "de":
-        out["easy"] = True
     return out
 
 

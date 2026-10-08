@@ -233,14 +233,14 @@ async def save_page(job_uuid: str, request: Request, sprache: str = Query(""),
     if key:
         # A language keeps the language it is in, whatever the body claims.
         alt = pt.load_variant(job["user_id"], job_uuid, key) or {}
-        page["lang"], page["easy"] = alt.get("lang") or page["lang"], bool(alt.get("easy"))
+        page["lang"] = alt.get("lang") or page["lang"]
         page = {**schema.clean_page(page), "saved_at": page["saved_at"]}
         save_job_file(job["user_id"], job_uuid, pt.variant_file(key),
                       json.dumps(page, ensure_ascii=False).encode("utf-8"))
         return {"page": page}
     if eigen:
         # The page's own language stays, a language is changed by translating, not by saving.
-        page["lang"], page["easy"] = eigen.get("lang") or page["lang"], bool(eigen.get("easy"))
+        page["lang"] = eigen.get("lang") or page["lang"]
         page = {**schema.clean_page(page), "saved_at": page["saved_at"]}
     save_job_file(job["user_id"], job_uuid, USER_PAGE_FILE,
                   json.dumps(page, ensure_ascii=False).encode("utf-8"))

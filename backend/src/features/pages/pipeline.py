@@ -15,6 +15,7 @@ from typing import Callable, Protocol
 from loguru import logger
 
 from src.features.pages import schema
+from src.features.pages.translate import LANGUAGES
 from src.features.pages.writing import write_blocks, write_frame
 from src.features.summary import concurrency
 from src.features.summary import pipeline as summary_pipeline
@@ -170,7 +171,8 @@ async def run(caller: Caller, *, sources: list[Source], store: RunStore,
     """Plan, blocks and frame, laid down as a draft the task finishes with pictures."""
     language = store.load_language()
     if not language:
-        language = summary_pipeline.detect_language(sources)
+        # A page is German or English, material in any other language makes it English.
+        language = LANGUAGES[page_locale(summary_pipeline.detect_language(sources))]["name"]
         store.save_language(language)
     karte = tm.Karte(sources)
     if not len(karte):

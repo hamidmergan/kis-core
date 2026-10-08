@@ -232,6 +232,7 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
         "workspace": params.get("workspace") or "",
         "bildstil": (params.get("image_style") or "") if schema.images_of(seite) else "",
     })
+    _start_other_language(user_id, job_uuid, seite)
     db.update_job_status(job_uuid, "success")
     logger.info("Pages {} fertig: {}", job_uuid[:8], titel)
 
@@ -373,8 +374,8 @@ def language_states(user_id: int, job_uuid: str) -> dict[str, dict]:
 
 
 def key_of(page: dict) -> str:
-    """The language key of a page, Leichte Sprache apart from plain German."""
-    return "easy" if page.get("easy") else (page.get("lang") or "de")
+    """The language key of a page."""
+    return page.get("lang") or "de"
 
 
 def readable(user_id: int, job_uuid: str, page: dict) -> list[dict]:
@@ -434,6 +435,19 @@ def page_caller(user_id: int, job_uuid: str) -> PagesCaller:
     return PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
                        window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
                        book=lambda antwort: log_llm_response("pages", traeger, antwort))
+
+
+def _start_other_language(user_id: int, job_uuid: str, page: dict) -> None:
+    """Every new page is translated into its other language at once, a failure leaves the page as it is."""
+    from src.features.pages.translate import other_language
+
+    key = other_language(page)
+    try:
+        set_language_state(user_id, job_uuid, key, "running", stamp(page))
+        translate_page.delay(user_id, job_uuid, key)
+    except Exception as e:  # noqa: BLE001 - the owner can still start it in the language window
+        logger.warning("Pages {}: Sprache {} nicht gestartet: {}", job_uuid[:8], key, e)
+        drop_language(user_id, job_uuid, key)
 
 
 @celery_app.task(name="pages.translate", acks_late=True,

@@ -61,12 +61,12 @@ Seiten erscheinen dort von selbst.
 
 ## Sprachen
 
-Über das Sprachen-Symbol im Editor übertragen Sie die Seite in bis zu vier weitere Sprachen:
-Deutsch, Englisch, Leichte Sprache, Französisch, Spanisch, Italienisch, Türkisch, Ukrainisch,
-Polnisch und Chinesisch. Übertragen wird der zuletzt gespeicherte Stand, das dauert ein bis zwei
-Minuten. Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
+Jede Seite gibt es auf Deutsch und auf Englisch. Ist Ihr Material deutsch, entsteht die Seite auf
+Deutsch und gleich danach die englische Fassung, bei Material in jeder anderen Sprache umgekehrt.
+Die zweite Fassung braucht ein bis zwei Minuten länger, das Sprachen-Symbol im Editor zeigt den
+Stand. Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
 
-Jede Sprache bearbeiten Sie wie das Original. Ändern Sie danach das Original, steht die Sprache
+Die zweite Fassung bearbeiten Sie wie das Original. Ändern Sie danach das Original, steht sie
 im Fenster als älter als die Seite. Aktualisieren überträgt sie neu und überschreibt dabei
 Änderungen, die Sie in dieser Sprache gemacht haben. Der Lernassistent im Workspace liest nur
 das Original.
