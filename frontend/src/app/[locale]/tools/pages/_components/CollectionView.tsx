@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ShareNetwork } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRouter } from "@/i18n/navigation";
@@ -9,6 +10,7 @@ import * as api from "../_lib/api";
 import type { Collection } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import PageBar from "./PageBar";
+import { CopyButton } from "./Sharing";
 import { Thumb, useDate } from "./PagesSeite";
 
 /** Every page one person shares, as cards, newest first. Private pages never show up here. */
@@ -41,7 +43,11 @@ export default function CollectionView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar />
+      <PageBar>
+        {data.own && (
+          <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="regular" />} />
+        )}
+      </PageBar>
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">
         {data.own && <ToolBackLink href="/tools/pages" label={t("back")} />}
         <h1 className="text-xl font-bold mb-1">{t("collectionHeading", { name: data.owner.name })}</h1>

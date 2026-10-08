@@ -368,22 +368,20 @@ export default function PagesSeite() {
           </section>
 
           <section className="min-w-0">
-            <h2 className="text-base font-semibold mb-2.5">{t("listTitle")}</h2>
+            <div className="flex items-center gap-2 mb-2.5">
+              <h2 className="text-base font-semibold">{t("listTitle")}</h2>
+              {list && (
+                <button type="button" className="ml-auto px-2.5 py-1 text-sm font-medium rounded-lg btn-ghost text-kb"
+                  title={t("collectionText", { count: list.collection.count })}
+                  onClick={() => router.push(`/u/${list.collection.code}`)}>
+                  {t("collectionView")}
+                </button>
+              )}
+            </div>
             {list === null ? (
               <Spinner className="justify-center py-10" />
             ) : (
               <>
-                <div className="flex items-center gap-2.5 flex-wrap rounded-lg border border-border-soft bg-surface px-3 py-2.5 mb-3.5">
-                  <div className="flex-1 min-w-[200px] text-xs" style={{ color: "var(--foreground-soft)" }}>
-                    <b className="block text-sm font-semibold text-foreground">{t("collectionTitle")}</b>
-                    {t("collectionText", { count: list.collection.count })}
-                  </div>
-                  <CopyButton text={() => api.collectionUrl(list.collection.code)} label={t("collectionCopy")} />
-                  <button type="button" className="px-2.5 py-1 text-sm font-medium rounded-lg btn-ghost text-kb"
-                    onClick={() => router.push(`/u/${list.collection.code}`)}>
-                    {t("collectionView")}
-                  </button>
-                </div>
                 {list.pages.length === 0 ? (
                   <EmptyState size="sm" text={t("empty")} />
                 ) : (

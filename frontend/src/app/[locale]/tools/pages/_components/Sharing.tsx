@@ -24,7 +24,7 @@ export function ShareSwitch({ on, isPublic, disabled, onToggle }: {
 }
 
 /** A small round copy button, it shows a tick for a moment after copying. */
-export function CopyButton({ text, label }: { text: () => string; label: string }) {
+export function CopyButton({ text, label, icon }: { text: () => string; label: string; icon?: React.ReactNode }) {
   const t = useTranslations("tools.pages");
   const [done, setDone] = useState(false);
   return (
@@ -41,7 +41,7 @@ export function CopyButton({ text, label }: { text: () => string; label: string 
       title={done ? t("copied") : label}
       aria-label={label}
     >
-      {done ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
+      {done ? <Check size={13} weight="bold" /> : icon ?? <Copy size={13} weight="bold" />}
     </button>
   );
 }

@@ -62,6 +62,8 @@ ein, gilt derselbe Link.
 
 Ihre Sammelseite zeigt alle Seiten, die Sie gerade teilen, unter einem festen Link. Neue geteilte
 Seiten erscheinen dort von selbst. Wer ohne Konto kommt, sieht dort nur die Seiten für alle.
+Sie öffnen sie über **Sammelseite** über Ihrer Liste, den Link kopieren Sie dort mit dem
+Teilen-Symbol oben rechts.
 
 ## Sprachen
 

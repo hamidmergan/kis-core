@@ -58,6 +58,8 @@ to private and the link stops working. Switch on again and the same link works a
 
 Your collection shows every page you currently share under one fixed link. Newly shared pages
 appear there by themselves. Visitors without an account only see the pages shared with all.
+Open it with **Collection** above your list, then copy its link with the share icon at the
+top right.
 
 
 ## Languages
