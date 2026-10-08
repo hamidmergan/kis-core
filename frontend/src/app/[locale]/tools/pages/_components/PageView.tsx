@@ -22,7 +22,8 @@ import { Chart, MindMap, WordCloud, useNumber } from "./Charts";
 import { EditCtx, Txt } from "./Txt";
 import "./page.css";
 
-const ICONS: Record<CardIcon, typeof Info> = { info: Info, check: Check, x: X, warning: Warning, idea: Lightbulb };
+// Only signs that tell cards apart, "none" and the old "info" draw nothing.
+const ICONS: Partial<Record<CardIcon, typeof Info>> = { check: Check, x: X, warning: Warning, idea: Lightbulb };
 
 /** What the editor hands the page, absent for every reader. */
 export interface EditControls {
@@ -243,14 +244,17 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
       );
     case "cards": {
       const cols = b.cols ?? Math.min(b.cards.length, b.cards.length === 4 ? 2 : 3);
+      // A sign that every card carries says nothing, so the block shows signs only when they differ.
+      const signs = new Set(b.cards.map((c) => (ICONS[c.icon] ? c.icon : "none")));
+      const showSigns = signs.size > 1;
       return (
         <div className="panel">
           <div className={`grid g${cols}`}>
             {b.cards.map((c, i) => {
-              const Icon = ICONS[c.icon] ?? Info;
+              const Icon = showSigns ? ICONS[c.icon] : undefined;
               return (
                 <div className="cell" key={i} data-d={`${p}.cards.${i}`}>
-                  <div className={`ic ${c.icon}`}><Icon size={18} weight="bold" aria-hidden="true" /></div>
+                  {Icon && <div className={`ic ${c.icon}`}><Icon size={18} weight="bold" aria-hidden="true" /></div>}
                   <Txt path={`${p}.cards.${i}.title`} value={c.title} as="h3" max={S} />
                   <Txt path={`${p}.cards.${i}.text`} value={c.text} as="p" max={I} />
                 </div>

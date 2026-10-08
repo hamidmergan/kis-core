@@ -2,7 +2,7 @@ import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 
 /** The page as the backend stores it in page.json, plain text only. */
 
-export type CardIcon = "info" | "check" | "x" | "warning" | "idea";
+export type CardIcon = "none" | "info" | "check" | "x" | "warning" | "idea";
 
 export type Block =
   | { kind: "text"; text: string }

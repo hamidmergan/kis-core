@@ -105,6 +105,13 @@
 .kis-page svg .s1 { stroke: var(--pg-amber); }
 .kis-page svg .bar { fill: var(--pg-fill); }
 .kis-page svg .dot { fill: var(--pg-cell); stroke: var(--pg-fill); }
+.kis-page svg .hit { fill: transparent; cursor: pointer; }
+.kis-page svg .bar { cursor: pointer; transition: opacity 0.15s; }
+.kis-page svg .bar.on { opacity: 0.8; }
+.kis-page svg .tip rect { fill: var(--foreground); }
+.kis-page svg .tip .tip-head { fill: var(--background); opacity: 0.75; font-family: inherit; }
+.kis-page svg .tip .tip-value { fill: var(--background); font-weight: 700; font-family: inherit; font-variant-numeric: tabular-nums; }
+.kis-page svg .tip-ring { fill: none; stroke: var(--pg-fill); }
 .kis-page .mm-list { display: none; list-style: none; margin: 0; padding: 0; }
 .kis-page .mm-list > li { padding: 10px 0; border-top: 2px solid var(--pg-line); }
 .kis-page .mm-list > li:first-child { border-top: none; }

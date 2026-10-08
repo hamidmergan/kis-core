@@ -23,7 +23,8 @@ from src.limits import (
 VERSION = 1
 KINDS = ("text", "bullets", "highlight", "cards", "steps", "figures", "bars", "table", "chart",
          "image", "mindmap", "wordcloud")
-ICONS = ("info", "check", "x", "warning", "idea")
+# "none" is the rule, a sign only where it tells cards apart. "info" is what older pages carry for none.
+ICONS = ("none", "check", "x", "warning", "idea", "info")
 # The looks a page can take, the frame call picks one, the frontend draws each differently.
 DESIGNS = ("chapters", "timeline", "magazine", "guide")
 CHART_TYPES = ("line", "bar")
@@ -118,7 +119,7 @@ def _cards(b: dict) -> dict | None:
             continue
         title, body = _short(c.get("title")), _item(c.get("text"))
         if title or body:
-            icon = c.get("icon") if c.get("icon") in ICONS else "info"
+            icon = c.get("icon") if c.get("icon") in ICONS else "none"
             cards.append({"icon": icon, "title": title, "text": body})
     if not cards:
         return None
