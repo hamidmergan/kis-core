@@ -45,7 +45,7 @@ export default function CollectionView({ code }: { code: string }) {
     <>
       <PageBar>
         {data.own && (
-          <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="regular" />} />
+          <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="bold" />} bar />
         )}
       </PageBar>
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">

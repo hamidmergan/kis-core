@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check } from "@phosphor-icons/react";
 import type { LanguageChoice, Languages } from "../_lib/types";
+import { BAR_BUTTON } from "./PageBar";
 
-/** The language the page is shown in as a short round button, the other opens on hover with a mouse and on tap otherwise. */
+/** The language the page is shown in as a short button in the bar, the other opens on hover with a mouse and on tap otherwise. */
 export function LanguageSwitch({ value, choices, disabled, title, className, onChange }: {
   value: string; choices: LanguageChoice[]; disabled?: boolean; title?: string; className?: string; onChange: (key: string) => void;
 }) {
@@ -60,8 +61,7 @@ export function LanguageSwitch({ value, choices, disabled, title, className, onC
           if (openedByHover.current) { openedByHover.current = false; return; }
           setOpen((v) => !v);
         }}
-        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0 text-xs font-semibold uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ backgroundColor: "var(--surface-dim)" }}
+        className={`${BAR_BUTTON} px-2.5 text-sm font-medium uppercase disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {value}
       </button>
