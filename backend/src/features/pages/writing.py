@@ -54,7 +54,8 @@ def _blocks_system(language: str, count: int) -> str:
         "section, each one to three words, written as they appear in the material.\n"
         "Rule 13: Write only what belongs under the heading. The other sections are listed so "
         "you stay off their ground.\n"
-        "Rule 14: Never cite a page, a slide or a file.\n"
+        "Rule 14: Never cite a source. No page, slide, file or document name and no label "
+        "such as SZ12 or TZ3, neither in parentheses nor anywhere else.\n"
         "Rule 15: Answer with one JSON object and nothing else: "
         '{"sections":[ one object per section, in the given order ]}.\n\n'
         + _BLOCKS_GUIDE
@@ -67,7 +68,7 @@ def _blocks_user(group: list[Section], indices: list[int], others: list[Section]
     fremd = "\n".join(f"- {a.title}: {a.scope}" for a in others) or "- none"
     schon = ("ALREADY ON THE PAGE, never repeat these statements:\n"
              + "\n".join(f"- {x}" for x in on_page) + "\n\n") if on_page else ""
-    namen = ("DOCUMENT NAMES, use these and never a file name:\n"
+    namen = ("DOCUMENT NAMES, only where a text speaks of a document itself, never as a source:\n"
              + "\n".join(f"- {d} = {k}" for d, k in names.items()) + "\n\n") if names else ""
     teile = [f"=== SECTION section_index {i} ===\nHEADING: {a.title}\nSCOPE: {a.scope}\n"
              f"MATERIAL:\n{m}" for i, a, m in zip(indices, group, material)]
@@ -156,7 +157,8 @@ _FRAME_SYSTEM = (
     "Rule 8: lead is one or two sentences under the title that say what the page is about "
     "and why it matters, under 220 characters.\n"
     "Rule 9: gist holds the three or four most important statements of the whole material, "
-    "each one sentence with its figures, taken from the opening summary.\n"
+    "each one sentence with its figures, taken from the opening summary. Never cite a source "
+    "or a label such as SZ12 in them.\n"
     "Rule 10: formula is a formula or equation the whole material turns on, with a sentence "
     "on what it means. Leave formula as null when the material has none, a rule in words "
     "is no formula.\n"

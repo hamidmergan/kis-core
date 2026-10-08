@@ -274,8 +274,45 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
                        "blocks": [{"kind": "wordcloud", "caption": t("pages.wordsCaption", loc),
                                    "words": woerter}]})
 
+    # The model copies the labels and names of its material even when told not to, so they go here.
+    namen = {n.casefold() for n in [*plan.names, *plan.names.values(),
+                                   *(Path(q.dateiname).stem for q in sources), *(q.dateiname for q in sources)] if n}
+    seiten = drop_citations(seiten, namen)
     # The line under the title is the page's one AI notice, so there is no footer repeating it.
     return schema.clean_page({"lang": loc, "design": design, "sections": seiten, "footer": ""})
+
+
+# A passage or topic label of the material, alone or as a range, such as SZ12 or SZ12-SZ15.
+_LABEL = re.compile(r"^(?:SZ|TZ)\s*\d+(?:\s*[-\u2010-\u2014\u2212]\s*(?:SZ|TZ)?\s*\d+)?$", re.I)
+# A page, slide or folio after a document name, such as "S. 3" or "Folie 4".
+_STELLE = re.compile(r"[,\s]*(?:S\.|Seite|Seiten|p\.|pp\.|page|Folie|slide)\s*\d+(?:\s*[-\u2013]\s*\d+)?$", re.I)
+_KLAMMER = re.compile(r"\s*[(\[]([^()\[\]]{1,200})[)\]]")
+
+
+def _is_source(teil: str, namen: set[str]) -> bool:
+    rest = _STELLE.sub("", teil.strip()).strip()
+    # A bare page or slide is a source part too, as in "(VL1, S. 4)".
+    if not rest:
+        return bool(teil.strip())
+    return bool(_LABEL.match(rest)) or rest.casefold() in namen
+
+
+def drop_citations(value, namen: set[str]):
+    """Strips brackets that only name sources, a page condenses and cites nothing.
+
+    A bracket stays as soon as one of its parts is not a source, so "(§ 15 Abs. 4)" or "(n = 30)" remain.
+    """
+    if isinstance(value, str):
+        def weg(m: re.Match) -> str:
+            teile = re.split(r"\s*[,;]\s*|\s+(?:und|and|&)\s+", m.group(1))
+            return "" if all(_is_source(x, namen) for x in teile if x.strip()) else m.group(0)
+        return re.sub(r"\s+([.,:!?])", r"\1", _KLAMMER.sub(weg, value)).strip()
+    if isinstance(value, list):
+        return [drop_citations(x, namen) for x in value]
+    if isinstance(value, dict):
+        return {k: (x if k in ("src", "prompt", "kind", "id", "to", "icon", "chart_type") else drop_citations(x, namen))
+                for k, x in value.items()}
+    return value
 
 
 def _one_highlight(listen: list[list[dict]]) -> None:
