@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpenText, Trash } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, BookOpenText, Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -68,6 +68,8 @@ export default function PagesSeite() {
   const [moduleId, setModuleId] = useState("");
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [instructions, setInstructions] = useState("");
+  // Null until the default arrived, then the person's text, starting as that default.
+  const [imageStyle, setImageStyle] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -87,6 +89,9 @@ export default function PagesSeite() {
 
   const load = useCallback(() => api.listPages().then(setList).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (list && imageStyle === null) setImageStyle(list.imageStyle);
+  }, [list, imageStyle]);
 
   // While a page is being made, its card follows the run.
   const running = !!list?.pages.some((p) => RUNNING.has(p.status));
@@ -132,6 +137,7 @@ export default function PagesSeite() {
       }
       if (providerId != null) form.append("provider_id", String(providerId));
       if (instructions.trim()) form.append("instructions", instructions.trim());
+      if (imageStyle?.trim()) form.append("image_style", imageStyle.trim());
       const res = await backendApi.fetch("/pages", { method: "POST", body: form });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -318,6 +324,32 @@ export default function PagesSeite() {
               />
             </div>
 
+            <div className="mt-6">
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <label htmlFor="pages-image-style" className="text-sm font-medium text-foreground">{t("imageStyleLabel")}</label>
+                <button
+                  type="button"
+                  onClick={() => list && setImageStyle(list.imageStyle)}
+                  disabled={sending || !list || imageStyle === list.imageStyle}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-kb px-2 py-1 rounded-md btn-ghost disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={t("imageStyleResetTitle")}
+                >
+                  <ArrowCounterClockwise size={12} weight="bold" aria-hidden="true" />
+                  {t("imageStyleReset")}
+                </button>
+              </div>
+              <textarea
+                id="pages-image-style"
+                value={imageStyle ?? ""}
+                onChange={(e) => setImageStyle(e.target.value)}
+                disabled={sending || imageStyle === null}
+                rows={4}
+                maxLength={list?.imageStyleMax ?? 600}
+                className="w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft resize-y"
+              />
+              <p className="mt-1 text-xs text-muted">{t("imageStyleHint")}</p>
+            </div>
+
             <ProviderSelect id="pages-provider-select" label={t("providerLabel")} providers={providers} value={providerId}
               onChange={setProviderId} disabled={sending} className="mt-6" showModel />
 
@@ -399,6 +431,7 @@ export default function PagesSeite() {
                                       { label: tResult("instructions"), wert: p.info.anweisung },
                                       { label: tResult("textProvider"), wert: p.info.anbieter },
                                       { label: tResult("imageProvider"), wert: p.info.bildanbieter },
+                                      { label: tResult("imageStyle"), wert: p.info.bildstil },
                                     ]}
                                   />
                                 )}

@@ -366,6 +366,8 @@ PAGES_MAX_JSON_BYTES     = 400_000
 # Long side of a stored picture, enough for the page's full width on a sharp screen.
 PAGES_IMAGE_MAX_PX       = 1_600
 PAGES_IMAGE_QUALITY      = 82
+# The person's own picture style, long enough for a palette and a manner, short for the prompt.
+PAGES_IMAGE_STYLE_MAX_CHARS = 600
 # Fewer sections than a summary, a page is read on a screen.
 PAGES_SECTIONS           = (4, 10)
 

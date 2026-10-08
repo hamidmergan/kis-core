@@ -112,3 +112,8 @@ def test_only_one_blue_box_and_the_design_is_kept():
     # The guide opens without a title picture.
     assert seite["sections"][0]["blocks"] == []
     assert schema.clean_block({"kind": "text", "text": "Ein Satz."}) == {"kind": "text", "text": "Ein Satz."}
+
+
+def test_own_picture_style_replaces_the_default():
+    assert pl.image_prompt("a desk", "Watercolour, soft greens.").startswith("Watercolour, soft greens. Subject: a desk")
+    assert pl.image_prompt("a desk").startswith(pl.default_image_style())

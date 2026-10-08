@@ -86,6 +86,9 @@ export interface PagesList {
   collection: { code: string; count: number };
   max: number;
   maxSources: number;
+  /** The default look of the pictures, the form starts with it. */
+  imageStyle: string;
+  imageStyleMax: number;
   extensions: string[];
 }
 

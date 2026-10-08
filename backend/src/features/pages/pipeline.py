@@ -82,9 +82,14 @@ MIN_CLOUD_WORDS = 6
 CLOUD_WORDS = 20
 
 
-def image_prompt(subject: str) -> str:
+def default_image_style() -> str:
+    """The look every picture gets unless the person wrote their own, the prompt table wins."""
+    return load_prompt("pages_image_style", IMAGE_STYLE).strip()
+
+
+def image_prompt(subject: str, style: str = "") -> str:
     """The prompt the picture service gets, the style first, the subject after."""
-    stil = load_prompt("pages_image_style", IMAGE_STYLE).strip()
+    stil = " ".join(style.split()) or default_image_style()
     return f"{stil} Subject: {' '.join(subject.split())} {NO_TEXT}".strip()
 
 
@@ -159,7 +164,8 @@ async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Kar
 
 
 async def run(caller: Caller, *, sources: list[Source], store: RunStore,
-              should_stop: Callable[[], bool] | None = None, instructions: str = "") -> dict:
+              should_stop: Callable[[], bool] | None = None, instructions: str = "",
+              image_style: str = "") -> dict:
     """Plan, blocks and frame, laid down as a draft the task finishes with pictures."""
     language = store.load_language()
     if not language:
@@ -183,7 +189,7 @@ async def run(caller: Caller, *, sources: list[Source], store: RunStore,
     schon = [g for g in (frame.get("gist") or []) if isinstance(g, str)]
     bloecke = await _blocks(caller, language=language, plan=plan, karte=karte, store=store,
                             should_stop=should_stop, instructions=wirksam, schon=schon)
-    return draft(plan, bloecke, frame, sources=sources, language=language)
+    return draft(plan, bloecke, frame, sources=sources, language=language, image_style=image_style)
 
 
 def page_locale(language: str) -> str:
@@ -213,7 +219,7 @@ def _short_title(titel: str) -> str:
 
 
 def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list[Source],
-          language: str) -> dict:
+          language: str, image_style: str = "") -> dict:
     """The page with its pictures only named, cleaned to the limits of the schema."""
     loc = page_locale(language)
     titel = plan.title or Path(sources[0].dateiname).stem
@@ -228,7 +234,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     hero = {"id": "top", "hero": True, "title": titel, "lead": lead, "meta": "", "blocks": []}
     if str(frame.get("hero_prompt") or "").strip() and design not in NO_HERO_DESIGNS:
         hero["blocks"].append({"kind": "image", "src": HERO_IMAGE, "alt": frame.get("hero_alt") or "",
-                               "prompt": image_prompt(frame["hero_prompt"]), "caption": ""})
+                               "prompt": image_prompt(frame["hero_prompt"], image_style), "caption": ""})
     seiten = [hero]
 
     kurz_bloecke: list[dict] = []
@@ -255,7 +261,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
         if ziel is not None:
             ziel["blocks"].insert(0, {"kind": "image", "src": SECTION_IMAGE,
                                       "alt": bild.get("alt") or "", "caption": bild.get("caption") or "",
-                                      "prompt": image_prompt(bild["prompt"])})
+                                      "prompt": image_prompt(bild["prompt"], image_style)})
 
     _one_highlight([kurz_bloecke] + [s["blocks"] for _, s, _ in inhalt])
 

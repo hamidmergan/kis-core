@@ -21,7 +21,13 @@ from src.features.pages import repository as repo
 from src.features.pages import schema
 from src.features.summary.models import INSTRUCTIONS_FILE
 from src.i18n import get_locale, t
-from src.limits import PAGES_MAX_JSON_BYTES, PAGES_MAX_PER_USER, SUMMARY_MAX_SOURCES
+from src.features.pages.pipeline import default_image_style
+from src.limits import (
+    PAGES_IMAGE_STYLE_MAX_CHARS,
+    PAGES_MAX_JSON_BYTES,
+    PAGES_MAX_PER_USER,
+    SUMMARY_MAX_SOURCES,
+)
 from src.quotas import enforce_quota
 from src.routes.material_measure import measure_router
 from src.security.rate_limit import enforce_tool_burst
@@ -40,6 +46,12 @@ shared_router = APIRouter(tags=["pages"])
 _UUID = re.compile(r"^[0-9a-f]{32}$")
 _CODE = re.compile(r"^[A-Za-z0-9]{6,32}$")
 _IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
+
+
+def _own_style(image_style: str) -> str:
+    """The person's picture style, empty when it is the default or nothing."""
+    stil = " ".join(image_style.split())[:PAGES_IMAGE_STYLE_MAX_CHARS]
+    return "" if stil == " ".join(default_image_style().split()) else stil
 
 
 def _own_job(job_uuid: str, user: dict, locale: str) -> dict:
@@ -99,6 +111,9 @@ def list_pages(current_user: dict = Depends(get_current_user)):
         "pages": [_card(user_id, r) for r in rows],
         "collection": {"code": repo.collection_code(user_id), "count": repo.count_shared(user_id)},
         "max": PAGES_MAX_PER_USER,
+        # The form starts with the look the pictures get by default, the person may change it.
+        "imageStyle": default_image_style(),
+        "imageStyleMax": PAGES_IMAGE_STYLE_MAX_CHARS,
         "maxSources": SUMMARY_MAX_SOURCES,
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }
@@ -113,6 +128,7 @@ async def create_page(
     source_uuids: str = Form("[]"),
     instructions: str = Form(""),
     provider_id: int | None = Form(None),
+    image_style: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -146,7 +162,11 @@ async def create_page(
     job_uuid = uuid.uuid4().hex
     await asyncio.to_thread(sources.save_sources, user_id, job_uuid, gelesen)
     create_counted_job(job_uuid, user_id, "pages", sources.label(gelesen), locale=locale)
-    save_job_file(user_id, job_uuid, PARAMS_FILE, json.dumps({"provider_id": provider_id, "workspace": workspace_title}).encode())
+    save_job_file(user_id, job_uuid, PARAMS_FILE, json.dumps({
+        "provider_id": provider_id, "workspace": workspace_title,
+        # Only a changed look is kept, an untouched default follows later changes of it.
+        "image_style": _own_style(image_style),
+    }).encode())
     if instructions.strip():
         from src.services.job_files import write_job_text
         write_job_text(user_id, job_uuid, INSTRUCTIONS_FILE, instructions.strip()[:2000])

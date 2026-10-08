@@ -187,6 +187,7 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
     if not quellen:
         raise ValueError(t("summary.contentTooShort", locale, words=0, min=20))
 
+    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
     entwurf = parse_job_json(job_uuid, DRAFT_FILE, read_job_text(user_id, job_uuid, DRAFT_FILE), None)
     if not entwurf:
         from src.tasks.general_tasks import _get_llm_client
@@ -200,7 +201,8 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
         anweisung = (read_job_text(user_id, job_uuid, INSTRUCTIONS_FILE) or "").strip()
         try:
             entwurf = asyncio.run(pl.run(caller, sources=quellen, store=store,
-                                         should_stop=clock.over, instructions=anweisung))
+                                         should_stop=clock.over, instructions=anweisung,
+                                         image_style=params.get("image_style") or ""))
         except pl.PipelineInterrupted:
             raise StageContinue from None
         except pl.NoPlan:
@@ -219,11 +221,11 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
     pfad = save_job_file(user_id, job_uuid, PAGE_FILE,
                          json.dumps(seite, ensure_ascii=False).encode("utf-8"))
     save_result_and_evict(user_id, job_uuid, pfad, f"{schema.text(titel, 80)}.json")
-    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
     angaben_merken(user_id, job_uuid, {
         "anbieter": wer_antwortete("chat", provider_id),
         "bildanbieter": route_kennung("image_gen")["anbieter"] if schema.images_of(seite) else "",
         "workspace": params.get("workspace") or "",
+        "bildstil": (params.get("image_style") or "") if schema.images_of(seite) else "",
     })
     db.update_job_status(job_uuid, "success")
     logger.info("Pages {} fertig: {}", job_uuid[:8], titel)
