@@ -38,7 +38,8 @@ REFS = "refs"
 STELLEN = "stellen"
 THEMEN = "themen"
 
-_BEREICH = re.compile(r"^\s*(\d+)\s*[-–—]\s*(\d+)\s*$")
+# Every dash a model writes between two numbers, gpt-oss for one uses the non-breaking hyphen.
+_BEREICH = re.compile(r"^\s*(\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(\d+)\s*$")
 
 
 class WindowTooSmall(ValueError):

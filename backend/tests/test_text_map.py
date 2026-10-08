@@ -82,6 +82,11 @@ def test_zahlen_und_bereiche_werden_gelesen():
     assert karte.gueltig([3, "5-7", "9–10", "12"]) == [3, 5, 6, 7, 9, 10, 12]
 
 
+def test_bereiche_mit_geschuetztem_bindestrich_werden_gelesen():
+    karte = tm.Karte([_quelle("a.pdf", 20)])
+    assert karte.gueltig(["1\u20113", "5\u22127", "9\u201010"]) == [1, 2, 3, 5, 6, 7, 9, 10]
+
+
 def test_erfundene_doppelte_und_unsinnige_nummern_fallen_weg():
     karte = tm.Karte([_quelle("a.pdf", 5)])
     assert karte.gueltig([0, 2, 2, 99, "x", True, None, "4"]) == [2, 4]
