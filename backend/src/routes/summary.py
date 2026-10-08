@@ -44,7 +44,7 @@ def list_templates(_user: dict = Depends(get_current_user)):
             for v in TEMPLATES
         ],
         "maxSources": SUMMARY_MAX_SOURCES,
-        "maxTotalChars": sources.MAX_TOTAL_CHARS,
+        "maxTotalChars": sources.max_total_chars(),
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }
 

@@ -70,13 +70,21 @@ def _zahl(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
+def max_total_chars() -> int:
+    """The admin's limit for the material of one job, the field the tools' context uses too."""
+    from src.services import tool_limits
+
+    return tool_limits.material_max_chars(MAX_TOTAL_CHARS)
+
+
 def check_total(sources: list[Source], locale: str, schluessel: str) -> None:
     """Refuses material that is too long in sum, before any model has been paid for it."""
     zeichen = sum(len(q.text) for q in sources)
-    if zeichen > MAX_TOTAL_CHARS:
+    grenze = max_total_chars()
+    if zeichen > grenze:
         raise HTTPException(status_code=422, detail=t(
             f"{schluessel}.materialTooLarge", locale,
-            chars=_zahl(zeichen), max=_zahl(MAX_TOTAL_CHARS)))
+            chars=_zahl(zeichen), max=_zahl(grenze)))
 
 
 async def _read_upload(datei: UploadFile, tmpdir: str, locale: str, schluessel: str) -> Source:

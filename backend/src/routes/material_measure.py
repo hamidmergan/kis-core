@@ -23,7 +23,7 @@ def measure_router(dienst: str, schluessel: str | None = None) -> APIRouter:
                            _user: dict = Depends(get_current_user),
                            locale: str = Depends(get_locale)):
         zeichen = await sources.measure_upload(file, locale=locale, schluessel=schluessel)
-        return {"chars": zeichen, "maxChars": sources.MAX_TOTAL_CHARS}
+        return {"chars": zeichen, "maxChars": sources.max_total_chars()}
 
     @router.post(f"/{dienst}/measure/workspace")
     async def measure_workspace_source(workspace_uuid: str = Form(...),
@@ -33,6 +33,6 @@ def measure_router(dienst: str, schluessel: str | None = None) -> APIRouter:
         zeichen = await asyncio.to_thread(workspace_sources.measure_one,
             workspace_uuid, source_uuid, user_id=current_user.get("user_id", 0),
             locale=locale, schluessel=schluessel)
-        return {"chars": zeichen, "maxChars": sources.MAX_TOTAL_CHARS}
+        return {"chars": zeichen, "maxChars": sources.max_total_chars()}
 
     return router

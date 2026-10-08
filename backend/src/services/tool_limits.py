@@ -53,6 +53,11 @@ def max_source_pages() -> int:
     return _zahl("aia_source_max_pages", AIA_SOURCE_MAX_PAGES)
 
 
+def material_max_chars(vorgabe: int) -> int:
+    """Characters of all material of one service job, the same admin field as the tools' context."""
+    return _zahl("aia_tool_context_max_chars", vorgabe)
+
+
 def max_upload_bytes() -> int:
     """Size of an uploaded file, the admin area shows MB."""
     return _zahl("upload_max_mb", MAX_UPLOAD_BYTES // _BYTES_PER_MB) * _BYTES_PER_MB

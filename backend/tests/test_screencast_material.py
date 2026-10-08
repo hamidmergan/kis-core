@@ -154,7 +154,7 @@ def test_hoechstens_zehn_dateien(client):
 
 
 def test_zu_viel_material_wird_abgewiesen(client):
-    with patch.object(quellen, "MAX_TOTAL_CHARS", 100):
+    with patch.object(quellen, "max_total_chars", lambda: 100):
         r = client.post(f"/screencast/{UUID}/material", data={"mode": "files"},
                         files=[("files", ("gross.txt", STOFF.encode(), "text/plain"))])
     assert r.status_code == 422
@@ -209,3 +209,10 @@ def test_schritt6_faellt_auf_die_uebersetzungssprache_zurueck(client):
     from src.storage import save_job_file
     save_job_file(1, UUID, "queue_params.json", json.dumps({"target_lang": "EN-US"}).encode())
     assert client.get(f"/screencast/{UUID}/vertonungs-stand").json()["sprache"] == "EN-US"
+
+
+def test_die_grenze_kommt_aus_dem_feld_der_tools(monkeypatch):
+    from src.services import sources, tool_limits
+
+    monkeypatch.setattr(tool_limits.db, "get_setting", lambda key, default="": "250000" if key == "aia_tool_context_max_chars" else default)
+    assert sources.max_total_chars() == 250_000
