@@ -240,3 +240,26 @@ def test_ein_satz_ganz_ohne_richtig_falsch_ruft_nur_die_suche(monkeypatch):
     client, _ = _make_client(content)
     mod.generate_mc_from_source(client, "m", _ctx(), 1, locale="de")
     assert gerufen == ["mc"]
+
+
+def test_das_modell_liest_kurzzeichen_und_die_aussage_behaelt_ihre_datei(monkeypatch):
+    """Ein Dateiname kostet bis zu 25 Token je Aufgabe, das Modell schreibt Q1 und die Belegprüfung sieht den Namen."""
+    gesehen = {}
+    monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    monkeypatch.setattr(
+        mod, "attach_chips_cited",
+        lambda items, claims, ctx, **k: gesehen.update(tf=[dict(i) for i in items]))
+    content = json.dumps({"title": "T", "exercises": [
+        {"statement": "Eine Aussage über die Quelle.", "answer": True,
+         "source_label": "Q1", "page_number": 9},
+    ]})
+    client, calls = _make_client(content)
+    ctx = types.SimpleNamespace(source_hint="Quelle", multi_label="T",
+                                context="[02_Seminar.pdf, S. 9] Inhalt",
+                                source_by_name={"02_Seminar.pdf": {"id": 1}})
+    mod.generate_mc_from_source(client, "m", ctx, 1, locale="de")
+
+    assert "02_Seminar.pdf" not in json.dumps(calls[0], ensure_ascii=False)
+    assert "[Q1, S. 9] Inhalt" in calls[0][1]["content"]
+    assert gesehen["tf"][0]["_source_label"] == "02_Seminar.pdf"
+    assert gesehen["tf"][0]["_page"] == 9

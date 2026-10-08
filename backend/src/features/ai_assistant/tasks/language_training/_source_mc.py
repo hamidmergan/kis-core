@@ -3,6 +3,7 @@
 import json
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._source_tags import SourceTags
 from src.services.aia_grammar_check import normalize
 from src.features.ai_assistant.prompts.language_training_prompts import AIA_HINT_RULE
 
@@ -102,15 +103,17 @@ def generate_mc_from_source(
     # The level block tunes the questions without changing count or solution.
     tool_prompt = (_build_prompt(count, language, yielding=bool(instruction))
                    + adaptive_suffix + title_avoidance + coverage + instruction)
+    # Every exercise names its file, a short tag instead of the name saves writing.
+    tags = SourceTags(getattr(ctx, "source_by_name", None) or {})
     # No block with existing questions, the model would just copy them.
-    messages = [
+    messages = tags.encode([
         {"role": "system", "content": tool_prompt},
         {"role": "user", "content": _build_user(ctx, language)},
-    ]
+    ])
     # 0.6 for some word variety, the real variation comes from the context.
     response = create_logged(client, endpoint="quiz", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
-    data = json.loads(answer)
+    data = tags.decode(json.loads(answer))
     # Preferably the title comes along, a bare list works too.
     if isinstance(data, dict):
         exercises = data.get("exercises") or []

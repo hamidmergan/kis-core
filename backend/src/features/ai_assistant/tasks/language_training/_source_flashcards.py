@@ -5,6 +5,7 @@ import json
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._source_tags import SourceTags
 from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
@@ -57,18 +58,20 @@ def generate_flashcards_from_source(
         AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
         + adaptive_suffix + title_avoidance + coverage
     )
+    # Every card names its file, a short tag instead of the name saves writing.
+    tags = SourceTags(getattr(ctx, "source_by_name", None) or {})
     # No block with existing cards, the model would just copy them.
-    messages = [
+    messages = tags.encode([
         {"role": "system", "content": prompt},
         {"role": "user", "content": (
             f"Create flashcards from {ctx.source_hint}. Write the explanations in {language}, "
             f"keep the term itself in the source-text language:\n\n{ctx.context}"
         )},
-    ]
+    ])
     # 0.6 for some word variety, the real variation comes from the context.
     response = create_logged(client, endpoint="lernkarten", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
-    data = json.loads(answer)
+    data = tags.decode(json.loads(answer))
 
     cards = (data.get("cards") or [])[:count]
     items = [_format_lernkarte(c) for c in cards]
