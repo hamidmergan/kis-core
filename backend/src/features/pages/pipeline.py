@@ -175,6 +175,7 @@ async def run(caller: Caller, *, sources: list[Source], store: RunStore,
         raise RuntimeError("Keine Quelle traegt Text.")
 
     plan = await summary_pipeline._outline(caller, language=language, vorlage=TEMPLATE,
+                                           should_stop=should_stop,
                                            sources=sources, karte=karte, store=store,
                                            instructions=instructions)
     if not plan.sections:

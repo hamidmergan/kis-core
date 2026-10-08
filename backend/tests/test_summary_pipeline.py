@@ -395,3 +395,30 @@ def test_der_aufrufer_schickt_den_schalter_des_modells_mit():
     caller = Caller(Client(), "m", extra_body={"reasoning_effort": "none"})
     asyncio.run(caller.create(messages=[]))
     assert gesendet["extra_body"] == {"reasoning_effort": "none"}
+
+
+def _grosse_quelle() -> Source:
+    stuecke = [Piece(seite=1 + i // 5, von=i * 1000, bis=(i + 1) * 1000) for i in range(300)]
+    return Source(dateiname="g.pdf", fassung="x", text="Ein Wort " * 33_334, seiten=60, stuecke=stuecke)
+
+
+def test_fertige_themenstuecke_ueberleben_die_etappe():
+    """Ein langsames Modell braucht mehrere Etappen, schon beantwortete Stuecke kosten nichts mehr."""
+    themen = json.dumps({"topics": [{"title": "Thema", "gist": "g", "refs": ["1-3"]}]})
+    store = _Store()
+    store.grundlage = {"teile_fertig": {"0": themen, "1": themen}}
+    caller = Caller(FakeClient([themen, _plan("A", "B", "C"), _gruppe("A", "B", "C")]),
+                    "m", window_tokens=50_000)
+    asyncio.run(pl.run(caller, sources=[_grosse_quelle()], template=get_template("zeitstrahl"),
+                       store=store))
+    assert store.grundlage["modus"] == "themen" and len(store.grundlage["themen"]) == 3
+    assert sum("part 3 of 3" in p for p in caller.client.system_prompts()) == 1
+    assert ("outline", 3, 3) in store.fortschritt
+
+
+def test_eine_volle_etappe_hoert_vor_dem_naechsten_stueck_auf():
+    store = _Store()
+    caller = Caller(FakeClient([]), "m", window_tokens=50_000)
+    with pytest.raises(pl.PipelineInterrupted):
+        asyncio.run(pl.run(caller, sources=[_grosse_quelle()], template=get_template("zeitstrahl"),
+                           store=store, should_stop=lambda: True))

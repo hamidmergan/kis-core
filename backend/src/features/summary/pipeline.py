@@ -28,6 +28,10 @@ from src.services.source_reading import Source
 from src.services.text_language import language_name
 
 
+# Where the answers of the topic pieces wait until every piece is in.
+_TEILE_FERTIG = "teile_fertig"
+
+
 class PipelineInterrupted(Exception):
     """The stage ran out of working time, what is done is saved, the rest follows."""
 
@@ -66,20 +70,39 @@ async def _themen(caller: Caller, nachrichten: list[dict], teil: int) -> str | N
 
 
 async def _grundlage(caller: Caller, karte: tm.Karte, language: str,
-                     store: RunStore) -> tm.Grundlage:
-    """What the planning call reads: the numbered text, or its topics when it is too long."""
-    gemerkt = tm.grundlage_aus_dict(store.load_map(), karte)
+                     store: RunStore, should_stop: Callable[[], bool] | None = None) -> tm.Grundlage:
+    """What the planning call reads: the numbered text, or its topics when it is too long.
+
+    Every piece answered is kept at once and reported as progress. A slow model needs
+    several stages for many pieces, and a stage that reports nothing counts as stuck.
+    """
+    roh = store.load_map()
+    gemerkt = tm.grundlage_aus_dict(roh, karte)
     if gemerkt:
         return gemerkt
     if len(karte.teile(caller.window_tokens)) <= 1:
         g = tm.Grundlage(material=karte.block(), modus=tm.STELLEN, themen=[])
     else:
         stuecke = karte.abschnitte(caller.window_tokens)
-        antworten = await concurrency.run_limited([
-            lambda i=i, bereich=bereich, anzahl=anzahl: _themen(
-                caller, tm.themen_nachrichten(karte, bereich, len(stuecke), i + 1, language,
-                                              "a written summary", hoechstens=anzahl), i + 1)
-            for i, (bereich, anzahl) in enumerate(stuecke)], SUMMARY_WRITE_CONCURRENCY)
+        fertig: dict[str, str] = dict((roh or {}).get(_TEILE_FERTIG) or {}) if isinstance(roh, dict) else {}
+
+        async def eines(i: int, bereich: range, anzahl: int) -> None:
+            antwort = await _themen(caller, tm.themen_nachrichten(
+                karte, bereich, len(stuecke), i + 1, language, "a written summary",
+                hoechstens=anzahl), i + 1)
+            if antwort is not None:
+                fertig[str(i)] = antwort
+                store.save_map({_TEILE_FERTIG: fertig})
+            store.progress("outline", len(fertig), len(stuecke))
+
+        darf = (lambda: not should_stop()) if should_stop else None
+        ergebnisse = await concurrency.run_limited(
+            [lambda i=i, bereich=bereich, anzahl=anzahl: eines(i, bereich, anzahl)
+             for i, (bereich, anzahl) in enumerate(stuecke) if str(i) not in fertig],
+            SUMMARY_WRITE_CONCURRENCY, may_start=darf)
+        if any(e is concurrency.SKIPPED for e in ergebnisse):
+            raise PipelineInterrupted
+        antworten = [fertig.get(str(i)) for i in range(len(stuecke))]
         themen: list[tm.Thema] = []
         for antwort, (bereich, anzahl) in zip(antworten, stuecke):
             themen.extend(tm.parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl,
@@ -112,13 +135,14 @@ async def _weg(caller: Caller, instructions: str, material: str) -> str:
 
 
 async def _outline(caller: Caller, *, language: str, vorlage: Template, sources: list[Source],
-                   karte: tm.Karte, store: RunStore, instructions: str = "") -> Outline:
+                   karte: tm.Karte, store: RunStore, instructions: str = "",
+                   should_stop: Callable[[], bool] | None = None) -> Outline:
     """The plan, taken from the store when a stage already paid for it."""
     gemerkt = store.load_outline()
     if gemerkt:
         return Outline(**gemerkt)
     store.progress("outline")
-    g = await _grundlage(caller, karte, language, store)
+    g = await _grundlage(caller, karte, language, store, should_stop)
     weg = await _weg(caller, instructions, g.material)
     # A document on one subject leaves files out on purpose, nothing drags them back in.
     fokus = anweisung.fokus(instructions, weg)
@@ -247,6 +271,7 @@ async def run(caller: Caller, *, sources: list[Source], template: Template,
         raise RuntimeError("Keine Quelle traegt Text.")
 
     plan = await _outline(caller, language=language, vorlage=template, sources=sources,
+                          should_stop=should_stop,
                           karte=karte, store=store, instructions=instructions)
     # An instruction that named nothing the material covers, or made no sense, reaches no writer.
     wirksam = "" if anweisung.faellt_weg(plan.instruction_way) else instructions
