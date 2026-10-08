@@ -49,7 +49,7 @@ def nachrichten(material: str, modus: str, folien: list[tuple[int, str]]) -> lis
         "for exactly what that slide says. A slide with nothing matching in the material "
         "gets an empty list. Different slides may use the same parts.\n"
         + tm.hinweis(modus) + "\n"
-        'Answer with one JSON object only: {"slides": [{"slide": 1, "refs": [3, "10-12"]}]}'
+        'Answer with one JSON object only: {"slides": [{"slide": 1, "refs": ' + tm.refs_beispiel(modus) + '}]}'
     )
     return [{"role": "system", "content": system},
             {"role": "user", "content": f"/no_think\nMATERIAL:\n{material}\n\nSLIDES:\n{liste}"}]

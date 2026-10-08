@@ -38,8 +38,13 @@ REFS = "refs"
 STELLEN = "stellen"
 THEMEN = "themen"
 
-# Every dash a model writes between two numbers, gpt-oss for one uses the non-breaking hyphen.
-_BEREICH = re.compile(r"^\s*(\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*(\d+)\s*$")
+# Labels in front of passage and topic numbers, a bare [45] reads like § 45 in a law and none of 119 test PDFs holds them.
+MARKE_STELLE = "SZ"
+MARKE_THEMA = "TZ"
+
+# A number or a range with or without its label, any dash a model writes, gpt-oss uses the non-breaking hyphen.
+_BEREICH = re.compile(r"^\s*[A-Za-z]{0,3}\s*(\d+)\s*[-\u2010\u2011\u2012\u2013\u2014\u2212]\s*[A-Za-z]{0,3}\s*(\d+)\s*$")
+_EINZELN = re.compile(r"^\s*[A-Za-z]{0,3}\s*(\d+)\s*$")
 
 
 class WindowTooSmall(ValueError):
@@ -114,7 +119,7 @@ class Karte:
             if st.source != vorige:
                 teile.append(f"=== {self.sources[st.source].dateiname} ===")
                 vorige = st.source
-            teile.append(f"[{n}] {self.segment(n)}")
+            teile.append(f"[{MARKE_STELLE}{n}] {self.segment(n)}")
         return "\n\n".join(teile)
 
     def teile(self, window_tokens: int) -> list[range]:
@@ -347,12 +352,14 @@ def exklusiv(listen: list[list[int]]) -> list[list[int]]:
     return aus
 
 
-def abdecken(listen: list[list[int]], gesamt: int) -> list[list[int]]:
+def abdecken(listen: list[list[int]], gesamt: int,
+             datei: Callable[[int], int] | None = None) -> list[list[int]]:
     """Every passage no entry names goes to the entry whose numbers lie closest.
 
     A plan that leaves a stretch of the text out would lose it for good, the writer only
     ever sees what its entry names. Entries without numbers stay as they are, they rest
-    on the whole anyway.
+    on the whole anyway. With ``datei`` a passage only goes to an entry that already draws
+    on its file, a file no entry names falls back to the closest entry.
     """
     genannt = {n for liste in listen for n in liste}
     mit = [i for i, liste in enumerate(listen) if liste]
@@ -362,7 +369,11 @@ def abdecken(listen: list[list[int]], gesamt: int) -> list[list[int]]:
     for n in range(1, gesamt + 1):
         if n in genannt:
             continue
-        naechster = min(mit, key=lambda i: min(abs(n - m) for m in listen[i]))
+        eigene = [] if datei is None else [i for i in mit if any(datei(m) == datei(n) for m in listen[i])]
+        if eigene:
+            naechster = min(eigene, key=lambda i: min(abs(n - m) for m in listen[i] if datei(m) == datei(n)))
+        else:
+            naechster = min(mit, key=lambda i: min(abs(n - m) for m in listen[i]))
         aus[naechster].append(n)
     return [sorted(liste) for liste in aus]
 
@@ -382,10 +393,10 @@ def _nummern(roh, hoechste: int) -> list[int]:
                 a, b = b, a
             kandidaten = range(a, min(b, a + MAP_RANGE_MAX - 1) + 1)
         else:
-            try:
-                kandidaten = [int(str(wert).strip())]
-            except ValueError:
+            einzeln = _EINZELN.match(str(wert))
+            if not einzeln:
                 continue
+            kandidaten = [int(einzeln.group(1))]
         for n in kandidaten:
             if 1 <= n <= hoechste and n not in aus:
                 aus.append(n)
@@ -397,19 +408,28 @@ def _nummern(roh, hoechste: int) -> list[int]:
 # ── Die Planungsgrundlage ────────────────────────────────────────────────────
 
 def hinweis(modus: str) -> str:
-    """What the numbers in the material mean, the same wording for every service."""
+    """What the labels in the material mean, the same wording for every service."""
     if modus == THEMEN:
         return (
-            'The material is a numbered list of topics, written as "[n] title: gist". '
-            "Together they cover the whole text. Under \"refs\" name the numbers of the "
-            "topics an entry draws on."
+            f'The material is a list of topics, each written as "[{MARKE_THEMA}n] title: gist". '
+            "Together they cover the whole text. Under \"refs\" name the labels of the "
+            f'topics an entry draws on, copied exactly, such as "{MARKE_THEMA}3".'
         )
     return (
-        'The material is the full text, cut into numbered passages written as "[n] text". '
-        "Under \"refs\" name the passages an entry draws on. Write neighbouring numbers as "
-        'one range such as "12-18" instead of listing them, and keep refs short: at most '
-        "10 entries. Name only numbers that appear in the material."
+        f'The material is the full text, cut into passages, each written as "[{MARKE_STELLE}n] text". '
+        "Under \"refs\" name the passages an entry draws on by their labels, copied exactly. "
+        f'Write neighbouring passages as one range such as "{MARKE_STELLE}12-{MARKE_STELLE}18" '
+        "instead of listing them, and keep refs short: at most 10 entries. Name only labels "
+        f"that appear in the material. A label is never a paragraph, article or page: § 45 or "
+        f"S. 45 in the text is not {MARKE_STELLE}45, look up the label in front of the passage "
+        "that holds it."
     )
+
+
+def refs_beispiel(modus: str) -> str:
+    """The refs of one entry in an answer example, in the labels of the material."""
+    m = MARKE_THEMA if modus == THEMEN else MARKE_STELLE
+    return f'["{m}12", "{m}14-{m}17"]'
 
 
 @dataclass
@@ -438,17 +458,19 @@ def themen_nachrichten(karte: Karte, teil: range, teile: int, nummer: int,
                        hoechstens: int = MAP_MAX_TOPICS_PER_PART) -> list[dict]:
     """One part of the material boiled down to its topics, when the whole does not fit."""
     system = (
-        "You map a text. The text is cut into numbered passages. List the topics this "
+        "You map a text. The text is cut into labelled passages. List the topics this "
         f"text covers, in the order they appear, at most {hoechstens}, spread over the "
         "whole text to its last passage. "
         f"This is part {nummer} of {teile} of the material, other parts are mapped "
         "separately. For every topic give a short title, one sentence saying what the "
         "text states about it that names the concrete duties, deadlines and figures it gives, "
-        "and the passage numbers it draws on, as integers or as "
-        'ranges written "12-15". Every passage that carries content belongs to a topic. '
+        f'and the passages it draws on by the labels in front of them, such as "{MARKE_STELLE}4" or '
+        f'a range "{MARKE_STELLE}4-{MARKE_STELLE}7". A label is never a paragraph or page: § 4 in '
+        f"the text is not {MARKE_STELLE}4, name the label of the passage that holds it. Every "
+        "passage that carries content belongs to a topic. "
         f"Write titles and sentences in {language}. The material will be used for: {zweck}.\n"
         'Answer with one JSON object only: {"topics": [{"title": "...", "gist": "...", '
-        '"refs": [1, "4-7"]}]}'
+        f'"refs": ["{MARKE_STELLE}1", "{MARKE_STELLE}4-{MARKE_STELLE}7"]}}]}}'
     )
     return [{"role": "system", "content": system},
             {"role": "user", "content": f"/no_think\n{karte.block(teil)}"}]
@@ -476,7 +498,7 @@ def parse_themen(raw: str | None, karte: Karte, erste_nummer: int,
 
 
 def themen_block(themen: list[Thema]) -> str:
-    return "\n".join(f"[{t.nummer}] {t.titel}: {t.kern}" for t in themen)
+    return "\n".join(f"[{MARKE_THEMA}{t.nummer}] {t.titel}: {t.kern}" for t in themen)
 
 
 def grundlage(karte: Karte, window_tokens: int, *, language: str, zweck: str,

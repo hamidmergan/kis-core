@@ -107,3 +107,13 @@ def test_ein_voller_anbieter_wird_als_voll_weitergereicht(db):
 def test_ein_echter_fehler_ist_nicht_voll(db):
     _errors.handle_task_exception("j", RuntimeError("Datei kaputt"), task_label="TTS")
     assert db.busy is False
+
+
+
+def test_ein_zu_kleines_fenster_wird_in_worten_gemeldet():
+    from src.services.text_map import WindowTooSmall
+    from src.tasks._errors import window_too_small_message
+
+    text = window_too_small_message(WindowTooSmall(32768), "de")
+    assert "32.768" in text and "50.000" in text
+    assert window_too_small_message(WindowTooSmall(32768), "en").count("32,768") == 1

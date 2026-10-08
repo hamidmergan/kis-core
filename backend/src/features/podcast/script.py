@@ -327,7 +327,7 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
                   dateien: list[str] | None = None,
                   fehlt: list[str] | None = None) -> list[dict]:
     """The episode laid out in parts, each with the passages it talks about."""
-    from src.services.text_map import hinweis
+    from src.services.text_map import hinweis, refs_beispiel
 
     sprache = "German" if params.language == "de" else "English"
     # An instruction with a subject of its own decides what the episode is about, not the files.
@@ -344,7 +344,7 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
         + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
            "them is talked about in the episode.\n" if dateien and len(dateien) > 1 else "")
         + 'Answer with one JSON object only: {"opening": "...", "thread": "...", "parts": '
-        '[{"title": "...", "gist": "...", "refs": [12, "14-17"]}]}. The opening is a '
+        '[{"title": "...", "gist": "...", "refs": ' + refs_beispiel(modus) + '}]}. The opening is a '
         "small story: one person in one concrete situation from the listeners' own life that "
         "the material decides, ending in a question the episode answers, in two or three "
         "sentences, ideally touching several of the documents, never a list of problems. The thread is one "

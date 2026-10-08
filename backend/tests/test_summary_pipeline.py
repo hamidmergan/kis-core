@@ -140,7 +140,7 @@ def test_ein_zu_langer_text_wird_ueber_themen_geplant():
     asyncio.run(pl.run(caller, sources=[gross], template=get_template("zeitstrahl"),
                        store=store))
     assert store.grundlage["modus"] == "themen"
-    assert "numbered list of topics" in caller.client.system_prompts()[3]
+    assert "list of topics" in caller.client.system_prompts()[3]
 
 
 def test_der_plan_wird_gesichert_und_nicht_neu_geholt():
@@ -174,7 +174,7 @@ def test_der_plan_liest_den_nummerierten_text():
     caller = _caller([_plan("A", "B", "C"), _gruppe("A", "B", "C")])
     asyncio.run(pl.run(caller, sources=[_quelle()], template=get_template("zeitstrahl"),
                        store=_Store()))
-    assert "[1] Ein Satz." in caller.client.user_prompts()[0]
+    assert "[SZ1] Ein Satz." in caller.client.user_prompts()[0]
 
 
 # ── Sprachprobe ──────────────────────────────────────────────────────────────

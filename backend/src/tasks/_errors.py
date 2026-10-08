@@ -26,6 +26,17 @@ def audio_too_long_message(e, locale: str) -> str:
     )
 
 
+def window_too_small_message(e, locale: str) -> str:
+    """The model's window and what the service needs, in the person's number format."""
+    from src.limits import MAP_MIN_WINDOW_TOKENS
+
+    def zahl(n) -> str:
+        return f"{int(n):,}".replace(",", "." if locale == "de" else ",")
+
+    fenster = e.args[0] if e.args else 0
+    return t("job.modelWindowTooSmall", locale, window=zahl(fenster), min=zahl(MAP_MIN_WINDOW_TOKENS))
+
+
 def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> None:
     """Translates the errors a user can act on, then fails or counts one attempt."""
     from src.services.feature_router import FeatureNotConfigured
@@ -33,6 +44,7 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
     from src.services import job_recovery
 
     from src.services.own_tts._base import OwnInterfaceError
+    from src.services.text_map import WindowTooSmall
 
     # Trying these again changes nothing, the input or the setup is wrong.
     dauerhaft = isinstance(e, (FeatureNotConfigured, AudioTooLongError, ValueError))
@@ -44,6 +56,8 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
         msg = t("job.featureNotConfigured", job_locale(job_uuid))
     elif isinstance(e, AudioTooLongError):
         msg = audio_too_long_message(e, job_locale(job_uuid))
+    elif isinstance(e, WindowTooSmall):
+        msg = window_too_small_message(e, job_locale(job_uuid))
     elif is_upstream_busy(e):
         msg = t("job.upstreamBusy", job_locale(job_uuid))
     else:

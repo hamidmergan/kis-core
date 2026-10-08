@@ -329,7 +329,7 @@ class TestPlan:
     def test_der_planauftrag_nennt_die_zahl_der_teile_und_die_nummern(self):
         from src.features.podcast.script import plan_messages
         system = plan_messages("[1] Text", "stellen", _params(), 3)[0]["content"]
-        assert "exactly 3 consecutive parts" in system and "numbered passages" in system
+        assert "exactly 3 consecutive parts" in system and "cut into passages" in system
 
 
 class TestNahtstelle:

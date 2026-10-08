@@ -48,11 +48,11 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
                    schief: list[str] | None = None,
                    anteile: dict[str, int] | None = None) -> list[dict]:
     """The outline call, one entry per slide, planned over the numbered material."""
-    from src.services.text_map import hinweis
+    from src.services.text_map import hinweis, refs_beispiel
 
     lo, hi = FOLIEN_GRENZEN
     rollen_text = "\n".join(f"- {r}: {_ROLLE_TEXT[r]}" for r in rollen if r in _ROLLE_TEXT)
-    eintrag = '{"role": "...", "title": "...", "gist": "...", "refs": [12, "14-17"]}'
+    eintrag = '{"role": "...", "title": "...", "gist": "...", "refs": ' + refs_beispiel(modus) + '}'
     system = (
         "You plan slide decks for university teaching. From the material you pick what matters "
         "and lay it out as an outline, one entry per slide. Each title states the message of "
@@ -238,7 +238,7 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
 def einzel_messages(material: str, modus: str, params: PraesentationParams, wunsch: str,
                     rows: list[OutlineRow]) -> list[dict]:
     """One slide added by hand placed on the material, or on another subject when the material has none."""
-    from src.services.text_map import hinweis
+    from src.services.text_map import hinweis, refs_beispiel
 
     deck = "\n".join(f"- {r.title}: {r.gist}" for r in rows if r.title and not r.wunsch)
     system = (
@@ -252,7 +252,7 @@ def einzel_messages(material: str, modus: str, params: PraesentationParams, wuns
         "The title states the message of the slide, the gist is one sentence saying what it "
         "shows, and refs are never empty.\n"
         'Answer with one JSON object only: {"covered": true, "title": "...", "gist": "...", '
-        '"refs": [12, "14-17"]}.'
+        f'"refs": {refs_beispiel(modus)}}}.'
     )
     user = (f"/no_think\nMATERIAL:\n{material}\n\nTHE DECK SO FAR:\n{deck}\n\n"
             f"REQUEST OF THE TEACHER: {anweisung.clean(wunsch)}")

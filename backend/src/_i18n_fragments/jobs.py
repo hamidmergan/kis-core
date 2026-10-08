@@ -219,6 +219,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
 
     # ── job (shared, additional keys) ────────────────────────────────────────
+    "job.modelWindowTooSmall": {
+        "de": "Das gewählte KI-Modell kann nur {window} Token auf einmal lesen, dieser Dienst braucht mindestens {min}. Bitte wähle ein anderes Modell.",
+        "en": "The chosen AI model can only read {window} tokens at once, this service needs at least {min}. Please pick another model.",
+    },
     "job.notCompleted": {
         "de": "Job noch nicht abgeschlossen",
         "en": "Job not completed yet",

@@ -146,7 +146,8 @@ DESIGNS = {
 NO_WRITING = (
     "It shows people, objects or a calm scene and never anything that carries writing: no "
     "document, page, screen, sign, calendar, clock face, chart, diagram, map, table, label or "
-    "book cover."
+    "book cover. Write \"a craftsman planing a board in a bright workshop\", never \"a workshop "
+    "with a sign naming the register\" or \"a registration book on a desk\"."
 )
 
 _FRAME_SYSTEM = (

@@ -83,8 +83,9 @@ OUTLINE_SCHEMA = {
                                 "type": "array",
                                 "items": {"type": "string"},
                                 "description": (
-                                    "The numbers from the material this section rests on, "
-                                    'each a number such as "12" or a range such as "12-15".'
+                                    "The labels from the material this section rests on, "
+                                    'copied exactly, each such as "SZ12" or a range such as '
+                                    '"SZ12-SZ15", topics as "TZ3".'
                                 ),
                             },
                         },

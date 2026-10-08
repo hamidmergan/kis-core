@@ -150,7 +150,8 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
         vorher = tm.abdeckung([a.stellen for a in plan.sections], len(karte))
         eigene = tm.exklusiv([a.stellen for a in plan.sections])
         # Off the subject the rest of the text stays out, else it goes to the nearest section.
-        verteilt = eigene if fokus else tm.abdecken(eigene, len(karte))
+        verteilt = eigene if fokus else tm.abdecken(eigene, len(karte),
+                                                    datei=lambda n: karte.stelle(n).source)
         for abschnitt, genannt, stellen in zip(plan.sections, eigene, verteilt):
             abschnitt.genannt, abschnitt.stellen = genannt, stellen
         logger.info("Zusammenfassung: Plan nennt {:.0%} der Stellen, der Rest geht an den "

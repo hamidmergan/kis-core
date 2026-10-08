@@ -38,8 +38,8 @@ def test_eine_nummer_zeigt_ihr_stueck_nur_bis_zum_naechsten():
 def test_der_block_nennt_jede_datei_einmal_vor_ihren_stellen():
     block = tm.Karte([_quelle("a.pdf", 2), _quelle("b.pdf", 1)]).block()
     assert block.split("\n\n") == [
-        "=== a.pdf ===", "[1] " + "A" * 10, "[2] " + "B" * 10,
-        "=== b.pdf ===", "[3] " + "A" * 10]
+        "=== a.pdf ===", "[SZ1] " + "A" * 10, "[SZ2] " + "B" * 10,
+        "=== b.pdf ===", "[SZ3] " + "A" * 10]
 
 
 # ── Teile je Fenster ─────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ def test_passt_er_nicht_liest_jeder_teil_seine_themen(monkeypatch):
     assert g.modus == tm.THEMEN
     assert [t.nummer for t in g.themen] == list(range(1, len(gesendet) + 1))
     assert "part 1 of" in gesendet[0][0]["content"] and "ein Podcast" in gesendet[0][0]["content"]
-    assert g.material.startswith("[1] T0: T0 kurz")
+    assert g.material.startswith("[TZ1] T0: T0 kurz")
 
 
 def test_themen_zeigen_zurueck_auf_ihre_stellen(monkeypatch):
@@ -210,7 +210,7 @@ def test_die_grundlage_ueberlebt_den_auftragsordner():
     g = tm.Grundlage(material="", modus=tm.THEMEN,
                      themen=[tm.Thema(nummer=1, titel="A", kern="k", stellen=(2, 3))])
     zurueck = tm.grundlage_aus_dict(json.loads(json.dumps(tm.grundlage_als_dict(g))), karte)
-    assert zurueck.themen == g.themen and zurueck.material == "[1] A: k"
+    assert zurueck.themen == g.themen and zurueck.material == "[TZ1] A: k"
     stellen = tm.grundlage_aus_dict({"modus": "stellen", "themen": []}, karte)
     assert stellen.modus == tm.STELLEN and stellen.material == karte.block()
 
@@ -369,3 +369,45 @@ def test_eine_mehrfach_genannte_stelle_gehoert_dem_ersten_eintrag():
 
 def test_ein_eintrag_behaelt_seine_stellen_wenn_sonst_nichts_bliebe():
     assert tm.exklusiv([[1, 5], [5]]) == [[1, 5], [5]]
+
+
+# ── Marken vor den Nummern ───────────────────────────────────────────────────
+
+def test_jede_stelle_steht_mit_ihrer_marke_im_material():
+    karte = tm.Karte([_quelle("a.pdf", 2)])
+    block = karte.block()
+    assert f"[{tm.MARKE_STELLE}1] " in block and f"[{tm.MARKE_STELLE}2] " in block
+    assert "\n[1] " not in block
+
+
+def test_jedes_thema_steht_mit_seiner_marke_im_material():
+    themen = [tm.Thema(nummer=3, titel="T", kern="K", stellen=(1,))]
+    assert tm.themen_block(themen) == f"[{tm.MARKE_THEMA}3] T: K"
+
+
+def test_marken_in_der_antwort_werden_gelesen():
+    karte = tm.Karte([_quelle("a.pdf", 20)])
+    assert karte.gueltig(["SZ3", "SZ5-SZ7", "sz9 \u2013 sz10", "SZ12-14", "16"]) == [3, 5, 6, 7, 9, 10, 12, 13, 14, 16]
+
+
+def test_paragrafen_und_seitenzahlen_sind_keine_stellen():
+    karte = tm.Karte([_quelle("a.pdf", 20)])
+    assert karte.gueltig(["\u00a7 4", "\u00a74", "S. 5", "Art. 6"]) == []
+
+
+def test_das_beispiel_der_antwort_nutzt_die_marke_des_materials():
+    assert f'"{tm.MARKE_STELLE}12"' in tm.refs_beispiel(tm.STELLEN)
+    assert f'"{tm.MARKE_THEMA}12"' in tm.refs_beispiel(tm.THEMEN)
+    assert tm.MARKE_STELLE in tm.hinweis(tm.STELLEN) and tm.MARKE_THEMA in tm.hinweis(tm.THEMEN)
+
+
+def test_aufgefuellt_wird_nur_innerhalb_der_datei():
+    # Stellen 1 bis 4 sind Datei 0, 5 und 6 Datei 1. Stelle 4 liegt naeher an 6, gehoert aber zu Datei 0.
+    datei = lambda n: 0 if n <= 4 else 1  # noqa: E731
+    assert tm.abdecken([[1], [6]], 6) == [[1, 2, 3], [4, 5, 6]]
+    assert tm.abdecken([[1], [6]], 6, datei=datei) == [[1, 2, 3, 4], [5, 6]]
+
+
+def test_eine_datei_ohne_eintrag_geht_an_den_naechsten():
+    datei = lambda n: 0 if n <= 2 else 1  # noqa: E731
+    assert tm.abdecken([[1, 2], []], 4, datei=datei) == [[1, 2, 3, 4], []]

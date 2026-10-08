@@ -27,8 +27,8 @@ class TestPrompt:
     def test_erklaert_die_nummern_je_nach_grundlage(self):
         stellen = gliederung.build_messages("Q", PraesentationParams(), ROLLEN, "stellen")
         themen = gliederung.build_messages("Q", PraesentationParams(), ROLLEN, "themen")
-        assert "numbered passages" in stellen[0]["content"]
-        assert "numbered list of topics" in themen[0]["content"]
+        assert "cut into passages" in stellen[0]["content"] and '"SZ12"' in stellen[0]["content"]
+        assert "list of topics" in themen[0]["content"] and '"TZ12"' in themen[0]["content"]
 
     def test_die_refs_einer_folie_werden_zu_stellen(self):
         raw = json.dumps({"title": "D", "slides": [

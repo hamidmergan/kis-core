@@ -161,7 +161,7 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
     # unless the episode keeps to one subject and the rest of the text stays out.
     eigene = tm.exklusiv([p["stellen"] for p in plan])
     verteilt = (eigene if anweisung.fokus(params.instructions, params.instruction_way)
-                else tm.abdecken(eigene, len(karte)))
+                else tm.abdecken(eigene, len(karte), datei=lambda n: karte.stelle(n).source))
     for teil, genannt, stellen in zip(plan, eigene, verteilt):
         teil["genannt"], teil["stellen"] = genannt, stellen
     laengen = skript.teil_laengen(gesamt, len(plan))
