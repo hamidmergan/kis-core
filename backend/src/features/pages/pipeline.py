@@ -175,9 +175,16 @@ def page_locale(language: str) -> str:
     return "de" if (language or "").casefold().startswith(("german", "deutsch")) else "en"
 
 
-def _names(plan: Outline, sources: list[Source]) -> list[str]:
-    return [plan.names.get(q.dateiname) or Path(q.dateiname).stem.replace("_", " ")
-            for q in sources]
+# More files than this are counted instead of listed under the title.
+MAX_NAMED_FILES = 3
+
+
+def source_line(sources: list[Source], locale: str) -> str:
+    """The files the page was made from, by their real names, so a reader can find them."""
+    namen = [q.dateiname for q in sources]
+    if len(namen) > MAX_NAMED_FILES:
+        return t("pages.filesCount", locale, n=len(namen))
+    return join_names(namen, locale)
 
 
 def join_names(names: list[str], locale: str) -> str:
@@ -263,9 +270,9 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
                        "blocks": [{"kind": "wordcloud", "caption": t("pages.wordsCaption", loc),
                                    "words": woerter}]})
 
-    namen = join_names(_names(plan, sources), loc)
-    seite = schema.clean_page({"lang": loc, "sections": seiten,
-                               "footer": t("pages.footer", loc, names=namen)})
+    namen = source_line(sources, loc)
+    # The line under the title is the page's one AI notice, so there is no footer repeating it.
+    seite = schema.clean_page({"lang": loc, "sections": seiten, "footer": ""})
     # Kept beside the page for the line under the title, which needs the pictures first.
     seite["names"] = namen
     return seite
