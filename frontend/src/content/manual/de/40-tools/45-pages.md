@@ -60,10 +60,9 @@ einer Veranstaltung. Die Seite ist auch dann nirgends gelistet, Suchmaschinen so
 aufnehmen. Schalten Sie zurück auf Privat, funktioniert der Link nicht mehr. Schalten Sie wieder
 ein, gilt derselbe Link.
 
-Ihre Sammelseite zeigt alle Seiten, die Sie gerade teilen, unter einem festen Link. Neue geteilte
-Seiten erscheinen dort von selbst. Wer ohne Konto kommt, sieht dort nur die Seiten für alle.
-Sie öffnen sie über **Sammelseite** über Ihrer Liste, den Link kopieren Sie dort mit dem
-Teilen-Symbol oben rechts.
+**Geteilte Seiten** über Ihrer Liste öffnet eine Übersicht aller Seiten, die Sie gerade teilen,
+unter einem festen Link. Neue geteilte Seiten erscheinen dort von selbst. Wer ohne Konto kommt,
+sieht dort nur die Seiten für alle. Den Link kopieren Sie dort mit dem Teilen-Symbol oben rechts.
 
 ## Sprachen
 

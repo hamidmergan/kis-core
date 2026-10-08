@@ -56,10 +56,9 @@ open it. Anyone with the link means people without an account too, such as guest
 Even then the page is not listed anywhere, search engines are asked to leave it out. Switch back
 to private and the link stops working. Switch on again and the same link works again.
 
-Your collection shows every page you currently share under one fixed link. Newly shared pages
-appear there by themselves. Visitors without an account only see the pages shared with all.
-Open it with **Collection** above your list, then copy its link with the share icon at the
-top right.
+**Shared pages** above your list opens an overview of every page you currently share, under one
+fixed link. Newly shared pages appear there by themselves. Visitors without an account only see
+the pages shared with all. Copy its link there with the share icon at the top right.
 
 
 ## Languages

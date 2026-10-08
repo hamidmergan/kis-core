@@ -22,8 +22,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     "pages.notReady": {"de": "Die Seite ist noch nicht fertig.", "en": "The page is not finished yet."},
     "pages.notShared": {"de": "Diese Seite ist nicht mehr geteilt.",
                         "en": "This page is no longer shared."},
-    "pages.collectionNotFound": {"de": "Diese Sammelseite gibt es nicht.",
-                                 "en": "This collection does not exist."},
+    "pages.collectionNotFound": {"de": "Diese Übersicht gibt es nicht.",
+                                 "en": "This overview does not exist."},
     "pages.tooMany": {
         "de": "Du hast schon {max} Seiten. Lösch eine alte Seite, um eine neue zu erstellen.",
         "en": "You already have {max} pages. Delete an old page to create a new one.",
