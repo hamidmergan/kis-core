@@ -30,6 +30,17 @@ Oben rechts wechseln Sie zwischen Bearbeiten und Vorschau.
 - Rückgängig und Wiederholen reichen 20 Schritte zurück, auch mit Strg+Z und Strg+Umschalt+Z.
 - Erst Speichern übernimmt die Änderungen. Zurücksetzen holt den zuletzt gespeicherten Stand.
 
+Über das Plus zwischen zwei Abschnitten fügen Sie einen neuen ein. Sie wählen ein Layout mit
+einem bis vier Feldern und legen pro Feld fest, was hineinkommt: Text, Bild, Tabelle, Diagramm,
+Liste oder Hinweis. Ein leeres Feld sieht beim Lesen niemand. Unter Listen und Tabellen fügen
+Punkt, Zeile und Spalte weitere Einträge an.
+
+Jedes Bild lässt sich mit Bild neu erzeugen ersetzen. Die Beschreibung ist auf Englisch, beim
+neuen Bild kommt der Bildstil der Seite dazu. Bis das neue Bild fertig ist, bleibt das alte
+stehen, Rückgängig holt es auch danach zurück. Pro Seite lassen sich höchstens 40 Bilder
+erzeugen. Diagramme, Mindmap und Wortwolke ändern Sie über Daten ändern: Beschriftungen, Werte
+und Begriffe.
+
 Damit eine Seite nicht zerbricht, gelten Grenzen: Überschriften und kurze Texte bis 120 Zeichen,
 Listenpunkte und Kartentexte bis 300, längere Texte bis 1.500, höchstens 20 Abschnitte.
 
@@ -45,6 +56,18 @@ Link nicht mehr. Schalten Sie wieder ein, gilt derselbe Link.
 
 Ihre Sammelseite zeigt alle Seiten, die Sie gerade teilen, unter einem festen Link. Neue geteilte
 Seiten erscheinen dort von selbst.
+
+## Sprachen
+
+Über das Sprachen-Symbol im Editor übertragen Sie die Seite in bis zu vier weitere Sprachen:
+Deutsch, Englisch, Leichte Sprache, Französisch, Spanisch, Italienisch, Türkisch, Ukrainisch,
+Polnisch und Chinesisch. Übertragen wird der zuletzt gespeicherte Stand, das dauert ein bis zwei
+Minuten. Wer die Seite liest, schaltet oben rechts um, der Link merkt sich die Sprache.
+
+Jede Sprache bearbeiten Sie wie das Original. Ändern Sie danach das Original, steht die Sprache
+im Fenster als älter als die Seite. Aktualisieren überträgt sie neu und überschreibt dabei
+Änderungen, die Sie in dieser Sprache gemacht haben. Der Lernassistent im Workspace liest nur
+das Original.
 
 ## Im Workspace
 

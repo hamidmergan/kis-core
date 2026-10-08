@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
 import type { SharedPage } from "../_lib/types";
+import { LanguageSwitch } from "./Languages";
 import PageBar from "./PageBar";
 import PageView from "./PageView";
 
@@ -14,10 +16,20 @@ export default function SharedView({ code }: { code: string }) {
   const t = useTranslations("tools.pages");
   const [data, setData] = useState<SharedPage | null>(null);
   const [gone, setGone] = useState(false);
+  // The language sits in the link, so a shared link can open the page in it directly.
+  const [lang, setLang] = useState<string | null>(useSearchParams().get("sprache"));
 
   useEffect(() => {
-    api.getShared(code).then(setData).catch(() => setGone(true));
-  }, [code]);
+    api.getShared(code, lang).then(setData).catch(() => setGone(true));
+  }, [code, lang]);
+
+  const switchTo = (key: string) => {
+    const url = new URL(window.location.href);
+    if (key === data?.languages[0]?.key) url.searchParams.delete("sprache");
+    else url.searchParams.set("sprache", key);
+    window.history.replaceState(null, "", url);
+    setLang(key);
+  };
 
   if (gone) {
     return (
@@ -33,7 +45,9 @@ export default function SharedView({ code }: { code: string }) {
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar />
+      <PageBar>
+        <LanguageSwitch value={data.language} choices={data.languages} onChange={switchTo} />
+      </PageBar>
       <PageView
         page={data.page}
         limits={data.limits}

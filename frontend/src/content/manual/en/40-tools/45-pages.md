@@ -28,6 +28,15 @@ Top right you switch between Edit and Preview.
 - Undo and Redo go back 20 steps, also with Ctrl+Z and Ctrl+Shift+Z.
 - Only Save keeps your changes. Reset brings back the last saved version.
 
+The plus between two sections inserts a new one. You choose a layout with one to four fields
+and decide for each field what goes in: text, image, table, chart, list or note. Nobody sees an
+empty field when reading. Under lists and tables, Point, Row and Column add further entries.
+
+Every image can be replaced with Recreate image. The description is in English, a new image
+also gets the page's image style. The old image stays until the new one is ready, and Undo
+brings it back afterwards too. At most 40 images can be created per page. Charts, the mind map
+and the word cloud are changed with Edit data: labels, values and terms.
+
 So that a page never breaks, there are limits: headings and short texts up to 120 characters,
 list items and card texts up to 300, longer texts up to 1,500, at most 20 sections.
 
@@ -43,6 +52,18 @@ the same link works again.
 
 Your collection shows every page you currently share under one fixed link. Newly shared pages
 appear there by themselves.
+
+
+## Languages
+
+The languages icon in the editor carries the page into up to four further languages: German,
+English, Leichte Sprache (easy German), French, Spanish, Italian, Turkish, Ukrainian, Polish and
+Chinese. The last saved version is used, it takes one to two minutes. Readers switch at the top
+right, and the link remembers the language.
+
+You edit every language like the original. If you change the original afterwards, the language
+shows as older than the page in the window. Update carries it over again and overwrites changes
+you made in this language. The learning assistant in a workspace reads only the original.
 
 ## In a workspace
 

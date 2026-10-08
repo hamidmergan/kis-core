@@ -29,7 +29,15 @@ export type Block =
       caption: string;
       branches: { title: string; to: string; leaves: string[] }[];
     }
-  | { kind: "wordcloud"; caption: string; words: [string, number][] };
+  | { kind: "wordcloud"; caption: string; words: [string, number][] }
+  /** A field of an added section the owner has not filled yet, readers never see it. */
+  | { kind: "empty" };
+
+export type BlockKind = Block["kind"];
+
+/** The grids an added section can take, each key with its number of fields. */
+export const LAYOUTS = { "1": 1, "2": 2, "21": 2, "12": 2, "3": 3, "4": 4, "1-2": 3 } as const;
+export type Layout = keyof typeof LAYOUTS;
 
 export interface Section {
   id: string;
@@ -39,6 +47,8 @@ export interface Section {
   hero?: boolean;
   meta?: string;
   hidden?: boolean;
+  /** Set on a section the owner added, its blocks are the fields of this grid. */
+  layout?: Layout;
 }
 
 /** The look of a page, the run picks it from the material. */
@@ -46,7 +56,9 @@ export type Design = "chapters" | "timeline" | "magazine" | "guide";
 
 export interface Page {
   version: number;
-  lang: "de" | "en";
+  lang: string;
+  /** German in Leichte Sprache. */
+  easy?: boolean;
   design?: Design;
   sections: Section[];
   footer: string;
@@ -63,6 +75,28 @@ export interface Limits {
   short: number;
   item: number;
   long: number;
+  imagePrompt: number;
+  series: number;
+  branches: number;
+  leaves: number;
+  words: number;
+  /** A chart category, a mind map node or word. */
+  label: number;
+  mapLabel: number;
+}
+
+/** A language a reader can switch to, its label in its own language. */
+export interface LanguageChoice {
+  key: string;
+  label: string;
+}
+
+/** What the owner sees in the language window. */
+export interface Languages {
+  own: LanguageChoice;
+  languages: (LanguageChoice & { state: "running" | "done" | "failed"; stale: boolean })[];
+  choices: LanguageChoice[];
+  max: number;
 }
 
 export interface PageCard {
@@ -106,6 +140,8 @@ export interface SharedPage {
   page: Page;
   owner: { name: string; code: string | null };
   limits: Limits;
+  languages: LanguageChoice[];
+  language: string;
 }
 
 export interface Collection {

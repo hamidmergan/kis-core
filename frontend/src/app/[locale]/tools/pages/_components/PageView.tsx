@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext } from "react";
+import { Fragment, createContext, useContext } from "react";
 import { useTranslations } from "next-intl";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import {
@@ -9,15 +9,22 @@ import {
   ArrowUUpLeft,
   ArrowUUpRight,
   ArrowUp,
+  ChartBar,
   Check,
   Eye,
   EyeSlash,
+  Image as ImageIcon,
   Info,
   Lightbulb,
+  ListBullets,
+  Plus,
+  Table,
+  TextT,
   Trash,
   Warning,
   X,
 } from "@phosphor-icons/react";
+import Spinner from "@/components/ui/Spinner";
 import type { Block, CardIcon, Design, Limits, Page, Section } from "../_lib/types";
 import { Chart, MindMap, WordCloud, useNumber } from "./Charts";
 import { EditCtx, Txt } from "./Txt";
@@ -38,7 +45,35 @@ export interface EditControls {
   onReset: () => void;
   onSave: () => void;
   onSection: (index: number, action: "up" | "down" | "hide" | "del") => void;
+  /** Pictures being drawn: the new name and the one it replaces, "" for a new picture. */
+  pending: ReadonlyMap<string, string>;
+  imagesFull: boolean;
+  onAddSection: (after: number) => void;
+  onPick: (section: number, field: number, kind: FieldKind) => void;
+  onGrow: (path: string, what: "item" | "row" | "col") => void;
+  onImage: (path: string) => void;
+  onData: (path: string) => void;
 }
+
+/** What an empty field of an added section can become. */
+export type FieldKind = "text" | "image" | "table" | "chart" | "list" | "note";
+const FIELDS: { kind: FieldKind; icon: typeof Info }[] = [
+  { kind: "text", icon: TextT }, { kind: "image", icon: ImageIcon }, { kind: "table", icon: Table },
+  { kind: "chart", icon: ChartBar }, { kind: "list", icon: ListBullets }, { kind: "note", icon: Info },
+];
+
+/** The editor's controls for the blocks deep inside the page, null for every reader. */
+const PageEdit = createContext<EditControls | null>(null);
+
+// Figure and table labels belong to the page, so they follow its language, not the reader's.
+const CAPTION_WORDS: Record<string, { figure: string; table: string }> = {
+  de: { figure: "Abbildung", table: "Tabelle" }, en: { figure: "Figure", table: "Table" },
+  fr: { figure: "Figure", table: "Tableau" }, es: { figure: "Figura", table: "Tabla" },
+  it: { figure: "Figura", table: "Tabella" }, tr: { figure: "Şekil", table: "Tablo" },
+  uk: { figure: "Рисунок", table: "Таблиця" }, pl: { figure: "Rysunek", table: "Tabela" },
+  zh: { figure: "图", table: "表" },
+};
+const PageLang = createContext("de");
 
 interface Props {
   page: Page;
@@ -76,6 +111,8 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
   });
 
   return (
+    <PageEdit.Provider value={edit ?? null}>
+    <PageLang.Provider value={page.lang}>
     <div className={`kis-page d-${design}${editing ? " editing" : ""}`} lang={page.lang}>
       <main className="wrap">
         <div className="top-row">
@@ -99,8 +136,11 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
           )}
         </div>
         {page.sections.map((s, i) => (
-          <SectionView key={s.id} s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
-            design={design} chapter={chapters.get(i)} />
+          <Fragment key={s.id}>
+            <SectionView s={s} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
+              design={design} chapter={chapters.get(i)} />
+            {edit && <AddSection after={i} full={n >= limits.sections} max={limits.sections} onAdd={edit.onAddSection} />}
+          </Fragment>
         ))}
         {edit && (
           <div className="ed-only ed-save" style={{ flexDirection: "column", alignItems: "flex-end" }}>
@@ -114,6 +154,92 @@ export default function PageView({ page, limits, imageBase, edit, back }: Props)
           <Txt path="footer" value={page.footer} as="p" max={limits.long} />
         </footer>
       </main>
+    </div>
+    </PageLang.Provider>
+    </PageEdit.Provider>
+  );
+}
+
+/** The round plus between two sections, it opens the choice of a layout for a new one. */
+function AddSection({ after, full, max, onAdd }: { after: number; full: boolean; max: number; onAdd: (after: number) => void }) {
+  const t = useTranslations("tools.pages");
+  return (
+    <div className="ed-only ed-add">
+      <button type="button" disabled={full} onClick={() => onAdd(after)} aria-label={t("addSection")}
+        title={full ? t("addSectionFull", { max }) : t("addSection")}>
+        <Plus size={15} weight="bold" />
+      </button>
+    </div>
+  );
+}
+
+/** An empty field of an added section: while editing the choice of its content, for readers nothing. */
+function EmptyField({ i, j, limits }: { i: number; j: number; limits: Limits }) {
+  const t = useTranslations("tools.pages");
+  const ed = useContext(PageEdit);
+  const { editing } = useContext(EditCtx);
+  if (!ed || !editing) return <div className="fld fld-empty" />;
+  return (
+    <div className="fld fld-empty">
+      <div className="fld-pick">
+        <span>{t("fieldAsk")}</span>
+        <div className="fld-opts">
+          {FIELDS.map(({ kind, icon: Icon }) => {
+            const off = kind === "image" && ed.imagesFull;
+            return (
+              <button key={kind} type="button" className="ed-btn" disabled={off} onClick={() => ed.onPick(i, j, kind)}
+                title={off ? t("imagesFull", { max: limits.images }) : undefined}>
+                <Icon size={13} weight="bold" />{t(`field.${kind}`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The small buttons under a list or table that add an item, a row or a column. */
+function Grow({ items }: { items: { what: "item" | "row" | "col"; path: string; full: boolean; label: string; limit: string }[] }) {
+  const ed = useContext(PageEdit);
+  if (!ed) return null;
+  return (
+    <div className="ed-only ed-grow">
+      {items.map((x) => (
+        <button key={x.what} type="button" className="ed-btn" disabled={x.full} onClick={() => ed.onGrow(x.path, x.what)}
+          title={x.full ? x.limit : undefined}>
+          <Plus size={12} weight="bold" />{x.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The button over a chart or map that opens its data, shown while the pointer is on it. */
+function DataButton({ p }: { p: string }) {
+  const t = useTranslations("tools.pages");
+  const ed = useContext(PageEdit);
+  if (!ed) return null;
+  return <button type="button" className="ed-btn ed-over ed-only" onClick={() => ed.onData(p)}>{t("editData")}</button>;
+}
+
+/** A picture, while it is drawn anew the old one stays dimmed under a note. */
+function Picture({ src, alt, p, imageBase }: { src: string; alt: string; p: string; imageBase: string }) {
+  const t = useTranslations("tools.pages");
+  const ed = useContext(PageEdit);
+  const old = ed?.pending.get(src);
+  const drawing = old !== undefined;
+  const shown = drawing ? old : src;
+  return (
+    <div className={`pic${drawing ? " drawing" : ""}`}>
+      {shown ? (
+        // eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session
+        <img src={`${imageBase}/${shown}`} alt={alt} />
+      ) : <div className="pic-empty" />}
+      {drawing && <div className="pic-note"><Spinner size="sm" color="current" />{t("drawing")}</div>}
+      {ed && !drawing && (
+        <button type="button" className="ed-btn ed-over ed-only" onClick={() => ed.onImage(p)}>{t("redraw")}</button>
+      )}
     </div>
   );
 }
@@ -168,8 +294,7 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
     const banner = design === "timeline" || design === "magazine";
     const figure = img && (
       <figure className="img" data-d={`${p}.blocks.${j}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session */}
-        <img src={`${imageBase}/${img.src}`} alt={img.alt} />
+        <Picture src={img.src} alt={img.alt} p={`${p}.blocks.${j}`} imageBase={imageBase} />
       </figure>
     );
     return (
@@ -182,6 +307,30 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
           <Txt path={`${p}.meta`} value={s.meta} as="p" className="meta" max={limits.long} />
         </div>
         {!banner && figure}
+      </section>
+    );
+  }
+  if (s.layout) {
+    return (
+      <section id={s.id} className={`${chapter != null ? "content" : "frame"} added${cls}`} data-i={i}>
+        {edit && <Tools s={s} i={i} n={n} edit={edit} />}
+        <div className="txt">
+          {design === "chapters" && chapter != null && (
+            <span className="chap" aria-hidden="true">{String(chapter).padStart(2, "0")}</span>
+          )}
+          {design === "timeline" && chapter != null && <span className="tl-dot" aria-hidden="true" />}
+          <Txt path={`${p}.title`} value={s.title} as="h2" max={limits.short} />
+          <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
+        </div>
+        <div className="body">
+          <div className={`lay lay-${s.layout}`}>
+            {s.blocks.map((b, j) => (b.kind === "empty" ? <EmptyField key={j} i={i} j={j} limits={limits} /> : (
+              <div className="fld blk" data-d={`${p}.blocks.${j}`} key={j}>
+                <BlockView b={b} p={`${p}.blocks.${j}`} limits={limits} imageBase={imageBase} num={nums.get(`${i}.${j}`)} />
+              </div>
+            )))}
+          </div>
+        </div>
       </section>
     );
   }
@@ -217,10 +366,11 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, design, chapter }
 function Caption({ p, b, num, kind, limits }: { p: string; b: { caption: string }; num?: number; kind: "figure" | "table"; limits: Limits }) {
   const t = useTranslations("tools.pages");
   const { editing } = useContext(EditCtx);
+  const words = CAPTION_WORDS[useContext(PageLang)];
   if (num == null || (!b.caption && !editing)) return null;
   return (
     <figcaption>
-      <b>{t(kind, { n: num })}</b>
+      <b>{words ? `${words[kind]} ${num}` : t(kind, { n: num })}</b>
       <Txt path={`${p}.caption`} value={b.caption} max={limits.short} />
     </figcaption>
   );
@@ -228,17 +378,23 @@ function Caption({ p, b, num, kind, limits }: { p: string; b: { caption: string 
 
 function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limits: Limits; imageBase: string; num?: number }) {
   const fmt = useNumber();
+  const t = useTranslations("tools.pages");
   const S = limits.short, I = limits.item;
   switch (b.kind) {
+    case "empty":
+      return null;
     case "text":
       return <Txt path={`${p}.text`} value={b.text} as="p" className="prose" max={limits.long} />;
     case "bullets":
       return (
-        <ul className="bul">
-          {b.items.map((v, i) => (
-            <li key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></li>
-          ))}
-        </ul>
+        <>
+          <ul className="bul">
+            {b.items.map((v, i) => (
+              <li key={i} data-d={`${p}.items.${i}`}><Txt path={`${p}.items.${i}`} value={v} as="div" max={I} /></li>
+            ))}
+          </ul>
+          <Grow items={[{ what: "item", path: p, full: b.items.length >= limits.items, label: t("addItem"), limit: t("maxItems", { max: limits.items }) }]} />
+        </>
       );
     case "highlight":
       return (
@@ -299,7 +455,8 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
     case "bars": {
       const max = b.max || Math.max(...b.bars.map((x) => x.value)) || 1;
       return (
-        <div className="panel">
+        <div className="panel has-over">
+          <DataButton p={p} />
           {b.bars.map((x, i) => (
             <div className="barrow" key={i} data-d={`${p}.bars.${i}`}>
               <div>
@@ -337,6 +494,10 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
                 </tbody>
               </table>
             </div>
+            <Grow items={[
+              { what: "row", path: p, full: b.rows.length >= limits.tableRows, label: t("addRow"), limit: t("maxRows", { max: limits.tableRows }) },
+              { what: "col", path: p, full: b.header.length >= limits.tableCols, label: t("addCol"), limit: t("maxCols", { max: limits.tableCols }) },
+            ]} />
           </div>
           <Caption p={p} b={b} num={num} kind="table" limits={limits} />
         </figure>
@@ -344,15 +505,15 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
     case "image":
       return (
         <figure className="img">
-          {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session */}
-          <img src={`${imageBase}/${b.src}`} alt={b.alt} />
+          <Picture src={b.src} alt={b.alt} p={p} imageBase={imageBase} />
           <Caption p={p} b={b} num={num} kind="figure" limits={limits} />
         </figure>
       );
     case "chart":
       return (
         <figure>
-          <div className="panel">
+          <div className="panel has-over">
+            <DataButton p={p} />
             <Chart b={b} />
             {b.series.length > 1 && (
               <div className="legend">
@@ -366,7 +527,8 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
     case "mindmap":
       return (
         <figure>
-          <div className="panel">
+          <div className="panel has-over">
+            <DataButton p={p} />
             <MindMap b={b} />
             <ul className="mm-list">
               {b.branches.map((br, i) => (
@@ -380,7 +542,7 @@ function BlockView({ b, p, limits, imageBase, num }: { b: Block; p: string; limi
     case "wordcloud":
       return (
         <figure>
-          <div className="panel"><WordCloud b={b} /></div>
+          <div className="panel has-over"><DataButton p={p} /><WordCloud b={b} /></div>
           <Caption p={p} b={b} num={num} kind="figure" limits={limits} />
         </figure>
       );

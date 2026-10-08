@@ -96,6 +96,9 @@ celery_app.conf.update(
         # Holds a process 6 to 15 minutes under load, in general it kept transcripts waiting (run 15).
         "summary.run": {"queue": "long"},
         "pages.run": {"queue": "long"},
+        # A picture or a language asked for in the editor is short work, the owner waits for it.
+        "pages.image": {"queue": "general"},
+        "pages.translate": {"queue": "general"},
         # The voicing waits on the voice provider and gets its own worker, so a busy provider
         # never holds up summaries and presentations.
         "podcast.render": {"queue": "tts"},

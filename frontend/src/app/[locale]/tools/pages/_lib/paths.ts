@@ -1,4 +1,4 @@
-import type { Page } from "./types";
+import type { Block, Page } from "./types";
 
 /** Every text and item on the page carries its place in page.json as a dotted path. */
 
@@ -25,15 +25,40 @@ export function deleteAt(page: Page, path: string): void {
 }
 
 const LISTS = ["items", "cards", "steps", "figures", "bars", "rows", "branches", "words"] as const;
+const EMPTY: Block = { kind: "empty" };
 
-/** A block whose last item went is removed with it, an empty shell helps no reader. */
+/** A block with nothing left to read: its last item went, or its only text was cleared. */
+function isBare(b: Block): boolean {
+  const rec = b as unknown as Record<string, unknown>;
+  if (LISTS.some((k) => Array.isArray(rec[k]) && (rec[k] as unknown[]).length === 0)) return true;
+  if (b.kind === "text") return !b.text;
+  if (b.kind === "highlight") return !b.key && !b.text;
+  return false;
+}
+
+/**
+ * A bare block is removed, an empty shell helps no reader. In an added section it turns back
+ * into an empty field, so the grid keeps its places.
+ */
 export function dropEmptyBlocks(page: Page): void {
   for (const s of page.sections) {
-    s.blocks = s.blocks.filter((b) => {
-      const rec = b as unknown as Record<string, unknown>;
-      return !LISTS.some((k) => Array.isArray(rec[k]) && (rec[k] as unknown[]).length === 0);
-    });
+    s.blocks = s.layout
+      ? s.blocks.map((b) => (b.kind !== "empty" && isBare(b) ? { ...EMPTY } : b))
+      : s.blocks.filter((b) => !isBare(b));
   }
 }
+
+/** Removes what the bin points at, a whole field of an added section becomes empty again. */
+export function removeAt(page: Page, path: string): void {
+  const m = /^sections\.(\d+)\.blocks\.(\d+)$/.exec(path);
+  const s = m ? page.sections[Number(m[1])] : null;
+  if (m && s?.layout) s.blocks[Number(m[2])] = { ...EMPTY };
+  else deleteAt(page, path);
+  dropEmptyBlocks(page);
+}
+
+/** Every picture name on the page, to count them against the limit. */
+export const imageCount = (page: Page) =>
+  page.sections.reduce((n, s) => n + s.blocks.filter((b) => b.kind === "image").length, 0);
 
 export const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));

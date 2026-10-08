@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from loguru import logger
 from pydantic import BaseModel
 
@@ -21,10 +21,15 @@ from src.features.pages import repository as repo
 from src.features.pages import schema
 from src.features.summary.models import INSTRUCTIONS_FILE
 from src.i18n import get_locale, t
+from src.features.pages import pipeline as pl
 from src.features.pages.pipeline import default_image_style
+from src.features.pages.translate import LANGUAGES
 from src.limits import (
     PAGES_IMAGE_STYLE_MAX_CHARS,
+    PAGES_MAX_DRAWS,
     PAGES_MAX_JSON_BYTES,
+    PAGES_MAX_LANGUAGES,
+    PAGES_MAX_LONG_CHARS,
     PAGES_MAX_PER_USER,
     SUMMARY_MAX_SOURCES,
 )
@@ -36,6 +41,7 @@ from src.services.job_statistik import angaben_lesen
 from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.services.tool_limits import max_upload_bytes
 from src.storage import get_job_file, save_job_file
+from src.tasks import pages_tasks as pt
 from src.tasks.pages_tasks import PARAMS_FILE, USER_PAGE_FILE, load_page
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
@@ -179,14 +185,25 @@ async def create_page(
     return {"job_uuid": job_uuid, "status": "pending"}
 
 
+def _variant_key(job: dict, page: dict, sprache: str, locale: str) -> str | None:
+    """The language the owner edits, None for the page itself, 404 for a language it lacks."""
+    if not sprache or sprache == pt.key_of(page):
+        return None
+    if pt.load_variant(job["user_id"], job["job_uuid"], sprache) is None:
+        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
+    return sprache
+
+
 @router.get("/pages/{job_uuid}")
-def get_page(job_uuid: str, current_user: dict = Depends(get_current_user),
+def get_page(job_uuid: str, sprache: str = Query(""), current_user: dict = Depends(get_current_user),
              locale: str = Depends(get_locale)):
-    """The page as last saved, with the limits the editor enforces."""
+    """The page as last saved, or one of its languages, with the limits the editor enforces."""
     job = _own_job(job_uuid, current_user, locale)
     page, edited = load_page(job["user_id"], job_uuid)
     if job["status"] != "success" or page is None:
         raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    if _variant_key(job, page, sprache, locale):
+        page = pt.load_variant(job["user_id"], job_uuid, sprache)
     share = repo.get_share(job_uuid) or {}
     return {
         "job_uuid": job_uuid, "page": page, "edited": edited, "limits": schema.limits(),
@@ -196,9 +213,9 @@ def get_page(job_uuid: str, current_user: dict = Depends(get_current_user),
 
 
 @router.put("/pages/{job_uuid}")
-async def save_page(job_uuid: str, request: Request, current_user: dict = Depends(get_current_user),
-                    locale: str = Depends(get_locale)):
-    """Stores the edited page, cut to the limits like the run's own page."""
+async def save_page(job_uuid: str, request: Request, sprache: str = Query(""),
+                    current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
+    """Stores the edited page or one of its languages, cut to the limits like the run's own page."""
     job = _own_job(job_uuid, current_user, locale)
     if job["status"] != "success":
         raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
@@ -211,6 +228,20 @@ async def save_page(job_uuid: str, request: Request, current_user: dict = Depend
         raise HTTPException(status_code=422, detail=t("pages.invalid", locale)) from None
     # Kept in the file, the card shows it as the date of the last change.
     page["saved_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    eigen, _ = load_page(job["user_id"], job_uuid)
+    key = _variant_key(job, eigen or {}, sprache, locale)
+    if key:
+        # A language keeps the language it is in, whatever the body claims.
+        alt = pt.load_variant(job["user_id"], job_uuid, key) or {}
+        page["lang"], page["easy"] = alt.get("lang") or page["lang"], bool(alt.get("easy"))
+        page = {**schema.clean_page(page), "saved_at": page["saved_at"]}
+        save_job_file(job["user_id"], job_uuid, pt.variant_file(key),
+                      json.dumps(page, ensure_ascii=False).encode("utf-8"))
+        return {"page": page}
+    if eigen:
+        # The page's own language stays, a language is changed by translating, not by saving.
+        page["lang"], page["easy"] = eigen.get("lang") or page["lang"], bool(eigen.get("easy"))
+        page = {**schema.clean_page(page), "saved_at": page["saved_at"]}
     save_job_file(job["user_id"], job_uuid, USER_PAGE_FILE,
                   json.dumps(page, ensure_ascii=False).encode("utf-8"))
     _refresh_workspaces(job_uuid, page, current_user.get("user_id", 0), locale)
@@ -250,6 +281,118 @@ def page_image(job_uuid: str, name: str, current_user: dict = Depends(get_curren
     return _image(job["user_id"], job_uuid, name, locale)
 
 
+class DrawBody(BaseModel):
+    prompt: str
+    # A new picture gets the page's look around the owner's words, a redraw keeps its full prompt.
+    wrap: bool = False
+    hero: bool = False
+
+
+@router.post("/pages/{job_uuid}/images")
+def draw_page_image(job_uuid: str, body: DrawBody, current_user: dict = Depends(get_current_user),
+                    locale: str = Depends(get_locale)):
+    """Draws a picture under a new name, the editor puts it on the page once it is there."""
+    job = _own_job(job_uuid, current_user, locale)
+    if job["status"] != "success":
+        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    wunsch = " ".join(body.prompt.split())[:PAGES_MAX_LONG_CHARS]
+    if not wunsch:
+        raise HTTPException(status_code=422, detail=t("pages.promptEmpty", locale))
+    user_id = job["user_id"]
+    nummern = pt.draws_of(user_id, job_uuid)
+    if len(nummern) >= PAGES_MAX_DRAWS:
+        raise HTTPException(status_code=409, detail=t("pages.tooManyDraws", locale, max=PAGES_MAX_DRAWS))
+    enforce_tool_burst(user_id, "pages", locale)
+    name = f"img_{(max(nummern) + 1) if nummern else 0}.webp"
+    if body.wrap:
+        params = json.loads(get_job_file_text_or(user_id, job_uuid, PARAMS_FILE) or "{}")
+        wunsch = pl.image_prompt(wunsch, params.get("image_style") or "")
+    page, _ = load_page(user_id, job_uuid)
+    groesse = pl.hero_size(page or {}) if body.hero else pl.SECTION_SIZE
+    pt.mark_draw(user_id, job_uuid, name, "pending")
+    pt.draw_image.delay(user_id, job_uuid, name, wunsch, groesse)
+    return {"src": name, "prompt": wunsch}
+
+
+@router.get("/pages/{job_uuid}/images/{name}/state")
+def page_image_state(job_uuid: str, name: str, current_user: dict = Depends(get_current_user),
+                     locale: str = Depends(get_locale)):
+    job = _own_job(job_uuid, current_user, locale)
+    if not schema.IMAGE_NAME.match(name):
+        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
+    return {"state": pt.draw_state(job["user_id"], job_uuid, name)}
+
+
+def get_job_file_text_or(user_id: int, job_uuid: str, name: str) -> str | None:
+    from src.services.job_files import read_job_text
+    return read_job_text(user_id, job_uuid, name)
+
+
+def _languages(job: dict, page: dict) -> dict:
+    """What the owner sees in the language window: the page's own, the finished and the running ones."""
+    eigene = pt.key_of(page)
+    zustand = pt.language_states(job["user_id"], job["job_uuid"])
+    quelle = pt.stamp(page)
+    return {
+        "own": {"key": eigene, "label": LANGUAGES.get(eigene, {}).get("label", eigene)},
+        "languages": [
+            {"key": k, "label": v["label"], "state": zustand[k]["state"],
+             # A language made before the last save of the page no longer says the same.
+             "stale": zustand[k]["state"] == "done" and zustand[k].get("source") != quelle}
+            for k, v in LANGUAGES.items() if k in zustand and k != eigene
+        ],
+        "choices": [{"key": k, "label": v["label"]} for k, v in LANGUAGES.items()
+                    if k != eigene and k not in zustand],
+        "max": PAGES_MAX_LANGUAGES,
+    }
+
+
+@router.get("/pages/{job_uuid}/languages")
+def page_languages(job_uuid: str, current_user: dict = Depends(get_current_user),
+                   locale: str = Depends(get_locale)):
+    job = _own_job(job_uuid, current_user, locale)
+    page, _ = load_page(job["user_id"], job_uuid)
+    if job["status"] != "success" or page is None:
+        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    return _languages(job, page)
+
+
+class LanguageBody(BaseModel):
+    key: str
+
+
+@router.post("/pages/{job_uuid}/languages")
+def add_page_language(job_uuid: str, body: LanguageBody, current_user: dict = Depends(get_current_user),
+                      locale: str = Depends(get_locale)):
+    """Translates the page as last saved, again for a language it already has."""
+    job = _own_job(job_uuid, current_user, locale)
+    page, _ = load_page(job["user_id"], job_uuid)
+    if job["status"] != "success" or page is None:
+        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    if body.key not in LANGUAGES or body.key == pt.key_of(page):
+        raise HTTPException(status_code=422, detail=t("pages.languageUnknown", locale))
+    zustand = pt.language_states(job["user_id"], job_uuid)
+    if (zustand.get(body.key) or {}).get("state") == "running":
+        raise HTTPException(status_code=409, detail=t("pages.languageRunning", locale))
+    if body.key not in zustand and len(zustand) >= PAGES_MAX_LANGUAGES:
+        raise HTTPException(status_code=409, detail=t("pages.tooManyLanguages", locale, max=PAGES_MAX_LANGUAGES))
+    enforce_tool_burst(job["user_id"], "pages", locale)
+    pt.set_language_state(job["user_id"], job_uuid, body.key, "running", pt.stamp(page))
+    pt.translate_page.delay(job["user_id"], job_uuid, body.key)
+    return _languages(job, page)
+
+
+@router.delete("/pages/{job_uuid}/languages/{key}")
+def drop_page_language(job_uuid: str, key: str, current_user: dict = Depends(get_current_user),
+                       locale: str = Depends(get_locale)):
+    job = _own_job(job_uuid, current_user, locale)
+    page, _ = load_page(job["user_id"], job_uuid)
+    if key not in LANGUAGES or page is None:
+        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
+    pt.drop_language(job["user_id"], job_uuid, key)
+    return _languages(job, page)
+
+
 class ShareBody(BaseModel):
     on: bool
 
@@ -283,23 +426,25 @@ def _shared(code: str, locale: str) -> tuple[dict, dict]:
     page = load_page(row["user_id"], row["job_uuid"])[0] if row and row["status"] == "success" else None
     if not row or page is None:
         raise HTTPException(status_code=404, detail=t("pages.notShared", locale))
-    return row, schema.for_viewers(page)
+    return row, page
 
 
 @shared_router.get("/pages/shared/{code}")
-def shared_page(code: str, current_user: dict = Depends(get_current_user),
+def shared_page(code: str, sprache: str = Query(""), current_user: dict = Depends(get_current_user),
                 locale: str = Depends(get_locale)):
-    """A shared page for anyone logged in, hidden sections left out."""
+    """A shared page for anyone logged in, in the asked language when it has one, hidden sections left out."""
     row, page = _shared(code, locale)
-    return {"page": page, "owner": {"name": row["owner_name"], "code": row["collection_code"]},
-            "limits": schema.limits()}
+    gezeigt = pt.in_language(row["user_id"], row["job_uuid"], page, sprache)
+    return {"page": schema.for_viewers(gezeigt), "owner": {"name": row["owner_name"], "code": row["collection_code"]},
+            "limits": schema.limits(), "languages": pt.readable(row["user_id"], row["job_uuid"], page),
+            "language": pt.key_of(gezeigt)}
 
 
 @shared_router.get("/pages/shared/{code}/images/{name}")
 def shared_image(code: str, name: str, current_user: dict = Depends(get_current_user),
                  locale: str = Depends(get_locale)):
     row, page = _shared(code, locale)
-    if name not in schema.images_of(page):
+    if name not in pt.viewer_images(row["user_id"], row["job_uuid"], schema.for_viewers(page)):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     return _image(row["user_id"], row["job_uuid"], name, locale)
 

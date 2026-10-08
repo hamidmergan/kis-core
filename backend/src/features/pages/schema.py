@@ -22,7 +22,12 @@ from src.limits import (
 
 VERSION = 1
 KINDS = ("text", "bullets", "highlight", "cards", "steps", "figures", "bars", "table", "chart",
-         "image", "mindmap", "wordcloud")
+         "image", "mindmap", "wordcloud", "empty")
+# A section the owner adds is a grid of fields, the key names the grid and the value its field count.
+LAYOUTS = {"1": 1, "2": 2, "21": 2, "12": 2, "3": 3, "4": 4, "1-2": 3}
+EMPTY = {"kind": "empty"}
+# The languages a page is written or translated in. "easy" is German in Leichte Sprache.
+LANGS = ("de", "en", "fr", "es", "it", "tr", "uk", "pl", "zh")
 # "none" is the rule, a sign only where it tells cards apart. "info" is what older pages carry for none.
 ICONS = ("none", "check", "x", "warning", "idea", "info")
 # The looks a page can take, the frame call picks one, the frontend draws each differently.
@@ -33,6 +38,9 @@ MAX_SERIES = 2
 MAX_BRANCHES = 8
 MAX_LEAVES = 5
 MAX_WORDS = 24
+# A category under a chart and a node of the mind map, longer ones no longer fit their place.
+CHART_LABEL_CHARS = 24
+MAP_LABEL_CHARS = 40
 # A picture is only ever one the run stored in the job folder itself.
 IMAGE_NAME = re.compile(r"^img_\d{1,3}\.(?:webp|png|jpg)$")
 SECTION_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
@@ -44,7 +52,9 @@ def limits() -> dict:
         "sections": PAGES_MAX_SECTIONS, "blocks": PAGES_MAX_BLOCKS, "images": PAGES_MAX_IMAGES,
         "tableRows": PAGES_MAX_TABLE_ROWS, "tableCols": PAGES_MAX_TABLE_COLS,
         "items": PAGES_MAX_ITEMS, "short": PAGES_MAX_SHORT_CHARS, "item": PAGES_MAX_ITEM_CHARS,
-        "long": PAGES_MAX_LONG_CHARS,
+        "long": PAGES_MAX_LONG_CHARS, "imagePrompt": PAGES_MAX_LONG_CHARS,
+        "series": MAX_SERIES, "branches": MAX_BRANCHES, "leaves": MAX_LEAVES, "words": MAX_WORDS,
+        "label": CHART_LABEL_CHARS, "mapLabel": MAP_LABEL_CHARS,
     }
 
 
@@ -183,7 +193,7 @@ def _table(b: dict) -> dict | None:
 
 
 def _chart(b: dict) -> dict | None:
-    cats = [text(c, 24) for c in _list(b.get("categories"))[:PAGES_MAX_ITEMS]]
+    cats = [text(c, CHART_LABEL_CHARS) for c in _list(b.get("categories"))[:PAGES_MAX_ITEMS]]
     series = []
     for s in _list(b.get("series"))[:MAX_SERIES]:
         if not isinstance(s, dict):
@@ -217,13 +227,13 @@ def _mindmap(b: dict) -> dict | None:
     for br in _list(b.get("branches"))[:MAX_BRANCHES]:
         if not isinstance(br, dict):
             continue
-        title = text(br.get("title"), 40)
+        title = text(br.get("title"), MAP_LABEL_CHARS)
         if not title:
             continue
         to = str(br.get("to") or "")
-        leaves = [s for s in (text(x, 40) for x in _list(br.get("leaves"))[:MAX_LEAVES]) if s]
+        leaves = [s for s in (text(x, MAP_LABEL_CHARS) for x in _list(br.get("leaves"))[:MAX_LEAVES]) if s]
         branches.append({"title": title, "to": to if SECTION_ID.match(to) else "", "leaves": leaves})
-    center = text(b.get("center"), 40)
+    center = text(b.get("center"), MAP_LABEL_CHARS)
     if not center or len(branches) < 2:
         return None
     return {"kind": "mindmap", "center": center, "caption": _short(b.get("caption")),
@@ -234,7 +244,7 @@ def _wordcloud(b: dict) -> dict | None:
     words = []
     for w in _list(b.get("words"))[:MAX_WORDS]:
         if isinstance(w, list) and len(w) == 2:
-            word, n = text(w[0], 40), number(w[1])
+            word, n = text(w[0], MAP_LABEL_CHARS), number(w[1])
             if word and n is not None and n > 0:
                 words.append([word, int(n)])
     words.sort(key=lambda w: -w[1])
@@ -263,9 +273,19 @@ def _section(raw, taken: set[str], index: int) -> dict | None:
         sid = f"s{index + 1}"
         while sid in taken:
             sid += "x"
-    blocks = [b for b in (clean_block(x) for x in _list(raw.get("blocks"))) if b][:PAGES_MAX_BLOCKS]
+    layout = raw.get("layout") if raw.get("layout") in LAYOUTS and not raw.get("hero") else None
+    if layout:
+        # Every field keeps its place in the grid, an empty one waits for the owner's choice.
+        felder = LAYOUTS[layout]
+        blocks = [clean_block(x) or dict(EMPTY) for x in _list(raw.get("blocks"))[:felder]]
+        blocks += [dict(EMPTY) for _ in range(felder - len(blocks))]
+    else:
+        blocks = [b for b in (clean_block(x) for x in _list(raw.get("blocks")))
+                  if b and b["kind"] != "empty"][:PAGES_MAX_BLOCKS]
     out = {"id": sid, "title": _short(raw.get("title")),
            "lead": text(raw.get("lead"), PAGES_MAX_LONG_CHARS), "blocks": blocks}
+    if layout:
+        out["layout"] = layout
     if raw.get("hero"):
         out["hero"] = True
         out["meta"] = text(raw.get("meta"), PAGES_MAX_LONG_CHARS)
@@ -273,7 +293,7 @@ def _section(raw, taken: set[str], index: int) -> dict | None:
         out["blocks"] = [b for b in blocks if b["kind"] == "image"][:1]
     if raw.get("hidden"):
         out["hidden"] = True
-    if not out["title"] and not out["lead"] and not out["blocks"]:
+    if not out["title"] and not out["lead"] and not any(b["kind"] != "empty" for b in out["blocks"]):
         return None
     taken.add(sid)
     return out
@@ -300,10 +320,13 @@ def clean_page(raw) -> dict:
                     continue
             kept.append(b)
         s["blocks"] = kept
-    lang = raw.get("lang") if raw.get("lang") in ("de", "en") else "de"
+    lang = raw.get("lang") if raw.get("lang") in LANGS else "de"
     design = raw.get("design") if raw.get("design") in DESIGNS else DESIGNS[0]
-    return {"version": VERSION, "lang": lang, "design": design, "sections": sections,
-            "footer": text(raw.get("footer"), PAGES_MAX_LONG_CHARS)}
+    out = {"version": VERSION, "lang": lang, "design": design, "sections": sections,
+           "footer": text(raw.get("footer"), PAGES_MAX_LONG_CHARS)}
+    if raw.get("easy") and lang == "de":
+        out["easy"] = True
+    return out
 
 
 def title_of(page: dict) -> str:

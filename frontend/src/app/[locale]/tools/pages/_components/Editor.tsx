@@ -8,13 +8,21 @@ import Tabs from "@/components/ui/Tabs";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
-import { clone, deleteAt, dropEmptyBlocks, setAt } from "../_lib/paths";
-import type { Limits, OwnPage, Page } from "../_lib/types";
+import { clone, dropEmptyBlocks, getAt, imageCount, removeAt, setAt } from "../_lib/paths";
+import { LAYOUTS, type Block, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import { DataModal, ImageModal, LayoutModal } from "./EditModals";
+import { LanguageSwitch, LanguagesButton, LanguagesModal, readableOf } from "./Languages";
 import PageBar from "./PageBar";
-import PageView from "./PageView";
+import PageView, { type FieldKind } from "./PageView";
 import { ShareModal } from "./Sharing";
 import { EditCtx } from "./Txt";
+
+// A picture being drawn is asked for at this pace until it is there.
+const DRAW_POLL_MS = 3000;
+
+type ImageBlock = Extract<Block, { kind: "image" }>;
+type DataBlock = Extract<Block, { kind: "chart" | "bars" | "mindmap" | "wordcloud" }>;
 
 // Undo keeps this many steps, typing in one field is one step.
 const UNDO_STEPS = 20;
@@ -56,11 +64,16 @@ const same = (a: Page, b: Page) => JSON.stringify({ ...a, saved_at: 0 }) === JSO
 
 export default function Editor({ uuid }: { uuid: string }) {
   const t = useTranslations("tools.pages");
+  // The language being edited, null for the page's own.
+  const [lang, setLang] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<OwnPage | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [languages, setLanguages] = useState<Languages | null>(null);
   useEffect(() => {
-    api.getPage(uuid).then(setLoaded).catch((e: Error) => setLoadError(e.message || t("loadFailed")));
-  }, [uuid, t]);
+    setLoaded(null);
+    api.getPage(uuid, lang).then(setLoaded).catch((e: Error) => setLoadError(e.message || t("loadFailed")));
+  }, [uuid, lang, t]);
+  useEffect(() => { api.getLanguages(uuid).then(setLanguages).catch(() => {}); }, [uuid]);
 
   if (loadError) {
     return (
@@ -76,10 +89,30 @@ export default function Editor({ uuid }: { uuid: string }) {
       <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>
     );
   }
-  return <Loaded uuid={uuid} data={loaded} />;
+  return (
+    <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages}
+      onLanguages={setLanguages} onLang={(k) => setLang(k === languages?.own.key ? null : k)} />
+  );
 }
 
-function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
+interface LoadedProps {
+  uuid: string;
+  data: OwnPage;
+  lang: string | null;
+  languages: Languages | null;
+  onLanguages: (l: Languages) => void;
+  onLang: (key: string) => void;
+}
+
+/** A fresh id for an added section, lower case like the run's own. */
+function newId(page: Page): string {
+  const taken = new Set(page.sections.map((s) => s.id));
+  let id = "";
+  do id = `n${Math.random().toString(36).slice(2, 8)}`; while (taken.has(id));
+  return id;
+}
+
+function Loaded({ uuid, data, lang, languages, onLanguages, onLang }: LoadedProps) {
   const t = useTranslations("tools.pages");
   const [h, dispatch] = useReducer(reducer, { rev: 0, page: data.page, past: [], future: [] });
   const [saved, setSaved] = useState<Page>(data.page);
@@ -90,6 +123,14 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
   const [share, setShare] = useState({ shared: data.shared, code: data.code });
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const [layoutAt, setLayoutAt] = useState<number | null>(null);
+  const [imageAt, setImageAt] = useState<{ path: string; prompt: string; isNew: boolean; hero: boolean } | null>(null);
+  const [dataAt, setDataAt] = useState<string | null>(null);
+  const [langOpen, setLangOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Pictures being drawn: the new name with the name and prompt it replaces.
+  const [drawing, setDrawing] = useState<Map<string, { old: string; prompt: string; path: string }>>(new Map());
+  const pending = useMemo(() => new Map([...drawing].map(([k, v]) => [k, v.old])), [drawing]);
   const limits: Limits = data.limits;
   const dirty = typing || !same(h.page, saved);
 
@@ -99,10 +140,7 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
       type: "change",
       fn: (p) => {
         if (value) setAt(p, path, value);
-        else {
-          deleteAt(p, path);
-          dropEmptyBlocks(p);
-        }
+        else removeAt(p, path);
       },
     });
   }, []);
@@ -124,9 +162,11 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
     // The blur above lands in the next render, so the save waits one tick for it.
     await new Promise((r) => window.setTimeout(r, 0));
     try {
-      const res = await api.savePage(uuid, pageRef.current);
+      const res = await api.savePage(uuid, pageRef.current, lang);
       setSaved(res.page);
       dispatch({ type: "replace", page: res.page });
+      // A save of the page's own text leaves its languages behind, the button shows it.
+      if (!lang) api.getLanguages(uuid).then(onLanguages).catch(() => {});
     } catch {
       setSaveError(t("saveFailed"));
     } finally {
@@ -153,6 +193,99 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
     // The moved section stays in view, the reader follows it instead of losing it.
     if (moveId) window.setTimeout(() => document.getElementById(moveId)?.scrollIntoView({ block: "center" }), 0);
   };
+
+  const change = (fn: (p: Page) => void) => { flush(); dispatch({ type: "change", fn }); };
+
+  const addSection = (layout: Layout) => {
+    const after = layoutAt ?? h.page.sections.length - 1;
+    const id = newId(h.page);
+    setLayoutAt(null);
+    change((p) => {
+      p.sections.splice(after + 1, 0, {
+        id, title: t("newSection"), lead: t("newLead"), layout,
+        blocks: Array.from({ length: LAYOUTS[layout] }, () => ({ kind: "empty" as const })),
+      });
+    });
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "center" }), 0);
+  };
+
+  const pick = (i: number, j: number, kind: FieldKind) => {
+    const path = `sections.${i}.blocks.${j}`;
+    if (kind === "image") { setImageAt({ path, prompt: "", isNew: true, hero: false }); return; }
+    const fresh: Record<Exclude<FieldKind, "image">, Block> = {
+      text: { kind: "text", text: t("newText") },
+      note: { kind: "highlight", key: "", text: t("newNote") },
+      list: { kind: "bullets", items: [t("newItem1"), t("newItem2"), t("newItem3")] },
+      table: {
+        kind: "table", caption: "", header: [1, 2, 3].map((n) => t("newColumn", { n })),
+        rows: [["…", "…", "…"], ["…", "…", "…"]],
+      },
+      chart: {
+        kind: "chart", chart_type: "bar", caption: "", x_label: "", y_label: "",
+        categories: [t("newValue1"), t("newValue2"), t("newValue3")], series: [{ name: "", values: [4, 7, 5] }],
+      },
+    };
+    change((p) => setAt(p, path, fresh[kind]));
+    if (kind === "chart") setDataAt(path);
+  };
+
+  const grow = (path: string, what: "item" | "row" | "col") => change((p) => {
+    const b = getAt(p, path) as Block;
+    if (what === "item" && b.kind === "bullets") b.items.push(t("newItem"));
+    if (b.kind !== "table") return;
+    if (what === "row") b.rows.push(b.header.map(() => "…"));
+    if (what === "col") {
+      b.header.push(t("newColumn", { n: b.header.length + 1 }));
+      b.rows.forEach((r) => r.push("…"));
+    }
+  });
+
+  const openImage = (path: string) => {
+    const b = getAt(h.page, path) as ImageBlock;
+    const hero = !!h.page.sections[Number(path.split(".")[1])]?.hero;
+    setImageAt({ path, prompt: b.prompt, isNew: false, hero });
+  };
+
+  const draw = async (prompt: string) => {
+    if (!imageAt) return;
+    const { path, isNew, hero } = imageAt;
+    const res = await api.drawImage(uuid, { prompt, wrap: isNew, hero });
+    const before = isNew ? null : (getAt(h.page, path) as ImageBlock);
+    setDrawing((m) => new Map(m).set(res.src, { old: before?.src ?? "", prompt: before?.prompt ?? "", path }));
+    change((p) => {
+      if (isNew) setAt(p, path, { kind: "image", src: res.src, alt: "", prompt: res.prompt, caption: "" });
+      else Object.assign(getAt(p, path) as ImageBlock, { src: res.src, prompt: res.prompt });
+    });
+    setImageAt(null);
+    setNotice(null);
+  };
+
+  // Each picture being drawn is asked for until it is there or failed; a failed one goes back.
+  useEffect(() => {
+    if (!drawing.size) return;
+    const id = window.setInterval(async () => {
+      for (const [src, was] of drawing) {
+        const { state } = await api.imageState(uuid, src).catch(() => ({ state: "pending" as const }));
+        if (state === "pending") continue;
+        setDrawing((m) => { const n = new Map(m); n.delete(src); return n; });
+        if (state === "failed") {
+          setNotice(was.old ? t("drawFailed") : t("drawFailedNew"));
+          dispatch({
+            type: "change",
+            fn: (p) => {
+              p.sections.forEach((s) => s.blocks.forEach((b, j) => {
+                if (b.kind !== "image" || b.src !== src) return;
+                if (was.old) Object.assign(b, { src: was.old, prompt: was.prompt });
+                else s.blocks[j] = { kind: "empty" };
+              }));
+              dropEmptyBlocks(p);
+            },
+          });
+        }
+      }
+    }, DRAW_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [drawing, uuid, t]);
 
   // Ctrl+Z and Ctrl+Shift+Z while editing, also from inside a text.
   useEffect(() => {
@@ -188,6 +321,8 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
   return (
     <EditCtx.Provider value={ctx}>
       <PageBar>
+        <LanguageSwitch value={lang ?? languages?.own.key ?? ""} choices={readableOf(languages)} disabled={dirty}
+          title={dirty ? t("saveFirst") : undefined} onChange={onLang} className="hidden sm:block" />
         <Tabs<"edit" | "view">
           variant="pill"
           className="mr-1.5"
@@ -208,10 +343,12 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--success)", border: "2px solid var(--background)" }} />
           )}
         </button>
+        <LanguagesButton languages={languages} onClick={() => setLangOpen(true)} />
       </PageBar>
       {editing && (
         <div className="kis-page-hint px-4 py-1.5 text-xs" style={{ background: "rgba(var(--kb-rgb),.05)", borderBottom: "2px solid rgba(var(--kb-rgb),.15)", color: "var(--kb-dark)" }}>
           {t("editHint")}
+          {lang && ` ${t("editingLanguage", { label: readableOf(languages).find((l) => l.key === lang)?.label ?? lang })}`}
         </div>
       )}
       <PageView
@@ -223,13 +360,21 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
           canUndo: h.past.length > 0 || typing,
           canRedo: h.future.length > 0,
           dirty,
-          saving,
-          error: saveError,
+          // A picture still being drawn would be saved as a hole, so saving waits for it.
+          saving: saving || drawing.size > 0,
+          error: saveError ?? notice,
           onUndo: undo,
           onRedo: redo,
           onReset: () => { flush(); setTyping(false); dispatch({ type: "change", fn: (p) => Object.assign(p, clone(saved)) }); },
           onSave: save,
           onSection,
+          pending,
+          imagesFull: imageCount(h.page) >= limits.images,
+          onAddSection: (after) => { flush(); setLayoutAt(after); },
+          onPick: pick,
+          onGrow: grow,
+          onImage: openImage,
+          onData: (path) => { flush(); setDataAt(path); },
         }}
       />
       {editing && <DeleteOnHover onDelete={(path, section) => {
@@ -238,14 +383,20 @@ function Loaded({ uuid, data }: { uuid: string; data: OwnPage }) {
           type: "change",
           fn: (p) => {
             if (section != null) p.sections.splice(section, 1);
-            else {
-              deleteAt(p, path);
-              dropEmptyBlocks(p);
-            }
+            else removeAt(p, path);
           },
         });
       }} />}
       <ScrollTopButton />
+      <LayoutModal open={layoutAt !== null} left={limits.sections - h.page.sections.length}
+        onClose={() => setLayoutAt(null)} onPick={addSection} />
+      <ImageModal open={!!imageAt} isNew={!!imageAt?.isNew} prompt={imageAt?.prompt ?? ""} max={limits.imagePrompt}
+        onClose={() => setImageAt(null)} onDraw={draw} />
+      <DataModal block={dataAt ? (getAt(h.page, dataAt) as DataBlock) : null} limits={limits} onClose={() => setDataAt(null)}
+        onApply={(b) => { const at = dataAt!; setDataAt(null); change((p) => setAt(p, at, b)); }} />
+      <LanguagesModal open={langOpen} uuid={uuid} languages={languages} dirty={dirty}
+        onClose={() => setLangOpen(false)} onChange={onLanguages}
+        onEdit={(k) => { setLangOpen(false); onLang(k); }} />
       <ShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -277,7 +428,7 @@ function DeleteOnHover({ onDelete }: { onDelete: (path: string, section: number 
     const move = (e: MouseEvent) => {
       const el = e.target as HTMLElement;
       if (el.closest(".kis-page-del")) return;
-      if (!el.closest(".kis-page") || el.closest(".ed-tools,.ed-actions,.ed-save,.pfoot")) return hide();
+      if (!el.closest(".kis-page") || el.closest(".ed-tools,.ed-actions,.ed-save,.ed-add,.ed-grow,.ed-over,.fld-pick,.pfoot")) return hide();
       const hit = el.closest<HTMLElement>("[data-d],[data-p]:not([data-keep]),.kis-page section");
       if (!hit) return hide();
       if (hit === target.current) return;

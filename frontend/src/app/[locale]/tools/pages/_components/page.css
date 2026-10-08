@@ -215,6 +215,39 @@
 .kis-page .ed-save { justify-content: flex-end; margin-top: 72px; padding-top: 24px; border-top: 2px dashed var(--pg-line); }
 .kis-page .ed-error { color: var(--error); font-size: 14px; margin: 8px 0 0; text-align: right; }
 
+/* Sections the owner adds: a grid of fields, an empty field shows its choice only while editing. */
+.kis-page .lay { display: grid; gap: 22px; margin-top: 26px; align-items: start; }
+.kis-page .lay-1 { grid-template-columns: minmax(0, 1fr); }
+.kis-page .lay-2, .kis-page .lay-4, .kis-page .lay-1-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kis-page .lay-21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.kis-page .lay-12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.kis-page .lay-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kis-page .lay-1-2 > .fld:first-child { grid-column: 1 / -1; }
+@media (max-width: 720px) {
+  .kis-page .lay { grid-template-columns: minmax(0, 1fr) !important; }
+  .kis-page .lay > .fld { grid-column: auto !important; }
+}
+.kis-page .lay > .blk { margin-top: 0; }
+.kis-page:not(.editing) .fld-empty { display: none; }
+.kis-page:not(.editing) .lay:not(:has(.fld:not(.fld-empty))) { display: none; }
+.kis-page .fld-pick { min-height: 150px; border: 2px dashed var(--pg-soft); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; text-align: center; font-size: 14px; color: var(--muted); }
+.kis-page .fld-opts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+/* The round plus between two sections. */
+.kis-page .ed-add { position: relative; height: 0; justify-content: center; }
+.kis-page .ed-add button { position: absolute; top: 26px; width: 28px; height: 28px; border-radius: 9999px; border: 0; padding: 0; background: var(--surface-dim); color: var(--pg-accent); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 4; outline: 2px solid transparent; transition: outline-color 0.15s; }
+.kis-page .ed-add button:hover:not(:disabled), .kis-page .ed-add button:focus-visible { outline-color: var(--pg-accent); }
+.kis-page .ed-add button:disabled { opacity: 0.45; cursor: not-allowed; }
+.kis-page .ed-grow { flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* A button over a picture or a chart, on a chart only while the pointer is on it. */
+.kis-page .pic, .kis-page .has-over { position: relative; }
+.kis-page .ed-over { position: absolute; top: 12px; right: 12px; z-index: 3; }
+.kis-page:not(.editing) .ed-over { display: none; }
+.kis-page.editing .has-over > .ed-over { opacity: 0; transition: opacity 0.15s; }
+.kis-page.editing .has-over:hover > .ed-over, .kis-page.editing .has-over:focus-within > .ed-over { opacity: 1; }
+.kis-page .pic.drawing img { opacity: 0.3; }
+.kis-page .pic-empty { aspect-ratio: 4 / 3; border-radius: 14px; background: var(--pg-mist); }
+.kis-page .pic-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--pg-accent); }
+
 .kis-page-del { position: absolute; z-index: 20; width: 28px; height: 28px; border-radius: 9999px; display: none; align-items: center; justify-content: center; border: 0; padding: 0; background: var(--surface-dim); color: var(--muted); cursor: pointer; outline: 2px solid transparent; transition: outline-color 0.15s, color 0.15s; }
 .kis-page-del.on { display: flex; }
 .kis-page-del:hover { outline-color: var(--error); color: var(--error); }

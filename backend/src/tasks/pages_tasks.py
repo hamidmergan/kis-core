@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 from loguru import logger
 
@@ -17,8 +19,10 @@ from src.features.pages import schema
 from src.features.summary.models import INSTRUCTIONS_FILE, Caller
 from src.i18n import t
 from src.limits import (
+    PAGES_DRAW_WAIT_MINUTES,
     PAGES_IMAGE_MAX_PX,
     PAGES_IMAGE_QUALITY,
+    PAGES_TRANSLATE_WAIT_MINUTES,
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
 )
@@ -28,6 +32,7 @@ from src.services.job_files import JobState, parse_job_json, read_job_text, writ
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.job_statistik import angaben_merken, route_kennung, wer_antwortete
 from src.storage import (
+    delete_job_file,
     get_job_file,
     job_file_exists,
     job_prefix,
@@ -261,3 +266,166 @@ def load_page(user_id: int, job_uuid: str) -> tuple[dict | None, bool]:
         except Exception:  # noqa: BLE001 - a missing file means the next one
             continue
     return None, False
+
+
+# --- Pictures drawn from the editor -------------------------------------------------------------
+
+def draw_state(user_id: int, job_uuid: str, name: str) -> str:
+    """done, failed or pending; a picture waiting longer than its limit counts as failed."""
+    if job_file_exists(user_id, job_uuid, name):
+        return "done"
+    marke = parse_job_json(job_uuid, f"{name}.state", read_job_text(user_id, job_uuid, f"{name}.state"), None)
+    if not isinstance(marke, dict) or marke.get("state") == "failed":
+        return "failed"
+    seit = datetime.fromisoformat(marke["at"])
+    return "failed" if datetime.now(timezone.utc) - seit > timedelta(minutes=PAGES_DRAW_WAIT_MINUTES) else "pending"
+
+
+def draws_of(user_id: int, job_uuid: str) -> list[int]:
+    """The numbers of every picture the page ever had drawn or asked for."""
+    nummern = set()
+    for key in list_keys(f"{job_prefix(user_id, job_uuid)}/img_"):
+        treffer = re.search(r"img_(\d{1,3})\.", key)
+        if treffer:
+            nummern.add(int(treffer.group(1)))
+    return sorted(nummern)
+
+
+def mark_draw(user_id: int, job_uuid: str, name: str, state: str) -> None:
+    write_job_text(user_id, job_uuid, f"{name}.state", json.dumps(
+        {"state": state, "at": datetime.now(timezone.utc).isoformat()}))
+
+
+@celery_app.task(bind=True, name="pages.image", acks_late=True, max_retries=20)
+def draw_image(self, user_id: int, job_uuid: str, name: str, prompt: str, size: str):
+    """One picture the owner asked for in the editor, a busy provider means waiting, not failing."""
+    from src.features.praesentation import bild
+    from src.services.provider_slots import ProviderFull
+
+    try:
+        roh = bild.erzeuge(prompt, size)
+    except ProviderFull as e:
+        logger.info("Pages {}: Bild {} wartet auf einen Platz", job_uuid[:8], name)
+        raise self.retry(countdown=15) from e
+    except Exception as e:  # noqa: BLE001 - the editor shows the failure, the page stays as it was
+        logger.warning("Pages {}: Bild {} fehlgeschlagen: {}", job_uuid[:8], name, e)
+        mark_draw(user_id, job_uuid, name, "failed")
+        return
+    save_job_file(user_id, job_uuid, name, webp(roh))
+    logger.info("Pages {}: Bild {} neu gezeichnet", job_uuid[:8], name)
+
+
+# --- Other languages ----------------------------------------------------------------------------
+
+def variant_file(key: str) -> str:
+    return f"page_{key}.json"
+
+
+def _state_file(key: str) -> str:
+    return f"lang_{key}.json"
+
+
+def stamp(page: dict) -> str:
+    """Which content a translation was made from, a save without a change keeps it."""
+    inhalt = {k: v for k, v in page.items() if k != "saved_at"}
+    return hashlib.sha256(json.dumps(inhalt, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+
+
+def load_variant(user_id: int, job_uuid: str, key: str) -> dict | None:
+    try:
+        return json.loads(get_job_file(user_id, job_uuid, variant_file(key)))
+    except Exception:  # noqa: BLE001 - a missing file means no such language yet
+        return None
+
+
+def language_states(user_id: int, job_uuid: str) -> dict[str, dict]:
+    """Every language the page has or is getting, a translation stuck past its limit counts as failed."""
+    from src.features.pages.translate import LANGUAGES
+
+    raus: dict[str, dict] = {}
+    for key in list_keys(f"{job_prefix(user_id, job_uuid)}/lang_"):
+        treffer = re.search(r"lang_([a-z]+)\.json$", key)
+        if not treffer or treffer.group(1) not in LANGUAGES:
+            continue
+        name = treffer.group(1)
+        daten = parse_job_json(job_uuid, _state_file(name), read_job_text(user_id, job_uuid, _state_file(name)), None)
+        if not isinstance(daten, dict):
+            continue
+        if daten.get("state") == "running":
+            seit = datetime.fromisoformat(daten["at"])
+            if datetime.now(timezone.utc) - seit > timedelta(minutes=PAGES_TRANSLATE_WAIT_MINUTES):
+                daten["state"] = "failed"
+        raus[name] = daten
+    return raus
+
+
+def key_of(page: dict) -> str:
+    """The language key of a page, Leichte Sprache apart from plain German."""
+    return "easy" if page.get("easy") else (page.get("lang") or "de")
+
+
+def readable(user_id: int, job_uuid: str, page: dict) -> list[dict]:
+    """The languages a reader can switch between, the page's own first, then every finished one."""
+    from src.features.pages.translate import LANGUAGES
+
+    eigene = key_of(page)
+    fertig = {k for k, v in language_states(user_id, job_uuid).items() if v.get("state") == "done"}
+    keys = [eigene] + [k for k in LANGUAGES if k in fertig and k != eigene]
+    return [{"key": k, "label": LANGUAGES[k]["label"]} for k in keys if k in LANGUAGES]
+
+
+def in_language(user_id: int, job_uuid: str, page: dict, key: str | None) -> dict:
+    """The page in the asked language when it has one, else the page itself."""
+    if not key or key == key_of(page) or key not in {x["key"] for x in readable(user_id, job_uuid, page)}:
+        return page
+    return load_variant(user_id, job_uuid, key) or page
+
+
+def viewer_images(user_id: int, job_uuid: str, page: dict) -> set[str]:
+    """Every picture a reader may load, from the page and from each of its languages."""
+    bilder = set(schema.images_of(page))
+    for x in readable(user_id, job_uuid, page)[1:]:
+        bilder |= schema.images_of(load_variant(user_id, job_uuid, x["key"]) or {})
+    return bilder
+
+
+def set_language_state(user_id: int, job_uuid: str, key: str, state: str, source: str) -> None:
+    write_job_text(user_id, job_uuid, _state_file(key), json.dumps(
+        {"state": state, "source": source, "at": datetime.now(timezone.utc).isoformat()}))
+
+
+def drop_language(user_id: int, job_uuid: str, key: str) -> None:
+    for name in (variant_file(key), _state_file(key)):
+        try:
+            delete_job_file(user_id, job_uuid, name)
+        except Exception:  # noqa: BLE001 - already gone is fine
+            pass
+
+
+@celery_app.task(name="pages.translate", acks_late=True,
+                 soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
+def translate_page(user_id: int, job_uuid: str, key: str):
+    """The page as last saved in one more language, written beside the page."""
+    from src.features.pages import translate as tr
+    from src.tasks.general_tasks import _get_llm_client
+    from src.tasks.summary_tasks import _fenster
+
+    page, _ = load_page(user_id, job_uuid)
+    if not page:
+        return
+    quelle = stamp(page)
+    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
+    provider_id = params.get("provider_id")
+    try:
+        traeger = _get_llm_client(provider_id)
+        caller = PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
+                             window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
+                             book=lambda antwort: log_llm_response("pages", traeger, antwort))
+        neu = asyncio.run(tr.translate(caller, page, key))
+    except Exception as e:  # noqa: BLE001 - the owner sees the failure and may try again
+        logger.warning("Pages {}: Sprache {} fehlgeschlagen: {}", job_uuid[:8], key, e)
+        set_language_state(user_id, job_uuid, key, "failed", quelle)
+        return
+    save_job_file(user_id, job_uuid, variant_file(key), json.dumps(neu, ensure_ascii=False).encode("utf-8"))
+    set_language_state(user_id, job_uuid, key, "done", quelle)
+    logger.info("Pages {}: Sprache {} fertig", job_uuid[:8], key)

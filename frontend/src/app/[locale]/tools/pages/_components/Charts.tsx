@@ -29,7 +29,19 @@ export function Chart({ b }: { b: ChartBlock }) {
   const num = useNumber();
   // The point or bar under the pointer, its value shows in a small box above it.
   const [hover, setHover] = useState<{ s: number; i: number } | null>(null);
-  const W = 1000, H = 380, L = 64, R = 20, T0 = 30, B = 56;
+  // In a narrow field the drawing shrinks, its letters grow by this factor to stay readable.
+  const ref = useRef<SVGSVGElement>(null);
+  const [f, setF] = useState(1);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => setF(Math.min(2.2, Math.max(1, 1000 / (el.clientWidth || 1000))));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const W = 1000, H = 380 + 60 * (f - 1), L = 64 * f, R = 20, T0 = 30 * f, B = 56 * f;
   const n = b.categories.length;
   const max = niceMax(Math.max(...b.series.flatMap((s) => s.values)));
   const sx = (i: number) => L + (n === 1 ? 0.5 : i / (n - 1)) * (W - L - R);
@@ -51,13 +63,13 @@ export function Chart({ b }: { b: ChartBlock }) {
   });
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.caption} className="chart">
+    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.caption} className="chart">
       {[0, 1, 2, 3, 4].map((k) => {
         const v = (max * k) / 4, y = sy(v);
         return (
           <g key={k}>
             <line className="grid-line" x1={L} x2={W - R} y1={y} y2={y} strokeWidth={2} />
-            <text className="axis" x={L - 10} y={y + 5} textAnchor="end" fontSize={14}>{num(v)}</text>
+            <text className="axis" x={L - 10} y={y + 5 * f} textAnchor="end" fontSize={14 * f}>{num(v)}</text>
           </g>
         );
       })}
@@ -85,21 +97,21 @@ export function Chart({ b }: { b: ChartBlock }) {
             </g>
           ))}
       {b.categories.map((c, i) => (
-        <text key={i} className="axis" x={bar ? L + i * bw + bw / 2 : sx(i)} y={H - B + 24} textAnchor="middle" fontSize={14}>{c}</text>
+        <text key={i} className="axis" x={bar ? L + i * bw + bw / 2 : sx(i)} y={H - B + 24 * f} textAnchor="middle" fontSize={14 * f}>{c}</text>
       ))}
-      {b.x_label && <text className="axis-title" x={W - R} y={H - 8} textAnchor="end" fontSize={14}>{b.x_label}</text>}
-      {b.y_label && <text className="axis-title" x={L} y={T0 - 10} fontSize={14}>{b.y_label}</text>}
+      {b.x_label && <text className="axis-title" x={W - R} y={H - 8} textAnchor="end" fontSize={14 * f}>{b.x_label}</text>}
+      {b.y_label && <text className="axis-title" x={L} y={T0 - 10} fontSize={14 * f}>{b.y_label}</text>}
       {hover && (() => {
         const p = at(hover.s, hover.i), tx = tip(hover.s, hover.i);
-        const w = Math.max(tx.head.length, tx.value.length) * 8.6 + 28, h = 52;
+        const w = (Math.max(tx.head.length, tx.value.length) * 8.6 + 28) * f, h = 52 * f;
         const x = Math.min(Math.max(p.x - w / 2, L), W - R - w);
         const y = Math.max(p.y - h - 16, 4);
         return (
           <g className="tip" pointerEvents="none">
             {!bar && <circle className="tip-ring" cx={p.x} cy={p.y} r={11} strokeWidth={3} />}
             <rect x={x} y={y} width={w} height={h} rx={10} />
-            <text x={x + 14} y={y + 21} fontSize={13} className="tip-head">{tx.head}</text>
-            <text x={x + 14} y={y + 41} fontSize={16} className="tip-value">{tx.value}</text>
+            <text x={x + 14 * f} y={y + 21 * f} fontSize={13 * f} className="tip-head">{tx.head}</text>
+            <text x={x + 14 * f} y={y + 41 * f} fontSize={16 * f} className="tip-value">{tx.value}</text>
           </g>
         );
       })()}

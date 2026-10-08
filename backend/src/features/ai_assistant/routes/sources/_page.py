@@ -3,7 +3,7 @@ import asyncio
 import json
 import uuid as _uuid
 
-from fastapi import Response
+from fastapi import Query, Response
 from pydantic import BaseModel
 
 from src.features.ai_assistant.routes._workspace_access import _require_workspace_access
@@ -91,8 +91,7 @@ async def add_page_source(
 
 
 def _viewer_page(workspace_uuid: str, source_uuid: str, user_id: int, locale: str) -> tuple[dict, dict, dict]:
-    """The page behind a source as every member may see it, hidden sections left out."""
-    from src.features.pages import schema
+    """The page behind a source, hidden sections still in, every caller leaves them out."""
     from src.tasks.pages_tasks import load_page
 
     workspace = _require_workspace_access(workspace_uuid, user_id, locale)
@@ -102,21 +101,26 @@ def _viewer_page(workspace_uuid: str, source_uuid: str, user_id: int, locale: st
     page = load_page(job["user_id"], job["job_uuid"])[0] if job and job["tool"] == "pages" else None
     if not page:
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
-    return workspace, {**note, "owner_user_id": job["user_id"]}, schema.for_viewers(page)
+    return workspace, {**note, "owner_user_id": job["user_id"]}, page
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/page")
 def get_page_source(
     workspace_uuid: str,
     source_uuid: str,
+    sprache: str = Query(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """The live page for the workspace's members, with the anchors its citations jump to."""
     from src.features.pages import schema
+    from src.tasks import pages_tasks as pt
 
     workspace, note, page = _viewer_page(workspace_uuid, source_uuid, current_user["user_id"], locale)
-    return {"page": page, "limits": schema.limits(), "anchors": note.get("anchors") or [],
+    gezeigt = pt.in_language(note["owner_user_id"], note["job_uuid"], page, sprache)
+    return {"page": schema.for_viewers(gezeigt), "limits": schema.limits(), "anchors": note.get("anchors") or [],
+            "languages": pt.readable(note["owner_user_id"], note["job_uuid"], page),
+            "language": pt.key_of(gezeigt),
             "workspace": {"uuid": workspace_uuid, "title": workspace.get("title") or ""}}
 
 
@@ -129,9 +133,10 @@ def get_page_source_image(
     locale: str = Depends(get_locale),
 ):
     from src.features.pages import schema
+    from src.tasks import pages_tasks as pt
 
     _, note, page = _viewer_page(workspace_uuid, source_uuid, current_user["user_id"], locale)
-    if name not in schema.images_of(page):
+    if name not in pt.viewer_images(note["owner_user_id"], note["job_uuid"], schema.for_viewers(page)):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     try:
         data = get_job_file(note["owner_user_id"], note["job_uuid"], name)

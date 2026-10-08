@@ -40,4 +40,18 @@ MESSAGES: dict[str, dict[str, str]] = {
                        "en": "Only your own pages from Pages can be added as material."},
     "pages.failed": {"de": "Die Seite ließ sich nicht erstellen.",
                      "en": "The page could not be created."},
+    "pages.promptEmpty": {"de": "Beschreib das Bild in ein paar Worten.",
+                          "en": "Describe the picture in a few words."},
+    "pages.tooManyDraws": {
+        "de": "Für diese Seite wurden schon {max} Bilder erzeugt, mehr gehen nicht.",
+        "en": "{max} pictures have already been made for this page, no more are possible.",
+    },
+    "pages.languageUnknown": {"de": "Diese Sprache gibt es hier nicht.",
+                              "en": "This language is not available here."},
+    "pages.languageRunning": {"de": "Diese Sprache wird gerade erstellt.",
+                              "en": "This language is being made right now."},
+    "pages.tooManyLanguages": {
+        "de": "Eine Seite hat höchstens {max} weitere Sprachen. Entfern erst eine.",
+        "en": "A page has at most {max} further languages. Remove one first.",
+    },
 }

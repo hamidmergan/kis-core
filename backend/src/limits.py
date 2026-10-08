@@ -376,6 +376,15 @@ PAGES_IMAGE_QUALITY      = 82
 PAGES_IMAGE_STYLE_MAX_CHARS = 600
 # Fewer sections than a summary, a page is read on a screen.
 PAGES_SECTIONS           = (4, 10)
+# Pictures one page may ever have drawn, the run's and every redraw together.
+PAGES_MAX_DRAWS          = 40
+# A picture or a language not done after this many minutes counts as failed, its worker is gone.
+PAGES_DRAW_WAIT_MINUTES  = 10
+PAGES_TRANSLATE_WAIT_MINUTES = 20
+# Further languages one page may carry besides its own.
+PAGES_MAX_LANGUAGES      = 4
+# Texts per translation call, a section rarely holds more.
+PAGES_TRANSLATE_BATCH    = 40
 
 # A next stage or a resumed job queues behind fresh work of its queue (with Redis 9 is last), so a job that
 # keeps running into limits never retakes its slot at once.

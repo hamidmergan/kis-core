@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import { backendApi } from "@/lib/api";
-import type { Limits, Page } from "../_lib/types";
+import type { LanguageChoice, Limits, Page } from "../_lib/types";
+import { LanguageSwitch } from "./Languages";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import PageBar from "./PageBar";
 import PageView from "./PageView";
@@ -15,22 +16,34 @@ interface Data {
   page: Page;
   limits: Limits;
   anchors: string[];
+  languages: LanguageChoice[];
+  language: string;
   workspace: { uuid: string; title: string };
 }
 
 /** A page as a workspace's members read it, opened from its source or from a citation. */
 export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { workspaceUuid: string; sourceUuid: string }) {
   const t = useTranslations("tools.pages");
-  const section = Number(useSearchParams().get("abschnitt") || 0);
+  const params = useSearchParams();
+  const section = Number(params.get("abschnitt") || 0);
   const [data, setData] = useState<Data | null>(null);
   const [gone, setGone] = useState(false);
+  const [lang, setLang] = useState<string | null>(params.get("sprache"));
   const base = `/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/page`;
 
   useEffect(() => {
-    backendApi.fetch(base)
+    backendApi.fetch(lang ? `${base}?sprache=${encodeURIComponent(lang)}` : base)
       .then(async (r) => (r.ok ? setData(await r.json()) : setGone(true)))
       .catch(() => setGone(true));
-  }, [base]);
+  }, [base, lang]);
+
+  const switchTo = (key: string) => {
+    const url = new URL(window.location.href);
+    if (key === data?.languages[0]?.key) url.searchParams.delete("sprache");
+    else url.searchParams.set("sprache", key);
+    window.history.replaceState(null, "", url);
+    setLang(key);
+  };
 
   // A citation names a section by its number, the page jumps there once it is drawn.
   useEffect(() => {
@@ -55,7 +68,9 @@ export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { works
   if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
   return (
     <>
-      <PageBar />
+      <PageBar>
+        <LanguageSwitch value={data.language} choices={data.languages} onChange={switchTo} />
+      </PageBar>
       <PageView
         page={data.page}
         limits={data.limits}
