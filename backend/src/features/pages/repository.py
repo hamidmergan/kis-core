@@ -84,6 +84,20 @@ def shared_page(code: str) -> dict | None:
             return dict(row) if row else None
 
 
+def page_by_code(code: str) -> dict | None:
+    """The page behind a share code whether shared or not, so its owner can still use an old link."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT j.job_uuid, j.user_id FROM page_shares s
+                   JOIN jobs j ON j.job_uuid = s.job_uuid
+                   WHERE s.code = %s AND j.tool = 'pages'""",
+                (code,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
 def collection_code(user_id: int) -> str:
     """The person's collection link, made on first use."""
     with get_connection() as conn:

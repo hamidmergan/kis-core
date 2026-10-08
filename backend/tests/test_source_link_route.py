@@ -207,3 +207,42 @@ async def test_youtube_link_wird_mit_hinweis_abgewiesen(route, monkeypatch):
     assert exc.value.status_code == 400
     assert exc.value.detail == "Das ist ein YouTube-Link. Nutze dafür den Abschnitt YouTube-Video."
     assert "recorded" not in route
+
+
+@pytest.mark.asyncio
+async def test_pages_link_wird_seite(route, monkeypatch):
+    monkeypatch.setattr(_link.pages_repo, "page_by_code", lambda code: {"job_uuid": "j1", "user_id": 42})
+    gerufen = {}
+
+    async def _seite_dazu(workspace_uuid, body, current_user, locale):
+        gerufen["job"] = body.job_uuid
+        return {"uuid": "neu", "filename": "Seite.page", "status": "pending", "source_url": "pages:j1"}
+
+    monkeypatch.setattr(_link._page, "add_page_source", _seite_dazu)
+    monkeypatch.setattr(_link, "fetch_page", lambda url: pytest.fail("kein Abruf"))
+
+    antwort = await _aufruf("https://kis.example/en/p/abcdefghjkmnpqrs")
+
+    assert gerufen["job"] == "j1"
+    assert antwort["source_url"] == "pages:j1"
+
+
+@pytest.mark.asyncio
+async def test_fremde_seite_wird_abgelehnt(route, monkeypatch):
+    monkeypatch.setattr(_link.pages_repo, "page_by_code", lambda code: {"job_uuid": "j1", "user_id": 99})
+
+    with pytest.raises(HTTPException) as e:
+        await _aufruf("https://kis.example/p/abcdefghjkmnpqrs")
+
+    assert e.value.status_code == 403
+    assert "recorded" not in route
+
+
+def test_nur_seitenpfade_zaehlen(monkeypatch):
+    monkeypatch.setattr(_link.pages_repo, "page_by_code", lambda code: {"job_uuid": code, "user_id": 1})
+    monkeypatch.setattr(_link.db, "get_job", lambda uuid: {"job_uuid": uuid, "user_id": 1, "tool": "pages"})
+
+    assert _link._page_of_link("https://kis.example/p/abcdefghjkmnpqrs")["job_uuid"] == "abcdefghjkmnpqrs"
+    assert _link._page_of_link("https://kis.example/de/tools/pages/" + "a" * 32)["job_uuid"] == "a" * 32
+    assert _link._page_of_link("https://example.org/p/kurz") is None
+    assert _link._page_of_link("https://example.org/artikel") is None

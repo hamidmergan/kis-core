@@ -634,6 +634,7 @@
       "shareNote": "Geteilt sehen alle mit KIS-Konto und dem Link die Vorschau. Bearbeiten kannst nur du.",
       "linkAria": "Link zur Seite",
       "shareOffNote": "Schaltest du auf Privat, funktioniert der Link nicht mehr.",
+      "workspaceNote": "Kopiere den Link und füg ihn in deinem Workspace über das Plus als Material ein.",
       "done": "Fertig",
       "allPagesOf": "Alle Seiten von {name}",
       "notSharedTitle": "Diese Seite ist nicht mehr geteilt",

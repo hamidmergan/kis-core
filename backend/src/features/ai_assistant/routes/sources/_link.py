@@ -1,10 +1,13 @@
 """A web page as a source: one link, one PDF, then the ordinary ingest."""
 import asyncio
+import re
 import tempfile
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 
+from src.features.pages import repository as pages_repo
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.services.web_page_extract import (
     build_document_html,
@@ -17,7 +20,7 @@ from src.services.web_page_fetch import LinkError, fetch_page, normalize_url, va
 from src.services.youtube_link import is_youtube_url
 from src.utils.file_validation import validate_or_raise
 
-from . import _upload
+from . import _page, _upload
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, logger, db,
     get_current_user, get_locale, t,
@@ -34,6 +37,22 @@ class LinkBody(BaseModel):
     url: str
 
 
+# A share link /p/<code> or the editor /tools/pages/<uuid>, with or without a locale in front.
+_PAGE_PATH = re.compile(r"^/(?:[a-z]{2}/)?(?:p/(?P<code>[A-Za-z0-9]{%d})|tools/pages/(?P<job>[0-9a-f-]{32,36}))/?$"
+                        % pages_repo.CODE_LENGTH)
+
+
+def _page_of_link(raw: str) -> dict | None:
+    """The page a pasted link names, None when it is no link to a page in KIS."""
+    match = _PAGE_PATH.match(urlsplit(raw.strip()).path)
+    if not match:
+        return None
+    if match["code"]:
+        return pages_repo.page_by_code(match["code"])
+    job = db.get_job(match["job"])
+    return {"job_uuid": job["job_uuid"], "user_id": job["user_id"]} if job and job["tool"] == "pages" else None
+
+
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/link")
 async def add_link_source(
     workspace_uuid: str,
@@ -46,6 +65,14 @@ async def add_link_source(
     check_upload_limit(current_user["user_id"], locale=locale)
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
     _require_source_capacity(existing_sources, locale)
+
+    # A link to a page in Pages becomes that page, not a PDF of the login screen.
+    linked_page = _page_of_link(body.url)
+    if linked_page:
+        if linked_page["user_id"] != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail=t("ai.page.notOwn", locale))
+        return await _page.add_page_source(workspace_uuid, _page.PageBody(job_uuid=linked_page["job_uuid"]),
+                                           current_user, locale)
 
     # A YouTube link has its own way in, a PDF of the YouTube page helps nobody.
     if is_youtube_url(body.url):

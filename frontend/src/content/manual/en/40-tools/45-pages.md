@@ -47,7 +47,8 @@ appear there by themselves.
 ## In a workspace
 
 You can put a finished page into one of your workspaces as material: in the workspace, use the
-plus at Materials and pick it under Page from Pages. The learning assistant reads the page section
+plus at Materials and pick it under Page from Pages. Or copy the link of the shared page and read
+it in there under Read in a web page. The learning assistant reads the page section
 by section, answers from it and cites it by section number. A click on the material or on a
 citation opens the page in a new tab, at the cited section. Every member of the workspace can
 read it there, even when it is not shared. When you save a change to the page, the workspace

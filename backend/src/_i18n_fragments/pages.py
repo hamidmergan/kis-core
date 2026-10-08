@@ -36,6 +36,8 @@ MESSAGES: dict[str, dict[str, str]] = {
                      "en": "The structure of the page could not be planned, the AI provider gave no usable answer."},
     "ai.page.duplicate": {"de": "Diese Seite ist schon in diesem {label}.",
                           "en": "This page is already in this {label}."},
+    "ai.page.notOwn": {"de": "Nur eigene Seiten aus Pages lassen sich als Material hinzufügen.",
+                       "en": "Only your own pages from Pages can be added as material."},
     "pages.failed": {"de": "Die Seite ließ sich nicht erstellen.",
                      "en": "The page could not be created."},
 }

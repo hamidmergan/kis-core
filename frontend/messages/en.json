@@ -634,6 +634,7 @@
       "shareNote": "When shared, everyone with a KIS account and the link sees the preview. Only you can edit.",
       "linkAria": "Link to the page",
       "shareOffNote": "If you switch to private, the link stops working.",
+      "workspaceNote": "Copy the link and add it as material in your workspace via the plus.",
       "done": "Done",
       "allPagesOf": "All pages by {name}",
       "notSharedTitle": "This page is no longer shared",
