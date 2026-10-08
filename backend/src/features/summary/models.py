@@ -66,11 +66,15 @@ class Caller:
     window_tokens: int = 0
     # Groups every call of one run under one Langfuse session, so the run can be pulled back out.
     job_uuid: str = ""
+    # What the model needs in every request, such as the switch that turns its thinking off.
+    extra_body: dict | None = None
 
     async def create(self, **kwargs):
         if self.job_uuid:
             kwargs.setdefault("session_id", self.job_uuid)
             kwargs.setdefault("tags", ["summary"])
+        if self.extra_body:
+            kwargs["extra_body"] = {**self.extra_body, **(kwargs.get("extra_body") or {})}
         # The SDK retries timeouts on its own, so one attempt is the only way the limit holds.
         # Asked here, so a changed limit reaches a running worker with the next call.
         antwort = await self.client.with_options(max_retries=0).chat.completions.create(

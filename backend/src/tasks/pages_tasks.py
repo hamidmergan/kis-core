@@ -195,7 +195,7 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
 
         traeger = _get_llm_client(provider_id)
         caller = PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
-                             window_tokens=_fenster(provider_id),
+                             window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
                              book=lambda antwort: log_llm_response("pages", traeger, antwort))
         store = _JobStore(user_id, job_uuid, versuch)
         anweisung = (read_job_text(user_id, job_uuid, INSTRUCTIONS_FILE) or "").strip()

@@ -372,3 +372,26 @@ class TestAnweisung:
         from src.features.summary.writing import _outline_user
 
         assert "INSTRUCTION" not in _outline_user(["a.pdf"], "MATERIAL", instructions="  ")
+
+
+def test_der_aufrufer_schickt_den_schalter_des_modells_mit():
+    from src.features.summary.models import Caller
+
+    gesendet = {}
+
+    class Antwort:
+        choices = []
+
+    class Completions:
+        async def create(self, **kw):
+            gesendet.update(kw)
+            return Antwort()
+
+    class Client:
+        def with_options(self, **kw):
+            return self
+        chat = type("Chat", (), {"completions": Completions()})()
+
+    caller = Caller(Client(), "m", extra_body={"reasoning_effort": "none"})
+    asyncio.run(caller.create(messages=[]))
+    assert gesendet["extra_body"] == {"reasoning_effort": "none"}

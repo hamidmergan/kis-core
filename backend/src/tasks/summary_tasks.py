@@ -212,7 +212,7 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
         from src.tasks.general_tasks import _get_llm_client
         traeger = _get_llm_client(provider_id)
         caller = Caller(traeger._async_client, traeger._model, job_uuid=job_uuid,
-                        window_tokens=_fenster(provider_id),
+                        window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
         store = _JobStore(user_id, job_uuid, versuch)
         try:

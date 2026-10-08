@@ -51,8 +51,12 @@ def _get_llm_client(provider_id: int | None = None):
     api_key, base_url, model, provider = _binding_tuple(binding)
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert")
-    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model,
-                                 provider=provider, **provider_transport.sdk_clients(binding))
+    client = OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model,
+                                   provider=provider, **provider_transport.sdk_clients(binding))
+    # The admin route needs the same switches as a chosen provider, a thinking model writes nothing otherwise.
+    from src.services import feature_router
+    feature_router._attach_model_profile(client, binding)
+    return client
 
 
 def _image_http_client(
