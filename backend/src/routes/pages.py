@@ -117,7 +117,8 @@ def list_pages(current_user: dict = Depends(get_current_user)):
     rows = repo.list_pages(user_id)
     return {
         "pages": [_card(user_id, r) for r in rows],
-        "collection": {"code": repo.collection_code(user_id), "count": repo.count_shared(user_id)},
+        "collection": {"code": repo.collection_code(user_id), "count": repo.count_shared(user_id),
+                       "shared": repo.collection_shared(user_id)},
         "max": PAGES_MAX_PER_USER,
         # The form starts with the look the pictures get by default, the person may change it.
         "imageStyle": default_image_style(),
@@ -126,6 +127,17 @@ def list_pages(current_user: dict = Depends(get_current_user)):
         "maxSources": SUMMARY_MAX_SOURCES,
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }
+
+
+class CollectionShareBody(BaseModel):
+    on: bool
+
+
+# Before the routes with a page in the path, they would take this path for a page.
+@router.put("/pages/collection-share")
+def share_collection(body: CollectionShareBody, current_user: dict = Depends(get_current_user)):
+    """Switches the link to the overview of every shared page on or off."""
+    return {"shared": repo.set_collection_share(current_user["user_id"], body.on)}
 
 
 @router.post("/pages")
@@ -501,7 +513,11 @@ def shared_collection(code: str, response: Response, current_user: dict = Depend
     response.headers.update(_NOINDEX)
     angemeldet = _logged_in(current_user)
     daten = repo.collection(code, only_public=not angemeldet) if _CODE.match(code) else None
-    if not daten:
+    own = bool(daten) and daten["user_id"] == current_user.get("user_id", 0)
+    # An overview its owner has not shared is theirs alone, the login may show it is theirs.
+    if daten and not daten["enabled"] and not own and not angemeldet:
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
+    if not daten or not (daten["enabled"] or own):
         raise HTTPException(status_code=404, detail=t("pages.collectionNotFound", locale), headers=_NOINDEX)
     # Nothing open to show, the login may reveal the pages meant for KIS accounts.
     if not angemeldet and not daten["pages"]:
@@ -516,5 +532,5 @@ def shared_collection(code: str, response: Response, current_user: dict = Depend
                        "image": schema.first_image(sichtbar),
                        "updated_at": page.get("saved_at") or _dt(row["completed_at"] or row["updated_at"])})
     # The owner gets the way back to their own pages, a reader has the logo.
-    return {"owner": {"name": daten["owner_name"]}, "pages": karten,
-            "own": daten["user_id"] == current_user.get("user_id", 0)}
+    return {"owner": {"name": daten["owner_name"]}, "pages": karten, "own": own,
+            "shared": daten["enabled"]}

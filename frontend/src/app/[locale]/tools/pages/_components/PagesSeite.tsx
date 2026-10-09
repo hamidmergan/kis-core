@@ -199,7 +199,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
     if (!res || !list) return;
     setList({
       ...list,
-      collection: res.collection,
+      collection: { ...list.collection, ...res.collection },
       pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, public: res.public, code: res.code } : x)),
     });
   };

@@ -51,11 +51,63 @@ def test_a_link_for_kis_accounts_asks_for_the_login(client_ohne_sitzung):
 
 
 def test_a_collection_without_account_lists_only_open_pages(client_ohne_sitzung):
-    with patch("src.routes.pages.repo.collection", return_value={"user_id": 7, "owner_name": "f f", "pages": []}) as abfrage:
+    with patch("src.routes.pages.repo.collection", return_value={"user_id": 7, "enabled": True, "owner_name": "f f", "pages": []}) as abfrage:
         r = client_ohne_sitzung.get("/pages/collection/wqH6UD7FJR3PSCgm")
     assert abfrage.call_args.kwargs["only_public"] is True
     # Nothing open to show, the login may reveal the rest.
     assert r.status_code == 401
+
+
+def _collection(enabled: bool):
+    return patch("src.routes.pages.repo.collection",
+                 return_value={"user_id": 7, "enabled": enabled, "owner_name": "f f", "pages": []})
+
+
+@pytest.fixture
+def angemeldet():
+    """A KIS account, the person whose id the test sets."""
+    from src.app import app
+    from src.dependencies import get_current_user
+    from src.dependencies_rbac import get_user_permissions
+    from src.permissions import resolve_user_permissions
+    from src.security.auth import verify_auth
+
+    wer = {"user_id": 3}
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": wer["user_id"], "email": "a@b.de", "role": "staff"}
+    app.dependency_overrides[get_user_permissions] = lambda: resolve_user_permissions("admin", None, True)
+    yield TestClient(app), wer
+    app.dependency_overrides.clear()
+
+
+def test_an_overview_not_shared_asks_for_the_login_without_account(client_ohne_sitzung):
+    with _collection(enabled=False):
+        r = client_ohne_sitzung.get("/pages/collection/wqH6UD7FJR3PSCgm")
+    assert r.status_code == 401
+
+
+def test_an_overview_not_shared_is_gone_for_others_and_open_for_its_owner(angemeldet):
+    client, wer = angemeldet
+    with _collection(enabled=False):
+        assert client.get("/pages/collection/wqH6UD7FJR3PSCgm").status_code == 404
+        wer["user_id"] = 7
+        r = client.get("/pages/collection/wqH6UD7FJR3PSCgm")
+    assert r.status_code == 200 and r.json()["own"] is True and r.json()["shared"] is False
+
+
+def test_a_shared_overview_opens_for_other_accounts(angemeldet):
+    client, _ = angemeldet
+    with _collection(enabled=True):
+        r = client.get("/pages/collection/wqH6UD7FJR3PSCgm")
+    assert r.status_code == 200 and r.json()["own"] is False
+
+
+def test_the_overview_switch_is_not_taken_for_a_page(angemeldet):
+    client, _ = angemeldet
+    with patch("src.routes.pages.repo.set_collection_share", return_value=True) as schalter:
+        r = client.put("/pages/collection-share", json={"on": True})
+    assert r.status_code == 200 and r.json() == {"shared": True}
+    assert schalter.call_args.args == (3, True)
 
 
 def test_an_expired_test_access_counts_as_no_account():

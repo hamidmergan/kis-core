@@ -161,7 +161,8 @@ export interface PageCard {
 
 export interface PagesList {
   pages: PageCard[];
-  collection: { code: string; count: number };
+  /** shared: others may open the overview, the pages link back to it. */
+  collection: { code: string; count: number; shared: boolean };
   max: number;
   maxSources: number;
   /** The default look of the pictures, the form starts with it. */
@@ -195,5 +196,7 @@ export interface SharedPage {
 export interface Collection {
   owner: { name: string };
   own: boolean;
+  /** Others may open the overview, without it only its owner sees it. */
+  shared: boolean;
   pages: { code: string; title: string; image: string; updated_at: string | null }[];
 }

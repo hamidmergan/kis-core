@@ -75,7 +75,7 @@ def shared_page(code: str) -> dict | None:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """SELECT j.job_uuid, j.user_id, j.status, s.public, u.display_name AS owner_name,
-                          c.code AS collection_code
+                          CASE WHEN c.enabled THEN c.code END AS collection_code
                    FROM page_shares s
                    JOIN jobs j ON j.job_uuid = s.job_uuid
                    JOIN users u ON u.id = j.user_id
@@ -126,6 +126,26 @@ def collection_code(user_id: int) -> str:
     raise RuntimeError("collection code not stored")
 
 
+def collection_shared(user_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT enabled FROM page_collections WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            return bool(row and row[0])
+
+
+def set_collection_share(user_id: int, on: bool) -> bool:
+    """Switches the collection link, its code stays the same."""
+    collection_code(user_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE page_collections SET enabled = %s WHERE user_id = %s RETURNING enabled",
+                        (on, user_id))
+            row = cur.fetchone()
+        conn.commit()
+        return bool(row and row[0])
+
+
 def collection(code: str, only_public: bool = False) -> dict | None:
     """The owner behind a collection link and every page they share, None for an unknown link.
 
@@ -134,7 +154,7 @@ def collection(code: str, only_public: bool = False) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                """SELECT c.user_id, u.display_name AS owner_name FROM page_collections c
+                """SELECT c.user_id, c.enabled, u.display_name AS owner_name FROM page_collections c
                    JOIN users u ON u.id = c.user_id WHERE c.code = %s""",
                 (code,),
             )

@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ShareNetwork } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRouter } from "@/i18n/navigation";
 import * as api from "../_lib/api";
 import type { Collection } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
-import { CopyButton } from "./Sharing";
+import { CollectionShareModal, ShareButton } from "./Sharing";
 import { Thumb, useDate } from "./PagesSeite";
 
 /** Every page one person shares, as cards, newest first. Private pages never show up here. */
@@ -19,6 +18,8 @@ export default function CollectionView({ code }: { code: string }) {
   const date = useDate();
   const [data, setData] = useState<Collection | null>(null);
   const [gone, setGone] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
 
   useEffect(() => {
     api.getCollection(code).then(setData).catch((e) => {
@@ -27,6 +28,18 @@ export default function CollectionView({ code }: { code: string }) {
       else setGone(true);
     });
   }, [code, router]);
+
+  const toggleShare = async (on: boolean) => {
+    setShareBusy(true);
+    try {
+      const res = await api.setCollectionShare(on);
+      setData((d) => (d ? { ...d, shared: res.shared } : d));
+    } catch {
+      // The switch stays where it was, the person may try again.
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   if (gone) {
     return (
@@ -46,7 +59,7 @@ export default function CollectionView({ code }: { code: string }) {
         <div className="flex items-center gap-3 mb-1">
           <h1 className="text-xl font-bold flex-1">{t("collectionHeading", { name: data.owner.name })}</h1>
           {data.own && (
-            <CopyButton text={() => api.collectionUrl(code)} label={t("collectionCopy")} icon={<ShareNetwork size={17} weight="regular" />} />
+            <ShareButton on={data.shared} onClick={() => setShareOpen(true)} />
           )}
         </div>
         <p className="text-sm text-muted mb-5">{t("collectionIntro", { name: data.owner.name })}</p>
@@ -74,6 +87,16 @@ export default function CollectionView({ code }: { code: string }) {
           </div>
         )}
       </div>
+      {data.own && (
+        <CollectionShareModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          shared={data.shared}
+          link={api.collectionUrl(code)}
+          busy={shareBusy}
+          onToggle={toggleShare}
+        />
+      )}
     </>
   );
 }

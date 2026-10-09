@@ -744,6 +744,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     code    TEXT NOT NULL UNIQUE
                 )
             """)
+            # The collection link opens for others only once its owner shares it.
+            cur.execute("ALTER TABLE page_collections ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,

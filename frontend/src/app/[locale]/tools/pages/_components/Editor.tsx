@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
-import { Eye, PencilSimple, ShareNetwork, Trash } from "@phosphor-icons/react";
+import { Eye, PencilSimple, Trash } from "@phosphor-icons/react";
 import Tabs from "@/components/ui/Tabs";
 import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
@@ -14,7 +14,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import { DataModal, ImageModal, LayoutModal } from "./EditModals";
 import { readableOf } from "./Languages";
 import PageView, { type FieldKind } from "./PageView";
-import { ShareModal } from "./Sharing";
+import { ShareButton, ShareModal } from "./Sharing";
 import { EditCtx } from "./Txt";
 
 // A picture being drawn is asked for at this pace until it is there.
@@ -351,19 +351,7 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
                 { key: "view", label: <><Eye size={17} weight="bold" /><span className="hidden sm:inline">{t("modeView")}</span></> },
               ]}
             />
-            <button
-              type="button"
-              onClick={() => setShareOpen(true)}
-              className="relative w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
-              style={{ backgroundColor: "var(--surface-dim)" }}
-              title={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
-              aria-label={share.shared ? t("shareTitleOn") : t("shareTitleOff")}
-            >
-              <ShareNetwork size={17} weight="regular" />
-              {share.shared && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--success)", border: "2px solid var(--background)" }} />
-              )}
-            </button>
+            <ShareButton on={share.shared} onClick={() => setShareOpen(true)} />
           </>
         )}
         edit={{

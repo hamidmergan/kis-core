@@ -37,6 +37,8 @@ export const getLanguages = (uuid: string) => backendApi.fetch(`/pages/${uuid}/l
 export const setShare = (uuid: string, on: boolean, isPublic?: boolean) =>
   send(`/pages/${uuid}/share`, "PUT", { on, public: isPublic }).then((r) =>
     json<{ shared: boolean; public: boolean; code: string | null; collection: { code: string; count: number } }>(r));
+export const setCollectionShare = (on: boolean) =>
+  send("/pages/collection-share", "PUT", { on }).then((r) => json<{ shared: boolean }>(r));
 export const deletePage = (uuid: string) => send(`/jobs/${uuid}`, "DELETE").then((r) => json<unknown>(r));
 /** A link only a KIS account may open was opened without one. */
 export class LoginNeeded extends Error {}
