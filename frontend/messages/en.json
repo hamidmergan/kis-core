@@ -1260,6 +1260,7 @@
       },
       "ttsSettings": {
         "heading": "Settings",
+        "providerLabel": "TTS provider",
         "voiceLabel": "Voice",
         "voiceDefault": "Default",
         "previewVoices": "Preview voices",

@@ -1260,6 +1260,7 @@
       },
       "ttsSettings": {
         "heading": "Einstellungen",
+        "providerLabel": "TTS-Anbieter",
         "voiceLabel": "Stimme",
         "voiceDefault": "Standard",
         "previewVoices": "Stimmen anhören",

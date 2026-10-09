@@ -43,16 +43,9 @@ export default function CastStep(props: CastStepProps) {
   const { count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength,
           onStyle, onBack, onNext, hatAuftrag, ohneKi, busy, error, gesperrt = false } = props;
   const t = useTranslations("tools.podcast.cast");
-  const voiceOptions = voices.flatMap((p) =>
-    p.voices.map((v) => ({
-      value: v.voice_id,
-      label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? `, ${v.description}` : ""}`.trim(),
-    })),
-  );
-  // A voice only works together with the provider it belongs to.
-  const anbieterVon = new Map(voices.flatMap((p) => p.voices.map((v) => [v.voice_id, p.id])));
+  const providerOptions = voices.map((p) => ({ value: String(p.id), label: p.name }));
   const active = persons.slice(0, count);
-  const keineStimmen = voicesLoaded && voiceOptions.length === 0;
+  const keineStimmen = voicesLoaded && voices.every((p) => p.voices.length === 0);
   const complete = active.every((p) => p.name.trim().length > 0 && p.voiceId && p.providerId > 0) && !keineStimmen;
 
   return (
@@ -95,15 +88,30 @@ export default function CastStep(props: CastStepProps) {
                 />
               </div>
               <div>
+                <label htmlFor={`podcast-provider-${i}`} className="block text-xs font-medium text-foreground-soft mb-1">
+                  {t("providerLabel")}
+                </label>
+                <Select
+                  id={`podcast-provider-${i}`}
+                  value={String(person.providerId)}
+                  onChange={(v) => onPerson(i, { providerId: Number(v), voiceId: "" })}
+                  disabled={gesperrt}
+                  options={providerOptions}
+                />
+              </div>
+              <div>
                 <label htmlFor={`podcast-voice-${i}`} className="block text-xs font-medium text-foreground-soft mb-1">
                   {t("voiceLabel")}
                 </label>
                 <Select
                   id={`podcast-voice-${i}`}
                   value={person.voiceId}
-                  onChange={(voiceId) => onPerson(i, { voiceId, providerId: anbieterVon.get(voiceId) ?? 0 })}
+                  onChange={(voiceId) => onPerson(i, { voiceId })}
                   disabled={gesperrt}
-                  options={voiceOptions}
+                  options={(voices.find((p) => p.id === person.providerId)?.voices ?? []).map((v) => ({
+                    value: v.voice_id,
+                    label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? `, ${v.description}` : ""}`.trim(),
+                  }))}
                 />
               </div>
             </div>

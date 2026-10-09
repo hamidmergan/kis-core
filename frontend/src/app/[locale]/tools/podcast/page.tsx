@@ -51,7 +51,7 @@ function PodcastPageInner() {
   const [oeffnenGescheitert, setOeffnenGescheitert] = useState(false);
   // Both of these clicks throw work away, so neither happens without a question.
   const [nachfrage, setNachfrage] = useState<"abbrechen" | "neu" | null>(null);
-  const { loaded, providers } = useVoices();
+  const { loaded, providers, defaultProviderId } = useVoices();
   const { permissions } = usePermissions();
   // The open podcast stands in the address, so a reload or a link brings back its step.
   const ausListe = useSearchParams().get("job");
@@ -133,6 +133,14 @@ function PodcastPageInner() {
   useEffect(() => {
     demoAvailable().then(setDemoDa);
   }, []);
+
+  // The provider itself is preset from the admin order, the voice stays an open choice.
+  useEffect(() => {
+    if (defaultProviderId == null) return;
+    state.persons.forEach((p, i) => {
+      if (p.providerId === 0) dispatch({ type: "SET_PERSON", index: i, person: { providerId: defaultProviderId } });
+    });
+  }, [defaultProviderId, state.persons]);
 
   // Another job starts with an empty draft.
   useEffect(() => {
