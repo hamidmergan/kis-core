@@ -57,6 +57,42 @@ export function moved(order: number[], providerId: number, step: -1 | 1): number
   return next;
 }
 
+/**
+ * Every provider id ever placed in this feature's order, kept even while a
+ * provider is disabled or missing the needed capability right now. Only an
+ * id whose provider is gone entirely drops out; a newly eligible provider
+ * appends at the end.
+ */
+export function fullOrder(feature: Feature, route: RouteOrder | undefined, providers: Provider[]): number[] {
+  const byId = new Map(providers.map((p) => [p.id, p]));
+  const stored = route?.provider_order?.length
+    ? route.provider_order
+    : [route?.provider_id, route?.fallback_provider_id];
+  const kept = [...new Set(stored)].filter((id): id is number => id != null && byId.has(id));
+  const extra = eligibleProviders(feature, providers)
+    .map((p) => p.id)
+    .filter((id) => !kept.includes(id));
+  return [...kept, ...extra];
+}
+
+/**
+ * Moves a visible provider past its visible neighbor within the full order.
+ * A hidden (disabled or incapable) provider keeps its own slot untouched.
+ */
+export function movedVisible(full: number[], visibleIds: number[], providerId: number, step: -1 | 1): number[] {
+  const visible = full
+    .map((id, index) => ({ id, index }))
+    .filter((entry) => visibleIds.includes(entry.id));
+  const from = visible.findIndex((entry) => entry.id === providerId);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= visible.length) return full;
+  const next = [...full];
+  const a = visible[from].index;
+  const b = visible[to].index;
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+}
+
 /** The models per provider, a route from before the per provider models keeps its first choice's model. */
 export function modelsOf(route: RouteOrder | undefined): Record<string, string> {
   const models = { ...(route?.provider_models ?? {}) };

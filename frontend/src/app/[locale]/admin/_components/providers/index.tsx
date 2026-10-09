@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Feature, FeatureRoute, ModelWindows, Provider, ProviderMeta, Sampling } from "./_types";
-import { modelsOf, moved, orderedProviders } from "./_routeOptions";
+import { eligibleProviders, fullOrder, modelsOf, movedVisible } from "./_routeOptions";
 import {
   clearAllProviders,
   createProvider,
@@ -142,6 +142,8 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
 
   // ── route mutations ─────────────────────────────────────────────────────
   // Every save sends the whole order, the server takes first choice and fallback from it.
+  // fullOrder keeps a disabled provider's slot instead of dropping it, so an
+  // unrelated save (model text, sampling, ...) never reshuffles the order.
   const saveRoute = useCallback(
     async (feature: Feature, change: Partial<SetRouteInput>) => {
       const existing = routes.find((r) => r.feature === feature);
@@ -149,7 +151,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         user_choices: existing?.user_choices ?? null,
         provider_models: modelsOf(existing),
         provider_sampling: existing?.provider_sampling,
-        provider_order: orderedProviders(feature, existing, providers).map((p) => p.id),
+        provider_order: fullOrder(feature, existing, providers),
         ...change,
       });
       await refreshAll();
@@ -192,7 +194,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         ? Array.from(new Set([...current, providerId]))
         : current.filter((id) => id !== providerId);
       // The first entry of the selection is the row's default provider.
-      const rest = orderedProviders(feature, existing, providers).map((p) => p.id);
+      const rest = fullOrder(feature, existing, providers);
       await saveRoute(feature, {
         user_choices: nextChoices,
         provider_order: [...nextChoices, ...rest.filter((id) => !nextChoices.includes(id))],
@@ -203,8 +205,10 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
 
   const onMove = useCallback(
     async (feature: Feature, providerId: number, step: -1 | 1) => {
-      const order = orderedProviders(feature, routes.find((r) => r.feature === feature), providers).map((p) => p.id);
-      await saveRoute(feature, { provider_order: moved(order, providerId, step) });
+      const existing = routes.find((r) => r.feature === feature);
+      const full = fullOrder(feature, existing, providers);
+      const visibleIds = eligibleProviders(feature, providers).map((p) => p.id);
+      await saveRoute(feature, { provider_order: movedVisible(full, visibleIds, providerId, step) });
     },
     [routes, providers, saveRoute],
   );
