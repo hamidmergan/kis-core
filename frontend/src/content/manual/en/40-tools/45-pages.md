@@ -53,7 +53,8 @@ Every page starts private. The switch on the card or the share icon in the edito
 shareable, you get a link. Whoever opens it sees the preview and cannot change anything. In the
 share window you set who the link is for: With KIS account means only people who are logged in
 open it. Anyone with the link means people without an account too, such as guests of an event.
-Even then the page is not listed anywhere, search engines are asked to leave it out. Switch back
+Even then the page is not listed anywhere and asks search engines to leave it out. That is a
+request, not protection: whoever has the link can pass it on. Switch back
 to private and the link stops working. Switch on again and the same link works again.
 
 **Shared pages** above your list opens an overview of every page you currently share, under one

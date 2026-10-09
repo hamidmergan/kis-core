@@ -632,7 +632,7 @@
       "sharedPublic": "Shared with all",
       "audienceInternal": "With KIS account",
       "audiencePublic": "Anyone with the link",
-      "sharePublicNote": "Anyone with the link sees the preview, even without a KIS account. The page is not listed anywhere, search engines are asked to leave it out. Only you can edit it.",
+      "sharePublicNote": "Anyone with the link sees the preview, even without a KIS account. Whoever has the link can pass it on. Only you can edit it.",
       "linkAria": "Link to the page",
       "shareOffNote": "If you switch to private, the link stops working.",
       "workspaceNote": "Copy the link and add it as material in your workspace via the plus.",
