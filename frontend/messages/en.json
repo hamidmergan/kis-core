@@ -3274,8 +3274,12 @@
       "roleUser": "User"
     },
     "feedback": {
-      "summary": "{n, plural, one {# entry} other {# entries}}, {offen} of them open",
       "empty": "No feedback yet",
+      "emptyStatus": {
+        "open": "Nothing open",
+        "parked": "Nothing on hold",
+        "done": "Nothing done yet"
+      },
       "loadError": "Feedback could not be loaded",
       "saveError": "Save failed",
       "deleteError": "Delete failed",
@@ -3289,6 +3293,7 @@
         "parked": "On hold",
         "done": "Done"
       },
+      "filterAll": "All",
       "delete": "Delete",
       "back": "← Back",
       "notFound": "This entry no longer exists"

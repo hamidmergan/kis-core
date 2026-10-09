@@ -3274,8 +3274,12 @@
       "roleUser": "User"
     },
     "feedback": {
-      "summary": "{n, plural, one {# Rückmeldung} other {# Rückmeldungen}}, davon {offen} offen",
       "empty": "Noch kein Feedback",
+      "emptyStatus": {
+        "open": "Nichts offen",
+        "parked": "Nichts zurückgestellt",
+        "done": "Noch nichts erledigt"
+      },
       "loadError": "Feedback konnte nicht geladen werden",
       "saveError": "Speichern fehlgeschlagen",
       "deleteError": "Löschen fehlgeschlagen",
@@ -3289,6 +3293,7 @@
         "parked": "Zurückgestellt",
         "done": "Erledigt"
       },
+      "filterAll": "Alle",
       "delete": "Löschen",
       "back": "← Zurück",
       "notFound": "Diese Rückmeldung gibt es nicht mehr"

@@ -8,6 +8,7 @@ import { Paperclip, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
+import Tabs from "@/components/ui/Tabs";
 import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { announceFeedbackChange } from "@/hooks/useOpenFeedback";
@@ -17,6 +18,10 @@ type Category = "bug" | "idea" | "other";
 type FeedbackStatus = "open" | "parked" | "done";
 
 const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
+
+type Filter = FeedbackStatus | "all";
+
+const FILTERS: readonly Filter[] = ["open", "parked", "done", "all"];
 
 // The stripe on the left tells the status at a glance, without opening the select.
 const STRIPE: Record<FeedbackStatus, string> = {
@@ -57,6 +62,7 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<Filter>("open");
 
   const laden = useCallback(() => {
     fetch("/api/admin/feedback", { credentials: "include" })
@@ -97,24 +103,39 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
     announceFeedbackChange();
   }
 
-  const offen = entries.filter((e) => e.status === "open").length;
+  // The open view holds everything not done, untouched entries first, parked ones below.
+  const inFilter = (e: Entry, f: Filter) =>
+    f === "all" || e.status === f || (f === "open" && e.status === "parked");
+  const count = (f: Filter) => entries.filter((e) => inFilter(e, f)).length;
+  const shown = entries
+    .filter((e) => inFilter(e, filter))
+    .sort((x, y) => (filter === "open" ? Number(x.status === "parked") - Number(y.status === "parked") : 0));
   const statusOptions = STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }));
 
   return (
     <div className="space-y-3">
-      <span className="text-xs text-muted-soft">
-        {t("summary", { n: entries.length, offen })}
-      </span>
+      <Tabs<Filter>
+        variant="pill"
+        active={filter}
+        onChange={setFilter}
+        items={FILTERS.map((f) => ({
+          key: f,
+          label: f === "all" ? t("filterAll") : t(`status.${f}`),
+          badge: <span className="text-xs opacity-75">{count(f)}</span>,
+        }))}
+      />
 
       {error && <p className="text-xs text-error">{error}</p>}
 
       {loading ? (
         <Spinner className="flex justify-center py-12" />
-      ) : entries.length === 0 ? (
-        <p className="text-sm text-muted-soft text-center py-8">{t("empty")}</p>
+      ) : shown.length === 0 ? (
+        <p className="text-sm text-muted-soft text-center py-8">
+          {entries.length === 0 || filter === "all" ? t("empty") : t(`emptyStatus.${filter}`)}
+        </p>
       ) : (
         <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
-          {entries.map((e) => (
+          {shown.map((e) => (
             <li
               key={e.id}
               onClick={() => onOpen(e.id)}
