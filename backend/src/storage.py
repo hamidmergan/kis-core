@@ -158,43 +158,58 @@ def init_lifecycle_policy() -> None:
             DB_BACKUP_KEEP_MONTHS,
             DB_BACKUP_KEEP_WEEKS,
         )
+    rules = [
+        {
+            "ID": "tmp-expire-1d",
+            "Filter": {"Prefix": "tmp/"},
+            "Expiration": {"Days": 1},
+            "Status": "Enabled",
+        },
+        # Separate rules per subfolder, otherwise the tiering breaks.
+        {
+            "ID": "backups-daily-expire",
+            "Filter": {"Prefix": "backups/daily/"},
+            "Expiration": {"Days": DB_BACKUP_KEEP_DAYS},
+            "Status": "Enabled",
+        },
+        {
+            "ID": "backups-weekly-expire",
+            "Filter": {"Prefix": "backups/weekly/"},
+            "Expiration": {"Days": DB_BACKUP_KEEP_WEEKS * 7 + 3},
+            "Status": "Enabled",
+        },
+        {
+            "ID": "backups-monthly-expire",
+            "Filter": {"Prefix": "backups/monthly/"},
+            "Expiration": {"Days": DB_BACKUP_KEEP_MONTHS * 31},
+            "Status": "Enabled",
+        },
+    ]
     try:
         _s3().put_bucket_lifecycle_configuration(
             Bucket=_S3_BUCKET,
-            LifecycleConfiguration={
-                "Rules": [
-                    {
-                        "ID": "tmp-expire-1d",
-                        "Filter": {"Prefix": "tmp/"},
-                        "Expiration": {"Days": 1},
-                        "Status": "Enabled",
-                    },
-                    # Separate rules per subfolder, otherwise the tiering breaks.
-                    {
-                        "ID": "backups-daily-expire",
-                        "Filter": {"Prefix": "backups/daily/"},
-                        "Expiration": {"Days": DB_BACKUP_KEEP_DAYS},
-                        "Status": "Enabled",
-                    },
-                    {
-                        "ID": "backups-weekly-expire",
-                        "Filter": {"Prefix": "backups/weekly/"},
-                        "Expiration": {"Days": DB_BACKUP_KEEP_WEEKS * 7 + 3},
-                        "Status": "Enabled",
-                    },
-                    {
-                        "ID": "backups-monthly-expire",
-                        "Filter": {"Prefix": "backups/monthly/"},
-                        "Expiration": {"Days": DB_BACKUP_KEEP_MONTHS * 31},
-                        "Status": "Enabled",
-                    },
-                ]
-            },
+            LifecycleConfiguration={"Rules": rules + [_ABORT_STALE_MULTIPART_RULE]},
+        )
+        return
+    except ClientError as e:
+        logger.warning("Bucket rejects the multipart cleanup rule, setting the others alone: {}", e)
+    try:
+        _s3().put_bucket_lifecycle_configuration(
+            Bucket=_S3_BUCKET, LifecycleConfiguration={"Rules": rules},
         )
     except ClientError as e:
         logger.warning(
             "Could not set bucket lifecycle policy (continuing without): {}", e
         )
+
+
+# Parts of an abandoned direct upload are dropped by the bucket itself after a day.
+_ABORT_STALE_MULTIPART_RULE = {
+    "ID": "multipart-abort-1d",
+    "Filter": {"Prefix": ""},
+    "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1},
+    "Status": "Enabled",
+}
 
 
 @lru_cache(maxsize=1)
@@ -221,6 +236,115 @@ def init_storage() -> None:
         init_lifecycle_policy()
     else:
         STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+# --- Direct browser uploads (S3 multipart, every part signed on its own) ---
+
+# The host the browser reaches, inside Docker the bucket may answer under another name.
+_S3_PUBLIC_ENDPOINT = os.environ.get("S3_PUBLIC_ENDPOINT", "") or _S3_ENDPOINT
+
+# Origins the bucket already accepts browser uploads from, checked once per process.
+_UPLOAD_CORS_READY: set[str] = set()
+
+
+@lru_cache(maxsize=1)
+def _s3_public():
+    """Client that only signs URLs, for the host the browser talks to."""
+    import boto3
+    from botocore.client import Config
+    return boto3.client(
+        "s3",
+        endpoint_url=_S3_PUBLIC_ENDPOINT,
+        aws_access_key_id=os.environ.get("S3_ACCESS_KEY", ""),
+        aws_secret_access_key=os.environ.get("S3_SECRET_KEY", ""),
+        config=Config(signature_version="s3v4"),
+    )
+
+
+def ensure_upload_cors(origin: str) -> None:
+    """Lets the bucket take PUTs from this origin, keeping every rule already there."""
+    if not USE_S3 or not origin or origin in _UPLOAD_CORS_READY:
+        return
+    from botocore.exceptions import ClientError
+    try:
+        try:
+            rules = _s3().get_bucket_cors(Bucket=_S3_BUCKET).get("CORSRules", [])
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") != "NoSuchCORSConfiguration":
+                raise
+            rules = []
+        if not any(origin in r.get("AllowedOrigins", []) and "PUT" in r.get("AllowedMethods", []) for r in rules):
+            rules.append({
+                "AllowedOrigins": [origin],
+                "AllowedMethods": ["PUT"],
+                "AllowedHeaders": ["*"],
+                "ExposeHeaders": ["ETag"],
+                "MaxAgeSeconds": 3600,
+            })
+            _s3().put_bucket_cors(Bucket=_S3_BUCKET, CORSConfiguration={"CORSRules": rules})
+            logger.info("Bucket accepts browser uploads from {} now", origin)
+        _UPLOAD_CORS_READY.add(origin)
+    except ClientError as e:
+        # MinIO has no CORS API and allows every origin anyway.
+        logger.warning("Bucket CORS for {} not set: {}", origin, e)
+        _UPLOAD_CORS_READY.add(origin)
+
+
+def multipart_start(key: str, content_type: str) -> str:
+    """Opens a multipart upload and returns its id."""
+    return _s3().create_multipart_upload(
+        Bucket=_S3_BUCKET, Key=key, ContentType=content_type or "application/octet-stream",
+    )["UploadId"]
+
+
+def multipart_part_url(key: str, upload_id: str, part_number: int, expires_seconds: int) -> str:
+    """Signs one part for a PUT straight from the browser."""
+    return _s3_public().generate_presigned_url(
+        "upload_part",
+        Params={"Bucket": _S3_BUCKET, "Key": key, "UploadId": upload_id, "PartNumber": part_number},
+        ExpiresIn=expires_seconds,
+    )
+
+
+def multipart_parts(key: str, upload_id: str) -> list[dict] | None:
+    """Parts the bucket holds so far, None when the upload no longer exists."""
+    from botocore.exceptions import ClientError
+    parts: list[dict] = []
+    marker = 0
+    try:
+        while True:
+            resp = _s3().list_parts(
+                Bucket=_S3_BUCKET, Key=key, UploadId=upload_id, PartNumberMarker=marker,
+            )
+            parts += [
+                {"PartNumber": p["PartNumber"], "ETag": p["ETag"], "Size": p["Size"]}
+                for p in resp.get("Parts", [])
+            ]
+            if not resp.get("IsTruncated"):
+                return parts
+            marker = resp["NextPartNumberMarker"]
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") in ("NoSuchUpload", "404"):
+            return None
+        raise
+
+
+def multipart_complete(key: str, upload_id: str, parts: list[dict]) -> None:
+    """Joins the parts into the final object."""
+    _s3().complete_multipart_upload(
+        Bucket=_S3_BUCKET, Key=key, UploadId=upload_id,
+        MultipartUpload={"Parts": [{"PartNumber": p["PartNumber"], "ETag": p["ETag"]} for p in parts]},
+    )
+
+
+def multipart_abort(key: str, upload_id: str) -> None:
+    """Drops an open upload with all its parts, an unknown one is no error."""
+    from botocore.exceptions import ClientError
+    try:
+        _s3().abort_multipart_upload(Bucket=_S3_BUCKET, Key=key, UploadId=upload_id)
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") not in ("NoSuchUpload", "404"):
+            raise
 
 
 # --- Generic file operations ---
@@ -501,10 +625,10 @@ def load_result_meta(user_id: int, job_uuid: str) -> dict | None:
 def open_input_file(input_path: str, suffix: str = ""):
     """Returns a local path, on S3 via a temp file."""
     if USE_S3:
-        data = _s3().get_object(Bucket=_S3_BUCKET, Key=input_path)["Body"].read()
+        # Streams to disk, a long video must never sit in the worker's memory as a whole.
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-            f.write(data)
             tmp_path = f.name
+        _s3().download_file(_S3_BUCKET, input_path, tmp_path)
         try:
             yield tmp_path
         finally:

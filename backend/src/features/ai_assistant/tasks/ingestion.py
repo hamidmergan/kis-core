@@ -192,16 +192,16 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 # Audio/Video: transcribe with timestamps, then chunk
                 from src.dependencies import resolve_whisper_client
 
-                # Fragmented MP4 is rewritten losslessly, repeatable without damage.
-                from src.services.media_normalize import normalize_if_fragmented
+                # An MP4 that cannot start at once is rewritten losslessly, repeatable without damage.
+                from src.services.media_normalize import normalize_for_playback
                 media_path = local_path
-                normalized_path = normalize_if_fragmented(local_path)
+                normalized_path = normalize_for_playback(local_path)
                 if normalized_path:
                     from src.storage import put_file
                     put_file(file_path_stored, normalized_path)
                     media_path = normalized_path
                     logger.info(
-                        "KI Tutor: normalized fragmented media {} -> progressive faststart",
+                        "KI Tutor: normalized media {} -> progressive faststart",
                         source_uuid,
                     )
 

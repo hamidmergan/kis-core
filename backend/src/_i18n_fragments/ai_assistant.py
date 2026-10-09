@@ -123,6 +123,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Der Server verarbeitet gerade zu viele Uploads gleichzeitig. Bitte in einem Moment erneut versuchen.",
         "en": "The server is handling too many uploads at once. Please try again in a moment.",
     },
+    "ai.source.uploadExpired": {
+        "de": "Dieser Upload ist abgelaufen. Lade die Datei bitte neu hoch.",
+        "en": "This upload has expired. Please upload the file again.",
+    },
+    "ai.source.uploadPartInvalid": {
+        "de": "Ungültiger Teil des Uploads",
+        "en": "Invalid part of the upload",
+    },
+    "ai.source.uploadIncomplete": {
+        "de": "Der Upload ist noch nicht vollständig angekommen.",
+        "en": "The upload has not fully arrived yet.",
+    },
     "ai.source.retryFailedOnly": {
         "de": "Nur fehlgeschlagene Sources können neu indexiert werden",
         "en": "Only failed sources can be re-indexed",

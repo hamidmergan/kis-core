@@ -127,3 +127,41 @@ def test_remux_defragments_and_preserves_duration():
     finally:
         if os.path.exists(frag):
             os.unlink(frag)
+
+
+# ── playback check: an index behind the media data needs a remux too ────────
+
+def test_index_behind_media_needs_remux(tmp_path):
+    from src.services.media_normalize import _scan_needs_remux
+    data = _FTYP + _MDAT + _MOOV
+    assert _scan_needs_remux(lambda off, n: data[off:off + n]) is True
+
+
+def test_index_before_media_is_fine(tmp_path):
+    from src.services.media_normalize import normalize_for_playback
+    assert normalize_for_playback(_write(tmp_path, _FTYP + _MOOV + _MDAT)) is None
+
+
+def test_fragmented_still_needs_remux(tmp_path):
+    from src.services.media_normalize import _scan_needs_remux
+    data = _FTYP + _MOOV + _MOOF + _MDAT
+    assert _scan_needs_remux(lambda off, n: data[off:off + n]) is True
+
+
+@pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
+def test_moov_at_end_is_moved_to_front(tmp_path):
+    from src.services.media_normalize import _scan_needs_remux, normalize_for_playback
+    src = os.path.join(tmp_path, "spaet.mp4")
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+         "-c:a", "aac", src],
+        check=True, capture_output=True,
+    )
+    out = normalize_for_playback(src)
+    assert out is not None
+    try:
+        with open(out, "rb") as fh:
+            data = fh.read()
+        assert _scan_needs_remux(lambda off, n: data[off:off + n]) is False
+    finally:
+        os.unlink(out)

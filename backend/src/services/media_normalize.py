@@ -38,6 +38,35 @@ def _scan_is_fragmented(read) -> bool:
     return False
 
 
+def _scan_needs_remux(read) -> bool:
+    """True for a fragmented MP4 and for one whose index sits behind the media data."""
+    head = read(0, 8)
+    if len(head) < 8 or head[4:8] != b"ftyp":
+        return False
+    pos = 0
+    seen_moov = False
+    for _ in range(_MAX_BOXES):
+        hdr = read(pos, 16)
+        if len(hdr) < 8:
+            return False
+        box_size = int.from_bytes(hdr[:4], "big")
+        box_type = hdr[4:8]
+        if box_type == b"moof":
+            return True
+        if box_type == b"moov":
+            seen_moov = True
+        if box_type == b"mdat":
+            return not seen_moov
+        if box_size == 1:
+            if len(hdr) < 16:
+                return False
+            box_size = int.from_bytes(hdr[8:16], "big")
+        if box_size < 8:
+            return False
+        pos += box_size
+    return False
+
+
 def is_fragmented_mp4(path: str) -> bool:
     """True when the file is a fragmented MP4."""
     try:
@@ -82,4 +111,27 @@ def normalize_if_fragmented(path: str) -> Optional[str]:
         os.unlink(out)
         raise
     logger.info("media_normalize: remuxed fragmented MP4 -> progressive faststart ({})", path)
+    return out
+
+
+def normalize_for_playback(path: str) -> Optional[str]:
+    """Rewrites an MP4 that cannot start playing at once, None when it already can."""
+    try:
+        with open(path, "rb") as f:
+            def _read(off: int, length: int) -> bytes:
+                f.seek(off)
+                return f.read(length)
+            needed = _scan_needs_remux(_read)
+    except OSError:
+        return None
+    if not needed:
+        return None
+    fd, out = tempfile.mkstemp(suffix=".mp4")
+    os.close(fd)
+    try:
+        remux_to_progressive(path, out)
+    except Exception:
+        os.unlink(out)
+        raise
+    logger.info("media_normalize: remuxed MP4 -> progressive faststart ({})", path)
     return out

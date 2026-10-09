@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { WorkspaceDetail, Source } from "../_types";
+import { directUpload } from "./directUpload";
 
 // From this size an upload fills a typical home uplink long enough to slow the page down.
 const LARGE_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -124,8 +125,9 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       }
       // Guard against duplicates within the same drop too.
       existingNames.add(nameKey);
+      // Only the classic route shares the page's connection, a direct upload leaves it free.
       const large = file.size >= LARGE_UPLOAD_BYTES;
-      setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0, large });
+      setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0, large: false });
       // A full server answers 503 after a short wait, the file then goes again by itself.
       const sendOnce = () => new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -160,6 +162,16 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
         xhr.send(form);
       });
       try {
+        const direct = await directUpload(
+          uuid,
+          file,
+          (percent) => setUploadProgress({ current: i + 1, total: toUpload.length, percent, large: false }),
+          t("uploadFailed"),
+        );
+        if (direct) {
+          setSources((prev) => [direct, ...prev]);
+          continue;
+        }
         const bis = Date.now() + 20 * 60 * 1000;
         for (;;) {
           try {
@@ -172,6 +184,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
           }
         }
       } catch (err) {
+        if ((err as { status?: number }).status === 429) rateLimitHit = true;
         errors.push({ filename: file.name, message: err instanceof Error ? err.message : t("uploadFailed") });
       }
     }
