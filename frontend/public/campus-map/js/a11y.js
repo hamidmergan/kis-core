@@ -234,6 +234,40 @@ function keepMapFocusInView(e) {
     }
 }
 
+// Safari draws no outline around SVG elements, so the focus ring is an HTML box laid over the map.
+let fokusRahmen = null;
+
+function zeigeKartenFokus(e) {
+    const el = e.target.closest && e.target.closest('[data-a11y-id]');
+    const container = document.getElementById('mapContainer');
+    if (!el || !container || !el.matches(':focus-visible')) return;
+    if (!fokusRahmen) {
+        fokusRahmen = document.createElement('div');
+        fokusRahmen.className = 'map-focus-ring';
+        fokusRahmen.setAttribute('aria-hidden', 'true');
+    }
+    container.appendChild(fokusRahmen);
+    fokusRahmen.dataset.ziel = el.dataset.a11yId;
+    const folgen = () => {
+        if (fokusRahmen.dataset.ziel !== el.dataset.a11yId) return;
+        if (document.activeElement !== el) {
+            fokusRahmen.remove();
+            delete fokusRahmen.dataset.ziel;
+            return;
+        }
+        const r = el.getBoundingClientRect();
+        const c = container.getBoundingClientRect();
+        Object.assign(fokusRahmen.style, {
+            left: `${r.left - c.left}px`,
+            top: `${r.top - c.top}px`,
+            width: `${r.width}px`,
+            height: `${r.height}px`
+        });
+        window.requestAnimationFrame(folgen);
+    };
+    folgen();
+}
+
 // ============================================================
 // Tastatur- und ARIA-Schicht auf der Karte
 // ============================================================
@@ -294,6 +328,7 @@ function setupMapAccessibility() {
     mapTabOrder = buildMapTabOrder(mapLabelIndex);
     svg.addEventListener('keydown', handleMapTab);
     svg.addEventListener('focusin', keepMapFocusInView);
+    svg.addEventListener('focusin', zeigeKartenFokus);
 
     // Enter und Leertaste lösen dieselbe Aktion aus wie ein Klick.
     svg.addEventListener('keydown', e => {

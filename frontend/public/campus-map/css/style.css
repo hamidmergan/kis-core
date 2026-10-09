@@ -2292,8 +2292,18 @@
 
     /* Fokus auf der Karte: Ring folgt der Elementform */
     .campus-map-svg [tabindex]:focus-visible {
-        outline: 3px solid var(--focus-ring);
-        outline-offset: 3px;
+        outline: none;
+    }
+
+    .map-focus-ring {
+        position: absolute;
+        box-sizing: content-box;
+        margin: -6px 0 0 -6px;
+        padding: 3px;
+        border: 3px solid var(--focus-ring);
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 5;
     }
 
     /* 1.3.1 Ueberschriftenstruktur korrigiert (h4/h5 -> h2/h3):
