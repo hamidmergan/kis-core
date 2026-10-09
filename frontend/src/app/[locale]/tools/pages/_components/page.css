@@ -147,6 +147,10 @@
 
 /* ---------- the four looks of a page: their sections are built in looks/sections.css ---------- */
 
+/* A section on a light band across the whole width; inside it, light boxes turn white so they still stand out. */
+.kis-page .wrap section.tint { background: var(--tile-bg); box-shadow: 0 0 0 100vmax var(--tile-bg); clip-path: inset(0 -100vmax); margin-top: 84px; padding-top: 64px; padding-bottom: 72px; --pg-mist: var(--background); }
+.kis-page.editing .wrap section.tint::before { top: 40px; bottom: 16px; }
+
 /* The title picture is a section of its own above the title, as wide as the page. */
 .kis-page section.cover { padding-top: 0; }
 .kis-page section.cover .blk { margin-top: 0; }

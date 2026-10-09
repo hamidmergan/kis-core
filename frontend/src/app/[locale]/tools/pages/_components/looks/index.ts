@@ -13,11 +13,11 @@ export const LOOKS: Looks = { ...LOOKS_TEXT, ...LOOKS_FLOW, ...LOOKS_NUMBERS, ..
 export const looksOf = (page: Page) => pickLooks(page, LOOKS);
 
 /** How a section of the subject is built around its blocks. */
-export type SectionLook = "top" | "left" | "band" | "center" | "number" | "split" | "rail" | "poster" | "pair" | "shout";
+export type SectionLook = "top" | "left" | "band" | "center" | "split" | "rail" | "poster" | "pair" | "shout";
 
 // The section builds each design takes turns with, so a page keeps one character.
 const POOLS: Record<Design, SectionLook[]> = {
-  chapters: ["number", "left", "top", "shout"],
+  chapters: ["left", "top", "shout", "band"],
   timeline: ["rail"],
   magazine: ["band", "top", "poster", "center"],
   guide: ["left", "top", "shout"],

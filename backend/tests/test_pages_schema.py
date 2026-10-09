@@ -110,7 +110,7 @@ def test_cards_once_no_blue_box_and_the_design_is_kept():
                      language="German")
     arten = [b["kind"] for s in seite["sections"] for b in s["blocks"]]
     assert "highlight" not in arten
-    assert arten.count("cards") == 1 and arten.count("formula") == 4
+    assert arten.count("cards") == 1 and arten.count("formula") == 1
     # A frame formula without a sign is a term, it becomes a definition.
     assert seite["sections"][2]["blocks"][1] == {"kind": "definitions", "items": [{"term": "Risikowert", "text": "W mal A"}]}
     assert seite["design"] == "guide"
@@ -174,3 +174,22 @@ def test_bare_chapter_numbers_are_cut_years_and_formulas_stay():
     assert weg("Zwei Drittel aus Landesmitteln (1)", set()) == "Zwei Drittel aus Landesmitteln"
     assert weg("Das Manifest (2001) gilt.", set()) == "Das Manifest (2001) gilt."
     assert weg("Der Wert (n = 30) reicht.", set()) == "Der Wert (n = 30) reicht."
+
+
+def test_prose_comes_first_and_one_block_shows_it():
+    text, zeigt = pl._prose_first([
+        {"kind": "steps", "steps": [{"title": "A", "text": "a"}]},
+        {"kind": "text", "text": "Erster Satz. Zweiter Satz."},
+        {"kind": "table", "header": ["", "x"], "rows": [["a", "b"]]},
+        {"kind": "text", "text": "Dritter Satz."},
+    ])
+    assert text == "Erster Satz. Zweiter Satz. Dritter Satz."
+    assert [b["kind"] for b in zeigt] == ["steps"]
+    assert pl._sentences("Eins ist kurz. Zwei ist auch kurz. Drei passt nicht mehr.", 40) == "Eins ist kurz. Zwei ist auch kurz."
+
+
+def test_a_formula_stands_once():
+    gist = [{"kind": "formula", "key": "E = (O + 4M + P) / 6", "text": "a"}]
+    abschnitt = [{"kind": "text", "text": "T."}, {"kind": "formula", "key": "E=(O+4M+P)/6", "text": "b"}]
+    pl._once([gist, abschnitt])
+    assert [b["kind"] for b in abschnitt] == ["text"]

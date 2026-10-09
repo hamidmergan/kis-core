@@ -76,6 +76,10 @@ MIN_MAP_SECTIONS = 4
 # Words a reader gets through per minute, for the reading time under the title.
 WORDS_PER_MINUTE = 200
 MIN_CLOUD_WORDS = 6
+# A section's opening text has at least this many sentences, a shorter one is written anew.
+MIN_SENTENCES = 2
+# About six sentences, the most a section's text keeps when it is written anew.
+PROSE_CHARS = 900
 CLOUD_WORDS = 20
 
 
@@ -104,6 +108,27 @@ def _text_from_prose(text: str) -> list[dict]:
     if len(punkte) >= len(zeilen) / 2:
         return [{"kind": "bullets", "items": punkte}] if punkte else []
     return [{"kind": "text", "text": " ".join(zeilen)}]
+
+
+def _sentences(text: str, most: int) -> str:
+    """Whole sentences of a prose up to about ``most`` characters, never cut in the middle."""
+    saetze = re.split(r"(?<=[.!?])\s+", " ".join(text.split()))
+    raus = ""
+    for satz in saetze:
+        if raus and len(raus) + len(satz) + 1 > most:
+            break
+        raus = f"{raus} {satz}".strip()
+    return raus
+
+
+def _prose_first(bloecke: list) -> tuple[str, list[dict]]:
+    """The section's running text joined into one and the one block that shows it, extras drop."""
+    texte = [str(b.get("text") or "").strip() for b in bloecke
+             if isinstance(b, dict) and b.get("kind") == "text" and str(b.get("text") or "").strip()]
+    andere = [b for b in bloecke if isinstance(b, dict) and b.get("kind") != "text" and schema.clean_block(b)]
+    if len(andere) > 1:
+        logger.info("Pages: Abschnitt mit {} Darstellungen, nur die erste bleibt", len(andere))
+    return " ".join(texte), andere[:1]
 
 
 async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Karte,
@@ -136,6 +161,19 @@ async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Kar
                     instructions=instructions, on_page=schon)
                 ergebnis.append((einzeln or [None])[0])
         for i, teil in zip(gruppe, ergebnis):
+            if teil is not None and any(schema.clean_block(b) for b in teil["blocks"]):
+                # Running text carries the page: every section opens with it, a missing one is written.
+                text, zeigt = _prose_first(teil["blocks"])
+                if len(re.findall(r"[.!?](?:\s|$)", text)) < MIN_SENTENCES:
+                    prosa = await summary_writing.write_sections(
+                        caller, language=language, template_body=TEMPLATE.body,
+                        group=[plan.sections[i]], others=andere, written=None,
+                        material=[stoff[gruppe.index(i)]], budget=SUMMARY_SECTION_GROUP_CHARS,
+                        names=plan.names, instructions=instructions)
+                    zeilen = [z for z in (prosa or [""])[0].split("\n") if z.strip()
+                              and not re.match(r"^\s*(?:[-*#|]|\d+[.)]\s)", z)]
+                    text = _sentences(" ".join(zeilen), PROSE_CHARS) or text
+                teil = {**teil, "blocks": ([{"kind": "text", "text": text}] if text else []) + zeigt}
             if teil is None or not any(schema.clean_block(b) for b in teil["blocks"]):
                 # Prose is the fallback, a section never goes missing for its shape.
                 logger.warning("Pages: Abschnitt {} ohne Bloecke, er wird als Liste geschrieben", i)
@@ -260,7 +298,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
 
     # A timeline is its own overview, the map would only repeat it.
     if len(inhalt) >= MIN_MAP_SECTIONS and design != "timeline":
-        seiten.append({"id": "map", "title": t("pages.mapTitle", loc), "lead": t("pages.mapLead", loc),
+        seiten.append({"id": "map", "title": t("pages.mapTitle", loc), "lead": "",
                        "blocks": [{"kind": "mindmap", "center": _short_title(titel), "caption": t("pages.mapCaption", loc),
                                    "branches": [{"title": teil.get("map_label") or s["title"],
                                                  "to": s["id"], "leaves": teil.get("keywords", [])[:3]}
@@ -270,7 +308,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
     stoff = "\n".join(q.text for q in sources)
     woerter = word_cloud([w for _, _, teil in inhalt for w in teil.get("keywords", [])], stoff)
     if len(woerter) >= MIN_CLOUD_WORDS:
-        seiten.append({"id": "words", "title": t("pages.wordsTitle", loc), "lead": t("pages.wordsLead", loc),
+        seiten.append({"id": "words", "title": t("pages.wordsTitle", loc), "lead": "",
                        "blocks": [{"kind": "wordcloud", "caption": t("pages.wordsCaption", loc),
                                    "words": woerter}]})
 
@@ -318,9 +356,17 @@ def drop_citations(value, namen: set[str]):
 
 
 def _once(listen: list[list[dict]]) -> None:
-    """Cards and the core sentence stand once on a page, later ones take a plainer kind."""
+    """Cards, the core sentence and each formula stand once on a page, later ones take a plainer kind or go."""
     gesehen: set[str] = set()
+    formeln: set[str] = set()
     for bloecke in listen:
+        # The same formula stands once, a repeat of the summary's one goes.
+        for b in list(bloecke):
+            if b.get("kind") in ("formula", "highlight"):
+                key = "".join(str(b.get("key") or "").split()).casefold()
+                if key and key in formeln:
+                    bloecke.remove(b)
+                formeln.add(key)
         for k, b in enumerate(bloecke):
             art = b.get("kind")
             if art == "highlight":

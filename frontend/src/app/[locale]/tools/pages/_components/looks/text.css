@@ -13,10 +13,6 @@
 .kis-page .v-tx-init p::first-letter { float: left; font-size: 68px; line-height: .78; font-weight: 700; color: var(--pg-accent); padding: 7px 12px 0 0; }
 .kis-page .v-tx-leadin { max-width: 70ch; }
 .kis-page .v-tx-leadin p::first-line { font-size: 24px; line-height: 1.4; font-weight: 500; letter-spacing: -0.01em; }
-.kis-page .v-tx-side { display: grid; grid-template-columns: minmax(0, 1fr) 200px; grid-template-areas: "text side"; gap: 48px; }
-.kis-page .v-tx-side .v-tx-main { grid-area: text; }
-.kis-page .v-tx-side .v-tx-aside { grid-area: side; border-left: 2px solid var(--pg-line); padding-left: 20px; align-self: start; }
-.kis-page .v-tx-side .v-tx-pull { font-size: 17px; line-height: 1.45; font-weight: 600; color: var(--pg-ink-soft); }
 .kis-page .v-tx-rule { max-width: 72ch; }
 .kis-page .v-tx-rule .v-tx-first { border-left: 2px solid var(--pg-accent); padding-left: 24px; font-size: 19px; }
 
@@ -174,8 +170,6 @@
   .kis-page .v-tx-cols { columns: 1; }
   .kis-page .v-tx-init p::first-letter { font-size: 56px; }
   .kis-page .v-tx-leadin p::first-line { font-size: 21px; }
-  .kis-page .v-tx-side { grid-template-columns: 1fr; grid-template-areas: "side" "text"; gap: 20px; }
-  .kis-page .v-tx-side .v-tx-aside { border-left: 0; border-bottom: 2px solid var(--pg-line); padding: 0 0 14px; }
   .kis-page .v-tx-rule .v-tx-first { padding-left: 16px; font-size: 18px; }
 
   .kis-page .v-bl-two { columns: 1; }

@@ -78,9 +78,18 @@ export default function PageView({ page, limits, imageBase, edit, back, tools }:
     if (isContent(s) && s.heading !== "none" && !(s.hidden && !editing)) chapters.set(i, chapters.size + 1);
   });
   const builds = sectionLooks(page, design, isContent, editing);
+  // Every second section of the subject and the summary lie on a light band, so the page reads in parts.
+  const tinted = new Set<number>();
+  let shownContent = 0;
+  page.sections.forEach((s, i) => {
+    if (s.hidden && !editing) return;
+    if (s.id === "gist") tinted.add(i);
+    if (!isContent(s) || builds.get(i) === "pair") return;
+    if (shownContent++ % 2 === 1) tinted.add(i);
+  });
   const view = (i: number) => (
     <SectionView s={page.sections[i]} i={i} n={n} limits={limits} imageBase={imageBase} nums={nums} edit={edit}
-      chapter={chapters.get(i)} hasCover={hasCover} build={builds.get(i)} />
+      chapter={chapters.get(i)} hasCover={hasCover} build={builds.get(i)} tint={tinted.has(i)} />
   );
 
   return (
@@ -217,6 +226,8 @@ const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
 interface SectionProps {
   /** How a section of the subject is built, absent for the frame. */
   build?: SectionLook;
+  /** The section lies on a light band across the page. */
+  tint?: boolean;
   /** Its number among the subject's sections, absent for the frame. */
   chapter?: number;
   s: Section;
@@ -236,10 +247,10 @@ const titleSize = (title: string) =>
   // A very long word would break in the middle on a phone, the title shrinks there instead.
   + (Math.max(...title.split(/\s+/).map((w) => w.length)) > 13 ? " t-word" : "");
 
-function SectionView({ s, i, n, limits, imageBase, nums, edit, build, chapter, hasCover }: SectionProps) {
+function SectionView({ s, i, n, limits, imageBase, nums, edit, build, chapter, hasCover, tint }: SectionProps) {
   const t = useTranslations("tools.pages");
   const p = `sections.${i}`;
-  const cls = s.hidden ? " is-hidden" : "";
+  const cls = (s.hidden ? " is-hidden" : "") + (tint ? " tint" : "");
   if (s.hero) {
     const j = s.blocks.findIndex((b) => b.kind === "image");
     const img = j >= 0 ? (s.blocks[j] as Extract<Block, { kind: "image" }>) : null;
@@ -301,9 +312,6 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, build, chapter, h
     <section id={s.id} className={`${kind}${build ? ` sx-${build}` : ""}${s.id === "cover" ? " cover" : ""}${cls}`} data-i={i}>
       {edit && <Tools s={s} i={i} n={n} edit={edit} />}
       <div className="txt">
-        {build === "number" && chapter != null && (
-          <span className="chap" aria-hidden="true">{String(chapter).padStart(2, "0")}</span>
-        )}
         <Txt path={`${p}.title`} value={s.title} as="h2" max={limits.short} />
         <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
       </div>

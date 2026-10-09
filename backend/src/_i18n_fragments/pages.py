@@ -5,14 +5,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     "quota.label.pages": {"de": "Pages", "en": "Pages"},
     "pages.gistTitle": {"de": "Das Wichtigste in Kürze", "en": "The key points"},
     "pages.mapTitle": {"de": "Das Thema auf einer Karte", "en": "The topic at a glance"},
-    "pages.mapLead": {"de": "Ein Klick auf einen Teil springt dorthin.",
-                      "en": "Click a part to jump there."},
     "pages.mapCaption": {"de": "Aufbau der Seite", "en": "Structure of the page"},
     "pages.wordsTitle": {"de": "Wörter, die immer wieder fallen", "en": "Words that keep coming up"},
-    "pages.wordsLead": {
-        "de": "Die Fachwörter dieser Seite. Je größer ein Wort, desto öfter steht es im Material.",
-        "en": "The technical terms of this page. The larger a word, the more often the material uses it.",
-    },
     "pages.wordsCaption": {"de": "Die häufigsten Fachwörter", "en": "The most frequent terms"},
     "pages.meta": {
         "de": "Erstellt mit KI am {date}, etwa {minutes} Min. Lesezeit.",

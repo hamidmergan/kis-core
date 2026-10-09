@@ -38,7 +38,6 @@ function AddItem({ p, n, limits }: { p: string; n: number; limits: Limits }) {
 }
 
 const two = (i: number) => String(i + 1).padStart(2, "0");
-const firstSentence = (t: string) => t.match(/^(.+?[.!?])(\s|$)/)?.[1] ?? "";
 
 /* ---------- Fließtext ---------- */
 
@@ -56,19 +55,6 @@ const TEXT: Look<"text">[] = [
   textLook("Zwei Spalten", "v-tx-cols", (b) => b.text.length >= 400),
   textLook("Initial", "v-tx-init", (b) => b.text.length >= 200),
   textLook("Erste Zeile groß", "v-tx-leadin", (b) => b.text.length >= 200),
-  {
-    name: "Randspalte",
-    // The first sentence stands in the margin as a pull quote, so it must be a sentence of its own.
-    fits: (b) => b.text.length >= 350 && firstSentence(b.text).length >= 30 && firstSentence(b.text).length <= 140,
-    View: function TextSide({ b, p, limits }) {
-      return (
-        <Root cls="v-tx-side">
-          <div className="v-tx-main"><Txt path={`${p}.text`} value={b.text} as="p" max={limits.long} /></div>
-          <aside className="v-tx-aside" aria-hidden="true"><p className="v-tx-pull">{firstSentence(b.text)}</p></aside>
-        </Root>
-      );
-    },
-  },
   textLook("Akzentlinie", "v-tx-rule", undefined, "v-tx-first"),
 ];
 

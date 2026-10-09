@@ -17,7 +17,7 @@ from src.limits import SUMMARY_WRITE_MAX_TOKENS
 from src.services import anweisung
 
 _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
-- text: {"kind":"text","text":"two to five sentences"} plain running text, for an explanation, a reason or an argument.
+- text: {"kind":"text","text":"three to six sentences"} running text that explains, every section opens with one.
 - bullets: {"kind":"bullets","items":["statement","statement"]} three to eight separate statements, each one sentence.
 - checklist: {"kind":"checklist","items":["Budget","Termine"]} three to ten short things a document, a plan or a task must contain, each one to four words.
 - quote: {"kind":"quote","text":"one sentence","keyword":"word"} the one sentence the material itself stresses as its core message, at most once on the page. keyword is the one word of that sentence it turns on, written exactly as in the sentence.
@@ -42,7 +42,7 @@ _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
 - bars: {"kind":"bars","max":1,"bars":[{"label":"thing","value":0.62,"text":"one sentence on the value"}]} two to ten things measured on one scale, such as shares. max is the top of the scale, 1 for shares, 100 for percent.
 
 EXAMPLE of two sections:
-{"sections":[{"section_index":2,"map_label":"Vorgehen","lead":"So kommt man von den Punkten zur fertigen Geraden.","blocks":[{"kind":"steps","steps":[{"title":"Punkte eintragen","text":"Jedes Wertepaar wird ein Punkt."},{"title":"Steigung berechnen","text":"Durch den Schwerpunkt ergibt sich b = 3,9."}]}],"keywords":["Steigung","Schwerpunkt"]},{"section_index":3,"map_label":"Grenzen","lead":"Eine Gerade passt nicht auf jeden Zusammenhang.","blocks":[{"kind":"text","text":"Liegen die Punkte auf einer Kurve, liegt die Gerade in der Mitte zu hoch und an den Rändern zu tief. Ein einzelner Ausreißer kann sie stark kippen."}],"keywords":["Ausreißer"]}]}"""
+{"sections":[{"section_index":2,"map_label":"Vorgehen","lead":"So kommt man von den Punkten zur fertigen Geraden.","blocks":[{"kind":"text","text":"Die Gerade entsteht nicht durch Probieren, sondern in festen Schritten aus den Messwerten. Zuerst wird jedes Wertepaar als Punkt eingetragen, damit man sieht, ob überhaupt ein linearer Zusammenhang besteht. Die Gerade läuft dann immer durch den Schwerpunkt der Punktwolke, weil sich dort die Abweichungen nach oben und unten ausgleichen. Erst danach lässt sich die Steigung berechnen."},{"kind":"steps","steps":[{"title":"Punkte eintragen","text":"Jedes Wertepaar wird ein Punkt."},{"title":"Schwerpunkt bestimmen","text":"Die Mittelwerte von x und y ergeben den Schwerpunkt."},{"title":"Steigung berechnen","text":"Durch den Schwerpunkt ergibt sich b = 3,9."}]}],"keywords":["Steigung","Schwerpunkt"]},{"section_index":3,"map_label":"Grenzen","lead":"Eine Gerade passt nicht auf jeden Zusammenhang.","blocks":[{"kind":"text","text":"Liegen die Punkte auf einer Kurve, liegt die Gerade in der Mitte zu hoch und an den Rändern zu tief. Ein einzelner Ausreißer kann sie stark kippen, weil die Abweichungen quadriert in die Rechnung eingehen. Deshalb gehört vor jede Auswertung ein Blick auf die Punktwolke."}],"keywords":["Ausreißer"]}]}"""
 
 
 def _blocks_system(language: str, count: int) -> str:
@@ -50,20 +50,23 @@ def _blocks_system(language: str, count: int) -> str:
         f"You turn passages of teaching material into {count} section(s) of a learning web page "
         "for students. The page condenses, it never asks questions and holds no quiz.\n"
         + GROUND_RULES.format(language=language) + "\n"
-        "Rule 8: Each section gets one or two blocks. Choose each block by its content, the "
-        "first match wins: at least three numbers of the same quantity become a chart, dated "
-        "events become a timeline, things compared along the same attributes become a table, "
-        "two things set against each other become versus, two things with what they share "
-        "become venn, four fields spanned by two axes become a matrix, phases that repeat "
-        "become a cycle, an order becomes steps, a whole split into parts becomes a tree, a "
-        "ranking from top to bottom becomes levels, things between two poles become a scale, "
-        "typical mistakes become mistakes, a worked example becomes example, a formula "
-        "becomes formula, two to four key numbers become figures, terms with their meaning "
-        "become definitions, things that each need a longer explanation become an accordion, "
-        "what something must contain becomes a checklist, an explanation becomes text, "
-        "separate statements become bullets. cards only where none of these fits, at most once "
-        "among your sections. The two blocks of a section are never of the same kind, and no "
-        "kind fills more than a third of your sections.\n"
+        "Rule 8: Running text carries the page, at least half of it is prose. Each section "
+        "opens with a text block of three to six sentences that explains its subject in "
+        "connected sentences, with reasons, consequences and how things relate. Then comes at "
+        "most one further block that shows what the text explains, never one that repeats it. "
+        "Choose that block by its content, the first match wins: at least three numbers of the "
+        "same quantity become a chart, dated events become a timeline, things compared along "
+        "the same attributes become a table, two things set against each other become versus, "
+        "two things with what they share become venn, four fields spanned by two axes become a "
+        "matrix, phases that repeat become a cycle, an order becomes steps, a whole split into "
+        "parts becomes a tree, a ranking from top to bottom becomes levels, things between two "
+        "poles become a scale, typical mistakes become mistakes, a worked example becomes "
+        "example, a formula becomes formula, two to four key numbers become figures, terms "
+        "with their meaning become definitions, things that each need a longer explanation "
+        "become an accordion, what something must contain becomes a checklist, separate "
+        "statements become bullets. cards only where none of these fits, at most once among "
+        "your sections. A section whose subject needs no picture of its own keeps the text "
+        "alone, and no kind of further block fills more than a third of your sections.\n"
         "Rule 9: Never invent a number, a value in a chart, bars or figures block comes from "
         "the material as it stands. Place things on a scale or in a matrix only where the "
         "material places them, and give a date only as the material gives it.\n"
