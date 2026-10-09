@@ -13,6 +13,7 @@ from src.i18n import get_locale, t
 from src.features.accounts.login import authenticate
 from src.modules import active_modules
 from src.security.auth import ACCESS_EXPIRED, access_expired_error
+from src.services.consent import has_global_consent
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -139,6 +140,7 @@ def auth_status(request: Request):
             "username": "local",
             "display_name": "Admin",
             "email": "",
+            "global_consent_accepted": has_global_consent(user_id),
             "permissions": {
                 "allow_admin_panel": perms.allow_admin_panel,
                 "allow_aia": perms.allow_aia,
@@ -200,6 +202,7 @@ def auth_status(request: Request):
             "keys": sorted(perms.keys),
         },
         "modules": sorted(active_modules()),
+        "global_consent_accepted": has_global_consent(user_id) if user_id else False,
     }
     # Preserve other session fields (display_name, username, etc.) without clobbering keys above.
     # The token of the borrowed session stays on the server, it must never reach a browser.

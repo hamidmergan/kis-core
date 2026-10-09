@@ -10,6 +10,7 @@ import "katex/dist/katex.min.css";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 import LayoutShell from "@/components/layout/LayoutShell";
 import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
+import ConsentGuard from "@/components/auth/ConsentGuard";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
@@ -62,6 +63,7 @@ export default async function RootLayout({ children, params }: Props) {
       <body className={`${geist.variable} min-h-screen flex flex-col`} suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <MaintenanceGuard />
+          <ConsentGuard />
           <main className="flex-1">
             <LayoutShell hasSession={hasSession}>{children}</LayoutShell>
           </main>

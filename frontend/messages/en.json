@@ -4637,6 +4637,13 @@
     "title": "Welcome to KIS",
     "cta": "Get started"
   },
+  "consent": {
+    "title": "Before you start",
+    "body": "KIS is an AI platform. Your input is processed by AI systems to provide you with the services. Details are in the <link>privacy policy</link>.",
+    "dataProtection": "Your data is processed in accordance with GDPR.",
+    "checkbox": "I have read the notice and agree.",
+    "cta": "Continue"
+  },
   "languageTrainerInvite": {
     "title": "Language trainer",
     "body": "For learners of German. Your level decides how the assistant in a workspace explains and how flashcards, quizzes and exercises are worded.",

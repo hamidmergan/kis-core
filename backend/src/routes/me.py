@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
+from src.services.consent import GLOBAL_CONSENT_VERSION, has_global_consent
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -71,9 +72,24 @@ def get_me(
         "role": row["role"],
         "locale": row.get("locale", "de"),
         "tour_seen_at": row["tour_seen_at"].isoformat() if row.get("tour_seen_at") else None,
+        "global_consent_accepted": has_global_consent(user_id),
+        "global_consent_at": row["global_consent_at"].isoformat() if row.get("global_consent_at") else None,
         **_language_level_state(user_id),
         **_language_training_state(user_id),
     }
+
+
+@router.post("/consent")
+def accept_global_consent(
+    user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The one notice every account accepts once, before any service becomes reachable."""
+    user_id = user.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    db.set_global_consent(user_id, GLOBAL_CONSENT_VERSION)
+    return {"ok": True}
 
 
 @router.post("/tour-seen")

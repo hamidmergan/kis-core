@@ -222,3 +222,28 @@ def set_user_tour_seen(user_id: int, seen: bool) -> None:
         conn.commit()
 
 
+def get_global_consent(user_id: int) -> dict:
+    """When and which version of the global notice this person accepted, both None when never."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT global_consent_at, global_consent_version FROM users WHERE id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+    if not row:
+        return {"global_consent_at": None, "global_consent_version": None}
+    return dict(row)
+
+
+def set_global_consent(user_id: int, version: int) -> None:
+    """Notes the acceptance with the current time, same account for TH, external or demo access."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET global_consent_at = NOW(), global_consent_version = %s WHERE id = %s",
+                (version, user_id),
+            )
+        conn.commit()
+
+

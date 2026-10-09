@@ -10,6 +10,14 @@ if str(BACKEND_ROOT) not in sys.path:
 import pytest  # noqa: E402  (after the sys.path shim above)
 
 
+@pytest.fixture(autouse=True)
+def _global_consent_given(monkeypatch):
+    """New accounts confirm this once; every other test assumes it already happened.
+    A test for the gate itself overrides it back, see test_global_consent.py."""
+    import src.dependencies_rbac as rbac
+    monkeypatch.setattr(rbac, "has_global_consent", lambda user_id: True)
+
+
 @pytest.fixture
 def lokal(monkeypatch, tmp_path):
     """Storage without S3, the keys end up as files in the test directory."""

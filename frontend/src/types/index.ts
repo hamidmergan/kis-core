@@ -25,6 +25,8 @@ export interface AuthStatus {
   permissions?: UserPermissions;
   /** Welche Module diese Anlage hat, fehlt bei aelteren Servern. */
   modules?: string[];
+  /** The one notice every account confirms once, before any service is reachable. */
+  global_consent_accepted?: boolean;
   /** Set while somebody is logged in as this account. */
   impersonator?: Impersonator;
   /** Why nobody is signed in, currently only "access_expired". */

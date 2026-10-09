@@ -4637,6 +4637,13 @@
     "title": "Willkommen bei KIS",
     "cta": "Los geht's"
   },
+  "consent": {
+    "title": "Bevor du startest",
+    "body": "KIS ist eine KI-Plattform. Deine Eingaben werden von KI-Systemen verarbeitet, um dir die Dienste bereitzustellen. Details dazu stehen in der <link>Datenschutzerklärung</link>.",
+    "dataProtection": "Deine Daten werden nach den Vorgaben der DSGVO verarbeitet.",
+    "checkbox": "Ich habe die Hinweise gelesen und bin einverstanden.",
+    "cta": "Weiter"
+  },
   "languageTrainerInvite": {
     "title": "Sprachtrainer",
     "body": "Für Deutsch als Fremdsprache. Dein Niveau bestimmt, wie der Assistent im Workspace erklärt und wie Karteikarten, Quiz und Übungen formuliert sind.",

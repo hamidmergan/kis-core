@@ -5,7 +5,14 @@ from src.dependencies import get_current_user, get_settings
 from src.i18n import get_locale, t
 from src.permissions import Permissions, is_full_admin, resolve_user_permissions
 from src.permissions_registry import ROLE_ONLY_KEYS, is_settings_key
+from src.services.consent import has_global_consent
 from src.services.tool_release import is_released_now
+
+
+def _require_global_consent(user: dict, locale: str) -> None:
+    """Every service gate shares this check, independent of role, demo or access type."""
+    if not has_global_consent(user.get("user_id")):
+        raise HTTPException(status_code=403, detail=t("consent.required", locale))
 
 
 def _is_env_admin(email: str | None) -> bool:
@@ -34,6 +41,7 @@ def require_permission(*keys: str):
         user: dict = Depends(get_current_user),
         locale: str = Depends(get_locale),
     ) -> dict:
+        _require_global_consent(user, locale)
         if not permissions_of(user).has(*keys):
             raise HTTPException(
                 status_code=403, detail=t("auth.permissionRequired", locale)
@@ -81,18 +89,22 @@ async def require_full_admin(
 
 
 async def require_aia_access(
+    user: dict = Depends(get_current_user),
     perms: Permissions = Depends(get_user_permissions),
     locale: str = Depends(get_locale),
 ) -> Permissions:
+    _require_global_consent(user, locale)
     if not perms.allow_aia:
         raise HTTPException(status_code=403, detail=t("auth.aiaForbidden", locale))
     return perms
 
 
 async def require_workspace_create(
+    user: dict = Depends(get_current_user),
     perms: Permissions = Depends(get_user_permissions),
     locale: str = Depends(get_locale),
 ) -> Permissions:
+    _require_global_consent(user, locale)
     if not perms.allow_workspace_create:
         raise HTTPException(status_code=403, detail=t("auth.workspaceCreateForbidden", locale))
     return perms
@@ -101,9 +113,11 @@ async def require_workspace_create(
 def require_tool_access(tool_key: str):
     """Builds a dependency that checks access to a named tool."""
     async def _check(
+        user: dict = Depends(get_current_user),
         perms: Permissions = Depends(get_user_permissions),
         locale: str = Depends(get_locale),
     ) -> Permissions:
+        _require_global_consent(user, locale)
         if tool_key not in perms.tools or not is_released_now(tool_key):
             raise HTTPException(status_code=403, detail=t("auth.toolForbidden", locale))
         return perms

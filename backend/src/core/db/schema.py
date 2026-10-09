@@ -318,6 +318,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Own interfaces: when and which version of the disclaimer the person accepted.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_version INTEGER")
+            # Global KI-/Datenschutz-Hinweis beim ersten Login, gleich fuer TH-Konto, externen Zugang und Demo.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS global_consent_at TIMESTAMP WITH TIME ZONE")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS global_consent_version INTEGER")
             # The tools tour is gone, the tile overview explains every tool itself.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS tools_tour_seen_at")
             # The single mark per account is gone, aia_demo_seeded remembers per module.
