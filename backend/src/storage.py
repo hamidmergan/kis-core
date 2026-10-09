@@ -242,6 +242,8 @@ def init_storage() -> None:
 
 # The host the browser reaches, inside Docker the bucket may answer under another name.
 _S3_PUBLIC_ENDPOINT = os.environ.get("S3_PUBLIC_ENDPOINT", "") or _S3_ENDPOINT
+# Path on the page's own host that relays parts to the bucket, for buckets without CORS.
+S3_UPLOAD_PROXY = os.environ.get("S3_UPLOAD_PROXY", "").rstrip("/")
 
 # Origins the bucket already accepts browser uploads from, checked once per process.
 _UPLOAD_CORS_READY: set[str] = set()
@@ -257,7 +259,8 @@ def _s3_public():
         endpoint_url=_S3_PUBLIC_ENDPOINT,
         aws_access_key_id=os.environ.get("S3_ACCESS_KEY", ""),
         aws_secret_access_key=os.environ.get("S3_SECRET_KEY", ""),
-        config=Config(signature_version="s3v4"),
+        # Path style keeps the bucket host fixed, so a relay can forward the signed path unchanged.
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
 
@@ -299,11 +302,14 @@ def multipart_start(key: str, content_type: str) -> str:
 
 def multipart_part_url(key: str, upload_id: str, part_number: int, expires_seconds: int) -> str:
     """Signs one part for a PUT straight from the browser."""
-    return _s3_public().generate_presigned_url(
+    url = _s3_public().generate_presigned_url(
         "upload_part",
         Params={"Bucket": _S3_BUCKET, "Key": key, "UploadId": upload_id, "PartNumber": part_number},
         ExpiresIn=expires_seconds,
     )
+    if S3_UPLOAD_PROXY and url.startswith(_S3_PUBLIC_ENDPOINT):
+        return S3_UPLOAD_PROXY + url[len(_S3_PUBLIC_ENDPOINT.rstrip("/")):]
+    return url
 
 
 def multipart_parts(key: str, upload_id: str) -> list[dict] | None:

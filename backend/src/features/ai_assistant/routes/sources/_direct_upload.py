@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.storage import (
+    S3_UPLOAD_PROXY,
     aia_source_key,
     delete_file,
     ensure_upload_cors,
@@ -42,8 +43,8 @@ router = APIRouter(tags=["ki-assistent: sources"])
 # Only media goes this way, documents still need conversion and page counts on arrival.
 _DIRECT_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"} & _ALLOWED_EXTENSIONS
 
-# Large enough for few requests, small enough that a broken line loses little.
-_PART_SIZE = 8 * 1024 * 1024
+# The smallest part S3 allows, a broken line loses little and progress moves often.
+_PART_SIZE = 5 * 1024 * 1024
 # A signed part stays valid this long, slow lines fetch new ones in small batches.
 _PART_URL_SECONDS = 60 * 60
 _MAX_URLS_PER_CALL = 20
@@ -143,7 +144,9 @@ def start_direct_upload(
             detail=t("ai.source.duplicateName", locale, name=body.filename, label=_workspace_label(locale)),
         )
 
-    ensure_upload_cors(_same_site_origin(request))
+    # Through the relay the browser stays on its own host and needs no CORS rule.
+    if not S3_UPLOAD_PROXY:
+        ensure_upload_cors(_same_site_origin(request))
 
     source_uuid = uuid.uuid4().hex
     # The file hangs off the owner, not off the person adding it.

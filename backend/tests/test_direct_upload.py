@@ -185,3 +185,26 @@ def test_abbruch_verwirft_teile(bucket):
     du.abort_direct_upload(workspace_uuid="w1", token=token, current_user={"user_id": 42}, locale="de")
     assert len(bucket["aborted"]) == 1
     assert bucket["redis"] == {}
+
+
+def test_mit_weiterleitung_keine_cors_regel(bucket, monkeypatch):
+    monkeypatch.setattr(du, "S3_UPLOAD_PROXY", "/bucket-upload")
+    _start()
+    assert bucket["cors"] == []
+
+
+def test_signierte_adresse_geht_ueber_die_weiterleitung(monkeypatch):
+    from src import storage
+
+    class _Signer:
+        def generate_presigned_url(self, op, Params, ExpiresIn):
+            return f"https://s3.example/kis/{Params['Key']}?partNumber={Params['PartNumber']}&X-Amz-Signature=abc"
+
+    monkeypatch.setattr(storage, "_s3_public", lambda: _Signer())
+    monkeypatch.setattr(storage, "_S3_PUBLIC_ENDPOINT", "https://s3.example")
+    monkeypatch.setattr(storage, "S3_UPLOAD_PROXY", "/bucket-upload")
+    assert storage.multipart_part_url("users/1/a.webm", "u", 2, 60) == (
+        "/bucket-upload/kis/users/1/a.webm?partNumber=2&X-Amz-Signature=abc"
+    )
+    monkeypatch.setattr(storage, "S3_UPLOAD_PROXY", "")
+    assert storage.multipart_part_url("users/1/a.webm", "u", 2, 60).startswith("https://s3.example/kis/")

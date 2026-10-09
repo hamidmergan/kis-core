@@ -20,6 +20,11 @@ services:
       - backend
     restart: unless-stopped
 
+  backend:
+    environment:
+      # Signed upload parts go through nginx on the page's own host, see deploy/nginx/default.conf.
+      S3_UPLOAD_PROXY: /bucket-upload
+
   nginx:
     image: nginx:alpine
     container_name: kis-nginx

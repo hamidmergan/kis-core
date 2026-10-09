@@ -51,18 +51,15 @@ function whenOnline(): Promise<void> {
   return new Promise((r) => window.addEventListener("online", () => r(), { once: true }));
 }
 
-function putPart(url: string, blob: Blob, onLoaded: (bytes: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.upload.onprogress = (e) => onLoaded(e.loaded);
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(Object.assign(new Error(`part ${xhr.status}`), { status: xhr.status }));
-    };
-    xhr.onerror = () => reject(Object.assign(new Error("network"), { status: 0 }));
-    xhr.send(blob);
-  });
+// Without cookies the browser opens a connection of its own, the page's requests never queue behind a part.
+async function putPart(url: string, blob: Blob): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "PUT", body: blob, credentials: "omit" });
+  } catch {
+    throw Object.assign(new Error("network"), { status: 0 });
+  }
+  if (!res.ok) throw Object.assign(new Error(`part ${res.status}`), { status: res.status });
 }
 
 export async function directUpload(
@@ -98,8 +95,8 @@ export async function directUpload(
   const done = new Set(session.uploaded);
   const partBytes = (n: number) => Math.min(partSize, file.size - (n - 1) * partSize);
   let doneBytes = [...done].reduce((sum, n) => sum + partBytes(n), 0);
-  const report = (current: number) => onPercent(Math.min(99, Math.floor(((doneBytes + current) / file.size) * 100)));
-  report(0);
+  const report = () => onPercent(Math.min(99, Math.floor((doneBytes / file.size) * 100)));
+  report();
 
   const todo = Array.from({ length: partCount }, (_, i) => i + 1).filter((n) => !done.has(n));
   let anyPartSent = done.size > 0;
@@ -120,7 +117,7 @@ export async function directUpload(
       for (let attempt = 1; ; attempt++) {
         try {
           await whenOnline();
-          await putPart(urls[String(n)], blob, report);
+          await putPart(urls[String(n)], blob);
           break;
         } catch (err) {
           const status = (err as HttpError).status ?? 0;
@@ -136,7 +133,7 @@ export async function directUpload(
       }
       anyPartSent = true;
       doneBytes += partBytes(n);
-      report(0);
+      report();
     }
   }
 
