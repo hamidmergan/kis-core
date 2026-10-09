@@ -218,6 +218,17 @@
 .kis-page ol.v-fm-lines { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; font-size: 17px; font-variant-numeric: tabular-nums; }
 .kis-page ol.v-fm-lines li:last-child { font-weight: 700; }
 
+/* versus: each side a light card */
+.kis-page .v-vs-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.kis-page .v-vs-card { background: var(--pg-mist); border-radius: 14px; padding: 22px 24px; }
+.kis-page .v-vs-card h3 { font-size: 19px; margin-bottom: 8px; }
+.kis-page .v-vs-card-good h3 { color: var(--pg-good); }
+.kis-page .v-vs-card-bad h3 { color: var(--pg-bad); }
+.kis-page .v-vs-card ul { list-style: none; margin: 0; padding: 0; }
+.kis-page .v-vs-card li { position: relative; padding: 4px 0 4px 20px; }
+.kis-page .v-vs-card li::before { content: ""; position: absolute; left: 4px; top: 0.9em; width: 6px; height: 6px; border-radius: 50%; background: var(--pg-accent); }
+@container (max-width: 600px) { .kis-page .v-vs-cards { grid-template-columns: minmax(0, 1fr); gap: 14px; } }
+
 /* mistakes: pairs with cross and check */
 .kis-page .v-mk-pair-list li { padding: 14px 0; border-top: 2px solid var(--pg-line); }
 .kis-page .v-mk-pair-list li:first-child { border-top: 0; padding-top: 0; }

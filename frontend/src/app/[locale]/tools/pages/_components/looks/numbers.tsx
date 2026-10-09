@@ -665,9 +665,9 @@ const chart: Look<"chart">[] = [
 ];
 
 const table: Look<"table">[] = [
-  { name: "Schlicht mit Kopflinie", View: TbPlain },
-  { name: "Gestreift", View: TbStripe },
-  { name: "Bewertung mit Punkten", fits: (b) => ratedColumns(b).some(Boolean), View: TbDots },
+  { name: "Schlicht mit Kopflinie", family: "grid", View: TbPlain },
+  { name: "Gestreift", family: "grid", View: TbStripe },
+  { name: "Bewertung mit Punkten", family: "grid", fits: (b) => ratedColumns(b).some(Boolean), View: TbDots },
 ];
 
 const scale: Look<"scale">[] = [

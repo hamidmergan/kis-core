@@ -216,7 +216,7 @@ function inlineLook(name: string, cls: string, termCls: string, fits?: (b: B<"de
 }
 
 const DEFINITIONS: Look<"definitions">[] = [
-  pairsLook("Tabelle", "v-df-table"),
+  { ...pairsLook("Tabelle", "v-df-table"), family: "grid" },
   {
     name: "Glossar",
     View: function Glossary({ b, p, limits }) {
@@ -452,6 +452,6 @@ export const LOOKS_TEXT: Looks = {
   quote: QUOTES,
   checklist: CHECKLIST,
   definitions: DEFINITIONS,
-  cards: CARDS,
+  cards: CARDS.map((l) => ({ ...l, family: "boxes" as const })),
   accordion: ACCORDION,
 };

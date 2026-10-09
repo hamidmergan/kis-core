@@ -54,6 +54,22 @@ function VsSplit({ b, p, limits }: LookProps<"versus">) {
   );
 }
 
+/** Each side as a light card of its own, a title over its points. */
+function VsCards({ b, p, limits }: LookProps<"versus">) {
+  const side = (s: Side, k: "a" | "b") => (
+    <div className={`v-vs-card${b.tone === "good_bad" ? ` v-vs-card-${k === "a" ? "good" : "bad"}` : ""}`}>
+      <Txt path={`${p}.${k}.title`} value={s.title} as="h3" max={limits.short} />
+      <ul><Items p={`${p}.${k}.items`} items={s.items} max={limits.item} /></ul>
+    </div>
+  );
+  return (
+    <div className="v-cp v-vs-cards">
+      {side(b.a, "a")}
+      {side(b.b, "b")}
+    </div>
+  );
+}
+
 function VsChecks({ b, p, limits }: LookProps<"versus">) {
   const side = (s: Side, k: "a" | "b") => {
     const good = k === "a";
@@ -516,15 +532,16 @@ function HlLook({ b, p, limits }: LookProps<"highlight">) {
 
 export const LOOKS_COMPARE: Looks = {
   versus: [
-    { name: "Mittellinie", View: VsSplit },
-    { name: "Haken und Kreuz", fits: (b) => b.tone === "good_bad", View: VsChecks },
-    { name: "Zeile für Zeile", View: VsRows },
+    { name: "Mittellinie", family: "grid", View: VsSplit },
+    { name: "Haken und Kreuz", family: "grid", fits: (b) => b.tone === "good_bad", View: VsChecks },
+    { name: "Zeile für Zeile", family: "grid", View: VsRows },
     { name: "Waage", fits: (b) => b.tone === "good_bad", View: VsScale },
-    { name: "Kopflinie", View: VsHead },
-    { name: "Vorher und nachher", fits: (b) => b.tone === "neutral", View: VsArrow },
+    { name: "Kopflinie", family: "grid", View: VsHead },
+    { name: "Vorher und nachher", family: "grid", fits: (b) => b.tone === "neutral", View: VsArrow },
+    { name: "Zwei Karten", family: "boxes", View: VsCards },
   ],
   matrix: [
-    { name: "Vier Felder", View: MxFields },
+    { name: "Vier Felder", family: "grid", View: MxFields },
     { name: "Punkte im Kreuz", fits: (b) => b.points.length >= 2, View: MxPoints },
     { name: "Achsenkreuz", View: MxCross },
   ],
@@ -538,10 +555,10 @@ export const LOOKS_COMPARE: Looks = {
     { name: "Rechenweg", fits: (b) => b.example.length > 0, View: FmWay },
   ],
   mistakes: [
-    { name: "Kreuz und Haken", View: MkPairs },
-    { name: "Durchgestrichen", View: MkStrike },
-    { name: "Tabelle", View: MkTable },
-    { name: "Pfeil", View: MkArrow },
+    { name: "Kreuz und Haken", family: "grid", View: MkPairs },
+    { name: "Durchgestrichen", family: "grid", View: MkStrike },
+    { name: "Tabelle", family: "grid", View: MkTable },
+    { name: "Pfeil", family: "grid", View: MkArrow },
   ],
   example: [
     { name: "Drei Zeilen", View: ExRows },
