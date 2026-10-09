@@ -12,6 +12,9 @@ import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_scree
 import { JobSources } from "@/components/jobs/JobSources";
 
 
+// Same look as the resume button in the status badge, every job action reads as a button.
+const aktionsKnopf = "btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md";
+
 interface JobListItemProps {
   job: MyJob;
   isAdmin: boolean;
@@ -80,10 +83,16 @@ export function JobListItem({
             <button
               onClick={() => onRetry(job)}
               disabled={retrying === job.job_uuid}
-              className="text-xs text-info hover:underline disabled:opacity-50"
+              className={`${aktionsKnopf} disabled:opacity-50`}
             >
               {retrying === job.job_uuid ? "..." : t(job.status === "paused" ? "continue" : "retry")}
             </button>
+          )}
+          {/* A failed job with its own page continues there, the badge only shows the state. */}
+          {!canRetry && !expired && job.status === "failed" && resumeHref && (
+            <a href={resumeHref} className={aktionsKnopf}>
+              {t("retry")}
+            </a>
           )}
           {!isActive(job.status) && (
             <IconButton

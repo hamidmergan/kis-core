@@ -70,6 +70,9 @@ function formatDurationShort(ms: number): string {
   return formatElapsed(ms, SHORT_ELAPSED);
 }
 
+// Same look as the resume button in the status badge, every job action reads as a button.
+const aktionsKnopf = "btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md";
+
 function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResume }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean; resumeHref?: string; onResume?: (e: React.MouseEvent) => void }) {
   const t = useTranslations("myJobs.status");
   const anzeige = jobStatusDisplay(status, { expired, isGeneratingScripts });
@@ -375,6 +378,17 @@ export default function JobsPanel() {
               <ul className="divide-y divide-border-soft">
                 {jobs.slice(0, 3).map((job) => {
                   const expired = isExpired(job);
+                  const resumeHref = screencastJumpKind(job) === "resume"
+                    ? screencastJumpHref(job.job_uuid)
+                    : podcastJumpKind(job) === "resume"
+                      ? podcastJumpHref(job.job_uuid)
+                      : praesentationJumpKind(job) === "resume"
+                        ? praesentationJumpHref(job.job_uuid)
+                        : undefined;
+                  const canRetry =
+                    ((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
+                      && (job.status === "failed" || job.status === "paused"))
+                    || ((job.tool === "summary" || job.tool === "pages") && job.status === "paused");
                   return (
                     <li
                       key={job.job_uuid}
@@ -446,26 +460,27 @@ export default function JobsPanel() {
                             status={job.status}
                             expired={expired}
                             isGeneratingScripts={job.is_generating_scripts}
-                            resumeHref={
-                              screencastJumpKind(job) === "resume"
-                                ? screencastJumpHref(job.job_uuid)
-                                : podcastJumpKind(job) === "resume"
-                                  ? podcastJumpHref(job.job_uuid)
-                                  : praesentationJumpKind(job) === "resume"
-                                    ? praesentationJumpHref(job.job_uuid)
-                                    : undefined
-                            }
+                            resumeHref={resumeHref}
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
-                          {(((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && (job.status === "failed" || job.status === "paused"))
-                            || ((job.tool === "summary" || job.tool === "pages") && job.status === "paused")) && (
+                          {canRetry && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
-                              className="text-xs text-info hover:underline disabled:opacity-50"
+                              className={`${aktionsKnopf} disabled:opacity-50`}
                             >
                               {retrying === job.job_uuid ? "..." : tActions(job.status === "paused" ? "continue" : "retry")}
                             </button>
+                          )}
+                          {/* A failed job with its own page continues there, the badge only shows the state. */}
+                          {!canRetry && !expired && job.status === "failed" && resumeHref && (
+                            <a
+                              href={resumeHref}
+                              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                              className={aktionsKnopf}
+                            >
+                              {tActions("retry")}
+                            </a>
                           )}
                         </div>
                       </div>
