@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
 import DemoConfirmDialog from "./DemoConfirmDialog";
-import { SignIn, Trash, Users } from "@phosphor-icons/react";
+import { Gauge, SignIn, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
@@ -239,7 +239,6 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 <th className="px-4 py-3 text-left">{t("roles.userRoleLabel")}</th>
                 <th className="px-4 py-3 text-left" title={t("users.demoHint")}>{t("users.colDemo")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colCreated")}</th>
-                <th className="px-4 py-3 text-left">{t("users.colQuotas")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colActions")}</th>
               </tr>
             </thead>
@@ -307,15 +306,15 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                     {formatDate(u.created_at)}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => onOpenQuota(u.id)}
-                      className="text-xs text-kb hover:underline whitespace-nowrap"
-                    >
-                      {t("users.details")}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
+                      <IconButton
+                        size="sm"
+                        title={t("users.quotaButtonTitle", { name: u.display_name })}
+                        aria-label={t("users.quotaButtonTitle", { name: u.display_name })}
+                        onClick={() => onOpenQuota(u.id)}
+                      >
+                        <Gauge size={14} weight="bold" />
+                      </IconButton>
                       {darfUebernehmen &&
                         canImpersonate(u, { userId: meineId, adminEmail, gesperrteRollen }) && (
                           <IconButton

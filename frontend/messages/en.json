@@ -2198,7 +2198,6 @@
       "colEmail": "Email",
       "colStatus": "Status",
       "colCreated": "Created",
-      "colQuotas": "Quotas",
       "colDemo": "Demo",
       "demoHint": "The active courses of this account appear on everyone else's home page",
       "demoConfirm": {
@@ -2212,7 +2211,7 @@
       },
       "active": "Active",
       "inactive": "Inactive",
-      "details": "Details",
+      "quotaButtonTitle": "Quotas of {name}",
       "colActions": "Action",
       "delete": {
         "buttonTitle": "Delete account",

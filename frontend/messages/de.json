@@ -2198,7 +2198,6 @@
       "colEmail": "Email",
       "colStatus": "Status",
       "colCreated": "Erstellt",
-      "colQuotas": "Kontingente",
       "colDemo": "Demo",
       "demoHint": "Die aktiven Kurse dieses Kontos stehen bei allen anderen auf der Startseite",
       "demoConfirm": {
@@ -2212,7 +2211,7 @@
       },
       "active": "Aktiv",
       "inactive": "Inaktiv",
-      "details": "Details",
+      "quotaButtonTitle": "Kontingente von {name}",
       "colActions": "Aktion",
       "delete": {
         "buttonTitle": "Konto löschen",
