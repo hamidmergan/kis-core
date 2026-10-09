@@ -56,13 +56,12 @@ export default function CollectionView({ code }: { code: string }) {
     <>
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">
         {data.own && <ToolBackLink href="/tools/pages" label={t("back")} />}
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex items-center gap-3 mb-5">
           <h1 className="text-xl font-bold flex-1">{t("collectionHeading", { name: data.owner.name })}</h1>
           {data.own && (
             <ShareButton on={data.shared} onClick={() => setShareOpen(true)} />
           )}
         </div>
-        <p className="text-sm text-muted mb-5">{t("collectionIntro", { name: data.owner.name })}</p>
         {data.pages.length === 0 ? (
           <EmptyState size="sm" text={t("collectionEmpty")} />
         ) : (
