@@ -55,31 +55,48 @@ test("Angehakte Dateien gemeinsam in ein Kapitel verschieben", async ({ page, ba
     await anmelden(page);
     await page.goto(`/de/workspace/${angelegt.uuid}`, { waitUntil: "domcontentloaded" });
     const zeile = (name: string) => page.locator('[data-tour="source-row"]', { hasText: name });
+    const haken = (name: string) => zeile(name).locator('[data-tour="source-check"]');
+    const leiste = page.locator(".sources-select-all");
     const knopf = page.getByTestId("move-checked");
-
-    // Start from nothing checked, then check two.
-    const alle = page.locator(".sources-select-all");
     await expect(zeile(DATEIEN[0])).toBeVisible({ timeout: 30_000 });
-    if (await alle.getByRole("button", { name: "Alle abwählen" }).count()) await alle.click();
-    await expect(knopf).toHaveCount(0);
-    await zeile(DATEIEN[0]).locator('[data-tour="source-check"]').click();
-    await zeile(DATEIEN[1]).locator('[data-tour="source-check"]').click();
-    await expect(knopf).toContainText("Verschieben (2)");
 
+    // Chat selection: everything checked, still no move button, only the pencil.
+    if (!(await leiste.getByRole("button", { name: "Alle abwählen" }).count())) await leiste.click();
+    await expect(knopf).toHaveCount(0);
+    await expect(page.getByTestId("move-mode")).toBeVisible();
+    await page.screenshot({ path: path.join(SHOTS, "mehrfach-00-normal.png") });
+
+    // The pencil starts the mode with nothing checked and the count at zero.
+    await page.getByTestId("move-mode").click();
+    await expect(page.getByTestId("move-bar")).toContainText("Auswählen");
+    await expect(knopf).toContainText("Verschieben (0)");
+    await expect(knopf).toBeDisabled();
+    for (const n of DATEIEN) await expect(haken(n)).toHaveAttribute("aria-label", "Material auswählen");
+    await haken(DATEIEN[0]).click();
+    await haken(DATEIEN[1]).click();
+    await expect(knopf).toContainText("Verschieben (2)");
     await knopf.click();
+    await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SHOTS, "mehrfach-01-menue.png") });
-    await alle.getByRole("button", { name: KAPITEL }).click();
+    await leiste.getByRole("button", { name: KAPITEL }).click();
 
     await expect.poll(async () => {
       const q = await quellen();
       return DATEIEN.map((n) => q.find((s) => s.filename === n)?.chapter_uuid ?? null);
     }).toEqual([kapitel.uuid, kapitel.uuid, null]);
+
+    // The mode is over and the chat selection is back untouched.
+    await expect(page.getByTestId("move-bar")).toHaveCount(0);
+    for (const n of DATEIEN) await expect(haken(n)).toHaveAttribute("aria-label", "Material abwählen");
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(SHOTS, "mehrfach-02-verschoben.png") });
 
-    // And back out together.
-    await knopf.click();
-    await alle.getByRole("button", { name: "Ohne Kapitel" }).click();
-    await expect.poll(async () => (await quellen()).every((s) => s.chapter_uuid === null)).toBe(true);
+    // Cancel leaves everything where it is.
+    await page.getByTestId("move-mode").click();
+    await haken(DATEIEN[2]).click();
+    await page.getByTestId("move-cancel").click();
+    await expect(page.getByTestId("move-bar")).toHaveCount(0);
+    expect((await quellen()).find((s) => s.filename === DATEIEN[2])?.chapter_uuid ?? null).toBeNull();
   } finally {
     await owner.delete(base);
   }

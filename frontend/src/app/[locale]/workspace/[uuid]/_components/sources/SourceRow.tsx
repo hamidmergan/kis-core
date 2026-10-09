@@ -22,6 +22,7 @@ import { FileIcon, SourceStatus } from "./FileIcon";
 export function SourceRow({
   src,
   checked,
+  selectAny,
   isOwner,
   ocrEnabled,
   compact,
@@ -47,6 +48,8 @@ export function SourceRow({
 }: {
   src: Source;
   checked: boolean;
+  /** Moving picks files that are still being read in too. */
+  selectAny?: boolean;
   isOwner: boolean;
   /** Text recognition on platform wide, with it off there is nothing to catch up on. */
   ocrEnabled: boolean;
@@ -92,6 +95,7 @@ export function SourceRow({
 
   // A source is only selectable once ingest is finished.
   const ready = src.status === "ready" && !src.progress;
+  const selectable = ready || !!selectAny;
 
   // Only a warning sign, and none when text recognition is off entirely.
   const ocrOpen = src.ocr_info?.open ?? [];
@@ -140,14 +144,14 @@ export function SourceRow({
         <button
           type="button"
           data-tour="source-check"
-          onClick={() => { if (ready) onToggle(src.uuid); }}
-          disabled={!ready}
+          onClick={() => { if (selectable) onToggle(src.uuid); }}
+          disabled={!selectable}
           aria-label={checked ? t("deselectSource") : t("selectSource")}
-          title={!ready ? t("stillProcessing") : undefined}
+          title={!selectable ? t("stillProcessing") : undefined}
           className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
             checked
               ? "border-[var(--kb)] bg-[var(--kb)]"
-              : ready
+              : selectable
               ? "border-[var(--border)] bg-background hover:border-[var(--kb)]"
               : "border-[var(--border)] bg-background"
           }`}

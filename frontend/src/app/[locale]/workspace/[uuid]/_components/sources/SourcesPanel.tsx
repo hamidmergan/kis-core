@@ -8,6 +8,7 @@ import {
   FileVideo,
   FolderSimplePlus,
   FolderSimple,
+  PencilSimple,
   Check,
   X,
 } from "@phosphor-icons/react";
@@ -122,6 +123,9 @@ export function SourcesPanel({
   const [newChapterError, setNewChapterError] = useState<string | null>(null);
   const [newChapterBusy, setNewChapterBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Moving has its own picks, starts empty and leaves the chat selection alone.
+  const [moving, setMoving] = useState(false);
+  const [movePicked, setMovePicked] = useState<string[]>([]);
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const chapterList = useMemo(
     () => [...(chapters ?? [])].sort((a, b) => a.position - b.position),
@@ -149,38 +153,61 @@ export function SourcesPanel({
     if (creatingChapter) newChapterRef.current?.focus();
   }, [creatingChapter]);
 
-  const readySources = sources.filter(isFullyReady);
-  const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
+  const selectable = moving ? () => true : isFullyReady;
+  const picked = moving ? movePicked : selectedSourceIds;
+  const togglePick = moving
+    ? (id: string) => setMovePicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+    : onToggleSource;
+  const readySources = sources.filter(selectable);
+  const allSelected = readySources.length > 0 && readySources.every((s) => picked.includes(s.uuid));
 
   function toggleAll() {
     if (allSelected) {
       // deselect all
-      sources.forEach((s) => { if (selectedSourceIds.includes(s.uuid)) onToggleSource(s.uuid); });
+      sources.forEach((s) => { if (picked.includes(s.uuid)) togglePick(s.uuid); });
     } else {
       // select all ready
-      sources.filter((s) => isFullyReady(s) && !selectedSourceIds.includes(s.uuid))
-        .forEach((s) => onToggleSource(s.uuid));
+      sources.filter((s) => selectable(s) && !picked.includes(s.uuid))
+        .forEach((s) => togglePick(s.uuid));
     }
+  }
+
+  function startMoving() {
+    setMovePicked([]);
+    setBulkMenuOpen(false);
+    setMoving(true);
+  }
+
+  function stopMoving() {
+    setMoving(false);
+    setMovePicked([]);
+    setBulkMenuOpen(false);
   }
 
   // Whatever points at a foreign chapter lands under 'no chapter'.
   const known = new Set(chapterList.map((c) => c.uuid));
-  const checkedSources = sources.filter((s) => selectedSourceIds.includes(s.uuid));
+  const checkedSources = sources.filter((s) => movePicked.includes(s.uuid));
   const chapterOf = (s: Source) => (s.chapter_uuid && known.has(s.chapter_uuid) ? s.chapter_uuid : null);
 
-  // Moves every checked file at once, the checks themselves stay.
+  // Moves every picked file at once and ends the mode.
   function moveChecked(chapterUuid: string | null) {
-    setBulkMenuOpen(false);
     if (!onSetSourceChapter) return;
     checkedSources
       .filter((s) => chapterOf(s) !== chapterUuid)
       .forEach((s) => onSetSourceChapter(s.uuid, chapterUuid));
     if (chapterUuid && closedChapters.includes(chapterUuid)) onToggleChapterOpen(chapterUuid);
+    stopMoving();
   }
+
+  const canMove = isOwner && !!onSetSourceChapter && chapterList.length > 0;
+  // A mode without anything to move to ends by itself.
+  useEffect(() => {
+    if (moving && !canMove) stopMoving();
+  }, [moving, canMove]);
   const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
 
   const toggleGroup = (list: Source[]) =>
-    toggleGroupTargets(list, selectedSourceIds).forEach(onToggleSource);
+    toggleGroupTargets(list, picked, selectable).forEach(togglePick);
 
   async function commitNewChapter() {
     if (newChapterBusy || !onCreateChapter) return;
@@ -204,7 +231,8 @@ export function SourcesPanel({
       <SourceRow
         key={src.uuid}
         src={src}
-        checked={selectedSourceIds.includes(src.uuid)}
+        checked={picked.includes(src.uuid)}
+        selectAny={moving}
         isOwner={isOwner}
         ocrEnabled={ocrEnabled}
         compact={compact}
@@ -217,7 +245,7 @@ export function SourcesPanel({
         renaming={renameId === src.uuid}
         onRenameStart={() => setRenameId(src.uuid)}
         onRenameEnd={() => setRenameId(null)}
-        onToggle={onToggleSource}
+        onToggle={togglePick}
         onOpenViewer={onOpenViewer}
         onEditTranscript={onEditTranscript}
         onEditText={onEditText ? setEditTextSource : undefined}
@@ -423,12 +451,16 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Select all row */}
+      {/* Select all row. Der Stift schaltet in den Verschiebe-Modus, dann
+          zeigt die Zeile in Hausblau, dass jetzt fuers Verschieben gewaehlt wird. */}
       {sources.length > 0 && (
         <div
           onClick={toggleAll}
+          data-testid={moving ? "move-bar" : undefined}
           className="sources-select-all flex items-center gap-3 px-4 py-2 flex-shrink-0 cursor-pointer"
-          style={{ borderBottom: "1px solid var(--border)" }}
+          style={moving
+            ? { backgroundColor: "rgba(var(--kb-rgb),0.12)", borderBottom: "2px solid var(--kb)" }
+            : { borderBottom: "1px solid var(--border)" }}
         >
           <button
             type="button"
@@ -442,24 +474,48 @@ export function SourcesPanel({
           >
             {allSelected && <Check size={11} weight="bold" />}
           </button>
-          <span className="flex-1 min-w-0 truncate text-sm">
-            {t("selectAll")}
+          <span
+            className={`flex-1 min-w-0 truncate text-sm ${moving ? "font-medium" : ""}`}
+            style={moving ? { color: "var(--kb)" } : undefined}
+          >
+            {moving ? t("moveModeHint") : t("selectAll")}
           </span>
-          <OwnerOnly show={isOwner && !!onSetSourceChapter && chapterList.length > 0 && checkedSources.length > 0}>
-            <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                data-testid="move-checked"
-                onClick={() => setBulkMenuOpen((o) => !o)}
-                title={t("moveCheckedTitle")}
-                aria-label={t("moveCheckedTitle")}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-[var(--kb)]"
-                style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
-              >
-                <FolderSimple size={13} weight="bold" />
-                {compact ? checkedSources.length : t("moveChecked", { count: checkedSources.length })}
-              </button>
-              {bulkMenuOpen && (
+          <OwnerOnly show={canMove}>
+            <div className="relative flex-shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              {moving ? (
+                <>
+                  <button
+                    type="button"
+                    data-testid="move-checked"
+                    disabled={checkedSources.length === 0}
+                    onClick={() => setBulkMenuOpen((o) => !o)}
+                    className="btn-primary flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium disabled:opacity-50"
+                  >
+                    <FolderSimple size={13} weight="bold" />
+                    {compact ? checkedSources.length : t("moveChecked", { count: checkedSources.length })}
+                  </button>
+                  <IconButton
+                    data-testid="move-cancel"
+                    onClick={stopMoving}
+                    title={t("cancel")}
+                    aria-label={t("cancel")}
+                  >
+                    <X size={13} weight="bold" />
+                  </IconButton>
+                </>
+              ) : (
+                <IconButton
+                  data-testid="move-mode"
+                  onClick={startMoving}
+                  title={t("moveModeStart")}
+                  aria-label={t("moveModeStart")}
+                  className="text-[var(--kb)]"
+                  style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+                >
+                  <PencilSimple size={13} weight="bold" />
+                </IconButton>
+              )}
+              {moving && bulkMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setBulkMenuOpen(false)} />
                   <div
@@ -499,7 +555,8 @@ export function SourcesPanel({
       {/* Source list. Die ganze Liste nimmt gezogene Dateien an, den Rahmen
           dazu gibt es nur waehrend des Ziehens. */}
       <div
-        className="relative flex-1 overflow-y-auto"
+        className="relative flex-1 overflow-y-auto transition-colors"
+        style={moving ? { backgroundColor: "rgba(var(--kb-rgb),0.05)" } : undefined}
         onDragOver={isOwner ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
         onDragEnter={isOwner ? (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); } : undefined}
         onDragLeave={isOwner ? (e) => {
@@ -547,8 +604,8 @@ export function SourcesPanel({
                   <ChapterHead
                     chapter={chapter}
                     count={mine.length}
-                    selectState={groupState(mine, selectedSourceIds)}
-                    selectDisabled={mine.filter(isFullyReady).length === 0}
+                    selectState={groupState(mine, picked, selectable)}
+                    selectDisabled={mine.filter(selectable).length === 0}
                     onToggleSelect={() => toggleGroup(mine)}
                     open={open}
                     isOwner={isOwner}
@@ -587,8 +644,8 @@ export function SourcesPanel({
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
                 <GroupCheckbox
-                  state={groupState(loose, selectedSourceIds)}
-                  disabled={loose.filter(isFullyReady).length === 0}
+                  state={groupState(loose, picked, selectable)}
+                  disabled={loose.filter(selectable).length === 0}
                   onToggle={() => toggleGroup(loose)}
                 />
                 <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--foreground-soft)" }}>
