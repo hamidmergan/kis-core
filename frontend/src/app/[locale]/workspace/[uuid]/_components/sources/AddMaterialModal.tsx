@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Select from "@/components/ui/Select";
+import { TextSourceArea } from "./TextSourceArea";
 
 const fieldStyle = () => ({
   backgroundColor: "var(--background)",
@@ -17,7 +18,7 @@ const fieldStyle = () => ({
 const fieldBorderClass = (error: boolean) =>
   error ? "border-error-border" : "border-border focus:border-kb";
 
-/** One dialog for the ways in: a file, a web page by link, a page from Pages, or a YouTube video with its transcript. */
+/** One dialog for the ways in: a file, a web page by link, a page from Pages, a YouTube video with its transcript, or pasted text. */
 export function AddMaterialModal({
   open,
   onClose,
@@ -25,6 +26,8 @@ export function AddMaterialModal({
   onAddLink,
   onAddYoutube,
   onAddPage,
+  onAddText,
+  textMaxChars,
 }: {
   open: boolean;
   onClose: () => void;
@@ -32,13 +35,18 @@ export function AddMaterialModal({
   onAddLink: (url: string) => Promise<void>;
   onAddYoutube?: (url: string, transcript: string) => Promise<void>;
   onAddPage?: (jobUuid: string) => Promise<void>;
+  onAddText?: (title: string, text: string) => Promise<void>;
+  textMaxChars?: number;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [url, setUrl] = useState("");
   const [ytUrl, setYtUrl] = useState("");
   const [ytTranscript, setYtTranscript] = useState("");
   // Which section is running, the other one waits.
-  const [busy, setBusy] = useState<"link" | "youtube" | "page" | null>(null);
+  const [busy, setBusy] = useState<"link" | "youtube" | "page" | "text" | null>(null);
+  const [textTitle, setTextTitle] = useState("");
+  const [textBody, setTextBody] = useState("");
+  const [textError, setTextError] = useState<string | null>(null);
   // The person's finished pages, null while loading or when Pages is not theirs to use.
   const [pages, setPages] = useState<{ job_uuid: string; title: string }[] | null>(null);
   const [pageId, setPageId] = useState("");
@@ -67,6 +75,9 @@ export function AddMaterialModal({
     setYtError(null);
     setPageId("");
     setPageError(null);
+    setTextTitle("");
+    setTextBody("");
+    setTextError(null);
   };
 
   const close = () => {
@@ -118,6 +129,25 @@ export function AddMaterialModal({
       onClose();
     } catch (err) {
       setPageError(err instanceof Error ? err.message : t("pageFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const textOver = !!textMaxChars && textBody.trim().length > textMaxChars;
+
+  const submitText = async () => {
+    const title = textTitle.trim();
+    const body = textBody.trim();
+    if (!title || !body || textOver || busy || !onAddText) return;
+    setBusy("text");
+    setTextError(null);
+    try {
+      await onAddText(title, body);
+      reset();
+      onClose();
+    } catch (err) {
+      setTextError(err instanceof Error ? err.message : t("textFailed"));
     } finally {
       setBusy(null);
     }
@@ -269,6 +299,49 @@ export function AddMaterialModal({
           {ytError && (
             <p id="add-material-youtube-error" className="text-sm mt-2" style={{ color: "var(--error)" }}>{ytError}</p>
           )}
+        </div>
+      )}
+
+      {onAddText && textMaxChars && (
+        <div className="mt-4">
+          <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+            {t("textHeading")}
+          </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); void submitText(); }}
+            className="flex flex-col gap-2"
+          >
+            <input
+              value={textTitle}
+              disabled={busy !== null}
+              placeholder={t("textTitlePlaceholder")}
+              data-testid="add-material-text-title"
+              aria-label={t("textTitlePlaceholder")}
+              onChange={(e) => { setTextTitle(e.target.value); setTextError(null); }}
+              className={`w-full rounded-lg border-2 px-3 py-2 text-sm focus:outline-none transition-colors ${fieldBorderClass(!!textError)}`}
+              style={fieldStyle()}
+            />
+            <TextSourceArea
+              value={textBody}
+              onChange={(v) => { setTextBody(v); setTextError(null); }}
+              maxChars={textMaxChars}
+              disabled={busy !== null}
+              rows={4}
+              error={!!textError}
+              testId="add-material-text"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={busy !== null || !textTitle.trim() || !textBody.trim() || textOver}
+                data-testid="add-material-text-submit"
+                className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {busy === "text" ? <Spinner size="sm" color="current" /> : t("textSubmit")}
+              </button>
+            </div>
+          </form>
+          {textError && <p className="text-sm mt-2" style={{ color: "var(--error)" }}>{textError}</p>}
         </div>
       )}
     </Modal>

@@ -29,6 +29,8 @@ export interface Source {
   chapter_uuid?: string | null;
   /** The link a web page source came from, empty for uploaded files. */
   source_url?: string | null;
+  /** How the source came in, "text" marks a pasted text that can be edited. */
+  file_type?: string;
   /** Whether a summary exists, the text itself is fetched when opened. */
   has_summary?: boolean;
 }
@@ -74,6 +76,8 @@ export interface WorkspaceDetail {
   diagnosis_language?: string;
   /** Text recognition on at all, otherwise the catch-up is dropped. */
   ocr_enabled?: boolean;
+  /** Longest pasted text a text source may hold. */
+  text_source_max_chars?: number;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   chapters?: Chapter[];

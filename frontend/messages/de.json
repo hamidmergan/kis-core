@@ -4107,7 +4107,17 @@
           "title": "Worum es geht",
           "failed": "Die Zusammenfassung konnte nicht geladen werden.",
           "empty": "Für dieses Material gibt es noch keine Zusammenfassung."
-        }
+        },
+        "textHeading": "Text einfügen",
+        "textTitlePlaceholder": "Titel",
+        "textPlaceholder": "Text hier einfügen",
+        "textCount": "{count} von {max} Zeichen",
+        "textSubmit": "Hinzufügen",
+        "textFailed": "Der Text konnte nicht hinzugefügt werden.",
+        "editText": "Text bearbeiten",
+        "textSave": "Speichern",
+        "textLoadFailed": "Der Text konnte nicht geladen werden.",
+        "textSaveFailed": "Der Text konnte nicht gespeichert werden."
       },
       "viewer": {
         "back": "Zurück",

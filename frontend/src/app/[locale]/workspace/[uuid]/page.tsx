@@ -86,6 +86,8 @@ export default function KiTutorWorkspacePage() {
     addLink: handleAddLink,
     addYoutube: handleAddYoutube,
     addPage: handleAddPage,
+    addText: handleAddText,
+    editText: handleEditText,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
   // Chapters only structure the list, the selection stays the file's checkbox.
@@ -580,6 +582,9 @@ export default function KiTutorWorkspacePage() {
         onAddLink={handleAddLink}
         onAddYoutube={handleAddYoutube}
         onAddPage={handleAddPage}
+        onAddText={handleAddText}
+        onEditText={handleEditText}
+        textMaxChars={moduleDetail?.text_source_max_chars}
         uploadProgress={uploadProgress}
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}

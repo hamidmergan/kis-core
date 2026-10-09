@@ -14,6 +14,7 @@ from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES, DEFAULT_DIAGNOSIS_LANG
 from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
     AIA_WORKSPACE_MAX_MEMBERS,
+    AIA_TEXT_SOURCE_MAX_CHARS,
 )
 
 from src.features.ai_assistant.routes._workspace_access import (
@@ -217,6 +218,7 @@ def get_workspace(
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
         # Without the admin switch the catch-up entry would be a dead end.
         "ocr_enabled": db.get_setting("ocr_enabled", "true").lower() == "true",
+        "text_source_max_chars": AIA_TEXT_SOURCE_MAX_CHARS,
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
@@ -247,6 +249,7 @@ def get_workspace(
                 "progress": s.get("progress"),
                 "ocr_info": s.get("ocr_info"),
                 "source_url": s.get("source_url"),
+                "file_type": s.get("file_type"),
                 # Only whether there is one, the text itself is fetched when opened.
                 "has_summary": bool((s.get("summary") or "").strip()),
                 "chapter_uuid": chapter_uuid_by_id.get(s.get("chapter_id")),

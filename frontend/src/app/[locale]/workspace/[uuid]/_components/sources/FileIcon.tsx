@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import { GlobeIcon, XIcon } from "@phosphor-icons/react";
+import { ArticleIcon, GlobeIcon, XIcon } from "@phosphor-icons/react";
 import { _fileKind, _getChipIcon } from "../../_utils";
 import type { IndexingProgress } from "../../_types";
 
@@ -43,13 +43,15 @@ export function SourceStatus({
   );
 }
 
-export function FileIcon({ filename, sourceUrl }: { filename: string; sourceUrl?: string | null }) {
+export function FileIcon({ filename, sourceUrl, fileType }: { filename: string; sourceUrl?: string | null; fileType?: string }) {
   const t = useTranslations("workspace.detail.sources");
-  const kind = _fileKind(filename);
+  // A pasted text is stored as a PDF but shows as a plain document.
+  const isText = fileType === "text";
+  const kind = isText ? "doc" : _fileKind(filename);
   const isVideo = kind === "video" || kind === "youtube";
   const bg = isVideo ? "#E0E7FF" : kind === "audio" ? "var(--warn-bg)" : kind === "pdf" ? "var(--error-bg)" : kind === "page" ? "var(--success-bg)" : "var(--info-bg)";
   const color = isVideo ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "var(--error-strong)" : kind === "page" ? "var(--success-strong)" : "var(--info-strong)";
-  const Icon = _getChipIcon(filename);
+  const Icon = isText ? ArticleIcon : _getChipIcon(filename);
   // A source read from a web page keeps its file icon and gets a globe in the corner.
   const fromWeb = !!sourceUrl && kind !== "youtube" && kind !== "page";
   return (

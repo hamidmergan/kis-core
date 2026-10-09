@@ -4107,7 +4107,17 @@
           "title": "What this is about",
           "failed": "The summary could not be loaded.",
           "empty": "There is no summary for this material yet."
-        }
+        },
+        "textHeading": "Paste text",
+        "textTitlePlaceholder": "Title",
+        "textPlaceholder": "Paste the text here",
+        "textCount": "{count} of {max} characters",
+        "textSubmit": "Add",
+        "textFailed": "The text could not be added.",
+        "editText": "Edit text",
+        "textSave": "Save",
+        "textLoadFailed": "The text could not be loaded.",
+        "textSaveFailed": "The text could not be saved."
       },
       "viewer": {
         "back": "Back",

@@ -231,11 +231,31 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const addPage = useCallback((jobUuid: string) => postSource("page", { job_uuid: jobUuid }), [postSource]);
 
+  const addText = useCallback((title: string, text: string) => postSource("text", { title, text }), [postSource]);
+
+  // The row spins again, the polling picks up the source once it is read in anew.
+  const editText = useCallback(async (srcUuid: string, text: string) => {
+    let res: Response;
+    try {
+      res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}/text`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+    } catch {
+      throw new Error(t("networkError"));
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(typeof data?.detail === "string" ? data.detail : t("uploadFailed"));
+    setSources((prev) => prev.map((s) => (s.uuid === srcUuid ? { ...s, status: "pending", error_message: null } : s)));
+  }, [uuid, t]);
+
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, renameSource, retrySource, summarizeSource, uploadFiles, addLink, addYoutube, addPage,
+    toggleSource, deleteSource, renameSource, retrySource, summarizeSource, uploadFiles, addLink, addYoutube, addPage, addText, editText,
   };
 }

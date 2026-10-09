@@ -5,6 +5,7 @@ from ._upload import router as _upload_router
 from ._direct_upload import router as _direct_upload_router
 from ._link import router as _link_router
 from ._youtube import router as _youtube_router
+from ._text import router as _text_router
 from ._page import router as _page_router
 from ._streaming import router as _streaming_router
 from ._pdf import router as _pdf_router
@@ -18,6 +19,7 @@ router.include_router(_upload_router)
 router.include_router(_direct_upload_router)
 router.include_router(_link_router)
 router.include_router(_youtube_router)
+router.include_router(_text_router)
 router.include_router(_page_router)
 router.include_router(_streaming_router)
 router.include_router(_pdf_router)

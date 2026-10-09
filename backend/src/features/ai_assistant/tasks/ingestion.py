@@ -224,8 +224,10 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
                 # An unrecognised page no longer fails the source, it just shows up here.
                 ocr_report: dict = {}
+                # A pasted text is read from its rendered PDF so pages match the viewer.
                 chunks = aia_chunker.extract_chunks(
-                    local_path, file_type, progress_cb=_progress_cb, ocr_report=ocr_report
+                    local_path, "pdf" if file_type == "text" else file_type,
+                    progress_cb=_progress_cb, ocr_report=ocr_report,
                 )
                 db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
                 check_length(chunks)
@@ -272,7 +274,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             if fingerprint is None and chunks:
                 fingerprint = compute_fingerprint(provider)
 
-        if _BUILD_INGEST_SUMMARY:
+        if file_type == "text":
+            # A pasted text is short enough to be its own summary, no LLM call.
+            from src.storage import aia_text_key, get_file
+            db.update_aia_source_summary(source_uuid, get_file(aia_text_key(file_path_stored)).decode("utf-8"))
+        elif _BUILD_INGEST_SUMMARY:
             _build_source_summary_safely(source_uuid, chunks)
 
         # 8. Source status → ready

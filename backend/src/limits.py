@@ -215,6 +215,8 @@ AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX uplo
 # Characters one workspace document may bring, counted after reading. At this size a source
 # still fits alone into podcast, presentation and summary.
 AIA_SOURCE_MAX_CHARS                = 500_000
+# A pasted text source stays this short so it serves as its own summary.
+AIA_TEXT_SOURCE_MAX_CHARS           = 4_000
 # Very large documents are rejected so the overview does not become front-heavy.
 AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..200)
 # Mehr nicht: ein Ueberblick teilt 60.000 Zeichen auf alle Quellen, bei 200 bleiben je 300 Zeichen.

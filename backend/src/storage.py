@@ -52,6 +52,11 @@ def aia_transcript_key(file_path: str) -> str:
     return f"{aia_source_base(file_path)}_transcript.txt"
 
 
+def aia_text_key(file_path: str) -> str:
+    """The pasted text behind a text source, kept for editing."""
+    return f"{aia_source_base(file_path)}_text.txt"
+
+
 def aia_vtt_key(file_path: str, lang: str) -> str:
     """Subtitles for one language."""
     return f"{aia_source_base(file_path)}_transcript.{lang}.vtt"

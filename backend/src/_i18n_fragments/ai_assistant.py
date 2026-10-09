@@ -192,6 +192,27 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dieser Link ist schon im {label}.",
         "en": "This link is already in the {label}.",
     },
+    # Pasted text as a source.
+    "ai.text.empty": {
+        "de": "Der Text ist leer.",
+        "en": "The text is empty.",
+    },
+    "ai.text.noTitle": {
+        "de": "Gib dem Text einen Titel.",
+        "en": "Give the text a title.",
+    },
+    "ai.text.tooLong": {
+        "de": "Der Text hat {chars} Zeichen, erlaubt sind höchstens {max}.",
+        "en": "The text has {chars} characters, at most {max} are allowed.",
+    },
+    "ai.text.notText": {
+        "de": "Diese Quelle ist kein eingefügter Text.",
+        "en": "This source is not a pasted text.",
+    },
+    "ai.text.busy": {
+        "de": "Die Quelle wird gerade verarbeitet. Versuche es gleich noch einmal.",
+        "en": "The source is being processed right now. Try again in a moment.",
+    },
     "ai.link.sourceLine": {
         "de": "Quelle: {url}, abgerufen am {date}",
         "en": "Source: {url}, fetched on {date}",

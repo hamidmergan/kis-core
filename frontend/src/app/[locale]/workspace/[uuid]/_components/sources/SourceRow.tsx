@@ -37,6 +37,7 @@ export function SourceRow({
   onToggle,
   onOpenViewer,
   onEditTranscript,
+  onEditText,
   onDelete,
   onRename,
   onRetry,
@@ -65,6 +66,8 @@ export function SourceRow({
   onOpenViewer: (source: Source) => void;
   // Opens the recording and turns its transcript into the editable state.
   onEditTranscript?: (source: Source) => void;
+  // Opens the pasted text of a text source for editing.
+  onEditText?: (source: Source) => void;
   onDelete: (uuid: string) => void;
   onRename?: (uuid: string, name: string) => Promise<void>;
   onRetry: (uuid: string) => void;
@@ -156,7 +159,7 @@ export function SourceRow({
 
       {renaming ? (
         <div className="flex-1 flex items-center gap-2 pl-3 pr-4 py-2.5 min-w-0">
-          <FileIcon filename={src.filename} sourceUrl={src.source_url} />
+          <FileIcon filename={src.filename} sourceUrl={src.source_url} fileType={src.file_type} />
           <input
             ref={renameInputRef}
             value={renameValue}
@@ -190,7 +193,7 @@ export function SourceRow({
           title={ready ? t("openInViewer") : undefined}
           className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
         >
-          <FileIcon filename={src.filename} sourceUrl={src.source_url} />
+          <FileIcon filename={src.filename} sourceUrl={src.source_url} fileType={src.file_type} />
           <span
             className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
             style={{ color: "var(--foreground)" }}
@@ -320,6 +323,13 @@ export function SourceRow({
                               icon={<TextAa size={16} weight="bold" />}
                               label={t("editTranscript")}
                               onClick={() => { onMenuOpen(false); onEditTranscript(src); }}
+                            />
+                          )}
+                          {onEditText && ready && src.file_type === "text" && (
+                            <MenuItem
+                              icon={<TextAa size={16} weight="bold" />}
+                              label={t("editText")}
+                              onClick={() => { onMenuOpen(false); onEditText(src); }}
                             />
                           )}
                           {onSummarize && ready && !src.has_summary && (

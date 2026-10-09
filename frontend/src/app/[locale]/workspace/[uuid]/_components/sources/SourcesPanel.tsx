@@ -16,6 +16,7 @@ import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { SourceRow } from "./SourceRow";
 import { SourceSummaryModal } from "./SourceSummaryModal";
 import { AddMaterialModal } from "./AddMaterialModal";
+import { TextSourceEditModal } from "./TextSourceEditModal";
 import { ChapterHead } from "./ChapterHead";
 import { GroupCheckbox } from "./GroupCheckbox";
 import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
@@ -36,6 +37,9 @@ export function SourcesPanel({
   onAddLink,
   onAddYoutube,
   onAddPage,
+  onAddText,
+  onEditText,
+  textMaxChars,
   uploadProgress,
   uploadErrors,
   onDismissUploadErrors,
@@ -70,6 +74,11 @@ export function SourcesPanel({
   onAddYoutube?: (url: string, transcript: string) => Promise<void>;
   /** Puts one of the person's pages from Pages into the workspace. */
   onAddPage?: (jobUuid: string) => Promise<void>;
+  /** Adds a pasted text as a source. */
+  onAddText?: (title: string, text: string) => Promise<void>;
+  /** Saves the edited text of a text source. */
+  onEditText?: (sourceUuid: string, text: string) => Promise<void>;
+  textMaxChars?: number;
   uploadProgress: { current: number; total: number; percent: number; large: boolean } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
@@ -100,6 +109,7 @@ export function SourcesPanel({
   const [deleteChapterTarget, setDeleteChapterTarget] = useState<Chapter | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [summarySource, setSummarySource] = useState<Source | null>(null);
+  const [editTextSource, setEditTextSource] = useState<Source | null>(null);
   const [menuMode, setMenuMode] = useState<"root" | "chapter">("root");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
@@ -186,6 +196,7 @@ export function SourcesPanel({
         onToggle={onToggleSource}
         onOpenViewer={onOpenViewer}
         onEditTranscript={onEditTranscript}
+        onEditText={onEditText ? setEditTextSource : undefined}
         onDelete={setDeleteSourceId}
         onRename={onRenameSource}
         onRetry={onRetrySource}
@@ -292,6 +303,18 @@ export function SourcesPanel({
           onAddLink={onAddLink}
           onAddYoutube={onAddYoutube}
           onAddPage={onAddPage}
+          onAddText={onAddText}
+          textMaxChars={textMaxChars}
+        />
+      )}
+
+      {isOwner && onEditText && textMaxChars && (
+        <TextSourceEditModal
+          source={editTextSource}
+          workspaceUuid={workspaceUuid}
+          maxChars={textMaxChars}
+          onClose={() => setEditTextSource(null)}
+          onSave={onEditText}
         />
       )}
 
