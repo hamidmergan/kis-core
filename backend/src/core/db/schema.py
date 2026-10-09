@@ -600,6 +600,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS event_stamps_station_idx ON event_stamps (station_id)"
             )
+            # One short code per visitor, made on first use, lets staff find a visitor's card to reset it.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS event_visitor_codes (
+                    visitor_hash TEXT PRIMARY KEY,
+                    code         TEXT NOT NULL UNIQUE
+                )
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

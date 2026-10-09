@@ -38,12 +38,14 @@ async def _visitor(
 
 def _card(besucher: str, stations: list[dict], jetzt: int) -> dict:
     gesperrt_bis, versuche = repo.lock_state(besucher, jetzt)
-    return build_card(
+    karte = build_card(
         stamped=repo.stamps_for(besucher),
         station_ids=[stand["id"] for stand in stations],
         locked_until=gesperrt_bis,
         attempts_left=versuche,
     )
+    karte["code"] = repo.peek_visitor_code(besucher)
+    return karte
 
 
 @router.get("/public")
@@ -71,6 +73,8 @@ def stamp_by_station(
     if not any(stand["id"] == payload.stationId for stand in stations):
         raise HTTPException(status_code=404, detail=t("event.stationNotFound", locale))
     repo.add_stamp(besucher, payload.stationId)
+    # The visitor's own code is made on the first real stamp, not on a bare page view.
+    repo.visitor_code(besucher)
     return {"card": _card(besucher, stations, _now_ms()), "stationId": payload.stationId}
 
 
@@ -91,6 +95,7 @@ def stamp_by_code(payload: CodePayload, besucher: str = Depends(_visitor)):
         stand = station_by_code(stations, payload.code)
         if stand is not None:
             repo.add_stamp(besucher, stand["id"])
+            repo.visitor_code(besucher)
             ergebnis, stand_id = "stamped", stand["id"]
         else:
             gesperrt_bis, versuche = repo.register_failure(besucher, jetzt)
@@ -101,4 +106,5 @@ def stamp_by_code(payload: CodePayload, besucher: str = Depends(_visitor)):
         locked_until=gesperrt_bis,
         attempts_left=versuche,
     )
+    karte["code"] = repo.peek_visitor_code(besucher)
     return {"result": ergebnis, "stationId": stand_id, "card": karte}

@@ -5048,7 +5048,7 @@
         },
         "how": {
           "q": "How does working with the platform work?",
-          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask learning assistant Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
+          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
           "q": "What is the current status?",
@@ -5059,12 +5059,12 @@
           "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
         },
         "sources": {
-          "q": "Where does learning assistant Francis get its answers?",
-          "a": "Learning assistant Francis answers from the sources in your workspace."
+          "q": "Where does Francis get its answers?",
+          "a": "Francis answers from the sources in your workspace."
         },
         "names": {
           "q": "How do I know what an answer is based on?",
-          "a": "Learning assistant Francis names the source for every answer so you can read up on it."
+          "a": "Francis names the source for every answer so you can read up on it."
         },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
@@ -5093,7 +5093,7 @@
     },
     "heroAlt": "Workspace with materials, chat and studio",
     "learn": {
-      "heading": "Learning with learning assistant Francis",
+      "heading": "Learning with Francis",
       "rows": {
         "material": {
           "title": "All material in one place",
@@ -5102,7 +5102,7 @@
         },
         "sources": {
           "title": "Answers with sources",
-          "body": "Learning assistant Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
+          "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
           "alt": "Answer in the chat, next to it the highlighted passage in the script"
         },
         "practice": {
@@ -5275,7 +5275,6 @@
       "up": "Move up",
       "down": "Move down",
       "name": "Title",
-      "tagline": "Spelled out (empty = hidden on the poster)",
       "blurb": "Subtitle",
       "francis": "Francis text",
       "icon": "Icon",
@@ -5291,8 +5290,8 @@
       "scanHintOnly": "Scan the QR code",
       "png": "As PNG",
       "kicker": "Stamp card",
-      "a5": "As A5",
-      "a4": "As A4"
+      "a4": "As A4",
+      "brand": "KIS - KInternationalisierung von Studiengängen"
     },
     "stats": {
       "title": "Results",

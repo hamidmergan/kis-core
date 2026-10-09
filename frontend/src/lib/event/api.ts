@@ -22,7 +22,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const detail = body && typeof body.detail === "string" ? body.detail : null;
-    throw new Error(detail ?? `HTTP ${res.status}`);
+    const error = new Error(detail ?? `HTTP ${res.status}`) as Error & { status: number };
+    error.status = res.status;
+    throw error;
   }
   return (await res.json()) as T;
 }
@@ -53,5 +55,7 @@ export const eventApi = {
     }),
   adminStats: () => request<EventStats>("/admin/event/stats"),
   adminResetMyCard: () => request<Card>("/admin/event/card", { method: "DELETE", headers: visitor() }),
+  adminResetOneCard: (code: string) =>
+    request<{ ok: boolean }>(`/admin/event/card/${encodeURIComponent(code)}`, { method: "DELETE" }),
   adminResetAllStamps: () => request<{ ok: boolean }>("/admin/event/stamps", { method: "DELETE" }),
 };

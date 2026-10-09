@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Station } from "@/lib/event/types";
 import PosterSvg, { useStationQr } from "./PosterSvg";
-import type { PrintSize } from "./posterExport";
 
 const SHEET = "event-poster-sheet";
 
@@ -18,16 +17,15 @@ function PrintPoster({ station, last, onReady }: {
     if (art) onReady(station.id);
   }, [art, station.id, onReady]);
   return (
-    <div style={{ breakAfter: last ? "auto" : "page" }}>
+    <div style={{ breakAfter: last ? "auto" : "page", padding: "10mm" }}>
       <PosterSvg station={station} art={art} className="block w-full h-auto" />
     </div>
   );
 }
 
-/** One poster per page in the chosen size, opens the print dialog once every QR code is drawn. */
-export default function PosterPrintSheet({ stations, size, onDone }: {
+/** One A4 poster per page, opens the print dialog once every QR code is drawn. */
+export default function PosterPrintSheet({ stations, onDone }: {
   stations: Station[];
-  size: PrintSize;
   onDone: () => void;
 }) {
   const [ready, setReady] = useState<Record<string, true>>({});
@@ -50,7 +48,7 @@ export default function PosterPrintSheet({ stations, size, onDone }: {
   return createPortal(
     <div className={`${SHEET} hidden print:block`} data-testid="poster-sheet">
       <style>{`
-        @page { size: ${size}; margin: 10mm; }
+        @page { size: A4; margin: 0; }
         @media print {
           body > :not(.${SHEET}) { display: none !important; }
           .${SHEET} { display: block !important; }

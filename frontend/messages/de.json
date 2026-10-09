@@ -5048,7 +5048,7 @@
         },
         "how": {
           "q": "Wie läuft die Arbeit mit der Plattform ab?",
-          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen dem Lernassistenten Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
+          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
@@ -5059,12 +5059,12 @@
           "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
         },
         "sources": {
-          "q": "Woher nimmt Lernassistent Francis seine Antworten?",
-          "a": "Lernassistent Francis antwortet aus den Quellen, die in deinem Workspace liegen."
+          "q": "Woher nimmt Francis seine Antworten?",
+          "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
         },
         "names": {
           "q": "Woher weiß ich, worauf eine Antwort beruht?",
-          "a": "Zu jeder Antwort nennt Lernassistent Francis die Quelle, damit du nachlesen kannst."
+          "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
         },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
@@ -5093,7 +5093,7 @@
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "learn": {
-      "heading": "Lernen mit Lernassistent Francis",
+      "heading": "Lernen mit Francis",
       "rows": {
         "material": {
           "title": "Alles Material an einem Ort",
@@ -5102,7 +5102,7 @@
         },
         "sources": {
           "title": "Antworten mit Quelle",
-          "body": "Lernassistent Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
+          "body": "Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
           "alt": "Antwort im Chat, daneben die markierte Stelle im Skript"
         },
         "practice": {
@@ -5275,7 +5275,6 @@
       "up": "Nach oben",
       "down": "Nach unten",
       "name": "Titel",
-      "tagline": "Ausgeschrieben (leer = auf dem Aufsteller ausgeblendet)",
       "blurb": "Subtitel",
       "francis": "Francis-Text",
       "icon": "Icon",
@@ -5291,8 +5290,8 @@
       "scanHintOnly": "Scanne den QR-Code",
       "png": "Als PNG",
       "kicker": "Stempelkarte",
-      "a5": "Als A5",
-      "a4": "Als A4"
+      "a4": "Als A4",
+      "brand": "KIS - KInternationalisierung von Studiengängen"
     },
     "stats": {
       "title": "Auswertung",

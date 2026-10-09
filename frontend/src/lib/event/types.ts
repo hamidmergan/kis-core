@@ -68,6 +68,8 @@ export interface Card {
   completedAt: number | null;
   lockedUntil: number | null;
   attemptsLeft: number;
+  /** This visitor's own short code, told to staff at a stand for a targeted reset. */
+  code: string;
 }
 
 export interface EventStats {
@@ -75,6 +77,6 @@ export interface EventStats {
   completeCards: number;
 }
 
-export const EMPTY_CARD: Card = { stamped: {}, completedAt: null, lockedUntil: null, attemptsLeft: 5 };
+export const EMPTY_CARD: Card = { stamped: {}, completedAt: null, lockedUntil: null, attemptsLeft: 5, code: "" };
 
 export const MAX_TILES = 4;

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from src.dependencies_rbac import require_full_admin, require_permission
 from src.features.event import repository as repo
-from src.features.event.service import EventValidationError, validate_config
+from src.features.event.service import EventValidationError, normalize_code, validate_config
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_EVENT
 from src.routes.event import _card, _now_ms, _visitor
@@ -97,7 +97,19 @@ def reset_own_card(admin: dict = Depends(_require), besucher: str = Depends(_vis
     return _card(besucher, repo.get_config()["stations"], _now_ms())
 
 
+@router.delete("/card/{code}")
+def reset_one_card(code: str, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    """Empties the card behind a visitor's own code, told to staff at a stand."""
+    besucher = repo.visitor_hash_for_code(normalize_code(code))
+    if besucher is None:
+        raise HTTPException(status_code=404, detail=t("event.visitorCodeNotFound", locale))
+    repo.delete_stamps_for(besucher)
+    repo.clear_failures(besucher)
+    return {"ok": True}
+
+
 @router.delete("/stamps")
 def reset_all_stamps(admin: dict = Depends(require_full_admin)):
     repo.delete_all_stamps()
+    repo.delete_all_visitor_codes()
     return {"ok": True}

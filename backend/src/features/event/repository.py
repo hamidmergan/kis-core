@@ -1,12 +1,13 @@
 """The event in storage: config in settings, stamps in their own table, wrong tries in Redis."""
 import json
+import secrets
 from datetime import datetime, timezone
 
 from loguru import logger
 
 from src.core.db.pool import get_connection
 from src.features.admin.repository.settings import get_setting, set_setting
-from src.features.event.service import default_config
+from src.features.event.service import CODE_ALPHABET, VISITOR_CODE_LENGTH, default_config
 from src.limits import (
     EVENT_CODE_ATTEMPT_TTL_SECONDS,
     EVENT_CODE_LOCK_SECONDS,
@@ -79,6 +80,61 @@ def delete_all_stamps() -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM event_stamps")
+        conn.commit()
+
+
+def _new_visitor_code() -> str:
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(VISITOR_CODE_LENGTH))
+
+
+def visitor_code(visitor_hash: str) -> str:
+    """This visitor's own short code, made on the first real stamp, lets staff find the card to reset it."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT code FROM event_visitor_codes WHERE visitor_hash = %s", (visitor_hash,))
+            row = cur.fetchone()
+            if row:
+                return row[0]
+            for _ in range(5):
+                cur.execute(
+                    """INSERT INTO event_visitor_codes (visitor_hash, code) VALUES (%s, %s)
+                       ON CONFLICT DO NOTHING RETURNING code""",
+                    (visitor_hash, _new_visitor_code()),
+                )
+                row = cur.fetchone()
+                if row:
+                    conn.commit()
+                    return row[0]
+                cur.execute("SELECT code FROM event_visitor_codes WHERE visitor_hash = %s", (visitor_hash,))
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+    raise RuntimeError("visitor code not stored")
+
+
+def peek_visitor_code(visitor_hash: str) -> str:
+    """This visitor's code if one was ever made, empty for a browser that only looked, never stamped."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT code FROM event_visitor_codes WHERE visitor_hash = %s", (visitor_hash,))
+            row = cur.fetchone()
+            return row[0] if row else ""
+
+
+def visitor_hash_for_code(code: str) -> str | None:
+    """The visitor behind a short code, told at a stand, None once no one holds it."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT visitor_hash FROM event_visitor_codes WHERE code = %s", (code,))
+            row = cur.fetchone()
+            return row[0] if row else None
+
+
+def delete_all_visitor_codes() -> None:
+    """Drops every visitor's code along with their stamps, a full reset leaves nothing behind."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_visitor_codes")
         conn.commit()
 
 

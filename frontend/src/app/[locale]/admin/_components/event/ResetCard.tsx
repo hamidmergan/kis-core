@@ -7,26 +7,28 @@ import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import ConfirmDialog from "@/components/event/ConfirmDialog";
 import { eventApi } from "@/lib/event/api";
 import { isFullAdmin } from "@/lib/permissions";
-import { BTN_SECONDARY } from "./fields";
+import { BTN_SECONDARY, INPUT } from "./fields";
 
-type Status = "idle" | "mine" | "all" | "failed";
+type Status = "idle" | "mine" | "one" | "oneNotFound" | "all" | "failed";
 
-/** Two ways back to zero: the card of this browser for another test run, and for full admins every card at once. */
+/** Three ways back to zero: the card of this browser for another test run, one visitor's card by their own code, and for full admins every card at once. */
 export default function ResetCard({ onDone }: { onDone: () => void }) {
   const t = useTranslations("eventAdmin.reset");
   const fullAdmin = isFullAdmin(useAdminPerms());
   const [confirmAll, setConfirmAll] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [busy, setBusy] = useState(false);
+  const [oneCode, setOneCode] = useState("");
 
-  const run = async (call: () => Promise<unknown>, done: Status) => {
+  const run = async (call: () => Promise<unknown>, done: Status, onSuccess?: () => void) => {
     setBusy(true);
     try {
       await call();
       setStatus(done);
       onDone();
-    } catch {
-      setStatus("failed");
+      onSuccess?.();
+    } catch (err) {
+      setStatus((err as { status?: number }).status === 404 ? "oneNotFound" : "failed");
     } finally {
       setBusy(false);
     }
@@ -50,6 +52,31 @@ export default function ResetCard({ onDone }: { onDone: () => void }) {
             {t("mine")}
           </button>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-64">
+            <p className="text-sm text-foreground">{t("oneTitle")}</p>
+            <p className="text-xs text-muted">{t("oneText")}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={oneCode}
+              onChange={(e) => setOneCode(e.target.value)}
+              placeholder={t("onePlaceholder")}
+              className={`${INPUT} w-32`}
+              data-testid="reset-one-input"
+            />
+            <button
+              type="button"
+              disabled={busy || !oneCode.trim()}
+              onClick={() => void run(() => eventApi.adminResetOneCard(oneCode.trim()), "one", () => setOneCode(""))}
+              className={BTN_SECONDARY}
+              data-testid="reset-one"
+            >
+              {t("one")}
+            </button>
+          </div>
+        </div>
         {fullAdmin && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1 basis-64">
@@ -67,8 +94,14 @@ export default function ResetCard({ onDone }: { onDone: () => void }) {
             </button>
           </div>
         )}
-        <p className={`text-xs h-4 ${status === "failed" ? "text-error" : "text-muted"}`} role="status" data-testid="reset-status">
+        <p
+          className={`text-xs h-4 ${status === "failed" || status === "oneNotFound" ? "text-error" : "text-muted"}`}
+          role="status"
+          data-testid="reset-status"
+        >
           {status === "mine" && t("mineDone")}
+          {status === "one" && t("oneDone")}
+          {status === "oneNotFound" && t("oneNotFound")}
           {status === "all" && t("allDone")}
           {status === "failed" && t("failed")}
         </p>

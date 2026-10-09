@@ -9,6 +9,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diesen Stand gibt es nicht",
         "en": "This stand does not exist",
     },
+    "event.visitorCodeNotFound": {
+        "de": "Diese Kartennummer gibt es nicht",
+        "en": "This card number does not exist",
+    },
     "event.config.stationIdEmpty": {
         "de": "Jeder Stand braucht eine Kennung",
         "en": "Every stand needs an id",

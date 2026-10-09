@@ -6,16 +6,16 @@ import Modal from "@/components/ui/Modal";
 import { useText2 } from "@/lib/event/useText2";
 import type { Station } from "@/lib/event/types";
 import PosterSvg, { useStationQr } from "./PosterSvg";
-import { exportPosterPng, type PrintSize } from "./posterExport";
+import { exportPosterPng } from "./posterExport";
 import { BTN_SECONDARY } from "./fields";
 
 interface Props {
   station: Station;
   onClose: () => void;
-  onPrint: (size: PrintSize) => void;
+  onPrint: () => void;
 }
 
-/** Poster preview for one stand with PNG download and the A5 and A4 print routes. */
+/** Poster preview for one stand with PNG download and the A4 print route. */
 export default function StationQr({ station, onClose, onPrint }: Props) {
   const t = useTranslations("eventAdmin.poster");
   const text = useText2();
@@ -40,19 +40,16 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
       title={t("title", { station: text(station.name) })}
       size="sm"
       footer={
-        <div className="grid grid-cols-3 gap-2 w-full">
-          {(["A5", "A4"] as const).map((size) => (
-            <button
-              key={size}
-              type="button"
-              onClick={() => onPrint(size)}
-              disabled={!art}
-              className={`${BTN_SECONDARY} w-full`}
-              data-testid={`poster-${size.toLowerCase()}`}
-            >
-              {t(size === "A5" ? "a5" : "a4")}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-2 w-full">
+          <button
+            type="button"
+            onClick={onPrint}
+            disabled={!art}
+            className={`${BTN_SECONDARY} w-full`}
+            data-testid="poster-a4"
+          >
+            {t("a4")}
+          </button>
           <button
             type="button"
             onClick={() => void download()}

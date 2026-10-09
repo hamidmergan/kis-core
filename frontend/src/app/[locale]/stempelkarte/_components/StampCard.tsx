@@ -13,6 +13,7 @@ import CodeEntry from "./CodeEntry";
 import CompletionScreen from "./CompletionScreen";
 import StampGrid from "./StampGrid";
 import StampNotice, { type HintMood } from "./StampNotice";
+import VisitorCodeAccordion from "./VisitorCodeAccordion";
 
 export default function StampCard() {
   const t = useTranslations("eventStamp");
@@ -78,6 +79,7 @@ export default function StampCard() {
             onStamped={(id) => void doStamp(id)}
             onWrong={() => setMood({ kind: "wrong" })}
           />
+          <VisitorCodeAccordion code={card.code} />
         </>
       )}
     </main>

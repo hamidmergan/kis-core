@@ -11,16 +11,17 @@ import Band from "./Band";
 import { SectionHeading } from "./InfoSections";
 import Screenshot from "./Screenshot";
 
+// "glossary" is hidden here for now (not deleted), it may return to this grid later.
 const SERVICES: ToolKey[] = [
   "translation",
   "tts",
   "transcription",
+  "image",
   "summary",
   "podcast",
   "praesentation",
   "screencast",
-  "image",
-  "glossary",
+  "pages",
 ];
 
 const POINTS = ["p1", "p2", "p3"] as const;

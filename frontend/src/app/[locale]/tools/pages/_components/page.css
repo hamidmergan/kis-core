@@ -155,7 +155,7 @@
 .kis-page section.cover { padding-top: 0; }
 .kis-page section.cover .blk { margin-top: 0; }
 .kis-page section.cover .img img { max-height: none; aspect-ratio: 21 / 9; object-fit: cover; border-radius: 20px; }
-.kis-page section.cover ~ section.hero { margin-top: 32px; padding-top: 0; }
+.kis-page section.cover ~ section.hero { margin-top: 48px; padding-top: 0; }
 .kis-page.editing section.cover ~ section.hero { margin-top: 64px; }
 .kis-page.editing section.cover { padding-top: 8px; }
 .kis-page.editing section.cover::before { top: 0; }

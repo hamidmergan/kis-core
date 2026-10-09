@@ -7,6 +7,8 @@ from datetime import date
 # No I, O, 0 or 1, so a code read off a poster cannot be mixed up.
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 4
+# A visitor's own code, longer than a stand's so the two are never confused.
+VISITOR_CODE_LENGTH = 6
 MAX_TILES = 4
 TILE_TARGET_KINDS = ("stamp", "info", "internal", "directLogin")
 
@@ -139,8 +141,8 @@ def visitor_hash(visitor_id: str) -> str:
 # --- codes --------------------------------------------------------------------
 
 def normalize_code(text: str) -> str:
-    """Spaces and case do not matter when a code is read off a poster."""
-    return "".join(text.split()).upper()
+    """Spaces, dashes and case do not matter when a code is read off a poster or a screen."""
+    return "".join(text.split()).replace("-", "").upper()
 
 
 def is_valid_code(code: str) -> bool:

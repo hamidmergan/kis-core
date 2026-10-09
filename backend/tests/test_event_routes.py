@@ -109,7 +109,7 @@ class FakeRedis:
 @pytest.fixture
 def speicher(monkeypatch):
     """Stamps in a dict, the counter in a fake Redis, the seed as configuration."""
-    zustand = {"config": default_config(), "stamps": {}, "redis": {}, "uhr": [1_700_000_000_000]}
+    zustand = {"config": default_config(), "stamps": {}, "redis": {}, "uhr": [1_700_000_000_000], "codes": {}}
 
     def add_stamp(visitor_hash, station_id):
         karte = zustand["stamps"].setdefault(visitor_hash, {})
@@ -117,11 +117,30 @@ def speicher(monkeypatch):
             zustand["uhr"][0] += 1000
             karte[station_id] = zustand["uhr"][0]
 
+    def visitor_code(visitor_hash):
+        codes = zustand["codes"]
+        if visitor_hash not in codes:
+            codes[visitor_hash] = f"CODE{len(codes)}"
+        return codes[visitor_hash]
+
+    def peek_visitor_code(visitor_hash):
+        return zustand["codes"].get(visitor_hash, "")
+
+    def visitor_hash_for_code(code):
+        for visitor_hash, c in zustand["codes"].items():
+            if c == code:
+                return visitor_hash
+        return None
+
     monkeypatch.setattr(repo, "get_config", lambda: zustand["config"])
     monkeypatch.setattr(repo, "stamps_for", lambda h: dict(zustand["stamps"].get(h, {})))
     monkeypatch.setattr(repo, "add_stamp", add_stamp)
     monkeypatch.setattr(repo, "delete_stamps_for", lambda h: zustand["stamps"].pop(h, None))
     monkeypatch.setattr(repo, "delete_all_stamps", lambda: zustand["stamps"].clear())
+    monkeypatch.setattr(repo, "visitor_code", visitor_code)
+    monkeypatch.setattr(repo, "peek_visitor_code", peek_visitor_code)
+    monkeypatch.setattr(repo, "visitor_hash_for_code", visitor_hash_for_code)
+    monkeypatch.setattr(repo, "delete_all_visitor_codes", lambda: zustand["codes"].clear())
     monkeypatch.setattr(repo, "_redis", lambda: FakeRedis(zustand["redis"]))
     return zustand
 
@@ -155,7 +174,26 @@ def test_the_card_needs_a_visitor_id(client, speicher):
 def test_a_fresh_card_is_empty_with_every_try_left(client, speicher):
     r = client.get("/event/card", headers=BESUCHER)
     assert r.status_code == 200
-    assert r.json() == {"stamped": {}, "completedAt": None, "lockedUntil": None, "attemptsLeft": EVENT_CODE_MAX_ATTEMPTS}
+    assert r.json() == {
+        "stamped": {}, "completedAt": None, "lockedUntil": None,
+        "attemptsLeft": EVENT_CODE_MAX_ATTEMPTS, "code": "",
+    }
+
+
+def test_a_bare_page_view_makes_no_visitor_code_only_a_stamp_does(client, speicher):
+    assert client.get("/event/card", headers=BESUCHER).json()["code"] == ""
+    assert speicher["codes"] == {}
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    assert client.get("/event/card", headers=BESUCHER).json()["code"] != ""
+
+
+def test_the_same_visitor_always_gets_the_same_code(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    client.post("/event/stamp", json={"stationId": "study"}, headers=ANDERER)
+    erst = client.get("/event/card", headers=BESUCHER).json()["code"]
+    zweit = client.get("/event/card", headers=BESUCHER).json()["code"]
+    assert erst == zweit
+    assert client.get("/event/card", headers=ANDERER).json()["code"] != erst
 
 
 def test_stamping_by_station_id_is_idempotent(client, speicher):
@@ -348,6 +386,46 @@ def test_the_admin_empties_every_card(client, speicher):
     assert speicher["stamps"] == {}
 
 
+def test_resetting_every_card_also_drops_every_visitor_code(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    assert speicher["codes"]
+    client.delete("/admin/event/stamps")
+    assert speicher["codes"] == {}
+
+
 def test_the_event_right_alone_resets_the_own_card_but_not_every_card(client_mit_event_recht, speicher):
     assert client_mit_event_recht.delete("/admin/event/card", headers=BESUCHER).status_code == 200
     assert client_mit_event_recht.delete("/admin/event/stamps").status_code == 403
+
+
+def test_the_admin_resets_one_visitors_card_by_its_code(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    client.post("/event/stamp", json={"stationId": "study"}, headers=ANDERER)
+    code = client.get("/event/card", headers=ANDERER).json()["code"]
+    r = client.delete(f"/admin/event/card/{code}")
+    assert r.status_code == 200
+    assert "study" not in client.get("/event/card", headers=ANDERER).json()["stamped"]
+    assert "study" in client.get("/event/card", headers=BESUCHER).json()["stamped"]
+
+
+def test_resetting_by_code_also_forgets_wrong_tries(client, speicher):
+    client.post("/event/code", json={"code": "P9KT"}, headers=BESUCHER)
+    code = client.get("/event/card", headers=BESUCHER).json()["code"]
+    client.post("/event/code", json={"code": "XXXX"}, headers=BESUCHER)
+    assert client.get("/event/card", headers=BESUCHER).json()["attemptsLeft"] == EVENT_CODE_MAX_ATTEMPTS - 1
+    assert client.delete(f"/admin/event/card/{code}").status_code == 200
+    assert client.get("/event/card", headers=BESUCHER).json()["attemptsLeft"] == EVENT_CODE_MAX_ATTEMPTS
+
+
+def test_an_unknown_visitor_code_is_not_found(client, speicher):
+    assert client.delete("/admin/event/card/ZZZZZZ").status_code == 404
+
+
+def test_the_event_right_alone_can_reset_one_visitors_card(client_mit_event_recht, speicher):
+    client_mit_event_recht.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    code = client_mit_event_recht.get("/event/card", headers=BESUCHER).json()["code"]
+    assert client_mit_event_recht.delete(f"/admin/event/card/{code}").status_code == 200
+
+
+def test_a_user_without_the_right_cannot_reset_one_visitors_card(client_ohne_recht, speicher):
+    assert client_ohne_recht.delete("/admin/event/card/ABCDEF").status_code == 403

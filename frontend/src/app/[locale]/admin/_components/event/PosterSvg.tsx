@@ -98,7 +98,9 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
   const text = useText2();
   const Icon = EVENT_ICONS[station.icon];
   const lines = nameLines(text(station.name));
-  const nameY = lines.length > 1 ? 68 : 72;
+  const subtitle = text(station.blurb).trim();
+  const nameY = subtitle ? (lines.length > 1 ? 62 : 67) : (lines.length > 1 ? 68 : 72);
+  const subtitleY = nameY + (lines.length - 1) * 10 + 8;
   return (
     <svg
       ref={ref}
@@ -129,8 +131,8 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
           <image href={art.isy} x={POSTER_MM.w - 10 - PLATE_W + PLATE_PAD + THL_W + PLATE_PAD} y={4.5} width={ISY_W} height={LOGO_IMG_H} />
         </>
       )}
-      <circle cx={74} cy={42} r={15} fill={ACCENT} />
-      <Icon x={63} y={31} width={22} height={22} color={PAPER} weight="bold" />
+      <circle cx={74} cy={36} r={15} fill={ACCENT} />
+      <Icon x={63} y={25} width={22} height={22} color={PAPER} weight="bold" />
       {lines.map((line, i) => (
         <text
           key={i}
@@ -145,6 +147,11 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
           {line}
         </text>
       ))}
+      {subtitle && (
+        <text x={74} y={subtitleY} textAnchor="middle" fontFamily={SANS} fontSize="4.6" fontWeight="500" fill={SOFT}>
+          {subtitle}
+        </text>
+      )}
       <rect x={38} y={84} width={72} height={72} rx={3} fill={PAPER} stroke={ACCENT} strokeWidth={0.6} />
       {art && <image href={art.qr} x={42} y={88} width={64} height={64} />}
       <text x={74} y={167} textAnchor="middle" fontFamily={SANS} fontSize="5.4" fill={SOFT}>
@@ -164,7 +171,10 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
           {station.code}
         </text>
       )}
-      <rect x={10} y={203} width={128} height={1} fill={ACCENT} />
+      <rect x={10} y={195} width={128} height={1} fill={ACCENT} />
+      <text x={74} y={202.5} textAnchor="middle" fontFamily={SANS} fontSize="4.2" fontWeight="600" fill={ACCENT}>
+        {t("brand")}
+      </text>
     </svg>
   );
 });

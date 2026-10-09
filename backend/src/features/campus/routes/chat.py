@@ -18,7 +18,7 @@ from src.features.campus.repository import places as place_repo
 from src.features.campus.routes._title import make_title
 from src.features.campus.services import attribution, retrieval
 from src.features.campus.services import settings as campus_settings
-from src.features.campus.services.place_match import find_places
+from src.features.campus.services.place_match import annotate_buildings, find_places
 from src.i18n import get_locale, t
 from src.limits import (
     CAMPUS_CONTEXT_MAX_CHARS,
@@ -210,7 +210,10 @@ async def campus_chat(
                 yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"
                 return
             map_on = campus_settings.read().map_enabled
-            places = [] if no_source or not map_on else find_places(answer, place_repo.all_places())
+            all_places = place_repo.all_places()
+            places = [] if no_source or not map_on else find_places(answer, all_places)
+            if places:
+                answer = annotate_buildings(answer, all_places, answer_language)
             used = [] if no_source else await asyncio.to_thread(
                 attribution.used_sources, answer, context.sources, context.chunk_ids, _embed_many, chunk_repo.nearest_in,
                 chunk_repo.rare_word_pages,
