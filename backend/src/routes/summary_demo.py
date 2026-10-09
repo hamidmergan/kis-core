@@ -5,13 +5,13 @@ import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.features.summary.templates import TEMPLATES, get_template
 from src.i18n import get_locale, t
-from src.utils.download_header import attachment
+from src.utils.download_header import attachment, utf8_download
 
 router = APIRouter(
     tags=["summary-demo"],
@@ -65,4 +65,7 @@ def demo_download(
     datei = _ergebnis(slug, endung)
     if datei is None:
         raise HTTPException(status_code=404, detail=t("demo.resultMissing", locale))
-    return FileResponse(datei, media_type=_ARTEN[endung], headers={"Content-Disposition": attachment(datei.name)})
+    kopf = {"Content-Disposition": attachment(datei.name)}
+    if endung == "md":
+        return Response(content=utf8_download(datei.read_bytes()), media_type=_ARTEN[endung], headers=kopf)
+    return FileResponse(datei, media_type=_ARTEN[endung], headers=kopf)

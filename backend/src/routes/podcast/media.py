@@ -8,6 +8,7 @@ from src.dependencies import get_current_user
 from src.features.podcast import store
 from src.i18n import get_locale, t
 from src.routes.podcast._shared import own_job
+from src.utils.download_header import utf8_download
 
 router = APIRouter(tags=["podcast"])
 
@@ -48,5 +49,5 @@ def get_transcript(
     namen = [params.persons[l.speaker].name if l.speaker < len(params.persons)
              else params.persons[0].name for l in zeilen]
     text = "\n\n".join(f"{n}: {l.text}" for n, l in zip(namen, zeilen)) + "\n"
-    return Response(content=text, media_type="text/plain; charset=utf-8",
+    return Response(content=utf8_download(text), media_type="text/plain; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="podcast.txt"'})

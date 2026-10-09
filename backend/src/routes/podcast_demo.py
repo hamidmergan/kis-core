@@ -11,6 +11,7 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.features.podcast import store
 from src.i18n import get_locale, t
+from src.utils.download_header import utf8_download
 
 router = APIRouter(
     tags=["podcast-demo"],
@@ -103,5 +104,5 @@ def demo_transcript(_: dict = Depends(get_current_user), locale: str = Depends(g
     namen = [personen[z["speaker"]]["name"] if z["speaker"] < len(personen) else personen[0]["name"]
              for z in daten.get("lines", [])]
     text = "\n\n".join(f"{n}: {z['text']}" for n, z in zip(namen, daten.get("lines", []))) + "\n"
-    return Response(content=text, media_type="text/plain; charset=utf-8",
+    return Response(content=utf8_download(text), media_type="text/plain; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="podcast.txt"'})

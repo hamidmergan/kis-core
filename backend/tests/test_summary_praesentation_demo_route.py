@@ -108,7 +108,7 @@ def test_zusammenfassung_nennt_material_und_vorbereitete_vorlagen(client):
 def test_zusammenfassung_als_markdown_und_word(client):
     md = client.get("/summary-demo/kurzbriefing/md")
     assert md.status_code == 200
-    assert md.text.startswith("# T")
+    assert md.content.startswith(b"\xef\xbb\xbf# T")
     docx = client.get("/summary-demo/kurzbriefing/docx")
     assert docx.content == b"PK-docx"
     assert "Kurzbriefing.docx" in docx.headers["content-disposition"]
@@ -167,7 +167,7 @@ def test_podcast_ton_datei_und_transkript(client):
     assert client.get("/podcast-demo/line/b1").status_code == 404
     assert client.get("/podcast-demo/line/x").status_code == 404
     assert client.get("/podcast-demo/download").content == b"ID3ganz"
-    assert client.get("/podcast-demo/transcript").text == "Lena: Hallo\n\nJonas: Servus\n"
+    assert client.get("/podcast-demo/transcript").content == b"\xef\xbb\xbfLena: Hallo\n\nJonas: Servus\n"
 
 
 def test_podcast_vergleich_ohne_datei_als_platzhalter(client):

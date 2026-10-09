@@ -12,7 +12,7 @@ from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO
-from src.utils.download_header import attachment
+from src.utils.download_header import UTF8_TEXT_SUFFIXES, attachment, utf8_download
 from src.storage import (
     get_file,
     get_job_file,
@@ -51,6 +51,8 @@ def download_job_result(
         raise HTTPException(status_code=404, detail=t("job.fileExpired", locale))
 
     ext = Path(result_path_str).suffix.lower()
+    if ext in UTF8_TEXT_SUFFIXES:
+        data = utf8_download(data)
     content_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
     filename = job["result_filename"] or Path(result_path_str).name
 
