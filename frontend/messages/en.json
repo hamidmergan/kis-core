@@ -5074,7 +5074,7 @@
         },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
-          "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
+          "a": "Yes. The platform is built so that only GDPR compliant services are used. The exception is your own API keys that you add yourself. You are responsible for those."
         },
         "hosting": {
           "q": "Where does the platform run?",

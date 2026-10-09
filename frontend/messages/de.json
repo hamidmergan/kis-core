@@ -5074,7 +5074,7 @@
         },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
-          "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
+          "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Ausnahme sind eigene API-Keys, die du selbst hinterlegst. Dafür trägst du die Verantwortung."
         },
         "hosting": {
           "q": "Wo läuft die Plattform?",
