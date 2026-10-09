@@ -93,3 +93,35 @@ def test_translate_chunk_clean_makes_no_extra_calls(monkeypatch):
 
     monkeypatch.setattr(c, "_translate_each", boom)
     assert c._translate_chunk(["a", "b", "c"], "German", "French") == ["A", "B", "C"]
+
+
+def test_der_schalter_gegen_das_denken_geht_mit(monkeypatch):
+    from types import SimpleNamespace
+    client = _client()
+    client._extra_body = {"reasoning_effort": "none"}
+    gesehen = {}
+
+    def create(**kw):
+        gesehen.update(kw)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="Hallo"), finish_reason="stop")],
+                           usage=None, model="m")
+
+    monkeypatch.setattr(client._client.chat.completions, "create", create)
+    monkeypatch.setattr("src.services.llm_translation_client._verbrauch", lambda *a, **k: None)
+    client._completion_with_retry("s", "u")
+    assert gesehen["extra_body"] == {"reasoning_effort": "none"}
+
+
+def test_der_uebersetzer_bekommt_das_profil_seines_modells(monkeypatch):
+    from src import database as db
+    from src import dependencies
+    from src.services import feature_router
+
+    anbieter = {"id": 21, "name": "myLab", "base_url": "https://mylab.example", "enabled": True,
+                "protocol": "openai_compat", "api_key": "m"}
+    monkeypatch.setattr(db, "get_route", lambda f: {"provider_id": 21, "provider_models": {"21": "chat-vl-small"}})
+    monkeypatch.setattr(db, "get_provider", lambda pid: anbieter)
+    monkeypatch.setattr(feature_router, "_attach_model_profile",
+                        lambda client, binding: setattr(client, "_extra_body", {"aus": binding.model}))
+    client, _glossar = dependencies.get_translate_client_for_provider(21, feature="doc_translate")
+    assert client._extra_body == {"aus": "chat-vl-small"}

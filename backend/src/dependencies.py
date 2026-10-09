@@ -289,6 +289,8 @@ def get_translate_client_for_provider(
             sampling=sampling,
             http_client=provider_transport.sdk_http_client(binding),
         )
+        # A thinking model translates many times slower and may answer empty, so its thinking goes off.
+        feature_router._attach_model_profile(client, binding)
         return client, glossary
 
 

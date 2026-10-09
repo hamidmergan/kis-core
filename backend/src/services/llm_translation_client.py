@@ -90,14 +90,13 @@ class LLMTranslationClient:
         self._provider = provider
         # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
         self._sampling = dict(sampling or {})
+        # The switch that turns the model's thinking off, filled from its measured profile.
+        self._extra_body: dict = {}
 
     def sampling(self, standard: float) -> dict:
         """Die Admin-Werte wenn gesetzt, sonst die eingebaute Temperatur."""
         werte = getattr(self, "_sampling", None)
         return dict(werte) if werte else {"temperature": standard}
-
-    def _extra_body(self) -> dict:
-        return {}
 
     @staticmethod
     def _max_tokens_for(user: str, item_count: int = 1) -> int:
@@ -120,7 +119,7 @@ class LLMTranslationClient:
                     ],
                     **self.sampling(0.1),
                     max_tokens=max_tokens or self._max_tokens_for(user, item_count),
-                    extra_body=self._extra_body() or None,
+                    extra_body=getattr(self, "_extra_body", None) or None,
                 )
                 _verbrauch("translation", self, response)
                 choice = response.choices[0]
