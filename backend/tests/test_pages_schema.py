@@ -99,16 +99,20 @@ def test_long_highlight_key_becomes_text_and_dashes_go():
     assert pl._short_title("Arbeitszeitgesetz: Überblick für Studierende") == "Arbeitszeitgesetz"
 
 
-def test_only_one_blue_box_and_the_design_is_kept():
+def test_cards_once_no_blue_box_and_the_design_is_kept():
     plan = Outline(title="T", intro="I.", sections=[Section(title=f"S{i}") for i in range(4)])
-    hl = {"kind": "highlight", "key": "A", "text": "B"}
-    bloecke = {i: {"lead": "", "blocks": [dict(hl)], "keywords": []} for i in range(4)}
-    seite = pl.draft(plan, bloecke, {"formula": {"key": "F", "text": "x"}, "design": "guide",
+    karten = {"kind": "cards", "cards": [{"title": "A", "text": "a"}, {"title": "B", "text": "b"}]}
+    hl = {"kind": "highlight", "key": "y = a + bx", "text": "Gerade"}
+    bloecke = {i: {"lead": "", "blocks": [dict(karten), dict(hl)], "keywords": []} for i in range(4)}
+    seite = pl.draft(plan, bloecke, {"formula": {"key": "Risikowert", "text": "W mal A"}, "design": "guide",
                                      "hero_prompt": "a desk"},
                      sources=[Source(dateiname="a.pdf", fassung="x", text="t", stuecke=[], seiten=1)],
                      language="German")
     arten = [b["kind"] for s in seite["sections"] for b in s["blocks"]]
-    assert arten.count("highlight") == 1
+    assert "highlight" not in arten
+    assert arten.count("cards") == 1 and arten.count("formula") == 4
+    # A frame formula without a sign is a term, it becomes a definition.
+    assert seite["sections"][2]["blocks"][1] == {"kind": "definitions", "items": [{"term": "Risikowert", "text": "W mal A"}]}
     assert seite["design"] == "guide"
     # Every page opens with its picture as a section of its own above the title.
     assert seite["sections"][0]["id"] == pl.COVER_ID
@@ -145,3 +149,28 @@ def test_a_page_gets_its_picture_from_the_title_when_the_frame_names_none():
     assert seite["sections"][0]["id"] == pl.COVER_ID
     assert bild["src"] == pl.HERO_IMAGE and "Arbeitszeitgesetz" in bild["prompt"]
     assert seite["sections"][1]["hero"] is True and seite["sections"][1]["blocks"] == []
+
+
+def test_new_kinds_are_cleaned_to_their_shape():
+    c = schema.clean_block
+    assert c({"kind": "cycle", "center": "PDCA", "steps": [{"title": "Plan"}, {"title": "Do"}]})["kind"] == "steps"
+    assert c({"kind": "timeline", "events": [{"date": "1957", "title": "CPM"}, {"title": "ohne Datum"}]}) is None
+    v = c({"kind": "versus", "tone": "boese", "a": {"title": "A", "items": ["x"]}, "b": {"title": "B", "items": ["y"]}})
+    assert v["tone"] == "neutral"
+    m = c({"kind": "matrix", "x": "Interesse", "y": "Einfluss", "points": [{"label": "P", "x": 3, "y": "0,5"}],
+           "cells": [{"pos": q, "title": q} for q in ("br", "tl", "tr", "bl")]})
+    assert [x["pos"] for x in m["cells"]] == ["tl", "tr", "bl", "br"] and m["points"] == [{"label": "P", "x": 1.0, "y": 0.5}]
+    s = c({"kind": "scale", "left": "a", "right": "b", "items": [{"label": "y", "pos": 0.9}, {"label": "x", "pos": 0.1}]})
+    assert [x["label"] for x in s["items"]] == ["x", "y"]
+    assert c({"kind": "formula", "key": "E = m c²", "text": "Energie"})["kind"] == "formula"
+    assert c({"kind": "example", "title": "T", "result": "R"}) is None
+    assert c({"kind": "chart", "chart_type": "pie", "categories": ["a", "b"],
+              "series": [{"values": [1, 2]}, {"values": [3, 4]}]})["series"] == [{"name": "", "values": [1.0, 2.0]}]
+
+
+def test_bare_chapter_numbers_are_cut_years_and_formulas_stay():
+    weg = pl.drop_citations
+    assert weg("Es gibt 620 Sitzplätze (2.1).", set()) == "Es gibt 620 Sitzplätze."
+    assert weg("Zwei Drittel aus Landesmitteln (1)", set()) == "Zwei Drittel aus Landesmitteln"
+    assert weg("Das Manifest (2001) gilt.", set()) == "Das Manifest (2001) gilt."
+    assert weg("Der Wert (n = 30) reicht.", set()) == "Der Wert (n = 30) reicht."

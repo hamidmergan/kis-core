@@ -24,7 +24,7 @@ export function deleteAt(page: Page, path: string): void {
   else (parent as Record<string, unknown>)[last] = "";
 }
 
-const LISTS = ["items", "cards", "steps", "figures", "bars", "rows", "branches", "words"] as const;
+const LISTS = ["items", "cards", "steps", "figures", "bars", "rows", "branches", "words", "events", "pairs"] as const;
 const EMPTY: Block = { kind: "empty" };
 
 /** A block with nothing left to read: its last item went, or its only text was cleared. */
@@ -34,6 +34,9 @@ function isBare(b: Block): boolean {
   if (LISTS.some((k) => Array.isArray(rec[k]) && (rec[k] as unknown[]).length === 0)) return true;
   if (b.kind === "text") return !b.text;
   if (b.kind === "highlight") return !b.key && !b.text;
+  if (b.kind === "quote") return !b.text;
+  if (b.kind === "formula") return !b.key;
+  if (b.kind === "versus" || b.kind === "venn") return !b.a.items.length && !b.b.items.length;
   return false;
 }
 

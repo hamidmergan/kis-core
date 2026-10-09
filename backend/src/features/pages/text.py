@@ -56,6 +56,35 @@ def _block(b: dict) -> list[str]:
         return [f"{br['title']}: {', '.join(br['leaves'])}" for br in b["branches"]]
     if k == "wordcloud":
         return [", ".join(w for w, _ in b["words"])]
+    if k in ("quote", "checklist"):
+        return [b["text"]] if k == "quote" else [f"- {x}" for x in b["items"]]
+    if k == "definitions":
+        return [": ".join(x for x in (d["term"], d["text"]) if x) for d in b["items"]]
+    if k in ("accordion", "levels"):
+        return ([b["caption"]] if b.get("caption") else []) + [
+            ": ".join(x for x in (e["title"], e["text"]) if x) for e in b["items"]]
+    if k == "cycle":
+        return ([b["center"]] if b.get("center") else []) + [
+            f"{i + 1}. " + ": ".join(x for x in (s["title"], s["text"]) if x) for i, s in enumerate(b["steps"])]
+    if k == "timeline":
+        return [f"{e['date']}: " + ": ".join(x for x in (e["title"], e["text"]) if x) for e in b["events"]]
+    if k == "tree":
+        return [b["root"]] + [f"{br['title']}: {', '.join(br['leaves'])}".rstrip(": ") for br in b["branches"]]
+    if k == "scale":
+        return [f"{b['left']} … {b['right']}: " + ", ".join(x["label"] for x in b["items"])]
+    if k in ("versus", "venn"):
+        seiten = [b["a"], b["b"]] + ([b["c"]] if b.get("c") else [])
+        zeilen = [f"{x['title']}: {', '.join(x['items'])}" for x in seiten]
+        return zeilen + ([", ".join(b["both"])] if b.get("both") else [])
+    if k == "matrix":
+        return [f"{b['y']} / {b['x']}"] + [": ".join(x for x in (c["title"], c["text"]) if x) for c in b["cells"]]
+    if k == "formula":
+        return [": ".join(x for x in (b["key"], b["text"]) if x)] + [
+            f"{x['sym']}: {x['text']}" for x in b["parts"]] + b["example"]
+    if k == "mistakes":
+        return [f"{x['wrong']} → {x['right']}" for x in b["pairs"]]
+    if k == "example":
+        return [x for x in (b["title"], b["situation"], *b["steps"], b["result"]) if x]
     return []
 
 

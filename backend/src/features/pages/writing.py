@@ -17,15 +17,29 @@ from src.limits import SUMMARY_WRITE_MAX_TOKENS
 from src.services import anweisung
 
 _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
-- text: {"kind":"text","text":"two to five sentences"} plain running text, for an explanation, a reason or an argument. Many sections need nothing else.
-- bullets: {"kind":"bullets","items":["statement","statement"]} three to eight statements of a list, each one sentence. The page shows them with a dot in front.
-- steps: {"kind":"steps","steps":[{"title":"step","text":"one sentence"}]} two to eight steps, only where the material gives an order.
-- cards: {"kind":"cards","cards":[{"icon":"none","title":"term","text":"one or two sentences"}]} three to six parallel things that each need a name and a definition, such as terms or kinds. icon is none, except where cards stand against each other: check for what applies or is right, x for what does not or is wrong, warning for a caveat, idea for a tip.
+- text: {"kind":"text","text":"two to five sentences"} plain running text, for an explanation, a reason or an argument.
+- bullets: {"kind":"bullets","items":["statement","statement"]} three to eight separate statements, each one sentence.
+- checklist: {"kind":"checklist","items":["Budget","Termine"]} three to ten short things a document, a plan or a task must contain, each one to four words.
+- quote: {"kind":"quote","text":"one sentence","keyword":"word"} the one sentence the material itself stresses as its core message, at most once on the page. keyword is the one word of that sentence it turns on, written exactly as in the sentence.
+- definitions: {"kind":"definitions","items":[{"term":"term","text":"one sentence"}]} two to eight terms of the field, each with its definition.
+- accordion: {"kind":"accordion","items":[{"title":"name","text":"two or three sentences"}]} three to six things that each need a longer explanation a reader opens one by one.
+- cards: {"kind":"cards","cards":[{"icon":"none","title":"name","text":"one or two sentences"}]} three to six parallel options or kinds standing side by side. icon is none, except where cards stand against each other: check for right, x for wrong, warning for a caveat, idea for a tip.
+- steps: {"kind":"steps","steps":[{"title":"step","text":"one sentence"}]} two to eight steps where the material gives an order. Titles of one to three words.
+- cycle: {"kind":"cycle","center":"name of the cycle","steps":[{"title":"phase","text":"one sentence"}]} three to six phases that repeat in a loop, the last leads back to the first.
+- timeline: {"kind":"timeline","events":[{"date":"1957","title":"event","text":"one sentence"}]} three to eight events with the date or period the material gives, in time order.
+- tree: {"kind":"tree","root":"the whole","branches":[{"title":"part","leaves":["sub-part","sub-part"]}]} a whole split into two to six parts, each with up to five sub-parts, such as a structure or a classification.
+- levels: {"kind":"levels","caption":"what is ranked","items":[{"title":"level","text":"one sentence"}]} three to six levels from top to bottom, such as a hierarchy or levels of importance.
+- versus: {"kind":"versus","tone":"neutral","a":{"title":"A","items":["point"]},"b":{"title":"B","items":["point"]}} two things set against each other, two to six short points per side. tone is good_bad when side a helps and side b harms, else neutral.
+- venn: {"kind":"venn","a":{"title":"A","items":["only A"]},"b":{"title":"B","items":["only B"]},"both":["shared"]} two things with what only each has and what they share. Add "c" the same way for a third.
+- matrix: {"kind":"matrix","x":"axis","y":"axis","cells":[{"pos":"tl","title":"name","text":"one sentence"},{"pos":"tr",...},{"pos":"bl",...},{"pos":"br",...}],"points":[]} a portfolio of four fields spanned by two axes. tl is high y and low x, tr high y and high x, bl low on both, br low y and high x. points places named things the material places, x and y from 0 to 1, else empty.
+- scale: {"kind":"scale","caption":"what is placed","left":"one pole","right":"other pole","items":[{"label":"thing","pos":0.2}]} things placed between two opposite poles, pos from 0 at the left to 1 at the right.
+- mistakes: {"kind":"mistakes","pairs":[{"wrong":"the common mistake","right":"what is correct instead"}]} two to six typical mistakes each with its correction.
+- example: {"kind":"example","title":"what is worked through","situation":"one sentence","steps":["one line per step"],"result":"one sentence"} one worked example of the material with its figures.
+- formula: {"kind":"formula","key":"E = (O + 4M + P) / 6","text":"what it means","parts":[{"sym":"E","text":"expected effort"}],"example":["O = 4, M = 6, P = 14","E = 42 / 6 = 7"]} only for a formula or an equation the material states, never for a term or a rule in words. parts and example only as far as the material gives them.
 - figures: {"kind":"figures","figures":[{"value":"30 Min.","label":"what the number is"}]} two to four key figures with their unit, exactly as the material states them.
 - table: {"kind":"table","caption":"what is compared","header":["","A","B"],"rows":[["attribute","value","value"]]} where several things are compared along the same attributes. At most 6 columns and 12 rows, short cells.
-- chart: {"kind":"chart","chart_type":"bar","caption":"what it shows","x_label":"","y_label":"unit","categories":["a","b","c"],"series":[{"name":"","values":[1,2,3]}]} wherever the material states at least three numbers of the same quantity, such as measured values, value pairs or a series over time. line for a development along an ordered axis such as time, bar to compare things. At most 10 categories, at most 2 series for line, 1 for bar.
+- chart: {"kind":"chart","chart_type":"bar","caption":"what it shows","x_label":"","y_label":"unit","categories":["a","b","c"],"series":[{"name":"","values":[1,2,3]}]} wherever the material states at least three numbers of the same quantity. line for a development along an ordered axis such as time, bar to compare things, pie for the shares of one whole. At most 10 categories, at most 2 series for line, 1 for bar and pie.
 - bars: {"kind":"bars","max":1,"bars":[{"label":"thing","value":0.62,"text":"one sentence on the value"}]} two to ten things measured on one scale, such as shares. max is the top of the scale, 1 for shares, 100 for percent.
-- highlight: {"kind":"highlight","key":"y = a + bx","text":"what it means"} only for a formula or an equation the material states. Never for a sentence or a rule in words.
 
 EXAMPLE of two sections:
 {"sections":[{"section_index":2,"map_label":"Vorgehen","lead":"So kommt man von den Punkten zur fertigen Geraden.","blocks":[{"kind":"steps","steps":[{"title":"Punkte eintragen","text":"Jedes Wertepaar wird ein Punkt."},{"title":"Steigung berechnen","text":"Durch den Schwerpunkt ergibt sich b = 3,9."}]}],"keywords":["Steigung","Schwerpunkt"]},{"section_index":3,"map_label":"Grenzen","lead":"Eine Gerade passt nicht auf jeden Zusammenhang.","blocks":[{"kind":"text","text":"Liegen die Punkte auf einer Kurve, liegt die Gerade in der Mitte zu hoch und an den Rändern zu tief. Ein einzelner Ausreißer kann sie stark kippen."}],"keywords":["Ausreißer"]}]}"""
@@ -37,14 +51,22 @@ def _blocks_system(language: str, count: int) -> str:
         "for students. The page condenses, it never asks questions and holds no quiz.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Each section gets one or two blocks. Choose each block by its content, the "
-        "first match wins: at least three numbers of the same quantity become a chart, things "
-        "compared along the same attributes become a table, two to four key numbers with their "
-        "units become figures, an order becomes steps, an explanation or a reason becomes text, "
-        "separate statements become bullets, three or more terms that each need a definition "
-        "become cards. No kind may fill more than half of your sections, and at least one of "
-        "your sections is plain text.\n"
+        "first match wins: at least three numbers of the same quantity become a chart, dated "
+        "events become a timeline, things compared along the same attributes become a table, "
+        "two things set against each other become versus, two things with what they share "
+        "become venn, four fields spanned by two axes become a matrix, phases that repeat "
+        "become a cycle, an order becomes steps, a whole split into parts becomes a tree, a "
+        "ranking from top to bottom becomes levels, things between two poles become a scale, "
+        "typical mistakes become mistakes, a worked example becomes example, a formula "
+        "becomes formula, two to four key numbers become figures, terms with their meaning "
+        "become definitions, things that each need a longer explanation become an accordion, "
+        "what something must contain becomes a checklist, an explanation becomes text, "
+        "separate statements become bullets. cards only where none of these fits, at most once "
+        "among your sections. The two blocks of a section are never of the same kind, and no "
+        "kind fills more than a third of your sections.\n"
         "Rule 9: Never invent a number, a value in a chart, bars or figures block comes from "
-        "the material as it stands.\n"
+        "the material as it stands. Place things on a scale or in a matrix only where the "
+        "material places them, and give a date only as the material gives it.\n"
         "Rule 10: Say every statement once on the whole page. What is listed as already on "
         "the page is not repeated, and within a section a lead, a text and a list never say "
         "the same thing twice. A figure belongs to the one section whose scope it concerns.\n"

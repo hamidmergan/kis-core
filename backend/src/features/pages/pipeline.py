@@ -243,7 +243,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
         kurz_bloecke.append({"kind": "bullets", "items": gist[:4]})
     formel = frame.get("formula")
     if isinstance(formel, dict) and (formel.get("key") or "").strip():
-        kurz_bloecke.append({"kind": "highlight", "key": formel.get("key"), "text": formel.get("text")})
+        kurz_bloecke.append({"kind": "formula", "key": formel.get("key"), "text": formel.get("text")})
     if kurz_bloecke:
         seiten.append({"id": "gist", "title": t("pages.gistTitle", loc), "lead": "",
                        "blocks": kurz_bloecke})
@@ -256,7 +256,7 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
         inhalt.append((i, {"id": f"s{i + 1}", "title": abschnitt.title, "lead": teil.get("lead", ""),
                            "blocks": list(teil.get("blocks") or [])}, teil))
 
-    _one_highlight([kurz_bloecke] + [s["blocks"] for _, s, _ in inhalt])
+    _once([kurz_bloecke] + [s["blocks"] for _, s, _ in inhalt])
 
     # A timeline is its own overview, the map would only repeat it.
     if len(inhalt) >= MIN_MAP_SECTIONS and design != "timeline":
@@ -287,6 +287,8 @@ _LABEL = re.compile(r"^(?:SZ|TZ)\s*\d+(?:\s*[-\u2010-\u2014\u2212]\s*(?:SZ|TZ)?\
 # A page, slide or folio after a document name, such as "S. 3" or "Folie 4".
 _STELLE = re.compile(r"[,\s]*(?:S\.|Seite|Seiten|p\.|pp\.|page|Folie|slide)\s*\d+(?:\s*[-\u2013]\s*\d+)?$", re.I)
 _KLAMMER = re.compile(r"\s*[(\[]([^()\[\]]{1,200})[)\]]")
+# A bare chapter or section number of the material, such as 2.1 or 3; a year stays.
+_GLIEDERUNG = re.compile(r"^(?:\d{1,3}(?:\.\d{1,3})*)$")
 
 
 def _is_source(teil: str, namen: set[str]) -> bool:
@@ -294,7 +296,7 @@ def _is_source(teil: str, namen: set[str]) -> bool:
     # A bare page or slide is a source part too, as in "(VL1, S. 4)".
     if not rest:
         return bool(teil.strip())
-    return bool(_LABEL.match(rest)) or rest.casefold() in namen
+    return bool(_LABEL.match(rest) or _GLIEDERUNG.match(rest)) or rest.casefold() in namen
 
 
 def drop_citations(value, namen: set[str]):
@@ -315,17 +317,23 @@ def drop_citations(value, namen: set[str]):
     return value
 
 
-def _one_highlight(listen: list[list[dict]]) -> None:
-    """The blue box stands once on a page, every later one becomes plain text."""
-    gesehen = False
+def _once(listen: list[list[dict]]) -> None:
+    """Cards and the core sentence stand once on a page, later ones take a plainer kind."""
+    gesehen: set[str] = set()
     for bloecke in listen:
         for k, b in enumerate(bloecke):
-            if b.get("kind") != "highlight":
-                continue
-            if gesehen:
-                teile = [str(b.get("key") or "").strip(), str(b.get("text") or "").strip()]
-                bloecke[k] = {"kind": "text", "text": ": ".join(x for x in teile if x)}
-            gesehen = True
+            art = b.get("kind")
+            if art == "highlight":
+                # The blue box is gone, a formula the model still sends that way becomes one.
+                bloecke[k] = b = {"kind": "formula", "key": b.get("key"), "text": b.get("text")}
+                art = "formula"
+            if art in gesehen and art == "cards":
+                bloecke[k] = {"kind": "definitions", "items": [
+                    {"term": c.get("title"), "text": c.get("text")} for c in b.get("cards") or []
+                    if isinstance(c, dict)]}
+            elif art in gesehen and art == "quote":
+                bloecke[k] = {"kind": "text", "text": b.get("text")}
+            gesehen.add(art)
 
 
 def _words_on(page: dict) -> int:

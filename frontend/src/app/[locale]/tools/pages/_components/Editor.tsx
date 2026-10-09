@@ -214,7 +214,7 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
     if (kind === "image") { setImageAt({ path, prompt: "", isNew: true, hero: false }); return; }
     const fresh: Record<Exclude<FieldKind, "image">, Block> = {
       text: { kind: "text", text: t("newText") },
-      note: { kind: "highlight", key: "", text: t("newNote") },
+      note: { kind: "quote", text: t("newNote") },
       list: { kind: "bullets", items: [t("newItem1"), t("newItem2"), t("newItem3")] },
       table: {
         kind: "table", caption: "", header: [1, 2, 3].map((n) => t("newColumn", { n })),
@@ -231,7 +231,10 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
 
   const grow = (path: string, what: "item" | "row" | "col") => change((p) => {
     const b = getAt(p, path) as Block;
-    if (what === "item" && b.kind === "bullets") b.items.push(t("newItem"));
+    if (what === "item" && (b.kind === "bullets" || b.kind === "checklist")) b.items.push(t("newItem"));
+    if (what === "item" && b.kind === "definitions") b.items.push({ term: t("newItem"), text: t("newText") });
+    if (what === "item" && b.kind === "accordion") b.items.push({ title: t("newItem"), text: t("newText") });
+    if (what === "item" && b.kind === "cards") b.cards.push({ icon: "none", title: t("newItem"), text: t("newText") });
     if (b.kind !== "table") return;
     if (what === "row") b.rows.push(b.header.map(() => "…"));
     if (what === "col") {

@@ -30,7 +30,7 @@ LANGUAGES: dict[str, dict] = {
 
 # Fields that are no text a reader sees, they stay as they are.
 _KEEP = {"src", "prompt", "kind", "id", "icon", "to", "chart_type", "layout", "saved_at", "lang",
-         "design", "version", "hidden", "hero", "cols", "max"}
+         "design", "version", "hidden", "hero", "cols", "max", "pos", "tone", "heading"}
 _CONCURRENCY = 2
 # A busy provider answers 429 or 5xx, each call tries again after these waits in seconds.
 _WAITS = (3, 8, 20, 45)
@@ -85,10 +85,14 @@ def _limit(page: dict, path: tuple) -> int:
     """The most characters the schema keeps at this place, so no answer is cut afterwards."""
     keys = [k for k in path if isinstance(k, str)]
     last = keys[-1]
-    if "categories" in keys or keys[-2:] == ["figures", "value"]:
+    art = page["sections"][path[1]]["blocks"][path[3]].get("kind") if "blocks" in keys and len(path) > 3 else ""
+    if ("categories" in keys or keys[-2:] == ["figures", "value"] or last in ("date", "sym")
+            or (art in ("scale", "matrix") and last == "label")):
         return schema.CHART_LABEL_CHARS
-    if "branches" in keys or "words" in keys or last == "center":
+    if "branches" in keys or "words" in keys or last in ("center", "root"):
         return schema.MAP_LABEL_CHARS
+    if art == "checklist" or (art in ("venn", "formula") and last in ("both", "example")):
+        return PAGES_MAX_SHORT_CHARS
     if last in ("lead", "meta", "footer"):
         return PAGES_MAX_LONG_CHARS
     if keys[-2:] == ["blocks", "text"]:

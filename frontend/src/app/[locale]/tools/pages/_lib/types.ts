@@ -4,18 +4,57 @@ import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 
 export type CardIcon = "none" | "info" | "check" | "x" | "warning" | "idea";
 
+/** A title with its explanation, the item of steps, cycles, levels and accordions. */
+export interface Entry {
+  title: string;
+  text: string;
+}
+
+/** One side of a comparison or one circle of an overlap. */
+export interface Side {
+  title: string;
+  items: string[];
+}
+
 export type Block =
   | { kind: "text"; text: string }
   | { kind: "bullets"; items: string[] }
+  /** Older pages only, it is drawn as a formula or a term and never written any more. */
   | { kind: "highlight"; key: string; text: string }
   | { kind: "cards"; cards: { icon: CardIcon; title: string; text: string }[]; cols?: 1 }
-  | { kind: "steps"; steps: { title: string; text: string }[] }
+  | { kind: "steps"; steps: Entry[] }
   | { kind: "figures"; figures: { value: string; label: string }[] }
   | { kind: "bars"; bars: { label: string; value: number; text: string }[]; max?: number }
   | { kind: "table"; caption: string; header: string[]; rows: string[][] }
+  /** keyword is one word of the sentence the look may underline. */
+  | { kind: "quote"; text: string; keyword?: string }
+  | { kind: "checklist"; items: string[] }
+  | { kind: "definitions"; items: { term: string; text: string }[] }
+  | { kind: "accordion"; items: Entry[] }
+  | { kind: "cycle"; center: string; steps: Entry[] }
+  | { kind: "timeline"; events: { date: string; title: string; text: string }[] }
+  | { kind: "tree"; root: string; branches: { title: string; leaves: string[] }[] }
+  | { kind: "levels"; caption: string; items: Entry[] }
+  | { kind: "scale"; caption: string; left: string; right: string; items: { label: string; pos: number }[] }
+  /** "good_bad" sets what helps against what harms, "neutral" two things side by side. */
+  | { kind: "versus"; tone: "neutral" | "good_bad"; a: Side; b: Side }
+  | {
+      kind: "matrix";
+      x: string;
+      y: string;
+      /** tl, tr, bl, br: the quadrant, top means high on y, right high on x. */
+      cells: { pos: "tl" | "tr" | "bl" | "br"; title: string; text: string }[];
+      /** Positions from 0 to 1 on both axes, may be empty. */
+      points: { label: string; x: number; y: number }[];
+    }
+  | { kind: "venn"; a: Side; b: Side; both: string[]; c?: Side }
+  | { kind: "formula"; key: string; text: string; parts: { sym: string; text: string }[]; example: string[] }
+  | { kind: "mistakes"; pairs: { wrong: string; right: string }[] }
+  | { kind: "example"; title: string; situation: string; steps: string[]; result: string }
   | {
       kind: "chart";
-      chart_type: "line" | "bar";
+      /** pie shows the shares of one whole and draws one series. */
+      chart_type: "line" | "bar" | "pie";
       caption: string;
       x_label: string;
       y_label: string;

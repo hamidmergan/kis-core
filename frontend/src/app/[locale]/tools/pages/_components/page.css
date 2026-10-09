@@ -10,6 +10,14 @@
   --pg-cell: var(--background);
   --pg-soft: var(--kb60);
   --pg-amber: #e0a100;
+  --pg-good: var(--success-strong);
+  --pg-good-bg: var(--success-bg);
+  --pg-bad: var(--error);
+  --pg-bad-bg: var(--error-bg);
+  --pg-warn: var(--warn-strong);
+  --pg-warn-bg: var(--warn-bg);
+  --kb15: color-mix(in srgb, var(--pg-accent) 15%, transparent);
+  --kb08: color-mix(in srgb, var(--pg-accent) 8%, transparent);
   font-size: 18px;
   line-height: 1.6;
   color: var(--pg-ink);
@@ -19,6 +27,7 @@
 .kis-page section { position: relative; padding-top: 84px; scroll-margin-top: 16px; }
 .kis-page h1, .kis-page h2 { hyphens: manual; overflow-wrap: break-word; }
 .kis-page h2 { color: var(--pg-ink); font-weight: 700; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -0.022em; margin: 0 0 12px; }
+.kis-page h3 { color: var(--pg-ink); }
 .kis-page .lead { font-size: 20px; line-height: 1.5; color: var(--pg-ink-soft); margin: 0; }
 /* The title picture stands wide above, title, lead and meta line follow below it. */
 .kis-page .hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 40px; }
@@ -136,26 +145,7 @@
 .kis-page .pfoot { margin-top: 96px; padding: 28px 0 100px; border-top: 2px solid var(--pg-mist); font-size: 14.5px; color: var(--muted); }
 .kis-page .pfoot p { margin: 0; }
 
-/* ---------- the four looks of a page ---------- */
-/* Chapters: the subject's sections carry their number, it is a sequence. */
-.kis-page.d-chapters section.content .txt { position: relative; }
-.kis-page.d-chapters .chap { display: block; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--pg-soft); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
-@media (min-width: 1240px) { .kis-page.d-chapters .chap { position: absolute; right: calc(100% + 28px); top: 4px; margin: 0; } }
-
-/* Timeline: a line runs down the subject's sections, a dot marks each one. */
-.kis-page.d-timeline section.content { padding-left: 48px; }
-.kis-page.d-timeline section.content::after { content: ""; position: absolute; left: 11px; top: 0; bottom: -84px; width: 3px; border-radius: 2px; background: var(--pg-soft); opacity: 0.55; }
-.kis-page.d-timeline section.content:not(:has(+ section.content))::after { bottom: 0; }
-.kis-page.d-timeline .tl-dot { position: absolute; left: 4px; margin-top: 12px; width: 16px; height: 16px; border-radius: 50%; background: var(--pg-fill); box-shadow: 0 0 0 4px var(--background); z-index: 1; }
-
-/* Magazine: a larger lead, picture and text change sides from section to section. */
-.kis-page.d-magazine section.content .lead { font-size: 22px; }
-.kis-page.d-magazine .duo.flip > .blk:first-child { order: 2; }
-.kis-page.d-magazine .duo { background: none; padding: 0; }
-/* Every second section lies on a band across the whole width, so the page reads in spreads. */
-.kis-page.d-magazine section.content.band { box-shadow: 0 0 0 100vmax var(--pg-mist); clip-path: inset(0 -100vmax); background: var(--pg-mist); padding-bottom: 72px; margin-top: 84px; padding-top: 72px; }
-.kis-page.d-magazine section.content.band .panel { background: var(--pg-cell); }
-.kis-page.d-magazine section.content.band + section { padding-top: 96px; }
+/* ---------- the four looks of a page: their sections are built in looks/sections.css ---------- */
 
 /* The title picture is a section of its own above the title, as wide as the page. */
 .kis-page section.cover { padding-top: 0; }
@@ -171,24 +161,6 @@
 @media (max-width: 640px) { .kis-page.d-guide .hero-text { padding: 28px 22px; } }
 .kis-page.d-guide .hero h1 { font-size: clamp(34px, 4.4vw, 54px); }
 .kis-page.d-guide .hero .lead { max-width: 60ch; }
-.kis-page.d-guide section.content { padding-top: 48px; margin-top: 40px; border-top: 2px solid var(--pg-line); }
-.kis-page.d-guide section.content h2 { font-size: clamp(24px, 2.4vw, 30px); }
-.kis-page.d-guide section.content .lead { font-size: 17px; }
-@media (min-width: 900px) {
-  .kis-page.d-guide section.content:not(.added) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: 48px; }
-  .kis-page.d-guide section.content:not(.added) > .ed-tools { grid-column: 1 / -1; }
-  .kis-page.d-guide section.content:not(.added) .body > .blk:first-child, .kis-page.d-guide section.content:not(.added) .body > .duo:first-child { margin-top: 0; }
-  /* The blocks stand in the right column, a table takes the whole width under the heading. */
-  .kis-page.d-guide section.content:not(.added) > .body { display: contents; }
-  .kis-page.d-guide section.content:not(.added) > .body > * { grid-column: 2; }
-  .kis-page.d-guide section.content:not(.added) > .body > .k-table { grid-column: 1 / -1; }
-}
-.kis-page.editing.d-guide section.content::before { top: 24px; }
-/* The right column is narrow for pictures beside text and for three cards in a row. */
-.kis-page.d-guide section.content .duo { grid-template-columns: minmax(0, 1fr); }
-.kis-page.d-guide section.content .g3, .kis-page.d-guide section.content .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 640px) { .kis-page.d-guide section.content .g3, .kis-page.d-guide section.content .g4 { grid-template-columns: minmax(0, 1fr); } }
-
 /* the edit layer, visible only while editing */
 .kis-page .ed-only { display: none; }
 .kis-page.editing .ed-only { display: flex; }

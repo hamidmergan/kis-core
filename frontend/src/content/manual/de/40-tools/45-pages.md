@@ -10,7 +10,9 @@ Workspace, dazu optional eine Anweisung wie „nur Kapitel 4“ oder „für Ers
 entsteht im Hintergrund, die Karte unter Pages zeigt den Fortschritt.
 
 Welche Darstellung ein Abschnitt bekommt, entscheidet das System nach dem Inhalt: Begriffe als
-Karten, ein Vorgehen als Schritte, Messwerte als Diagramm, Vergleiche als Tabelle. Dazu kommen
+Glossar, ein Vorgehen als Ablauf, ein Kreislauf als Ring, Ereignisse als Zeitleiste, Messwerte
+als Diagramm, Gegensätze als Gegenüberstellung, typische Fehler mit ihrer Korrektur und vieles
+mehr. Jede Form hat mehrere Gestaltungen, auf einer Seite wiederholt sich keine. Dazu kommen
 eine Kurzfassung, eine Mindmap über alle Abschnitte, eine Wortwolke der Fachwörter und oben ein
 Bild, das für das Thema der ganzen Seite steht. Das Bild ist ein eigener Abschnitt
 über dem Titel, Sie verschieben, verbergen oder löschen es wie jeden Abschnitt. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie

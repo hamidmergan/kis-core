@@ -9,8 +9,10 @@ You choose material and instruction as in Report: up to 10 files or sources from
 plus an optional instruction such as “only chapter 4” or “for first-year students”. The page is
 made in the background, its card under Pages shows the progress.
 
-The system decides how each section is shown, by its content: terms as cards, a procedure as
-steps, measured values as a chart, comparisons as a table. On top come a summary, a mind map of
+The system decides how each section is shown, by its content: terms as a glossary, a procedure
+as a flow, a cycle as a ring, events as a timeline, measured values as a chart, opposites side by
+side, common mistakes with their correction and much more. Each form has several designs, none
+repeats on a page. On top come a summary, a mind map of
 all sections, a word cloud of the technical terms and one picture at the top that stands for
 the topic of the whole page. The picture is a section of its own above the
 title, you move, hide or delete it like any section. Figures always come
