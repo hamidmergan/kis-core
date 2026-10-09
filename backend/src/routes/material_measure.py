@@ -1,6 +1,6 @@
 """Measuring material while it is being picked, so an oversized choice shows before the start.
 
-Podcast, presentation and summary share this. Nothing is stored, the file is read once and
+Podcast, presentation, summary, screencast and Pages share this. Nothing is stored, the file is read once and
 forgotten. The start reads it again and remains the one that decides.
 """
 
@@ -17,6 +17,11 @@ def measure_router(dienst: str, schluessel: str | None = None) -> APIRouter:
     """The two measuring routes of one service, the service name is its message key unless given."""
     schluessel = schluessel or dienst
     router = APIRouter(tags=[dienst])
+
+    @router.get(f"/{dienst}/measure/limit")
+    def material_limit(_user: dict = Depends(get_current_user)):
+        """The admin's limit, so the page shows it before anything has been measured."""
+        return {"maxChars": sources.max_total_chars()}
 
     @router.post(f"/{dienst}/measure")
     async def measure_file(file: UploadFile = File(...),

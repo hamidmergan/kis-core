@@ -76,10 +76,11 @@ def test_wer_nicht_in_den_raum_darf_misst_auch_nichts(monkeypatch):
     assert fehler.value.status_code == 403
 
 
-# ── Die Pfade der drei Dienste ───────────────────────────────────────────────
+# ── Die Pfade der Dienste ────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("dienst", ["podcast", "praesentation", "summary"])
-def test_jeder_dienst_hat_beide_messpfade(dienst):
+@pytest.mark.parametrize("dienst", ["podcast", "praesentation", "summary", "screencast", "pages"])
+def test_jeder_dienst_hat_alle_messpfade(dienst):
     pfade = set(create_app().openapi()["paths"])
     assert f"/{dienst}/measure" in pfade
     assert f"/{dienst}/measure/workspace" in pfade
+    assert f"/{dienst}/measure/limit" in pfade

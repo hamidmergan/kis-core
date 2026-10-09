@@ -29,6 +29,16 @@ export function useMaterialMeasure(dienst: Dienst, mode: string, files: File[],
     return [];
   }, [mode, files, workspaceUuid, sourceIds]);
 
+  // The admin's limit counts from the start, not only once the first file has been measured.
+  useEffect(() => {
+    let aktiv = true;
+    backendApi.fetch(`/${dienst}/measure/limit`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (aktiv && typeof data?.maxChars === "number") setMax(data.maxChars); })
+      .catch(() => {});
+    return () => { aktiv = false; };
+  }, [dienst]);
+
   useEffect(() => {
     const fallback = tCommon("unknownError");
     for (const a of auftraege) {
