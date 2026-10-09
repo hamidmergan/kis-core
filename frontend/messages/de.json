@@ -407,7 +407,7 @@
       },
       "pages": {
         "title": "Pages",
-        "body": "Aus Material eine Lernseite mit Bildern, Tabellen und Diagrammen machen, ändern und mit Studierenden teilen."
+        "body": "Aus Material eine Lernseite mit Bildern, Tabellen und Diagrammen machen, ändern, teilen und im Workspace als Material einbinden."
       },
       "glossary": {
         "title": "Glossar",
@@ -556,7 +556,7 @@
     },
     "pages": {
       "title": "Pages",
-      "intro": "Aus deinem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen. Du kannst sie danach ändern und mit Studierenden teilen.",
+      "intro": "Aus deinem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen. Du kannst sie danach ändern, teilen und im Workspace als Material einbinden.",
       "tabs": {
         "files": "Dateien"
       },

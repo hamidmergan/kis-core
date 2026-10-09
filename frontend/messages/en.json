@@ -407,7 +407,7 @@
       },
       "pages": {
         "title": "Pages",
-        "body": "Turn material into a learning page with pictures, tables and charts, edit it and share it with students."
+        "body": "Turn material into a learning page with pictures, tables and charts, edit it, share it and add it to a workspace as material."
       },
       "glossary": {
         "title": "Glossary",
@@ -556,7 +556,7 @@
     },
     "pages": {
       "title": "Pages",
-      "intro": "Your material becomes a learning page with pictures, tables and charts. You can then edit it and share it with students.",
+      "intro": "Your material becomes a learning page with pictures, tables and charts. You can then edit it, share it and add it to a workspace as material.",
       "tabs": {
         "files": "Files"
       },
