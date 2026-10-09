@@ -5074,7 +5074,7 @@
         },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
-          "a": "Yes. The platform is built so that only GDPR compliant services are used. The exception is your own API keys that you add yourself. You are responsible for those."
+          "a": "Yes. The platform is built so that only GDPR compliant services are used. The exception is personal API keys added by teachers. They apply only to the person who adds them and are that person's responsibility."
         },
         "hosting": {
           "q": "Where does the platform run?",

@@ -5074,7 +5074,7 @@
         },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
-          "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Ausnahme sind eigene API-Keys, die du selbst hinterlegst. Dafür trägst du die Verantwortung."
+          "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Ausnahme sind persönliche API-Keys von Lehrenden. Sie gelten nur für die Person, die sie hinterlegt, und liegen in deren Verantwortung."
         },
         "hosting": {
           "q": "Wo läuft die Plattform?",
