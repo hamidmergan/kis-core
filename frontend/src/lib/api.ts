@@ -8,7 +8,7 @@ const EXPIRED_PATH = "/login?expired=1";
 /** Pages that talk about the expiry themselves and must not be thrown around. */
 const EXPIRY_HOME = ["/login", "/redeem", "/redeem/expired"];
 /** Pages anyone may see, a stale session there is dropped instead of sending the visitor to the login. */
-const PUBLIC_PAGES = ["/", "/info", "/imprint", "/privacy", "/campusmap"];
+export const PUBLIC_PAGES = ["/", "/info", "/imprint", "/privacy", "/campusmap"];
 
 function isPublicPage(path: string): boolean {
   const ohneSprache = path.replace(/^\/en(?=\/|$)/, "") || "/";

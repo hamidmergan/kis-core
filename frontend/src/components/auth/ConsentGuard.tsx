@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { checkAuthStatus } from "@/lib/auth";
+import { PUBLIC_PAGES } from "@/lib/api";
 
 const BYPASS_PREFIXES = ["/consent", "/login", "/maintenance", "/api"];
 
@@ -12,6 +13,9 @@ export default function ConsentGuard() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Public pages (landing, map, imprint, privacy) stay reachable without consenting -
+    // the privacy link inside the consent text would otherwise bounce right back here.
+    if (pathname && PUBLIC_PAGES.includes(pathname)) return;
     if (BYPASS_PREFIXES.some((p) => pathname?.startsWith(p))) return;
     let cancelled = false;
 

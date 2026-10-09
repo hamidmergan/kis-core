@@ -67,7 +67,7 @@ export default function ConsentPage() {
             <p className="text-base leading-relaxed text-foreground-soft">
               {t.rich("body", {
                 link: (chunks) => (
-                  <Link href="/privacy" className="text-kb hover:underline">
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-kb hover:underline">
                     {chunks}
                   </Link>
                 ),
