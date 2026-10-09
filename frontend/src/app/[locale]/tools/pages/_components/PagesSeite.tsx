@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowRight, BookOpenText, Trash } from "@phosphor-icons/react";
+import { ArrowRight, BookOpenText, Info, Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -13,7 +13,7 @@ import Modal from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { backendApi, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import { notifyJobsChanged } from "@/lib/jobs-events";
@@ -35,6 +35,17 @@ const POLL_MS = 3000;
 const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
 // Cards per list page, the newest come first.
 const PER_PAGE = 9;
+// The demo badge, the same amber as on every other tool with a demo.
+const DEMO_BADGE = "text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors";
+const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
+
+/** The prepared run of the demo: its material and the one page the demo list shows. */
+interface DemoSetup {
+  workspace: string;
+  files: string[];
+  instructions: string;
+  card: Omit<PageCard, "job_uuid" | "status" | "progress" | "error" | "shared" | "public" | "code"> | null;
+}
 
 /** The card picture: the page's first picture, a book when it has none. */
 export function Thumb({ src, className = "aspect-video" }: { src: string | null; className?: string }) {
@@ -58,8 +69,10 @@ export function useDate() {
     iso ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso)) : "";
 }
 
-export default function PagesSeite() {
+/** The pages tool, and with demo the same page on the one prepared page of the demo module. */
+export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const t = useTranslations("tools.pages");
+  const tDemo = useTranslations("tools.pagesDemo");
   const tCommon = useTranslations("common");
   const tResult = useTranslations("common.result");
   const router = useRouter();
@@ -80,14 +93,16 @@ export default function PagesSeite() {
   const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
   const [offset, setOffset] = useState(0);
+  // Also read outside the demo, so the badge shows only when a prepared page is there.
+  const [demoSetup, setDemoSetup] = useState<DemoSetup | null>(null);
   const listRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = list?.extensions ?? FALLBACK_EXTENSIONS;
   const maxSources = list?.maxSources ?? 10;
   const canUseModules = !!permissions.allow_aia;
-  const mode: SourceMode = canUseModules ? gewaehlterModus : "files";
-  const { modules, sources } = useModules(mode === "module" ? moduleId : "");
+  const mode: SourceMode = demo ? "module" : canUseModules ? gewaehlterModus : "files";
+  const { modules, sources } = useModules(mode === "module" && !demo ? moduleId : "");
   const messung = useMaterialMeasure("pages", mode, files, moduleId, sourceIds);
   const hatInhalt = mode === "files" ? files.length > 0 : sourceIds.length > 0;
   const full = files.length >= maxSources;
@@ -96,21 +111,29 @@ export default function PagesSeite() {
   const load = useCallback(() => api.listPages().then(setList).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    backendApi.fetch("/pages-demo/setup").then((r) => (r.ok ? r.json() : null)).then(setDemoSetup).catch(() => {});
+  }, []);
+  useEffect(() => {
     if (list && imageStyle === null) setImageStyle(list.imageStyle);
   }, [list, imageStyle]);
 
   // While a page is being made, its card follows the run.
-  const running = !!list?.pages.some((p) => RUNNING.has(p.status));
+  const running = !demo && !!list?.pages.some((p) => RUNNING.has(p.status));
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(load, POLL_MS);
     return () => window.clearInterval(id);
   }, [running, load]);
 
+  // The demo list holds only the prepared page, it opens in its own reading view.
+  const demoCards: PageCard[] = demo && demoSetup?.card
+    ? [{ ...demoSetup.card, job_uuid: "demo", status: "success", progress: {}, error: null, shared: false, public: false, code: null }]
+    : [];
+  const pages = demo ? demoCards : list?.pages ?? [];
   // A deletion may leave the offset past the last list page.
-  const total = list?.pages.length ?? 0;
+  const total = pages.length;
   const start = Math.min(offset, Math.max(0, Math.ceil(total / PER_PAGE) - 1) * PER_PAGE);
-  const shown = list?.pages.slice(start, start + PER_PAGE) ?? [];
+  const shown = pages.slice(start, start + PER_PAGE);
   const goTo = (next: number) => {
     setOffset(next);
     listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -139,7 +162,7 @@ export default function PagesSeite() {
   };
 
   const submit = async () => {
-    if (!hatInhalt || !messung.ready || sending) return;
+    if (demo || !hatInhalt || !messung.ready || sending) return;
     setSending(true);
     setErrorMessage("");
     try {
@@ -201,21 +224,50 @@ export default function PagesSeite() {
     <ProtectedRoute>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <ToolBackLink />
-        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <div className="flex items-baseline justify-between gap-3 mb-1">
+          <h1 className="text-xl font-bold">{t("title")}</h1>
+          {demo ? (
+            <Link href="/tools/pages" className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("beenden")}</Link>
+          ) : !!demoSetup?.card && (
+            <Link href="/tools/pages-demo" className={DEMO_BADGE} style={DEMO_FARBE}>{t("demoBadge")}</Link>
+          )}
+        </div>
         <p className="text-sm text-muted mb-6">{t("intro")}</p>
+        {demo && (
+          <p className="mb-6 flex items-start gap-2 rounded-lg border border-warn-border bg-warn-bg px-3 py-2.5 text-sm text-warn-strong">
+            <Info size={14} className="mt-0.5 flex-shrink-0 text-warn" aria-hidden="true" />
+            {tDemo("hinweis")}
+          </p>
+        )}
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
           <section className="min-w-0 self-start rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-            {canUseModules && (
+            {(canUseModules || demo) && (
               <Tabs<SourceMode>
                 className="mb-4"
                 active={mode}
                 onChange={(next) => { setModus(next); setUploadError(null); setErrorMessage(""); }}
-                items={[{ key: "files", label: t("tabs.files") }, { key: "module", label: "Workspace" }]}
+                items={[{ key: "files", label: t("tabs.files"), disabled: demo }, { key: "module", label: "Workspace" }]}
               />
             )}
 
-            {mode === "files" ? (
+            {demo ? (
+              <div className="space-y-4">
+                <Select id="pages-module" ariaLabel="Workspace" value="demo" onChange={() => {}} disabled
+                  options={[{ value: "demo", label: demoSetup?.workspace ?? "" }]} />
+                <div>
+                  <ul className="space-y-2">
+                    {(demoSetup?.files ?? []).map((name) => (
+                      <li key={name}>
+                        <Checkbox checked disabled onChange={() => {}} label={name} className="min-w-0 max-w-full"
+                          labelClassName="text-sm text-foreground truncate min-w-0" />
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
+                </div>
+              </div>
+            ) : mode === "files" ? (
               <>
                 <div
                   role="button"
@@ -330,8 +382,9 @@ export default function PagesSeite() {
               <label htmlFor="pages-instructions" className="block text-sm font-medium text-foreground mb-1">{t("instructionsLabel")}</label>
               <textarea
                 id="pages-instructions"
-                value={instructions}
+                value={demo ? demoSetup?.instructions ?? "" : instructions}
                 onChange={(e) => setInstructions(e.target.value)}
+                readOnly={demo}
                 disabled={sending}
                 rows={3}
                 maxLength={500}
@@ -344,13 +397,13 @@ export default function PagesSeite() {
               <label htmlFor="pages-image-style" className="block text-sm font-medium text-foreground mb-1">{t("imageStyleLabel")}</label>
               {list && (
                 <StilChips stile={{ pages: list.imageStyle, ...list.imageStyles }} standard="pages" wert={imageStyle ?? ""}
-                  onWahl={setImageStyle} disabled={sending} />
+                  onWahl={setImageStyle} disabled={sending || demo} />
               )}
               <textarea
                 id="pages-image-style"
                 value={imageStyle ?? ""}
                 onChange={(e) => setImageStyle(e.target.value)}
-                disabled={sending || imageStyle === null}
+                disabled={sending || imageStyle === null || demo}
                 rows={4}
                 maxLength={list?.imageStyleMax ?? 600}
                 className="w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft resize-y"
@@ -359,13 +412,14 @@ export default function PagesSeite() {
             </div>
 
             <ProviderSelect id="pages-provider-select" label={t("providerLabel")} providers={providers} value={providerId}
-              onChange={setProviderId} disabled={sending} className="mt-6" showModel />
+              onChange={setProviderId} disabled={sending || demo} className="mt-6" showModel />
 
             <div className="mt-6">
               <button
                 type="button"
                 onClick={submit}
-                disabled={!hatInhalt || !messung.ready || sending}
+                disabled={demo || !hatInhalt || !messung.ready || sending}
+                title={demo ? tDemo("ohneErstellen") : undefined}
                 className="px-5 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {sending && <Spinner size="sm" color="current" />}
@@ -378,7 +432,7 @@ export default function PagesSeite() {
           <section ref={listRef} className="min-w-0 scroll-mt-4">
             <div className="flex items-center gap-2 mb-2.5">
               <h2 className="text-base font-semibold">{t("listTitle")}</h2>
-              {list && (
+              {list && !demo && (
                 <button type="button" className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium btn-secondary rounded-lg whitespace-nowrap"
                   title={t("collectionText", { count: list.collection.count })}
                   onClick={() => router.push(`/u/${list.collection.code}`)}>
@@ -387,17 +441,17 @@ export default function PagesSeite() {
                 </button>
               )}
             </div>
-            {list === null ? (
+            {list === null || (demo && demoSetup === null) ? (
               <Spinner className="justify-center py-10" />
             ) : (
               <>
-                {list.pages.length === 0 ? (
-                  <EmptyState size="sm" text={t("empty")} />
+                {pages.length === 0 ? (
+                  <EmptyState size="sm" text={demo ? tDemo("keinErgebnis") : t("empty")} />
                 ) : (
                   <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
                     {shown.map((p) => {
                       const open = p.status === "success";
-                      const go = () => open && router.push(`/tools/pages/${p.job_uuid}`);
+                      const go = () => open && router.push(demo ? "/tools/pages-demo/ansicht" : `/tools/pages/${p.job_uuid}`);
                       return (
                         <article
                           key={p.job_uuid}
@@ -410,7 +464,7 @@ export default function PagesSeite() {
                         >
                           <div className="flex flex-1 sm:block">
                             <Thumb
-                              src={p.image ? `${api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null}
+                              src={p.image ? `${demo ? "/api/pages-demo/images" : api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null}
                               className="w-28 shrink-0 self-start mt-3 ml-3 rounded-lg aspect-[4/3] sm:w-auto sm:m-0 sm:rounded-none sm:aspect-video"
                             />
                             <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
@@ -426,7 +480,7 @@ export default function PagesSeite() {
                             <div className="mx-3.5 mb-3.5 mt-2"><Spinner size="xs" label={undefined} /></div>
                           ) : (
                             <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
-                              {open ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} /> : <span />}
+                              {open && !demo ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} /> : <span />}
                               <div className="flex items-center gap-1.5">
                                 {open && p.shared && p.code && (
                                   <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />
@@ -447,7 +501,7 @@ export default function PagesSeite() {
                                     ]}
                                   />
                                 )}
-                                <button
+                                {!demo && <button
                                   type="button"
                                   onClick={() => setToDelete(p)}
                                   className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
@@ -456,7 +510,7 @@ export default function PagesSeite() {
                                   aria-label={t("delete")}
                                 >
                                   <Trash size={13} weight="bold" />
-                                </button>
+                                </button>}
                               </div>
                             </div>
                           )}

@@ -722,7 +722,15 @@
         "right": "Right",
         "bottom": "Bottom",
         "none": "No title"
-      }
+      },
+      "demoBadge": "View demo"
+    },
+    "pagesDemo": {
+      "hinweis": "This is the demo. My Pages holds one prepared page for you to look at. The demo does not create a new page.",
+      "beenden": "End demo",
+      "materialVorgegeben": "In the demo, workspace, material and instruction are set.",
+      "keinErgebnis": "No page has been prepared for the demo yet.",
+      "ohneErstellen": "The demo does not create a new page."
     },
     "translate": {
       "title": "Translation",

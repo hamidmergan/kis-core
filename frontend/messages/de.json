@@ -722,7 +722,15 @@
         "right": "Rechts",
         "bottom": "Unten",
         "none": "Ohne Titel"
-      }
+      },
+      "demoBadge": "Demo ansehen"
+    },
+    "pagesDemo": {
+      "hinweis": "Das ist die Demo. Unter Meine Pages liegt eine vorbereitete Seite, die du dir ansehen kannst. Eine neue Seite erstellt die Demo nicht.",
+      "beenden": "Demo beenden",
+      "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
+      "keinErgebnis": "Für die Demo ist noch keine Seite hinterlegt.",
+      "ohneErstellen": "In der Demo wird keine neue Seite erstellt."
     },
     "translate": {
       "title": "Übersetzung",
