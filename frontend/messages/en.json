@@ -572,7 +572,7 @@
       "imageStyleHint": "Applies to every picture on the page. Writing in a picture is always ruled out.",
       "providerLabel": "AI provider",
       "submit": "Create page",
-      "listTitle": "Pages",
+      "listTitle": "My Pages",
       "empty": "No page yet. Upload material and create your first page.",
       "collectionText": "Every shared page under one link, currently {count, plural, =1 {1 page} other {# pages}}.",
       "collectionCopy": "Copy link to your shared pages",
