@@ -59,9 +59,10 @@ MAX_INTERPRETER_SESSIONS    = 100
 MAX_AUTO_RESUMES       = 3
 RETRY_BACKOFF_SECONDS  = (60, 180, 600)
 # A full provider is no failure: the job waits a random span in this range and tries again,
-# uncounted, and only after this many hours of full provider it counts as a normal attempt.
+# uncounted, and only after this long of full provider it counts as a normal attempt.
+# Capped low (09.10.2026: a 12h value hammered myLab with a retry every 1-3 min for hours).
 PROVIDER_BUSY_WAIT_SECONDS = (60, 180)
-PROVIDER_BUSY_MAX_HOURS    = 12
+PROVIDER_BUSY_MAX_HOURS    = 1
 # A learning tool has a person waiting in front of it, after this long of full provider it gives up
 # with an error instead of requeueing for hours, measured 08.10.2026: a mind map waited 28 Min.
 AIA_TOOL_BUSY_MAX_MINUTES  = 15
