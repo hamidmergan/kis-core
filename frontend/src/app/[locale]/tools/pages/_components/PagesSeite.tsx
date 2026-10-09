@@ -34,7 +34,7 @@ const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".
 const POLL_MS = 3000;
 const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
 // Cards per list page, the newest come first.
-const PER_PAGE = 15;
+const PER_PAGE = 9;
 
 /** The card picture: the page's first picture, a book when it has none. */
 export function Thumb({ src, className = "aspect-video" }: { src: string | null; className?: string }) {
