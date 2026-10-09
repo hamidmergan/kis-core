@@ -151,14 +151,14 @@
 .kis-page .wrap section.tint { background: var(--tile-bg); box-shadow: 0 0 0 100vmax var(--tile-bg); clip-path: inset(0 -100vmax); margin-top: 84px; padding-top: 64px; padding-bottom: 72px; --pg-mist: var(--background); }
 .kis-page.editing .wrap section.tint::before { top: 40px; bottom: 16px; }
 
-/* The title picture is a section of its own above the title, as wide as the page. */
-.kis-page section.cover { padding-top: 0; }
+/* The title picture is a section of its own above the title, as wide as the page; moved further down it keeps the usual gap. */
+.kis-page section.cover:first-of-type { padding-top: 0; }
 .kis-page section.cover .blk { margin-top: 0; }
 .kis-page section.cover .img img { max-height: none; aspect-ratio: 21 / 9; object-fit: cover; border-radius: 20px; }
-.kis-page section.cover ~ section.hero { margin-top: 48px; padding-top: 0; }
-.kis-page.editing section.cover ~ section.hero { margin-top: 64px; }
-.kis-page.editing section.cover { padding-top: 8px; }
-.kis-page.editing section.cover::before { top: 0; }
+.kis-page section.cover:first-of-type ~ section.hero:nth-of-type(2) { margin-top: 48px; padding-top: 0; }
+.kis-page.editing section.cover:first-of-type ~ section.hero:nth-of-type(2) { margin-top: 64px; }
+.kis-page.editing section.cover:first-of-type { padding-top: 8px; }
+.kis-page.editing section.cover:first-of-type::before { top: 0; }
 /* Guide: the title sits in a calm box. */
 .kis-page.d-guide .hero { gap: 24px; margin-top: 40px; }
 .kis-page.d-guide .hero-text { max-width: none; background: var(--pg-mist); border-radius: 20px; padding: 48px 40px; }
