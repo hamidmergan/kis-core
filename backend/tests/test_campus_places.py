@@ -1,5 +1,5 @@
 """Orte in Antworten: Gebäudecodes und Namen zählen, Wortteile nicht."""
-from src.features.campus.services.place_match import find_places, show_param
+from src.features.campus.services.place_match import annotate_buildings, find_places, show_param
 
 ORTE = [
     {"id": "Mensa_B_59", "code": "B.59", "kind": "building", "title": {"de": "Mensa B.59", "en": "Mensa (Dining Hall) B.59"},
@@ -50,3 +50,14 @@ def test_unbekannt_und_grenze():
 def test_show_parameter_ohne_code_nimmt_die_id():
     assert show_param(ORTE[3]) == "Kaffee_Cafeteria"
     assert show_param(ORTE[2]) == "MFC7"
+
+
+def test_gebaeude_nicht_doppelt_wenn_das_modell_es_schon_nennt():
+    for text in ("Die Mensa (Gebäude B.59) hat geöffnet.", "Die Mensa im Gebäude B.59 hat geöffnet.",
+                 "Die Mensa in B59 hat geöffnet."):
+        assert annotate_buildings(text, ORTE, "German") == text
+
+
+def test_gebaeude_wird_ergaenzt_wenn_es_fehlt():
+    assert annotate_buildings("Die Mensa hat geöffnet.", ORTE, "German") == "Die Mensa (Gebäude B.59) hat geöffnet."
+    assert annotate_buildings("The Mensa is open.", ORTE, "English") == "The Mensa (Building B.59) is open."

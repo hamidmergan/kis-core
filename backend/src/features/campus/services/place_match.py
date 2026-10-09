@@ -101,8 +101,9 @@ def annotate_buildings(
     for start, end, place in sorted(matches, key=lambda t: t[0], reverse=True):
         code = place["code"]
         mentioned = text[start:end]
-        tail = text[end:end + len(code) + 8]
-        if _normalized(mentioned) == _normalized(code) or _normalized(code) in _normalized(tail):
+        # Wide enough for "(Gebäude B.59)" or "im Gebäude B.59" written right after the name.
+        tail = text[end:end + len(code) + 30]
+        if _normalized(mentioned) == _normalized(code) or _pattern(code).search(tail):
             continue
         text = f"{text[:end]} ({word} {code}){text[end:]}"
     return text
