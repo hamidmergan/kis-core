@@ -26,12 +26,17 @@ import type { PageCard, PagesList } from "../_lib/types";
 import { CopyButton, ShareSwitch } from "./Sharing";
 import { ErgebnisInfoKnopf } from "@/components/jobs/ErgebnisInfo";
 import StilChips from "@/components/tools/StilChips";
+import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
 
 type SourceMode = "files" | "module";
 const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
 // A page in the making is asked for this often.
 const POLL_MS = 3000;
 const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
+// Cards per list page, fewer on a phone where they stack in one column.
+const PER_PAGE = 15;
+const PER_PAGE_PHONE = 6;
+const PHONE_QUERY = "(max-width: 639px)";
 
 /** The card picture: the page's first picture, a book when it has none. */
 export function Thumb({ src }: { src: string | null }) {
@@ -76,6 +81,9 @@ export default function PagesSeite() {
   const [errorMessage, setErrorMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [perPage, setPerPage] = useState(PER_PAGE);
+  const listRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = list?.extensions ?? FALLBACK_EXTENSIONS;
@@ -101,6 +109,23 @@ export default function PagesSeite() {
     const id = window.setInterval(load, POLL_MS);
     return () => window.clearInterval(id);
   }, [running, load]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_QUERY);
+    const apply = () => setPerPage(mq.matches ? PER_PAGE_PHONE : PER_PAGE);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // A deletion or a smaller screen may leave the offset past the last list page.
+  const total = list?.pages.length ?? 0;
+  const start = Math.min(Math.floor(offset / perPage) * perPage, Math.max(0, Math.ceil(total / perPage) - 1) * perPage);
+  const shown = list?.pages.slice(start, start + perPage) ?? [];
+  const goTo = (next: number) => {
+    setOffset(next);
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!sources) return;
@@ -148,6 +173,7 @@ export default function PagesSeite() {
       setFiles([]);
       setSourceIds([]);
       setInstructions("");
+      setOffset(0);
       await load();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
@@ -360,7 +386,7 @@ export default function PagesSeite() {
             {errorMessage && <p className="mt-3 text-sm text-error" role="alert">{errorMessage}</p>}
           </section>
 
-          <section className="min-w-0">
+          <section ref={listRef} className="min-w-0 scroll-mt-4">
             <div className="flex items-center gap-2 mb-2.5">
               <h2 className="text-base font-semibold">{t("listTitle")}</h2>
               {list && (
@@ -380,7 +406,7 @@ export default function PagesSeite() {
                   <EmptyState size="sm" text={t("empty")} />
                 ) : (
                   <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-                    {list.pages.map((p) => {
+                    {shown.map((p) => {
                       const open = p.status === "success";
                       const go = () => open && router.push(`/tools/pages/${p.job_uuid}`);
                       return (
@@ -445,6 +471,7 @@ export default function PagesSeite() {
                     })}
                   </div>
                 )}
+                <Pagination total={total} offset={start} limit={perPage} onOffsetChange={goTo} />
               </>
             )}
           </section>
