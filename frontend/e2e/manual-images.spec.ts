@@ -36,7 +36,7 @@ const PAGES: { name: string; path: string }[] = [
   { name: "tool-text-to-speech", path: "/tools/tts" },
   { name: "tool-speech-to-text", path: "/tools/stt" },
   { name: "tool-summary", path: "/tools/summarize" },
-  { name: "tool-pages", path: "/tools/pages" },
+  { name: "tool-pages", path: "/tools/pages-demo" },
   { name: "tool-image", path: "/tools/image" },
   { name: "tool-screencast", path: "/tools/screencast" },
   { name: "tool-podcast", path: "/tools/podcast" },
