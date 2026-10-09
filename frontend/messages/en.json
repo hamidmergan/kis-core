@@ -3990,6 +3990,7 @@
       "sources": {
         "title": "Sources",
         "addSources": "Add sources",
+        "addChapterHeading": "Chapter",
         "addModalTitle": "Add material",
         "pickFile": "Choose a file",
         "pickFileHint": "PDF, Word, PowerPoint, audio or video",

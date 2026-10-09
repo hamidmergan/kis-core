@@ -9,6 +9,7 @@ import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Select from "@/components/ui/Select";
 import { TextSourceArea } from "./TextSourceArea";
+import type { Chapter } from "../../_types";
 
 const fieldStyle = () => ({
   backgroundColor: "var(--background)",
@@ -28,6 +29,9 @@ export function AddMaterialModal({
   onAddPage,
   onAddText,
   textMaxChars,
+  chapters,
+  chapterUuid,
+  onChapterChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -37,6 +41,11 @@ export function AddMaterialModal({
   onAddPage?: (jobUuid: string) => Promise<void>;
   onAddText?: (title: string, text: string) => Promise<void>;
   textMaxChars?: number;
+  /** Existing chapters, whatever is added lands in the chosen one. */
+  chapters?: Chapter[];
+  /** Empty means no chapter. */
+  chapterUuid?: string;
+  onChapterChange?: (chapterUuid: string) => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [url, setUrl] = useState("");
@@ -52,8 +61,10 @@ export function AddMaterialModal({
   const [pageId, setPageId] = useState("");
   const [pageError, setPageError] = useState<string | null>(null);
 
+  // Only whether Pages is offered counts, the callback is new on every render.
+  const canAddPage = !!onAddPage;
   useEffect(() => {
-    if (!open || !onAddPage) return;
+    if (!open || !canAddPage) return;
     let cancelled = false;
     fetch("/api/pages", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -63,7 +74,7 @@ export function AddMaterialModal({
       })
       .catch(() => { /* Without Pages the section stays away. */ });
     return () => { cancelled = true; };
-  }, [open, onAddPage]);
+  }, [open, canAddPage]);
   const [error, setError] = useState<string | null>(null);
   const [ytError, setYtError] = useState<string | null>(null);
 
@@ -162,6 +173,25 @@ export function AddMaterialModal({
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
+      {onChapterChange && chapters && chapters.length > 0 && (
+        <div className="mb-4" data-testid="add-material-chapter">
+          <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+            {t("addChapterHeading")}
+          </div>
+          <Select
+            id="add-material-chapter-select"
+            ariaLabel={t("addChapterHeading")}
+            value={chapterUuid ?? ""}
+            onChange={onChapterChange}
+            disabled={busy !== null}
+            options={[
+              { value: "", label: t("noChapter") },
+              ...chapters.map((c) => ({ value: c.uuid, label: c.name })),
+            ]}
+          />
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => { onPickFile(); close(); }}

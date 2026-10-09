@@ -97,7 +97,23 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const uploadFiles = useCallback(async (files: File[]) => {
+  // A new row goes straight into the chosen chapter, it stays outside when that fails.
+  const placeInChapter = useCallback(async (src: Source, chapterUuid?: string | null): Promise<Source> => {
+    if (!chapterUuid) return src;
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${src.uuid}/chapter`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapter_uuid: chapterUuid }),
+      });
+      return res.ok ? { ...src, chapter_uuid: chapterUuid } : src;
+    } catch {
+      return src;
+    }
+  }, [uuid]);
+
+  const uploadFiles = useCallback(async (files: File[], chapterUuid?: string | null) => {
     if (files.length === 0) return;
     // Only caps absurdly large batches, the real limits are drawn by the backend.
     const MAX_BATCH = 30;
@@ -129,7 +145,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       const large = file.size >= LARGE_UPLOAD_BYTES;
       setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0, large: false });
       // A full server answers 503 after a short wait, the file then goes again by itself.
-      const sendOnce = () => new Promise<void>((resolve, reject) => {
+      const sendOnce = () => new Promise<Source>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
         xhr.withCredentials = true;
@@ -138,9 +154,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            const newSrc: Source = JSON.parse(xhr.responseText);
-            setSources((prev) => [newSrc, ...prev]);
-            resolve();
+            resolve(JSON.parse(xhr.responseText) as Source);
           } else {
             if (xhr.status === 429) rateLimitHit = true;
             let detail: string = t("uploadFailed");
@@ -169,13 +183,15 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
           t("uploadFailed"),
         );
         if (direct) {
-          setSources((prev) => [direct, ...prev]);
+          const placed = await placeInChapter(direct, chapterUuid);
+          setSources((prev) => [placed, ...prev]);
           continue;
         }
         const bis = Date.now() + 20 * 60 * 1000;
         for (;;) {
           try {
-            await sendOnce();
+            const placed = await placeInChapter(await sendOnce(), chapterUuid);
+            setSources((prev) => [placed, ...prev]);
             break;
           } catch (err) {
             const busy = (err as { status?: number }).status === 503;
@@ -190,10 +206,10 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
     setUploadProgress(null);
     if (errors.length > 0) setUploadErrors(errors);
-  }, [uuid, sources, t]);
+  }, [uuid, sources, t, placeInChapter]);
 
   // One JSON post for every link-based source, the answer is the new row.
-  const postSource = useCallback(async (path: string, payload: Record<string, string>) => {
+  const postSource = useCallback(async (path: string, payload: Record<string, string>, chapterUuid?: string | null) => {
     let res: Response;
     try {
       res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${path}`, {
@@ -218,20 +234,29 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       } catch { /* ignore */ }
       throw new Error(detail);
     }
-    const newSrc: Source = await res.json();
+    const newSrc = await placeInChapter((await res.json()) as Source, chapterUuid);
     setSources((prev) => [newSrc, ...prev]);
-  }, [uuid, t]);
+  }, [uuid, t, placeInChapter]);
 
-  const addLink = useCallback((url: string) => postSource("link", { url }), [postSource]);
-
-  const addYoutube = useCallback(
-    (url: string, transcript: string) => postSource("youtube", { url, transcript }),
+  const addLink = useCallback(
+    (url: string, chapterUuid?: string | null) => postSource("link", { url }, chapterUuid),
     [postSource],
   );
 
-  const addPage = useCallback((jobUuid: string) => postSource("page", { job_uuid: jobUuid }), [postSource]);
+  const addYoutube = useCallback(
+    (url: string, transcript: string, chapterUuid?: string | null) => postSource("youtube", { url, transcript }, chapterUuid),
+    [postSource],
+  );
 
-  const addText = useCallback((title: string, text: string) => postSource("text", { title, text }), [postSource]);
+  const addPage = useCallback(
+    (jobUuid: string, chapterUuid?: string | null) => postSource("page", { job_uuid: jobUuid }, chapterUuid),
+    [postSource],
+  );
+
+  const addText = useCallback(
+    (title: string, text: string, chapterUuid?: string | null) => postSource("text", { title, text }, chapterUuid),
+    [postSource],
+  );
 
   // The row spins again, the polling picks up the source once it is read in anew.
   const editText = useCallback(async (srcUuid: string, text: string) => {

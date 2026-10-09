@@ -67,15 +67,15 @@ export function SourcesPanel({
   onRetrySource: (uuid: string) => void;
   /** Catches up on the summary of a finished source that has none. */
   onSummarizeSource?: (uuid: string) => void;
-  onUpload: (files: File[]) => void;
+  onUpload: (files: File[], chapterUuid?: string | null) => void;
   /** Reads in a web page by link, missing means the plus opens the file picker straight away. */
-  onAddLink?: (url: string) => Promise<void>;
+  onAddLink?: (url: string, chapterUuid?: string | null) => Promise<void>;
   /** Adds a YouTube video with its pasted transcript. */
-  onAddYoutube?: (url: string, transcript: string) => Promise<void>;
+  onAddYoutube?: (url: string, transcript: string, chapterUuid?: string | null) => Promise<void>;
   /** Puts one of the person's pages from Pages into the workspace. */
-  onAddPage?: (jobUuid: string) => Promise<void>;
+  onAddPage?: (jobUuid: string, chapterUuid?: string | null) => Promise<void>;
   /** Adds a pasted text as a source. */
-  onAddText?: (title: string, text: string) => Promise<void>;
+  onAddText?: (title: string, text: string, chapterUuid?: string | null) => Promise<void>;
   /** Saves the edited text of a text source. */
   onEditText?: (sourceUuid: string, text: string) => Promise<void>;
   textMaxChars?: number;
@@ -103,6 +103,8 @@ export function SourcesPanel({
   const tPanels = useTranslations("workspace.detail.panels");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Chapter picked in the add dialog, empty on every opening.
+  const [addChapter, setAddChapter] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
   const newChapterRef = useRef<HTMLInputElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
@@ -122,6 +124,13 @@ export function SourcesPanel({
     () => [...(chapters ?? [])].sort((a, b) => a.position - b.position),
     [chapters]
   );
+
+  // The target chapter unfolds so the new row is in sight.
+  const targetChapter = () => {
+    const id = chapterList.some((c) => c.uuid === addChapter) ? addChapter : "";
+    if (id && closedChapters.includes(id)) onToggleChapterOpen(id);
+    return id || null;
+  };
 
   useEffect(() => {
     const el = panelRef.current;
@@ -212,7 +221,11 @@ export function SourcesPanel({
     <>
       <IconButton
         data-tour="add-source"
-        onClick={() => (onAddLink ? setAddOpen(true) : fileInputRef.current?.click())}
+        onClick={() => {
+          setAddChapter("");
+          if (onAddLink) setAddOpen(true);
+          else fileInputRef.current?.click();
+        }}
         title={t("addSources")}
         aria-label={t("addSources")}
         className="text-[var(--kb)]"
@@ -288,7 +301,7 @@ export function SourcesPanel({
           className="hidden"
           onChange={(e) => {
             const fs = Array.from(e.target.files ?? []);
-            if (fs.length > 0) { onUpload(fs); e.target.value = ""; }
+            if (fs.length > 0) { onUpload(fs, targetChapter()); e.target.value = ""; }
           }}
         />
       )}
@@ -300,11 +313,14 @@ export function SourcesPanel({
           open={addOpen}
           onClose={() => setAddOpen(false)}
           onPickFile={() => fileInputRef.current?.click()}
-          onAddLink={onAddLink}
-          onAddYoutube={onAddYoutube}
-          onAddPage={onAddPage}
-          onAddText={onAddText}
+          onAddLink={(url) => onAddLink(url, targetChapter())}
+          onAddYoutube={onAddYoutube && ((url, transcript) => onAddYoutube(url, transcript, targetChapter()))}
+          onAddPage={onAddPage && ((jobUuid) => onAddPage(jobUuid, targetChapter()))}
+          onAddText={onAddText && ((title, text) => onAddText(title, text, targetChapter()))}
           textMaxChars={textMaxChars}
+          chapters={onSetSourceChapter ? chapterList : undefined}
+          chapterUuid={addChapter}
+          onChapterChange={setAddChapter}
         />
       )}
 

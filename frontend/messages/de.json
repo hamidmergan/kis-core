@@ -3990,6 +3990,7 @@
       "sources": {
         "title": "Materialien",
         "addSources": "Materialien hinzufügen",
+        "addChapterHeading": "Kapitel",
         "addModalTitle": "Material hinzufügen",
         "pickFile": "Datei wählen",
         "pickFileHint": "PDF, Word, PowerPoint, Audio oder Video",
