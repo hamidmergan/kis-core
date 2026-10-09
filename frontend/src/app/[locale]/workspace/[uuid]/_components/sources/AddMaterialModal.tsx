@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Select from "@/components/ui/Select";
+import Tabs from "@/components/ui/Tabs";
 import { TextSourceArea } from "./TextSourceArea";
 import type { Chapter } from "../../_types";
 
@@ -18,6 +19,8 @@ const fieldStyle = () => ({
 
 const fieldBorderClass = (error: boolean) =>
   error ? "border-error-border" : "border-border focus:border-kb";
+
+type AddTab = "file" | "link" | "page" | "youtube" | "text";
 
 /** One dialog for the ways in: a file, a web page by link, a page from Pages, a YouTube video with its transcript, or pasted text. */
 export function AddMaterialModal({
@@ -48,6 +51,7 @@ export function AddMaterialModal({
   onChapterChange?: (chapterUuid: string) => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
+  const [tab, setTab] = useState<AddTab>("file");
   const [url, setUrl] = useState("");
   const [ytUrl, setYtUrl] = useState("");
   const [ytTranscript, setYtTranscript] = useState("");
@@ -79,6 +83,7 @@ export function AddMaterialModal({
   const [ytError, setYtError] = useState<string | null>(null);
 
   const reset = () => {
+    setTab("file");
     setUrl("");
     setYtUrl("");
     setYtTranscript("");
@@ -145,6 +150,17 @@ export function AddMaterialModal({
     }
   };
 
+  const showPage = !!onAddPage && !!pages;
+  const showYoutube = !!onAddYoutube;
+  const showText = !!onAddText && !!textMaxChars;
+  const tabs = [
+    { key: "file" as const, label: t("tabFile") },
+    { key: "link" as const, label: t("tabLink") },
+    ...(showPage ? [{ key: "page" as const, label: t("tabPage") }] : []),
+    ...(showYoutube ? [{ key: "youtube" as const, label: t("tabYoutube") }] : []),
+    ...(showText ? [{ key: "text" as const, label: t("tabText") }] : []),
+  ].map((item) => ({ ...item, disabled: busy !== null && item.key !== tab }));
+
   const textOver = !!textMaxChars && textBody.trim().length > textMaxChars;
 
   const submitText = async () => {
@@ -169,7 +185,7 @@ export function AddMaterialModal({
       open={open}
       onClose={close}
       title={t("addModalTitle")}
-      size="md"
+      size="lg"
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
@@ -192,52 +208,63 @@ export function AddMaterialModal({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => { onPickFile(); close(); }}
-        disabled={busy !== null}
-        data-testid="add-material-file"
-        className="add-source-btn w-full flex flex-col items-center gap-1 px-3 py-5 rounded-lg border-2 border-dashed transition-colors text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] disabled:opacity-40"
-      >
-        <UploadSimple size={20} weight="bold" />
-        <span className="text-sm font-medium">{t("pickFile")}</span>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>{t("pickFileHint")}</span>
-      </button>
-
-      <div className="mt-4">
-        <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
-          {t("linkHeading")}
-        </div>
-        <form
-          onSubmit={(e) => { e.preventDefault(); void submitLink(); }}
-          className="flex items-center gap-2"
-        >
-          <input
-            value={url}
-            disabled={busy !== null}
-            placeholder={t("linkPlaceholder")}
-            data-testid="add-material-link"
-            aria-label={t("linkHeading")}
-            aria-describedby={error ? "add-material-link-error" : undefined}
-            onChange={(e) => { setUrl(e.target.value); setError(null); }}
-            className={`flex-1 min-w-0 rounded-lg border-2 px-3 py-2 text-sm focus:outline-none transition-colors ${fieldBorderClass(!!error)}`}
-            style={fieldStyle()}
-          />
-          <button
-            type="submit"
-            disabled={busy !== null || !url.trim()}
-            className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
-          >
-            {busy === "link" ? <Spinner size="sm" color="current" /> : t("linkSubmit")}
-          </button>
-        </form>
-        {error && (
-          <p id="add-material-link-error" className="text-sm mt-2" style={{ color: "var(--error)" }}>{error}</p>
-        )}
+      <div className="overflow-x-auto mb-4">
+        <Tabs items={tabs} active={tab} onChange={setTab} />
       </div>
 
-      {onAddPage && pages && (
-        <div className="mt-4" data-testid="add-material-page">
+      {/* A fixed floor keeps the dialog from jumping when the tab changes. */}
+      <div className="min-h-96 flex flex-col">
+
+      {tab === "file" && (
+        <button
+          type="button"
+          onClick={() => { onPickFile(); close(); }}
+          disabled={busy !== null}
+          data-testid="add-material-file"
+          className="add-source-btn w-full flex-1 flex flex-col items-center justify-center gap-1 px-3 py-10 rounded-lg border-2 border-dashed transition-colors text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] disabled:opacity-40"
+        >
+          <UploadSimple size={20} weight="bold" />
+          <span className="text-sm font-medium">{t("pickFile")}</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{t("pickFileHint")}</span>
+        </button>
+      )}
+
+      {tab === "link" && (
+        <div>
+          <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+            {t("linkHeading")}
+          </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); void submitLink(); }}
+            className="flex items-center gap-2"
+          >
+            <input
+              value={url}
+              disabled={busy !== null}
+              placeholder={t("linkPlaceholder")}
+              data-testid="add-material-link"
+              aria-label={t("linkHeading")}
+              aria-describedby={error ? "add-material-link-error" : undefined}
+              onChange={(e) => { setUrl(e.target.value); setError(null); }}
+              className={`flex-1 min-w-0 rounded-lg border-2 px-3 py-2 text-sm focus:outline-none transition-colors ${fieldBorderClass(!!error)}`}
+              style={fieldStyle()}
+            />
+            <button
+              type="submit"
+              disabled={busy !== null || !url.trim()}
+              className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+            >
+              {busy === "link" ? <Spinner size="sm" color="current" /> : t("linkSubmit")}
+            </button>
+          </form>
+          {error && (
+            <p id="add-material-link-error" className="text-sm mt-2" style={{ color: "var(--error)" }}>{error}</p>
+          )}
+        </div>
+      )}
+
+      {tab === "page" && showPage && pages && (
+        <div data-testid="add-material-page">
           <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
             {t("pageHeading")}
           </div>
@@ -271,8 +298,8 @@ export function AddMaterialModal({
         </div>
       )}
 
-      {onAddYoutube && (
-        <div className="mt-4">
+      {tab === "youtube" && showYoutube && (
+        <div>
           <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
             <span>{t("youtubeHeading")}</span>
             {/* Says why the transcript is typed in by hand instead of fetched. */}
@@ -296,7 +323,7 @@ export function AddMaterialModal({
             <textarea
               value={ytTranscript}
               disabled={busy !== null}
-              rows={4}
+              rows={8}
               placeholder={t("youtubeTranscriptPlaceholder")}
               data-testid="add-material-youtube-transcript"
               aria-label={t("youtubeTranscriptLabel")}
@@ -332,8 +359,8 @@ export function AddMaterialModal({
         </div>
       )}
 
-      {onAddText && textMaxChars && (
-        <div className="mt-4">
+      {tab === "text" && showText && (
+        <div>
           <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
             {t("textHeading")}
           </div>
@@ -356,7 +383,7 @@ export function AddMaterialModal({
               onChange={(v) => { setTextBody(v); setTextError(null); }}
               maxChars={textMaxChars}
               disabled={busy !== null}
-              rows={4}
+              rows={8}
               error={!!textError}
               testId="add-material-text"
             />
@@ -374,6 +401,7 @@ export function AddMaterialModal({
           {textError && <p className="text-sm mt-2" style={{ color: "var(--error)" }}>{textError}</p>}
         </div>
       )}
+      </div>
     </Modal>
   );
 }

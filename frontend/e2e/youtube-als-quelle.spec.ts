@@ -43,8 +43,9 @@ test("YouTube: Modal, Fehler, Erfolg, Zwei-Klick-Fläche, Transkript", async ({ 
     const plus = page.locator('[data-tour="add-source"]');
     const dialog = page.locator("[role=dialog]");
 
-    // The dialog carries the third way in.
+    // The dialog carries the third way in, behind its own tab.
     await plus.click();
+    await dialog.getByRole("tab", { name: "YouTube" }).click();
     await expect(dialog.getByTestId("add-material-youtube-link")).toBeVisible();
     await expect(dialog.getByTestId("add-material-youtube-transcript")).toBeVisible();
     await page.screenshot({ path: path.join(SHOTS, "youtube-e2e-01-modal.png") });

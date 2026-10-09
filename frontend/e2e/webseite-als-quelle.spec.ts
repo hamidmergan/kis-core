@@ -42,14 +42,16 @@ test("Link einlesen: Modal, Sperre, Erfolg, Dublette, Viewer", async ({ page, ba
     const plus = page.locator('[data-tour="add-source"]');
     const dialog = page.locator("[role=dialog]");
 
-    // The plus opens the dialog with both ways in.
+    // The plus opens the dialog on the file tab, the link sits behind its own tab.
     await plus.click();
     await expect(dialog.getByText("Material hinzufügen")).toBeVisible();
     await expect(dialog.getByTestId("add-material-file")).toBeVisible();
+    await dialog.getByRole("tab", { name: "Webseite" }).click();
     await expect(dialog.getByTestId("add-material-link")).toBeVisible();
     await page.screenshot({ path: path.join(SHOTS, "link-01-modal.png") });
 
     // The file box opens the picker and closes the dialog.
+    await dialog.getByRole("tab", { name: "Datei" }).click();
     const chooser = page.waitForEvent("filechooser");
     await dialog.getByTestId("add-material-file").click();
     await chooser;
@@ -57,6 +59,7 @@ test("Link einlesen: Modal, Sperre, Erfolg, Dublette, Viewer", async ({ page, ba
 
     // An internal address is refused and the dialog stays open.
     await plus.click();
+    await dialog.getByRole("tab", { name: "Webseite" }).click();
     await dialog.getByTestId("add-material-link").fill("http://10.0.0.5/");
     await dialog.getByRole("button", { name: "Einlesen" }).click();
     await expect(dialog.getByText("Diese Adresse darf nicht abgerufen werden.")).toBeVisible();
@@ -74,6 +77,7 @@ test("Link einlesen: Modal, Sperre, Erfolg, Dublette, Viewer", async ({ page, ba
 
     // The same link again is a duplicate.
     await plus.click();
+    await dialog.getByRole("tab", { name: "Webseite" }).click();
     await dialog.getByTestId("add-material-link").fill(SEITE);
     await dialog.getByRole("button", { name: "Einlesen" }).click();
     await expect(dialog.getByText(/schon im/)).toBeVisible();
