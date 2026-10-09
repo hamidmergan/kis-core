@@ -4053,6 +4053,8 @@
         "chapterEmpty": "No file in this chapter yet",
         "collapseChapter": "Collapse chapter",
         "expandChapter": "Expand chapter",
+        "moveChecked": "Move ({count})",
+        "moveCheckedTitle": "Move checked files to a chapter",
         "moveToChapter": "Move to chapter",
         "editTranscript": "Edit transcript",
         "noChapter": "No chapter",

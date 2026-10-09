@@ -4053,6 +4053,8 @@
         "chapterEmpty": "Noch keine Datei in diesem Kapitel",
         "collapseChapter": "Kapitel zuklappen",
         "expandChapter": "Kapitel aufklappen",
+        "moveChecked": "Verschieben ({count})",
+        "moveCheckedTitle": "Angehakte in ein Kapitel verschieben",
         "moveToChapter": "In Kapitel verschieben",
         "editTranscript": "Transkript bearbeiten",
         "noChapter": "Ohne Kapitel",

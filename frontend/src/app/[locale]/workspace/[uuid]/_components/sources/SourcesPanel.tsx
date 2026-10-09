@@ -7,6 +7,7 @@ import {
   FileAudio,
   FileVideo,
   FolderSimplePlus,
+  FolderSimple,
   Check,
   X,
 } from "@phosphor-icons/react";
@@ -18,6 +19,7 @@ import { SourceSummaryModal } from "./SourceSummaryModal";
 import { AddMaterialModal } from "./AddMaterialModal";
 import { TextSourceEditModal } from "./TextSourceEditModal";
 import { ChapterHead } from "./ChapterHead";
+import { MenuItem } from "./SourceRow";
 import { GroupCheckbox } from "./GroupCheckbox";
 import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -120,6 +122,7 @@ export function SourcesPanel({
   const [newChapterError, setNewChapterError] = useState<string | null>(null);
   const [newChapterBusy, setNewChapterBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const chapterList = useMemo(
     () => [...(chapters ?? [])].sort((a, b) => a.position - b.position),
     [chapters]
@@ -162,6 +165,18 @@ export function SourcesPanel({
 
   // Whatever points at a foreign chapter lands under 'no chapter'.
   const known = new Set(chapterList.map((c) => c.uuid));
+  const checkedSources = sources.filter((s) => selectedSourceIds.includes(s.uuid));
+  const chapterOf = (s: Source) => (s.chapter_uuid && known.has(s.chapter_uuid) ? s.chapter_uuid : null);
+
+  // Moves every checked file at once, the checks themselves stay.
+  function moveChecked(chapterUuid: string | null) {
+    setBulkMenuOpen(false);
+    if (!onSetSourceChapter) return;
+    checkedSources
+      .filter((s) => chapterOf(s) !== chapterUuid)
+      .forEach((s) => onSetSourceChapter(s.uuid, chapterUuid));
+    if (chapterUuid && closedChapters.includes(chapterUuid)) onToggleChapterOpen(chapterUuid);
+  }
   const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
 
   const toggleGroup = (list: Source[]) =>
@@ -427,9 +442,57 @@ export function SourcesPanel({
           >
             {allSelected && <Check size={11} weight="bold" />}
           </button>
-          <span className="text-sm">
+          <span className="flex-1 min-w-0 truncate text-sm">
             {t("selectAll")}
           </span>
+          <OwnerOnly show={isOwner && !!onSetSourceChapter && chapterList.length > 0 && checkedSources.length > 0}>
+            <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                data-testid="move-checked"
+                onClick={() => setBulkMenuOpen((o) => !o)}
+                title={t("moveCheckedTitle")}
+                aria-label={t("moveCheckedTitle")}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-[var(--kb)]"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+              >
+                <FolderSimple size={13} weight="bold" />
+                {compact ? checkedSources.length : t("moveChecked", { count: checkedSources.length })}
+              </button>
+              {bulkMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setBulkMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-8 z-50 rounded-xl py-1"
+                    style={{
+                      backgroundColor: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      minWidth: 200,
+                      maxHeight: "16rem",
+                      overflowY: "auto",
+                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
+                    }}
+                  >
+                    {chapterList.map((c) => (
+                      <MenuItem
+                        key={c.uuid}
+                        icon={<FolderSimple size={16} weight="bold" />}
+                        label={c.name}
+                        disabled={checkedSources.every((s) => chapterOf(s) === c.uuid)}
+                        onClick={() => moveChecked(c.uuid)}
+                      />
+                    ))}
+                    <MenuItem
+                      icon={<FolderSimple size={16} weight="bold" />}
+                      label={t("noChapter")}
+                      disabled={checkedSources.every((s) => chapterOf(s) === null)}
+                      onClick={() => moveChecked(null)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </OwnerOnly>
         </div>
       )}
 
