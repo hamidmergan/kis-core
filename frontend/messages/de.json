@@ -4015,6 +4015,7 @@
         "youtubeWhyHelp": "YouTube erlaubt keinen Download. Darum kann die Plattform den Ton nicht selbst transkribieren. Kopiere das Transkript aus YouTube und füge es hier ein.",
         "uploadingMulti": "Datei {current}/{total} – {percent}%",
         "uploadingSingle": "Hochladen… {percent}%",
+        "uploadingLarge": "Große Datei. Solange sie hochlädt, reagiert die Seite langsamer.",
         "selectAll": "Alle auswählen",
         "deselectAll": "Alle abwählen",
         "selectSource": "Material auswählen",

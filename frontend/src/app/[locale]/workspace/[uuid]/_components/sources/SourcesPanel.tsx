@@ -70,7 +70,7 @@ export function SourcesPanel({
   onAddYoutube?: (url: string, transcript: string) => Promise<void>;
   /** Puts one of the person's pages from Pages into the workspace. */
   onAddPage?: (jobUuid: string) => Promise<void>;
-  uploadProgress: { current: number; total: number; percent: number } | null;
+  uploadProgress: { current: number; total: number; percent: number; large: boolean } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
   isOwner: boolean;
@@ -312,6 +312,9 @@ export function SourcesPanel({
                   ? t("uploadingMulti", { current: uploadProgress.current, total: uploadProgress.total, percent: uploadProgress.percent })
                   : t("uploadingSingle", { percent: uploadProgress.percent })}
               </p>
+              {uploadProgress.large && (
+                <p className="text-xs mt-1" style={{ color: "var(--foreground-soft)" }}>{t("uploadingLarge")}</p>
+              )}
             </>
           )}
           {uploadErrors.length > 0 && (

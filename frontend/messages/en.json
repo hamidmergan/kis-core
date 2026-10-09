@@ -4015,6 +4015,7 @@
         "youtubeWhyHelp": "YouTube does not allow downloads. So the platform cannot transcribe the audio itself. Copy the transcript from YouTube and paste it here.",
         "uploadingMulti": "File {current}/{total} – {percent}%",
         "uploadingSingle": "Uploading… {percent}%",
+        "uploadingLarge": "Large file. While it uploads, the page responds more slowly.",
         "selectAll": "Select all",
         "deselectAll": "Deselect all",
         "selectSource": "Select source",

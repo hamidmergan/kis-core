@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { WorkspaceDetail, Source } from "../_types";
 
+// From this size an upload fills a typical home uplink long enough to slow the page down.
+const LARGE_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 interface UseSourcesOptions {
   uuid: string;
   onModuleUpdate?: (workspace: WorkspaceDetail) => void;
@@ -13,7 +16,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
   const t = useTranslations("workspace.detail.errors");
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number; large: boolean } | null>(null);
   const [uploadErrors, setUploadErrors] = useState<{ filename: string; message: string }[]>([]);
 
   // Persist selected sources
@@ -121,14 +124,15 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       }
       // Guard against duplicates within the same drop too.
       existingNames.add(nameKey);
-      setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0 });
+      const large = file.size >= LARGE_UPLOAD_BYTES;
+      setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0, large });
       // A full server answers 503 after a short wait, the file then goes again by itself.
       const sendOnce = () => new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
         xhr.withCredentials = true;
         xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100) });
+          if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100), large });
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
