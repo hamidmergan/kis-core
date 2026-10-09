@@ -208,40 +208,15 @@
   .kis-page .v-vn-3-list { display: block; }
 }
 
-/* formula: large and centered, also the old highlight when its key is a formula */
-.kis-page .v-fm-big-key { white-space: nowrap; font-size: clamp(15px, calc(150cqw / var(--fm-len)), 42px); font-weight: 600; letter-spacing: .02em; text-align: center; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-x: auto; }
-.kis-page .v-fm-big-rule { width: 64px; height: 2px; background: var(--pg-accent); margin: 16px auto; }
-.kis-page .v-fm-big-text { text-align: center; color: var(--pg-ink-soft); max-width: 56ch; margin: 0 auto; }
-@container (max-width: 600px) { .kis-page .v-fm-big-key { font-size: clamp(15px, calc(150cqw / var(--fm-len)), 28px); } }
-
-/* formula: with legend of symbols */
-.kis-page .v-fm-leg-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 40px; }
-.kis-page .v-fm-leg-key { white-space: nowrap; font-size: clamp(15px, calc(70cqw / var(--fm-len)), 32px); font-weight: 600; letter-spacing: .02em; padding-right: 40px; border-right: 2px solid var(--pg-line); display: flex; align-items: center; max-width: 50cqw; overflow-x: auto; }
-.kis-page .v-fm-leg-list { margin: 0; }
-.kis-page .v-fm-leg-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: baseline; padding: 7px 0; border-top: 2px solid var(--pg-line); }
-.kis-page .v-fm-leg-row:first-child { border-top: 0; }
-.kis-page .v-fm-leg-row dt { font-style: italic; font-weight: 700; font-size: 20px; color: var(--pg-accent); }
-.kis-page .v-fm-leg-row dd { margin: 0; font-size: 16px; }
-@container (max-width: 600px) {
-  .kis-page .v-fm-leg-grid { grid-template-columns: minmax(0, 1fr); gap: 16px 0; }
-  .kis-page .v-fm-leg-key { border-right: 0; border-bottom: 2px solid var(--pg-line); padding: 0 0 14px; justify-content: center; font-size: clamp(15px, calc(150cqw / var(--fm-len)), 26px); max-width: none; }
-}
-/* A long formula stands above its legend at any width, beside it it would shrink too far. */
-.kis-page .v-fm-leg-long .v-fm-leg-grid { grid-template-columns: minmax(0, 1fr); gap: 16px 0; }
-.kis-page .v-fm-leg-long .v-fm-leg-key { border-right: 0; border-bottom: 2px solid var(--pg-line); padding: 0 0 14px; justify-content: center; font-size: clamp(15px, calc(150cqw / var(--fm-len)), 32px); max-width: none; }
-
-/* formula: worked line by line */
-.kis-page .v-fm-way-key { white-space: nowrap; font-size: clamp(15px, calc(150cqw / var(--fm-len)), 24px); font-weight: 600; letter-spacing: .02em; margin-bottom: 14px; }
-.kis-page .v-fm-way-list { position: relative; }
-.kis-page .v-fm-way-list::before { content: ""; position: absolute; left: 13px; top: 10px; bottom: 10px; width: 2px; background: var(--pg-line); }
-.kis-page .v-fm-way-list li { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; padding: 6px 0; font-size: 22px; font-variant-numeric: tabular-nums; }
-.kis-page .v-fm-way-n { width: 28px; height: 28px; border-radius: 50%; background: var(--pg-fill); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
-.kis-page .v-fm-way-list li:last-child .v-fm-way-l { font-weight: 700; color: var(--pg-accent); }
-.kis-page .v-fm-way-text { margin-top: 14px; color: var(--pg-ink-soft); font-size: 16px; }
-@container (max-width: 600px) {
-  .kis-page .v-fm-way-list li { font-size: 17px; }
-  .kis-page .v-fm-way-key { font-size: clamp(15px, calc(150cqw / var(--fm-len)), 20px); }
-}
+/* formula: compact, the formula on one line, its parts or its working and its sentence below */
+.kis-page .v-fm-key { white-space: nowrap; font-size: clamp(15px, calc(150cqw / var(--fm-len)), 26px); font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-x: auto; }
+.kis-page .v-fm-text { margin-top: 6px; color: var(--pg-ink-soft); font-size: 16px; max-width: 70ch; }
+.kis-page .v-fm-parts { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 8px 0 0; font-size: 16px; }
+.kis-page .v-fm-parts > div { display: flex; gap: 8px; align-items: baseline; }
+.kis-page .v-fm-parts dt { font-style: italic; font-weight: 700; color: var(--pg-accent); }
+.kis-page .v-fm-parts dd { margin: 0; color: var(--pg-ink-soft); }
+.kis-page ol.v-fm-lines { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.kis-page ol.v-fm-lines li:last-child { font-weight: 700; }
 
 /* mistakes: pairs with cross and check */
 .kis-page .v-mk-pair-list li { padding: 14px 0; border-top: 2px solid var(--pg-line); }

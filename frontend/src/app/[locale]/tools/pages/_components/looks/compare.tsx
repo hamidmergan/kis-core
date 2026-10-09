@@ -322,13 +322,12 @@ function VnThree({ b, p, limits }: LookProps<"venn">) {
 /** A formula never breaks, its size follows its length so it fits the width it has. */
 const fit = (key: string) => ({ "--fm-len": Math.max(8, key.length) }) as CSSProperties;
 
-/** The formula large and centred with its sentence below, shared with the old highlight. */
+/** The formula on one line with its sentence below, shared with the old highlight. */
 function Big({ p, keyText, text, limits }: { p: string; keyText: string; text: string; limits: Limits }) {
   return (
-    <div className="v-cp v-fm-big" style={fit(keyText)}>
-      <Txt path={`${p}.key`} value={keyText} as="div" className="v-fm-big-key" max={limits.short} />
-      <div className="v-fm-big-rule" />
-      <Txt path={`${p}.text`} value={text} as="p" className="v-fm-big-text" max={limits.item} />
+    <div className="v-cp v-fm" style={fit(keyText)}>
+      <Txt path={`${p}.key`} value={keyText} as="div" className="v-fm-key" max={limits.short} />
+      <Txt path={`${p}.text`} value={text} as="p" className="v-fm-text" max={limits.item} />
     </div>
   );
 }
@@ -339,35 +338,33 @@ function FmBig({ b, p, limits }: LookProps<"formula">) {
 
 function FmLegend({ b, p, limits }: LookProps<"formula">) {
   return (
-    <div className={`v-cp v-fm-leg${b.key.length > 16 ? " v-fm-leg-long" : ""}`} style={fit(b.key)}>
-      <div className="v-fm-leg-grid">
-        <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-leg-key" max={limits.short} />
-        <dl className="v-fm-leg-list">
-          {b.parts.map((x, i) => (
-            <div className="v-fm-leg-row" key={i} data-d={`${p}.parts.${i}`}>
-              <Txt path={`${p}.parts.${i}.sym`} value={x.sym} as="dt" max={limits.short} />
-              <Txt path={`${p}.parts.${i}.text`} value={x.text} as="dd" max={limits.item} />
-            </div>
-          ))}
-        </dl>
-      </div>
+    <div className="v-cp v-fm" style={fit(b.key)}>
+      <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-key" max={limits.short} />
+      <dl className="v-fm-parts">
+        {b.parts.map((x, i) => (
+          <div key={i} data-d={`${p}.parts.${i}`}>
+            <Txt path={`${p}.parts.${i}.sym`} value={x.sym} as="dt" max={limits.short} />
+            <Txt path={`${p}.parts.${i}.text`} value={x.text} as="dd" max={limits.item} />
+          </div>
+        ))}
+      </dl>
+      <Txt path={`${p}.text`} value={b.text} as="p" className="v-fm-text" max={limits.item} />
     </div>
   );
 }
 
 function FmWay({ b, p, limits }: LookProps<"formula">) {
   return (
-    <div className="v-cp v-fm-way" style={fit(b.key)}>
-      <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-way-key" max={limits.short} />
-      <ol className="v-fm-way-list">
+    <div className="v-cp v-fm" style={fit(b.key)}>
+      <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-key" max={limits.short} />
+      <ol className="v-fm-lines">
         {b.example.map((l, i) => (
           <li key={i} data-d={`${p}.example.${i}`}>
-            <span className="v-fm-way-n">{i + 1}</span>
-            <Txt path={`${p}.example.${i}`} value={l} className="v-fm-way-l" max={limits.item} />
+            <Txt path={`${p}.example.${i}`} value={l} max={limits.item} />
           </li>
         ))}
       </ol>
-      <Txt path={`${p}.text`} value={b.text} as="p" className="v-fm-way-text" max={limits.item} />
+      <Txt path={`${p}.text`} value={b.text} as="p" className="v-fm-text" max={limits.item} />
     </div>
   );
 }
