@@ -261,7 +261,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
 
   return (
     <div className="space-y-4">
-      {only !== "routes" && <header className="flex items-start justify-between gap-4">
+      {(only === "list" || only === undefined) && <header className="flex items-start justify-between gap-4">
         <p className="text-sm text-foreground-soft max-w-2xl">{t("intro")}</p>
         {providers.length > 0 && (
           <div className="relative shrink-0">
@@ -308,7 +308,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         )}
       </header>}
 
-      {only !== "routes" && <ProviderListCard
+      {(only === "list" || only === undefined) && <ProviderListCard
         providers={providers}
         onAdd={() => setDialog({ open: true, mode: "create" })}
         onEdit={(p) => setDialog({ open: true, mode: "edit", provider: p })}
@@ -320,7 +320,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         onWindowSaved={refreshAll}
       />}
 
-      {only !== "list" && providers.length > 0 && (
+      {(only === "routes" || only === undefined) && providers.length > 0 && (
         <FeatureRoutingCard
           meta={meta}
           providers={providers}

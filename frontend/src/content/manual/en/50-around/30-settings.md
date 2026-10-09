@@ -14,7 +14,6 @@ the other entries depend on permissions and on what the administration has switc
 - **Tour through the demo workspace**, as long as the administration provides a demo workspace
 - **Evaluation**, as long as an evaluation is running. The way back once the card on the start
   page is gone
-- **FAQ**, for everyone
 - **Documentation**, these pages, with the permission View the manual
 - **Admin**, **Administration** or **Statistics**, depending on the role's administrative
   permissions. Whoever holds all of them sees Admin, whoever may only read numbers sees

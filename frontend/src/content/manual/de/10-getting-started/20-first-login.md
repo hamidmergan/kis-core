@@ -53,7 +53,7 @@ Zahnrad oben rechts erreichbar.
   etwas ausprobiert haben, etwa eine Frage im Chat, einen Dienst oder den Rundgang
 - **Nicht jetzt** merkt sich der Browser, bis die Verwaltung eine neue Runde startet. Nach dem
   Abschicken kommt die Karte nicht wieder
-- Mehr dazu im Artikel FAQ und Feedback
+- Mehr dazu im Artikel Feedback und Evaluation
 
 Ohne die Karten fehlt Ihnen nichts dauerhaft. Was der Sprachtrainer kann und was ein Niveau
 freischaltet, steht im Kapitel Sprachtrainer.

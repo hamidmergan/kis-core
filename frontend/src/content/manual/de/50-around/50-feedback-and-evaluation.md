@@ -1,15 +1,6 @@
-# FAQ und Feedback
+# Feedback und Evaluation
 
-Drei Wege, um kurz nachzuschlagen, etwas zu melden oder zurückzumelden, wie KIS ankommt.
-
-## FAQ
-
-Die FAQ im Zahnrad-Menü, gleich über der Dokumentation, sieht jedes angemeldete Konto ohne eigenes
-Recht. Sie ist nach Problemen sortiert, die Dokumentation nach Funktionen, in vier Gruppen:
-Grundsätzliches, Daten und Recht, Der Lernassistent, Im Betrieb. Fehlt eine Frage, führt der
-Kasten Frage nicht dabei? zur Dokumentation und zum Feedback-Formular.
-
-![Die FAQ-Seite mit einer aufgeklappten Frage](/manual/{lang}/faq.png)
+Zwei Wege, um etwas zu melden oder zurückzumelden, wie KIS ankommt.
 
 ## Fehler melden oder Idee teilen
 

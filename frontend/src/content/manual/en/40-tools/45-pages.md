@@ -3,6 +3,8 @@
 Turns your material into a learning page with pictures, tables and charts. You can then edit the
 page and share it with students.
 
+![The Pages tool](/manual/{lang}/tool-pages.png)
+
 ## Creating a page
 
 You choose material and instruction as in Report: up to 10 files or sources from a workspace,
@@ -40,8 +42,9 @@ empty field when reading. Under lists and tables, Point, Row and Column add furt
 If the top picture is missing, Add image puts one in, the AI suggests a description of the
 topic for it. Every image can be replaced with Recreate image. The description is in English, a new image
 also gets the page's image style. The old image stays until the new one is ready, and Undo
-brings it back afterwards too. At most 40 images can be created per page. Charts, the mind map
-and the word cloud are changed with Edit data: labels, values and terms.
+brings it back afterwards too. A page shows at most 10 images at once, further fields stay
+without an image. Creating and replacing images together are limited to 40 per page. Charts, the
+mind map and the word cloud are changed with Edit data: labels, values and terms.
 
 So that a page never breaks, there are limits: headings and short texts up to 120 characters,
 list items and card texts up to 300, longer texts up to 1,500, at most 20 sections.

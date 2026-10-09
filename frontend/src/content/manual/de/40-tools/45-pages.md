@@ -3,6 +3,8 @@
 Macht aus Ihrem Material eine Lernseite mit Bildern, Tabellen und Diagrammen. Sie können die
 Seite danach ändern und mit Studierenden teilen.
 
+![Der Dienst Pages](/manual/{lang}/tool-pages.png)
+
 ## Seite erstellen
 
 Material und Anweisung wählen Sie wie beim Report: bis zu 10 Dateien oder Materialien aus einem
@@ -42,9 +44,9 @@ Punkt, Zeile und Spalte weitere Einträge an.
 Fehlt oben ein Bild, fügen Sie es mit Bild hinzufügen ein, die KI schlägt dafür eine Beschreibung
 zum Thema vor. Jedes Bild lässt sich mit Bild neu erzeugen ersetzen. Die Beschreibung ist auf Englisch, beim
 neuen Bild kommt der Bildstil der Seite dazu. Bis das neue Bild fertig ist, bleibt das alte
-stehen, Rückgängig holt es auch danach zurück. Pro Seite lassen sich höchstens 40 Bilder
-erzeugen. Diagramme, Mindmap und Wortwolke ändern Sie über Daten ändern: Beschriftungen, Werte
-und Begriffe.
+stehen, Rückgängig holt es auch danach zurück. Eine Seite zeigt höchstens 10 Bilder gleichzeitig,
+weitere Felder bleiben ohne Bild. Erzeugen und Ersetzen zusammen sind pro Seite auf 40 begrenzt.
+Diagramme, Mindmap und Wortwolke ändern Sie über Daten ändern: Beschriftungen, Werte und Begriffe.
 
 Damit eine Seite nicht zerbricht, gelten Grenzen: Überschriften und kurze Texte bis 120 Zeichen,
 Listenpunkte und Kartentexte bis 300, längere Texte bis 1.500, höchstens 20 Abschnitte.

@@ -50,7 +50,7 @@ answered, a card is gone, all three offers stay reachable through the gear icon 
   tried something, such as a question in the chat, a service or the tour
 - **Not now** is remembered by the browser until the administration starts a new round. After
   submitting, the card does not come back
-- More in the article FAQ and feedback
+- More in the article Feedback and evaluation
 
 Nothing is lost for good without the cards. What the language trainer does and what a level unlocks
 is in the Language trainer chapter.
