@@ -7,7 +7,7 @@ Seite danach ändern und mit Studierenden teilen.
 
 Material und Anweisung wählen Sie wie beim Report: bis zu 10 Dateien oder Materialien aus einem
 Workspace, dazu optional eine Anweisung wie „nur Kapitel 4“ oder „für Erstsemester“. Die Seite
-entsteht im Hintergrund, die Karte unter Deine Seiten zeigt den Fortschritt.
+entsteht im Hintergrund, die Karte unter Pages zeigt den Fortschritt.
 
 Welche Darstellung ein Abschnitt bekommt, entscheidet das System nach dem Inhalt: Begriffe als
 Karten, ein Vorgehen als Schritte, Messwerte als Diagramm, Vergleiche als Tabelle. Dazu kommen

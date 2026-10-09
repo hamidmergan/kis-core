@@ -572,7 +572,7 @@
       "imageStyleHint": "Gilt für alle Bilder der Seite. Schrift im Bild wird immer ausgeschlossen.",
       "providerLabel": "KI-Anbieter",
       "submit": "Seite erstellen",
-      "listTitle": "Deine Seiten",
+      "listTitle": "Pages",
       "empty": "Noch keine Seite. Lade Material hoch und erstelle deine erste Seite.",
       "collectionText": "Alle geteilten Seiten unter einem Link, im Moment {count, plural, =1 {1 Seite} other {# Seiten}}.",
       "collectionCopy": "Link zu deinen geteilten Seiten kopieren",
