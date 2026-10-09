@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.dependencies import get_current_user
-from src.dependencies_rbac import permissions_of
+from src.dependencies_rbac import permissions_of, require_consent
 from src.features.access_codes import repository as access_repo
 from src.features.evaluation import repository as repo
 from src.features.evaluation.service import validate_answers
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_USERS_EVALUATION
 
-router = APIRouter(prefix="/evaluation", tags=["evaluation"])
+router = APIRouter(prefix="/evaluation", tags=["evaluation"], dependencies=[Depends(require_consent)])
 
 
 def _may_see(user: dict, config: dict) -> bool:

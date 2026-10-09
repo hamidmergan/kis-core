@@ -1,7 +1,8 @@
 """Job routes, the registration order is preserved."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from src.dependencies_rbac import require_consent
 from src.routes.jobs._cancel import router as _cancel_router
 from src.routes.jobs._check import router as _check_router
 from src.routes.jobs._download import router as _download_router
@@ -11,7 +12,7 @@ from src.routes.jobs._status import router as _status_router
 from src.routes.jobs._video import router as _video_router
 
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(require_consent)])
 
 # Order matters: specific paths first, {job_uuid} catch-alls last
 router.include_router(_check_router)       # /check/{tool_group}

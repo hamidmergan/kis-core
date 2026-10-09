@@ -12,12 +12,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src import storage
 from src.dependencies import get_current_user
+from src.dependencies_rbac import require_consent
 from src.features.feedback import repository as repo
 from src.i18n import get_locale, t
 from src.utils.file_validation import validate_or_raise
 from src.utils.upload_stream import stream_upload_to_path
 
-router = APIRouter(prefix="/feedback", tags=["feedback"])
+router = APIRouter(prefix="/feedback", tags=["feedback"], dependencies=[Depends(require_consent)])
 
 CATEGORIES = ("bug", "idea", "other")
 MAX_MESSAGE_CHARS = 2000

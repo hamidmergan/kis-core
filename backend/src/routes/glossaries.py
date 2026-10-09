@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.dependencies_rbac import require_consent
 from src.features.glossaries.schemas import GlossaryCreate, GlossaryUpdate
 from src.i18n import get_locale, t
 from src.limits import GLOSSARY_MAX_COUNT
 
-router = APIRouter(prefix="/glossaries", tags=["glossaries"])
+router = APIRouter(prefix="/glossaries", tags=["glossaries"], dependencies=[Depends(require_consent)])
 
 
 def _require_user_id(user: dict, locale: str) -> int:

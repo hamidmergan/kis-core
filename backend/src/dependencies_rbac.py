@@ -15,6 +15,16 @@ def _require_global_consent(user: dict, locale: str) -> None:
         raise HTTPException(status_code=403, detail=t("consent.required", locale))
 
 
+async def require_consent(
+    user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+) -> dict:
+    """For a router with no permission of its own (feedback, evaluation, glossaries, jobs) -
+    login alone is not enough, the notice still comes first."""
+    _require_global_consent(user, locale)
+    return user
+
+
 def _is_env_admin(email: str | None) -> bool:
     settings = get_settings()
     if not email or not settings.admin_email:

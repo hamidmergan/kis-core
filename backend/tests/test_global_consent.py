@@ -74,6 +74,24 @@ def client_as():
     app.dependency_overrides.clear()
 
 
+@pytest.mark.parametrize(
+    "method,path,kwargs",
+    [
+        ("get", "/glossaries", {}),
+        ("get", "/evaluation/active", {}),
+        ("get", "/jobs/my", {}),
+        ("post", "/feedback", {"data": {"category": "bug", "message": "test"}}),
+    ],
+)
+def test_routers_without_their_own_permission_still_need_consent(method, path, kwargs, client_as, monkeypatch):
+    """glossaries, evaluation, jobs, feedback gate only on login - consent must close that gap too."""
+    import src.dependencies_rbac as rbac
+    monkeypatch.setattr(rbac, "has_global_consent", lambda user_id: False)
+    r = getattr(client_as(), method)(path, **kwargs)
+    assert r.status_code == 403
+    assert r.json()["detail"] == "Bitte bestätige zuerst den Hinweis beim ersten Login."
+
+
 def test_accepting_consent_stores_the_current_version(client_as):
     with patch("src.routes.me.db.set_global_consent") as set_consent:
         r = client_as().post("/me/consent")
