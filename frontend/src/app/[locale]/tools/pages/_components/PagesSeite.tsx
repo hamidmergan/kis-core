@@ -33,21 +33,19 @@ const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".
 // A page in the making is asked for this often.
 const POLL_MS = 3000;
 const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
-// Cards per list page, fewer on a phone where they stack in one column.
+// Cards per list page, the newest come first.
 const PER_PAGE = 15;
-const PER_PAGE_PHONE = 6;
-const PHONE_QUERY = "(max-width: 639px)";
 
 /** The card picture: the page's first picture, a book when it has none. */
-export function Thumb({ src }: { src: string | null }) {
+export function Thumb({ src, className = "aspect-video" }: { src: string | null; className?: string }) {
   return (
-    <div className="relative overflow-hidden" style={{ aspectRatio: "16 / 9", background: "var(--tile-bg)" }}>
+    <div className={`relative overflow-hidden ${className}`} style={{ background: "var(--tile-bg)" }}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session
         <img src={src} alt="" className="block w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--kb60)" }}>
-          <BookOpenText size={44} weight="regular" aria-hidden="true" />
+          <BookOpenText size={44} weight="regular" aria-hidden="true" className="w-8 h-8 sm:w-11 sm:h-11" />
         </div>
       )}
     </div>
@@ -82,7 +80,6 @@ export default function PagesSeite() {
   const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
   const [offset, setOffset] = useState(0);
-  const [perPage, setPerPage] = useState(PER_PAGE);
   const listRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -110,18 +107,10 @@ export default function PagesSeite() {
     return () => window.clearInterval(id);
   }, [running, load]);
 
-  useEffect(() => {
-    const mq = window.matchMedia(PHONE_QUERY);
-    const apply = () => setPerPage(mq.matches ? PER_PAGE_PHONE : PER_PAGE);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-  // A deletion or a smaller screen may leave the offset past the last list page.
+  // A deletion may leave the offset past the last list page.
   const total = list?.pages.length ?? 0;
-  const start = Math.min(Math.floor(offset / perPage) * perPage, Math.max(0, Math.ceil(total / perPage) - 1) * perPage);
-  const shown = list?.pages.slice(start, start + perPage) ?? [];
+  const start = Math.min(offset, Math.max(0, Math.ceil(total / PER_PAGE) - 1) * PER_PAGE);
+  const shown = list?.pages.slice(start, start + PER_PAGE) ?? [];
   const goTo = (next: number) => {
     setOffset(next);
     listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -419,14 +408,19 @@ export default function PagesSeite() {
                           className={`flex flex-col rounded-xl border border-border-soft overflow-hidden bg-background outline-2 outline-transparent transition-[outline-color] ${open ? "cursor-pointer hover:outline-kb focus-visible:outline-kb" : ""}`}
                           style={{ outlineStyle: "solid" }}
                         >
-                          <Thumb src={p.image ? `${api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null} />
-                          <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
-                            {p.title && <div className="font-semibold leading-snug text-foreground line-clamp-2 break-words" title={p.title}>{p.title}</div>}
-                            <div className="text-xs text-muted mt-0.5 truncate" title={p.sources}>{p.sources}</div>
-                            {open && <div className="text-xs text-muted mt-0.5">{t("changedOn", { date: date(p.updated_at) })}</div>}
-                            {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
-                            {p.status === "paused" && <div className="text-xs text-warn-strong mt-0.5">{t("paused")}</div>}
-                            {p.status === "failed" && <div className="text-xs text-error mt-0.5 line-clamp-2">{p.error || t("failed")}</div>}
+                          <div className="flex flex-1 sm:block">
+                            <Thumb
+                              src={p.image ? `${api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null}
+                              className="w-28 shrink-0 self-start mt-3 ml-3 rounded-lg aspect-[4/3] sm:w-auto sm:m-0 sm:rounded-none sm:aspect-video"
+                            />
+                            <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
+                              {p.title && <div className="font-semibold leading-snug text-foreground line-clamp-2 break-words" title={p.title}>{p.title}</div>}
+                              <div className="text-xs text-muted mt-0.5 truncate" title={p.sources}>{p.sources}</div>
+                              {open && <div className="text-xs text-muted mt-0.5">{t("changedOn", { date: date(p.updated_at) })}</div>}
+                              {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
+                              {p.status === "paused" && <div className="text-xs text-warn-strong mt-0.5">{t("paused")}</div>}
+                              {p.status === "failed" && <div className="text-xs text-error mt-0.5 line-clamp-2">{p.error || t("failed")}</div>}
+                            </div>
                           </div>
                           {RUNNING.has(p.status) ? (
                             <div className="mx-3.5 mb-3.5 mt-2"><Spinner size="xs" label={undefined} /></div>
@@ -471,7 +465,7 @@ export default function PagesSeite() {
                     })}
                   </div>
                 )}
-                <Pagination total={total} offset={start} limit={perPage} onOffsetChange={goTo} />
+                <Pagination total={total} offset={start} limit={PER_PAGE} onOffsetChange={goTo} />
               </>
             )}
           </section>
