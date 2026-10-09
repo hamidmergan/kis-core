@@ -116,7 +116,9 @@ function PodcastPageInner() {
         } else if (view.status === "success") {
           dispatch({ type: "GO", step: "done" });
         } else if (view.status === "failed" || view.status === "paused") {
-          dispatch({ type: "GO", step: view.lines.length ? "voicing" : "script" });
+          // A script that expired before anyone voiced it goes back to the script, not to a failed voicing.
+          const vertont = view.lines.length > 0 && view.progress?.step !== "script_done";
+          dispatch({ type: "GO", step: vertont ? "voicing" : "script" });
         }
       })
       .catch(() => {
