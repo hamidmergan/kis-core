@@ -539,8 +539,6 @@ function ratedColumns(b: LookProps<"table">["b"]): (number | null)[] {
 
 const TbPlain = (x: LookProps<"table">) => <TableLook {...x} cls="v-nu-tb-plain" />;
 const TbStripe = (x: LookProps<"table">) => <TableLook {...x} cls="v-nu-tb-stripe" />;
-const TbRowhead = (x: LookProps<"table">) => <TableLook {...x} cls="v-nu-tb-rowhead" />;
-const TbCompact = (x: LookProps<"table">) => <TableLook {...x} cls="v-nu-tb-compact" />;
 
 function TbDots(x: LookProps<"table">) {
   const rated = ratedColumns(x.b);
@@ -669,9 +667,7 @@ const chart: Look<"chart">[] = [
 const table: Look<"table">[] = [
   { name: "Schlicht mit Kopflinie", View: TbPlain },
   { name: "Gestreift", View: TbStripe },
-  { name: "Zeilenkopf betont", View: TbRowhead },
   { name: "Bewertung mit Punkten", fits: (b) => ratedColumns(b).some(Boolean), View: TbDots },
-  { name: "Kompakt mit Kopflinie in Farbe", View: TbCompact },
 ];
 
 const scale: Look<"scale">[] = [

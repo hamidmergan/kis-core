@@ -52,9 +52,6 @@ function textLook(name: string, cls: string, fits?: (b: B<"text">) => boolean, t
 
 const TEXT: Look<"text">[] = [
   textLook("Schlicht", "v-tx-plain"),
-  textLook("Zwei Spalten", "v-tx-cols", (b) => b.text.length >= 400),
-  textLook("Initial", "v-tx-init", (b) => b.text.length >= 200),
-  textLook("Akzentlinie", "v-tx-rule", undefined, "v-tx-first"),
 ];
 
 /* ---------- Liste ---------- */
@@ -83,9 +80,6 @@ function listLook(name: string, cls: string, opts: { fits?: (b: B<"bullets">) =>
 
 const BULLETS: Look<"bullets">[] = [
   listLook("Punkte", "v-bl-dots"),
-  listLook("Linien", "v-bl-lines"),
-  listLook("Zwei Spalten", "v-bl-two", { fits: (b) => b.items.length >= 4 }),
-  listLook("Große Ziffern", "v-bl-num", { ol: true, lead: (i) => <span className="v-bl-n" aria-hidden="true">{i + 1}</span> }),
   {
     name: "Etiketten",
     fits: (b) => b.items.every((v) => v.length <= 24),
@@ -104,9 +98,6 @@ const BULLETS: Look<"bullets">[] = [
       );
     },
   },
-  listLook("Pfeil-Liste", "v-bl-arrows", { lead: () => <Ic n="right" /> }),
-  listLook("Balken links", "v-bl-bars"),
-  listLook("Randlinie mit Zählern", "v-bl-rail", { ol: true, lead: (i) => <span className="v-bl-c" aria-hidden="true">{i + 1}</span> }),
 ];
 
 /* ---------- Kernsatz ---------- */

@@ -13,14 +13,14 @@ export const LOOKS: Looks = { ...LOOKS_TEXT, ...LOOKS_FLOW, ...LOOKS_NUMBERS, ..
 export const looksOf = (page: Page) => pickLooks(page, LOOKS);
 
 /** How a section of the subject is built around its blocks. */
-export type SectionLook = "top" | "left" | "center" | "split" | "rail" | "poster" | "pair";
+export type SectionLook = "top" | "split" | "rail" | "pair";
 
-// The section builds each design takes turns with, so a page keeps one character.
+// A section keeps its plain build, only the timeline draws its line through the sections.
 const POOLS: Record<Design, SectionLook[]> = {
-  chapters: ["left", "top", "center"],
+  chapters: ["top"],
   timeline: ["rail"],
-  magazine: ["top", "poster", "center"],
-  guide: ["left", "top"],
+  magazine: ["top"],
+  guide: ["top"],
 };
 
 // Blocks that need the whole width and never stand in half a row.
