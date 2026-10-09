@@ -18,6 +18,13 @@ type FeedbackStatus = "open" | "parked" | "done";
 
 const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
 
+// The stripe on the left tells the status at a glance, without opening the select.
+const STRIPE: Record<FeedbackStatus, string> = {
+  open: "var(--error)",
+  parked: "var(--warn)",
+  done: "var(--success)",
+};
+
 type Attachment = {
   id: number;
   filename: string;
@@ -104,7 +111,10 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
       ) : !entry ? (
         <p className="text-sm text-muted-soft text-center py-8">{t("notFound")}</p>
       ) : (
-        <div className="border border-border-soft rounded-xl bg-background p-6 space-y-4">
+        <div
+          className="border border-border-soft border-l-4 rounded-xl bg-background p-6 space-y-4"
+          style={{ borderLeftColor: STRIPE[entry.status] }}
+        >
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <StatusMark tone={TON[entry.category]} className="text-xs">

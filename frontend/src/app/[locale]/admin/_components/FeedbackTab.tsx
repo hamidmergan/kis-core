@@ -18,6 +18,13 @@ type FeedbackStatus = "open" | "parked" | "done";
 
 const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
 
+// The stripe on the left tells the status at a glance, without opening the select.
+const STRIPE: Record<FeedbackStatus, string> = {
+  open: "var(--error)",
+  parked: "var(--warn)",
+  done: "var(--success)",
+};
+
 type Attachment = {
   id: number;
   filename: string;
@@ -111,9 +118,10 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
             <li
               key={e.id}
               onClick={() => onOpen(e.id)}
-              className="px-5 py-4 bg-background flex items-stretch justify-between gap-4 cursor-pointer hover:bg-surface transition-colors"
+              className="px-5 py-4 bg-background flex items-stretch justify-between gap-4 cursor-pointer hover:bg-surface transition-colors border-l-4"
+              style={{ borderLeftColor: STRIPE[e.status] }}
             >
-              <div className="min-w-0 flex-1">
+              <div className={`min-w-0 flex-1${e.status === "done" ? " opacity-55" : ""}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <StatusMark tone={TON[e.category]} className="text-xs">
                     {t(`category${e.category[0].toUpperCase()}${e.category.slice(1)}` as
