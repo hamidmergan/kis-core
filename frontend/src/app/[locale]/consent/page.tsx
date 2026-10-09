@@ -34,7 +34,9 @@ export default function ConsentPage() {
         return;
       }
       if (status.global_consent_accepted) {
-        router.replace(target);
+        // A full reload, not a client-side transition: the header/footer must not
+        // switch to the target page before its own content is actually ready.
+        window.location.href = target;
         return;
       }
       setStep("consent");
@@ -49,8 +51,9 @@ export default function ConsentPage() {
       const res = await api.fetch("/api/me/consent", { method: "POST" });
       if (!res.ok) return;
       clearAuthCache();
-      // The target page's own WelcomeModal decides from there, once it has loaded.
-      router.replace(nextPath);
+      // A full reload, not a client-side transition: avoids the header/footer flashing
+      // over before the target page (and its own WelcomeModal) is actually ready.
+      window.location.href = nextPath;
     } finally {
       setBusy(false);
     }
