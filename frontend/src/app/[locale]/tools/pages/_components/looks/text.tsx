@@ -54,7 +54,6 @@ const TEXT: Look<"text">[] = [
   textLook("Schlicht", "v-tx-plain"),
   textLook("Zwei Spalten", "v-tx-cols", (b) => b.text.length >= 400),
   textLook("Initial", "v-tx-init", (b) => b.text.length >= 200),
-  textLook("Erste Zeile groß", "v-tx-leadin", (b) => b.text.length >= 200),
   textLook("Akzentlinie", "v-tx-rule", undefined, "v-tx-first"),
 ];
 

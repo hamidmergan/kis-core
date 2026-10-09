@@ -222,6 +222,7 @@ function Tools({ s, i, n, edit }: { s: Section; i: number; n: number; edit: Edit
 /** The fixed parts of a page carry these ids, every other section belongs to the subject. */
 const FRAME_IDS = new Set(["cover", "gist", "map", "words"]);
 const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
+const EXPLAINED = new Set(["map", "words"]);
 
 interface SectionProps {
   /** How a section of the subject is built, absent for the frame. */
@@ -313,7 +314,8 @@ function SectionView({ s, i, n, limits, imageBase, nums, edit, build, chapter, h
       {edit && <Tools s={s} i={i} n={n} edit={edit} />}
       <div className="txt">
         <Txt path={`${p}.title`} value={s.title} as="h2" max={limits.short} />
-        <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />
+        {/* Map and word cloud explain themselves, older pages still carry a sentence there. */}
+        {!EXPLAINED.has(s.id) && <Txt path={`${p}.lead`} value={s.lead} as="p" className="lead" max={limits.long} />}
       </div>
       <div className="body">{blocks}</div>
     </section>

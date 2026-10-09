@@ -14,18 +14,10 @@
 .kis-page .wrap section.sx-left > .body { min-width: 0; border-left: 2px solid var(--pg-line); padding-left: 40px; }
 .kis-page .wrap section.sx-left > .body > .blk:first-child { margin-top: 0; }
 
-/* band: title and lead on a light band across the whole width, the blocks aligned under them */
-.kis-page .wrap section.sx-band > .txt { max-width: none; background: var(--pg-mist); padding: 36px 40px; }
-.kis-page .wrap section.sx-band > .txt h2, .kis-page .wrap section.sx-band > .txt .lead { max-width: 900px; }
-.kis-page .wrap section.sx-band > .body { padding: 0 40px; }
-.kis-page .wrap section.sx-band > .body > .blk:first-child { margin-top: 28px; }
-
 /* center: title, lead and text centred, a short accent dash under the title */
 .kis-page .wrap section.sx-center > .txt { max-width: 760px; margin: 0 auto; text-align: center; }
 .kis-page .wrap section.sx-center > .txt h2::after { content: ""; display: block; width: 48px; height: 2px; background: var(--pg-accent); margin: 14px auto 18px; }
-.kis-page .wrap section.sx-center > .body > .k-text { max-width: 720px; margin-left: auto; margin-right: auto; text-align: center; }
-
-/* number: the chapter number as a large outline beside title and lead, the blocks under the title */
+.kis-page .wrap section.sx-center > .body > .k-text { max-width: 720px; margin-left: auto; margin-right: auto; }
 
 /* split: the picture takes the left half, title, lead and the other block the right half */
 .kis-page .wrap section.sx-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; align-items: start; }
@@ -61,7 +53,7 @@
 .kis-page .wrap section.sx-poster > .body:has(> .blk:nth-child(2):last-child):not(:has(> .k-table, > .k-chart, > .k-image, > .k-mindmap, > .k-wordcloud, > .k-matrix, > .k-timeline, > .k-tree, > .k-venn, > .k-steps, > .k-cycle, > .k-levels, > .k-scale, > .k-versus, > .k-accordion, > .k-figures, > .k-bars, > .k-cards)) { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 40px; align-items: start; }
 .kis-page .wrap section.sx-poster > .body:has(> .blk:nth-child(2):last-child):not(:has(> .k-table, > .k-chart, > .k-image, > .k-mindmap, > .k-wordcloud, > .k-matrix, > .k-timeline, > .k-tree, > .k-venn, > .k-steps, > .k-cycle, > .k-levels, > .k-scale, > .k-versus, > .k-accordion, > .k-figures, > .k-bars, > .k-cards)) > .blk { margin-top: 0; }
 
-/* pair: two short sections side by side, each numbered under an accent rule */
+/* pair: two short sections side by side, each under an accent rule */
 .kis-page .wrap .sx-pair-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; align-items: start; padding-top: 84px; }
 .kis-page .wrap .sx-pair-row > section.sx-pair { padding-top: 14px; margin-top: 0; border-top: 2px solid var(--pg-accent); min-width: 0; }
 .kis-page .wrap .sx-pair-row > section.sx-pair > .txt { max-width: none; }
@@ -69,16 +61,9 @@
 .kis-page .wrap .sx-pair-row > section.sx-pair > .txt .lead { font-size: 16px; }
 .kis-page .wrap .sx-pair-row > section.sx-pair > .body > .blk:first-child { margin-top: 14px; }
 
-/* shout: the lead large between two rules before the blocks */
-.kis-page .wrap section.sx-shout > .txt { max-width: 920px; }
-.kis-page .wrap section.sx-shout > .txt .lead { font-size: clamp(24px, 3.1cqw, 34px); line-height: 1.25; font-weight: 500; letter-spacing: -0.01em; color: var(--pg-accent); padding: 22px 0; margin: 16px 0 0; border-top: 2px solid var(--pg-line); border-bottom: 2px solid var(--pg-line); }
-.kis-page .wrap section.sx-shout > .body > .blk:first-child { margin-top: 24px; }
-
 @container (max-width: 600px) {
   .kis-page .wrap section.sx-left { display: block; }
   .kis-page .wrap section.sx-left > .body { border-left: 0; padding-left: 0; border-top: 2px solid var(--pg-line); padding-top: 18px; margin-top: 18px; }
-  .kis-page .wrap section.sx-band > .txt { padding: 24px 20px; }
-  .kis-page .wrap section.sx-band > .body { padding: 0 20px; }
   .kis-page .wrap section.sx-split { display: block; }
   .kis-page .wrap section.sx-split > .body { display: block; }
   .kis-page .wrap section.sx-split > .body > .blk, .kis-page .wrap section.sx-split > .body > .blk:not(.k-image) { margin-top: 26px; }

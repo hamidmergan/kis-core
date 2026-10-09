@@ -319,10 +319,13 @@ function VnThree({ b, p, limits }: LookProps<"venn">) {
 
 // ---------- formula ----------
 
+/** A formula never breaks, its size follows its length so it fits the width it has. */
+const fit = (key: string) => ({ "--fm-len": Math.max(8, key.length) }) as CSSProperties;
+
 /** The formula large and centred with its sentence below, shared with the old highlight. */
 function Big({ p, keyText, text, limits }: { p: string; keyText: string; text: string; limits: Limits }) {
   return (
-    <div className="v-cp v-fm-big">
+    <div className="v-cp v-fm-big" style={fit(keyText)}>
       <Txt path={`${p}.key`} value={keyText} as="div" className="v-fm-big-key" max={limits.short} />
       <div className="v-fm-big-rule" />
       <Txt path={`${p}.text`} value={text} as="p" className="v-fm-big-text" max={limits.item} />
@@ -336,7 +339,7 @@ function FmBig({ b, p, limits }: LookProps<"formula">) {
 
 function FmLegend({ b, p, limits }: LookProps<"formula">) {
   return (
-    <div className="v-cp v-fm-leg">
+    <div className={`v-cp v-fm-leg${b.key.length > 16 ? " v-fm-leg-long" : ""}`} style={fit(b.key)}>
       <div className="v-fm-leg-grid">
         <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-leg-key" max={limits.short} />
         <dl className="v-fm-leg-list">
@@ -354,7 +357,7 @@ function FmLegend({ b, p, limits }: LookProps<"formula">) {
 
 function FmWay({ b, p, limits }: LookProps<"formula">) {
   return (
-    <div className="v-cp v-fm-way">
+    <div className="v-cp v-fm-way" style={fit(b.key)}>
       <Txt path={`${p}.key`} value={b.key} as="div" className="v-fm-way-key" max={limits.short} />
       <ol className="v-fm-way-list">
         {b.example.map((l, i) => (
