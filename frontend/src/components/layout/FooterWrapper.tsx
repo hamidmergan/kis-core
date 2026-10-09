@@ -3,7 +3,7 @@
 import { usePathname } from "@/i18n/navigation";
 import Footer from "./Footer";
 
-const NO_FOOTER_PATHS = ["/pending", "/campusmap"];
+const NO_FOOTER_PATHS = ["/pending", "/campusmap", "/consent"];
 const NO_FOOTER_PREFIXES = ["/workspace/", "/tools/info", "/tools/pages/", "/p/", "/u/"];
 
 export default function FooterWrapper({ hasSession }: { hasSession: boolean }) {

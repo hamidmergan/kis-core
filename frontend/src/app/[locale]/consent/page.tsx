@@ -103,9 +103,9 @@ export default function ConsentPage() {
   };
 
   return (
-    <>
+    <div className="min-h-dvh flex flex-col">
       <Header showLogout />
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
+      <div className="flex-1 flex items-center justify-center px-4">
         {step === "loading" && <Spinner size="lg" />}
         {step !== "loading" && (
           <div className="max-w-md w-full space-y-5">
@@ -150,6 +150,6 @@ export default function ConsentPage() {
       >
         <p className="text-sm whitespace-pre-line">{welcomeText}</p>
       </Modal>
-    </>
+    </div>
   );
 }
