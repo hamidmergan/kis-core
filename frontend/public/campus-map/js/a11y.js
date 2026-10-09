@@ -1013,3 +1013,21 @@ document.addEventListener('shown.bs.offcanvas', e => {
     // nach main.js, das im selben Ereignis das Karussell startet
     window.setTimeout(enhanceBuildingCarousel, 0);
 });
+
+// ============================================================
+// Tab in Safari (2.1.1)
+// ============================================================
+//
+// Safari skips buttons and links on Tab by default, an explicit tabindex puts them back in the order.
+
+function tabStoppsSetzen(wurzel) {
+    if (!wurzel.querySelectorAll) return;
+    const auswahl = 'a[href]:not([tabindex]), button:not([tabindex])';
+    if (wurzel.matches && wurzel.matches(auswahl)) wurzel.setAttribute('tabindex', '0');
+    wurzel.querySelectorAll(auswahl).forEach(el => el.setAttribute('tabindex', '0'));
+}
+
+tabStoppsSetzen(document.body);
+new MutationObserver(eintraege => {
+    eintraege.forEach(m => m.addedNodes.forEach(tabStoppsSetzen));
+}).observe(document.body, { childList: true, subtree: true });
