@@ -1260,7 +1260,6 @@
       },
       "ttsSettings": {
         "heading": "Settings",
-        "providerLabel": "TTS provider",
         "voiceLabel": "Voice",
         "voiceDefault": "Default",
         "previewVoices": "Preview voices",
@@ -1492,6 +1491,7 @@
         "personTitle": "Person {n}",
         "nameLabel": "Name",
         "roleLabel": "Role",
+        "providerLabel": "TTS provider",
         "voiceLabel": "Voice",
         "roles": {
           "host": "Host",
@@ -1602,7 +1602,8 @@
       "history": {
         "title": "Your podcasts",
         "empty": "No podcast yet.",
-        "hint": "New podcasts appear at the top, a click opens them again.",
+        "hint": "Unfinished podcasts are listed here too. A click opens them where you left off.",
+        "openFailed": "This podcast can no longer be opened. It has expired or was deleted.",
         "colMaterial": "Material",
         "colDate": "Date"
       }

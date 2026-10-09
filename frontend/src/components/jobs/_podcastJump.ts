@@ -13,7 +13,8 @@ export function podcastJumpKind(job: JumpJob): "resume" | "open" | null {
   if (job.status === "awaiting_user" || job.status === "failed" || job.status === "paused") return "resume";
   // An expired job has no files left, there is nothing to show.
   if (job.status === "success") return job.has_download ? "open" : null;
-  if (job.status === "queued" || job.status === "running" || job.status === "pending") return "open";
+  // Waiting for an automatic retry is still running, the voicing step shows the wait.
+  if (job.status === "queued" || job.status === "running" || job.status === "pending" || job.status === "waiting_retry") return "open";
   return null;
 }
 

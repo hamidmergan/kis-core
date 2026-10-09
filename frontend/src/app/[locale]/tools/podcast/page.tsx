@@ -7,7 +7,8 @@ import { Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
-import { useJobHistory } from "@/hooks/useJobHistory";
+import { useJobHistory, type JobHistoryRow } from "@/hooks/useJobHistory";
+import { podcastJumpKind } from "@/components/jobs/_podcastJump";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
@@ -30,6 +31,8 @@ import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_
 const DISCARD = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
 const POLL_MS = 2000;
 const SAVE_MS = 800;
+// Unfinished podcasts belong in the list too, a click brings back the step they stopped at.
+const oeffnbar = (j: JobHistoryRow) => podcastJumpKind(j) !== null;
 
 function PodcastPageInner() {
   const t = useTranslations("tools.podcast");
@@ -38,18 +41,19 @@ function PodcastPageInner() {
   const tHistory = useTranslations("tools.podcast.history");
   const locale = useLocale();
   const router = useRouter();
-  const verlauf = useJobHistory("podcast");
+  const verlauf = useJobHistory("podcast", 10, oeffnbar);
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   // The chat model that writes, picked in the first step and sent along with the start.
   const llm = useFeatureProviders("/podcast/providers");
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
   const [demoDa, setDemoDa] = useState(false);
+  const [oeffnenGescheitert, setOeffnenGescheitert] = useState(false);
   // Both of these clicks throw work away, so neither happens without a question.
   const [nachfrage, setNachfrage] = useState<"abbrechen" | "neu" | null>(null);
   const { loaded, providers } = useVoices();
   const { permissions } = usePermissions();
-  // Without it every visit starts fresh, only the jobs list links straight to one podcast.
+  // The open podcast stands in the address, so a reload or a link brings back its step.
   const ausListe = useSearchParams().get("job");
   const aenderung = useRef(0);
   // The parts of the script already written, shown while the rest is still being written.
@@ -88,7 +92,7 @@ function PodcastPageInner() {
     return view;
   }, []);
 
-  // Every visit starts fresh, only the jobs list links straight to one podcast.
+  // Without a job in the address the visit starts fresh.
   useEffect(() => {
     if (!ausListe) {
       // Browser back from a job out of the history lands on the empty first step again.
@@ -96,6 +100,9 @@ function PodcastPageInner() {
       setHydrated(true);
       return;
     }
+    // The page just wrote its own job into the address, there is nothing to load.
+    if (ausListe === stateRef.current.jobUuid) return;
+    setOeffnenGescheitert(false);
     dispatch({ type: "RESTORE", state: { jobUuid: ausListe } });
     holeStand(ausListe)
       .then(async (view) => {
@@ -113,7 +120,10 @@ function PodcastPageInner() {
         }
       })
       .catch(() => {
-        // Job expired, deleted or still running elsewhere, the page falls back to a fresh start.
+        // Job expired or deleted, the page falls back to a fresh start and says so.
+        dispatch({ type: "RESET" });
+        setOeffnenGescheitert(true);
+        window.history.replaceState(null, "", window.location.pathname);
       })
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
@@ -188,6 +198,7 @@ function PodcastPageInner() {
     try {
       const uuid = await startPodcast(stateRef.current, llm.providerId);
       dispatch({ type: "STARTED", jobUuid: uuid });
+      window.history.replaceState(null, "", `${window.location.pathname}?job=${uuid}`);
       if (stateRef.current.source.mode === "blank") {
         const view = await holeStand(uuid);
         dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error });
@@ -302,6 +313,11 @@ function PodcastPageInner() {
               <div className="mt-10">
                 <h2 className="text-sm font-semibold text-foreground mb-1">{tHistory("title")}</h2>
                 <p className="text-xs text-muted mb-3">{verlauf.length ? tHistory("hint") : tHistory("empty")}</p>
+                {oeffnenGescheitert && (
+                  <p className="mb-3 rounded-lg border border-error-border bg-error-bg px-3 py-2 text-sm text-error">
+                    {tHistory("openFailed")}
+                  </p>
+                )}
                 {verlauf.length > 0 && (
                   <JobHistoryTable entries={verlauf} selectedUuid={state.jobUuid} locale={locale}
                     colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}

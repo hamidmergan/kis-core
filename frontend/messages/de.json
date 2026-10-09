@@ -1260,7 +1260,6 @@
       },
       "ttsSettings": {
         "heading": "Einstellungen",
-        "providerLabel": "TTS-Anbieter",
         "voiceLabel": "Stimme",
         "voiceDefault": "Standard",
         "previewVoices": "Stimmen anhören",
@@ -1492,6 +1491,7 @@
         "personTitle": "Person {n}",
         "nameLabel": "Name",
         "roleLabel": "Rolle",
+        "providerLabel": "TTS-Anbieter",
         "voiceLabel": "Stimme",
         "roles": {
           "host": "Moderation",
@@ -1602,7 +1602,8 @@
       "history": {
         "title": "Deine Podcasts",
         "empty": "Noch kein Podcast.",
-        "hint": "Neue Podcasts kommen oben dazu, ein Klick öffnet sie wieder.",
+        "hint": "Auch angefangene Podcasts stehen hier. Ein Klick öffnet sie dort, wo du aufgehört hast.",
+        "openFailed": "Dieser Podcast lässt sich nicht mehr öffnen. Er ist abgelaufen oder wurde gelöscht.",
         "colMaterial": "Material",
         "colDate": "Datum"
       }

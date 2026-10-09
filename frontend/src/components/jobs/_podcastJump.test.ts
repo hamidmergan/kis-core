@@ -16,6 +16,7 @@ describe("Der Rücksprung aus der Auftragsliste", () => {
   it("öffnet einen laufenden Auftrag", () => {
     expect(podcastJumpKind(job({ status: "running" }))).toBe("open");
     expect(podcastJumpKind(job({ status: "pending" }))).toBe("open");
+    expect(podcastJumpKind(job({ status: "waiting_retry" }))).toBe("open");
   });
 
   it("öffnet den fertigen Podcast nur, solange die Datei da ist", () => {
