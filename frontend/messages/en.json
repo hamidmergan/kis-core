@@ -1904,7 +1904,7 @@
       "openMenu": "Open history",
       "example1": "Which documents do I need for enrolment?",
       "example2": "Where do I find the student advisory service?",
-      "example3": "How do I apply for a master's programme?",
+      "example3": "How do I apply for a bachelor's programme?",
       "example4": "What are the opening hours of the Mensa?",
       "inputPlaceholder": "Your question about the university…",
       "disclaimer": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -4993,7 +4993,7 @@
   "eventInfo": {
     "eyebrow": "Pilot project at THL",
     "title": "Learn with your own materials",
-    "lead": "Francis, your AI learning assistant, answers from your scripts, slides and lectures and names the source.",
+    "lead": "Learning assistant Francis answers from your scripts, slides and lectures and names the source.",
     "purpose": {
       "heading": "Project and platform",
       "project": {
@@ -5048,7 +5048,7 @@
         },
         "how": {
           "q": "How does working with the platform work?",
-          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
+          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask learning assistant Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
           "q": "What is the current status?",
@@ -5059,12 +5059,12 @@
           "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
         },
         "sources": {
-          "q": "Where does Francis get its answers?",
-          "a": "Francis answers from the sources in your workspace."
+          "q": "Where does learning assistant Francis get its answers?",
+          "a": "Learning assistant Francis answers from the sources in your workspace."
         },
         "names": {
           "q": "How do I know what an answer is based on?",
-          "a": "Francis names the source for every answer so you can read up on it."
+          "a": "Learning assistant Francis names the source for every answer so you can read up on it."
         },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
@@ -5086,14 +5086,14 @@
       "groups": {
         "project": "Project",
         "use": "Access",
-        "francis": "Francis",
+        "francis": "Learning assistant Francis",
         "data": "Privacy",
         "outlook": "Outlook"
       }
     },
     "heroAlt": "Workspace with materials, chat and studio",
     "learn": {
-      "heading": "Learning with Francis",
+      "heading": "Learning with learning assistant Francis",
       "rows": {
         "material": {
           "title": "All material in one place",
@@ -5102,7 +5102,7 @@
         },
         "sources": {
           "title": "Answers with sources",
-          "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
+          "body": "Learning assistant Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
           "alt": "Answer in the chat, next to it the highlighted passage in the script"
         },
         "practice": {
@@ -5184,6 +5184,13 @@
           "p2": "The glossary takes effect in translation and screencast",
           "p3": "Glossaries can be exported and passed on to colleagues",
           "alt": "Glossary with the list of your own term lists"
+        },
+        "pages": {
+          "lead": "Your material becomes a learning page with pictures, tables and charts that you can share and add to a workspace.",
+          "p1": "The AI itself picks which forms fit the material, such as pictures, tables or a mind map",
+          "p2": "Every text, picture and label can be edited afterwards",
+          "p3": "Share by link, with or without a KIS account",
+          "alt": "Pages overview with one finished learning page"
         }
       }
     },
@@ -5225,6 +5232,10 @@
       "reward": "Pick up your gift at the info stand.",
       "since": "Completed at {time}"
     },
+    "myCode": {
+      "reveal": "My card number",
+      "hint": "Show this number at a stand if your stamp card should be reset."
+    },
     "loading": "Loading …",
     "loadFailed": "The stamp card could not be loaded. Please try again in a moment."
   },
@@ -5236,6 +5247,7 @@
     "transcription": "Audio to text",
     "image": "Image generation",
     "summary": "Report",
+    "pages": "Pages",
     "glossary": "Glossary",
     "screencast": "Screencast",
     "podcast": "Podcast",
@@ -5255,15 +5267,16 @@
       "hideCodeAria": "Hide the code on posters",
       "codeRerollTitle": "Roll a new code for this stand?",
       "codeRerollText": "The code on posters that are already printed stops working. The posters have to be printed again.",
-      "description": "Order, name, short text and what Francis says after the stamp.",
+      "description": "Order, title, subtitle and what Francis says after the stamp.",
       "add": "+ Stand",
       "remove": "Remove",
       "removeTitle": "Remove stand",
       "removeText": "The stand disappears from the card and the posters.",
       "up": "Move up",
       "down": "Move down",
-      "name": "Name",
-      "blurb": "Short text",
+      "name": "Title",
+      "tagline": "Spelled out (empty = hidden on the poster)",
+      "blurb": "Subtitle",
       "francis": "Francis text",
       "icon": "Icon",
       "qr": "QR code",
@@ -5297,6 +5310,12 @@
       "mineText": "Removes the stamps in this browser so you can walk the card once more.",
       "mine": "Reset my card",
       "mineDone": "Your card is empty.",
+      "oneTitle": "One stamp card",
+      "oneText": "Removes the stamps of one visitor. Ask them for their card number, behind the question mark on their stamp card.",
+      "onePlaceholder": "Card number",
+      "one": "Reset",
+      "oneDone": "The card is empty.",
+      "oneNotFound": "That card number does not exist.",
       "allTitle": "All stamp cards",
       "allText": "Removes the stamps of every visitor. The results start from zero.",
       "all": "Delete all stamps",

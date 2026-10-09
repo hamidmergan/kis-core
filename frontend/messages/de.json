@@ -1904,7 +1904,7 @@
       "openMenu": "Verlauf öffnen",
       "example1": "Welche Unterlagen brauche ich für die Einschreibung?",
       "example2": "Wo finde ich die Studienberatung?",
-      "example3": "Wie bewerbe ich mich für einen Masterstudiengang?",
+      "example3": "Wie bewerbe ich mich für einen Bachelorstudiengang?",
       "example4": "Welche Öffnungszeiten hat die Mensa?",
       "inputPlaceholder": "Deine Frage zur Hochschule…",
       "disclaimer": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
@@ -4993,7 +4993,7 @@
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
     "title": "Lernen mit deinen eigenen Unterlagen",
-    "lead": "Francis, dein KI-Lernassistent, antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
+    "lead": "Lernassistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
     "purpose": {
       "heading": "Projekt und Plattform",
       "project": {
@@ -5048,7 +5048,7 @@
         },
         "how": {
           "q": "Wie läuft die Arbeit mit der Plattform ab?",
-          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
+          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen dem Lernassistenten Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
@@ -5059,12 +5059,12 @@
           "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
         },
         "sources": {
-          "q": "Woher nimmt Francis seine Antworten?",
-          "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
+          "q": "Woher nimmt Lernassistent Francis seine Antworten?",
+          "a": "Lernassistent Francis antwortet aus den Quellen, die in deinem Workspace liegen."
         },
         "names": {
           "q": "Woher weiß ich, worauf eine Antwort beruht?",
-          "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
+          "a": "Zu jeder Antwort nennt Lernassistent Francis die Quelle, damit du nachlesen kannst."
         },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
@@ -5086,14 +5086,14 @@
       "groups": {
         "project": "Projekt",
         "use": "Zugang",
-        "francis": "Francis",
+        "francis": "Lernassistent Francis",
         "data": "Datenschutz",
         "outlook": "Ausblick"
       }
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "learn": {
-      "heading": "Lernen mit Francis",
+      "heading": "Lernen mit Lernassistent Francis",
       "rows": {
         "material": {
           "title": "Alles Material an einem Ort",
@@ -5102,7 +5102,7 @@
         },
         "sources": {
           "title": "Antworten mit Quelle",
-          "body": "Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
+          "body": "Lernassistent Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
           "alt": "Antwort im Chat, daneben die markierte Stelle im Skript"
         },
         "practice": {
@@ -5184,6 +5184,13 @@
           "p2": "Das Glossar wirkt in Übersetzung und Screencast",
           "p3": "Glossare lassen sich exportieren und an Kolleginnen und Kollegen weitergeben",
           "alt": "Glossar mit Liste der eigenen Begriffslisten"
+        },
+        "pages": {
+          "lead": "Aus deinem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen, die sich teilen und im Workspace einbinden lässt.",
+          "p1": "Die KI wählt selbst, welche Darstellungen zum Stoff passen, etwa Bilder, Tabellen oder eine Mindmap",
+          "p2": "Jeder Text, jedes Bild und jede Beschriftung lässt sich danach ändern",
+          "p3": "Teilen per Link, mit oder ohne KIS-Konto",
+          "alt": "Pages-Übersicht mit einer fertigen Lernseite"
         }
       }
     },
@@ -5225,6 +5232,10 @@
       "reward": "Hol dir dein Geschenk am Info-Stand ab.",
       "since": "Abgeschlossen um {time} Uhr"
     },
+    "myCode": {
+      "reveal": "Meine Kartennummer",
+      "hint": "Zeig diese Nummer am Stand, falls deine Stempelkarte zurückgesetzt werden soll."
+    },
     "loading": "Lädt …",
     "loadFailed": "Die Stempelkarte konnte nicht geladen werden. Bitte versuche es gleich noch einmal."
   },
@@ -5236,6 +5247,7 @@
     "transcription": "Audio in Text",
     "image": "Bildgenerierung",
     "summary": "Report",
+    "pages": "Pages",
     "glossary": "Glossar",
     "screencast": "Screencast",
     "podcast": "Podcast",
@@ -5255,15 +5267,16 @@
       "hideCodeAria": "Code auf Aufstellern ausblenden",
       "codeRerollTitle": "Code des Stands neu würfeln?",
       "codeRerollText": "Der Code auf bereits gedruckten Aufstellern gilt danach nicht mehr. Die Aufsteller müssen neu gedruckt werden.",
-      "description": "Reihenfolge, Name, Kurztext und was Francis nach dem Stempel sagt.",
+      "description": "Reihenfolge, Titel, Subtitel und was Francis nach dem Stempel sagt.",
       "add": "+ Stand",
       "remove": "Entfernen",
       "removeTitle": "Stand entfernen",
       "removeText": "Der Stand verschwindet aus Karte und Aufstellern.",
       "up": "Nach oben",
       "down": "Nach unten",
-      "name": "Name",
-      "blurb": "Kurztext",
+      "name": "Titel",
+      "tagline": "Ausgeschrieben (leer = auf dem Aufsteller ausgeblendet)",
+      "blurb": "Subtitel",
       "francis": "Francis-Text",
       "icon": "Icon",
       "qr": "QR-Code",
@@ -5297,6 +5310,12 @@
       "mineText": "Löscht die Stempel in diesem Browser, damit du die Karte noch einmal durchspielen kannst.",
       "mine": "Meine Karte zurücksetzen",
       "mineDone": "Deine Karte ist leer.",
+      "oneTitle": "Eine Stempelkarte",
+      "oneText": "Löscht die Stempel einer besuchenden Person. Lass dir dafür ihre Kartennummer zeigen, hinter dem Fragezeichen auf ihrer Stempelkarte.",
+      "onePlaceholder": "Kartennummer",
+      "one": "Zurücksetzen",
+      "oneDone": "Die Karte ist leer.",
+      "oneNotFound": "Diese Kartennummer gibt es nicht.",
       "allTitle": "Alle Stempelkarten",
       "allText": "Löscht die Stempel aller Besucher. Die Auswertung beginnt bei null.",
       "all": "Alle Stempel löschen",
