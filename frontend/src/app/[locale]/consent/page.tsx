@@ -6,6 +6,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import Header from "@/components/layout/Header";
 import Spinner from "@/components/ui/Spinner";
 import Checkbox from "@/components/ui/Checkbox";
+import Modal from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { checkAuthStatus, clearAuthCache } from "@/lib/auth";
 import { readPrefs, updatePrefs } from "@/lib/browserStore";
@@ -106,8 +107,8 @@ export default function ConsentPage() {
       <Header showLogout />
       <div className="min-h-[70vh] flex items-center justify-center px-4">
         {step === "loading" && <Spinner size="lg" />}
-        {step === "consent" && (
-          <div className="max-w-md w-full rounded-2xl p-8 space-y-5 border border-border bg-background shadow-[var(--shadow)]">
+        {step !== "loading" && (
+          <div className="max-w-md w-full space-y-5">
             <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
             <p className="text-sm leading-relaxed text-foreground-soft">
               {t.rich("body", {
@@ -136,16 +137,19 @@ export default function ConsentPage() {
             </button>
           </div>
         )}
-        {step === "welcome" && (
-          <div className="max-w-md w-full rounded-2xl p-8 space-y-5 border border-border bg-background shadow-[var(--shadow)] text-center">
-            <h1 className="text-xl font-semibold text-foreground">{tWelcome("title")}</h1>
-            <p className="text-sm whitespace-pre-line text-left text-foreground-soft">{welcomeText}</p>
-            <button type="button" onClick={finishWelcome} className="btn-primary text-sm rounded-lg px-4 py-2">
-              {tWelcome("cta")}
-            </button>
-          </div>
-        )}
       </div>
+      <Modal
+        open={step === "welcome"}
+        onClose={finishWelcome}
+        title={tWelcome("title")}
+        footer={
+          <button type="button" onClick={finishWelcome} className="btn-primary text-sm rounded-lg px-4 py-2">
+            {tWelcome("cta")}
+          </button>
+        }
+      >
+        <p className="text-sm whitespace-pre-line">{welcomeText}</p>
+      </Modal>
     </>
   );
 }
