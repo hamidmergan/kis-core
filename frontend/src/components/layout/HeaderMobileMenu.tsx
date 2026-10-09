@@ -3,6 +3,7 @@
 import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
+import NoticeDot from "@/components/ui/NoticeDot";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Check, Compass, FileText, List, Medal, Moon, PencilSimple, Plugs, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
@@ -32,10 +33,12 @@ interface HeaderMobileMenuProps {
   hasAia?: boolean;
   isLocalMode?: boolean;
   hasHomeNotice?: boolean;
+  /** Open feedback waits in the admin area. */
+  adminNotice?: boolean;
   onLogout: () => void;
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, hasHomeNotice = false, adminNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -118,9 +121,10 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? t("menuClose") : t("menuOpen")}
         aria-expanded={open}
-        className="flex items-center justify-center w-10 h-10 rounded-full btn-on-dark"
+        className="relative flex items-center justify-center w-10 h-10 rounded-full btn-on-dark"
       >
         {open ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
+        {adminNotice && !open && <NoticeDot label={t("openFeedback")} className="absolute top-0 right-0" />}
       </button>
 
       {open && (
@@ -305,6 +309,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
                 <UserCircleGear size={20} weight="bold" />
               </LinkBusy>
               <span>{t(areaKey)}</span>
+              {adminNotice && <NoticeDot label={t("openFeedback")} />}
             </Link>
           )}
           {hasSession && !isLocalMode && (

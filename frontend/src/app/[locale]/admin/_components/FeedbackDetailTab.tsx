@@ -5,13 +5,18 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Paperclip, Trash } from "@phosphor-icons/react";
-import Checkbox from "@/components/ui/Checkbox";
 import IconButton from "@/components/ui/IconButton";
+import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
+import { announceFeedbackChange } from "@/hooks/useOpenFeedback";
 
 type Category = "bug" | "idea" | "other";
+
+type FeedbackStatus = "open" | "parked" | "done";
+
+const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
 
 type Attachment = {
   id: number;
@@ -25,7 +30,7 @@ type Entry = {
   contact: string | null;
   username: string | null;
   page_path: string | null;
-  done: boolean;
+  status: FeedbackStatus;
   created_at: string;
   attachments: Attachment[];
 };
@@ -54,20 +59,22 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
       .finally(() => setLoading(false));
   }, [id, t]);
 
-  async function toggleDone() {
+  async function setStatus(status: FeedbackStatus) {
     if (!entry) return;
-    const naechsterStand = !entry.done;
-    setEntry({ ...entry, done: naechsterStand });
+    const vorher = entry.status;
+    setEntry({ ...entry, status });
     const r = await fetch(`/api/admin/feedback/${entry.id}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ done: naechsterStand }),
+      body: JSON.stringify({ status }),
     });
     if (!r.ok) {
-      setEntry((prev) => (prev ? { ...prev, done: !naechsterStand } : prev));
+      setEntry((prev) => (prev ? { ...prev, status: vorher } : prev));
       setError(t("saveError"));
+      return;
     }
+    announceFeedbackChange();
   }
 
   async function loeschen() {
@@ -80,6 +87,7 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
       setError(t("deleteError"));
       return;
     }
+    announceFeedbackChange();
     onBack();
   }
 
@@ -137,7 +145,13 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
               {entry.username || t("anonymous")}
               {entry.contact ? ` · ${entry.contact}` : ""}
             </span>
-            <Checkbox checked={entry.done} onChange={() => void toggleDone()} label={t("doneAria")} />
+            <Select
+              size="sm"
+              value={entry.status}
+              onChange={(s) => void setStatus(s)}
+              options={STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))}
+              ariaLabel={t("statusAria")}
+            />
           </div>
         </div>
       )}

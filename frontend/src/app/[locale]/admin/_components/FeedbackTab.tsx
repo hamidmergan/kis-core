@@ -5,13 +5,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Paperclip, Trash } from "@phosphor-icons/react";
-import Checkbox from "@/components/ui/Checkbox";
 import IconButton from "@/components/ui/IconButton";
+import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
+import { announceFeedbackChange } from "@/hooks/useOpenFeedback";
 
 type Category = "bug" | "idea" | "other";
+
+type FeedbackStatus = "open" | "parked" | "done";
+
+const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
 
 type Attachment = {
   id: number;
@@ -25,7 +30,7 @@ type Entry = {
   contact: string | null;
   username: string | null;
   page_path: string | null;
-  done: boolean;
+  status: FeedbackStatus;
   created_at: string;
   attachments: Attachment[];
 };
@@ -56,19 +61,20 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
 
   useEffect(laden, [laden]);
 
-  async function toggleDone(entry: Entry) {
-    const naechsterStand = !entry.done;
-    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, done: naechsterStand } : e)));
+  async function setStatus(entry: Entry, status: FeedbackStatus) {
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, status } : e)));
     const r = await fetch(`/api/admin/feedback/${entry.id}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ done: naechsterStand }),
+      body: JSON.stringify({ status }),
     });
     if (!r.ok) {
-      setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, done: entry.done } : e)));
+      setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, status: entry.status } : e)));
       setError(t("saveError"));
+      return;
     }
+    announceFeedbackChange();
   }
 
   async function loeschen(entry: Entry) {
@@ -81,9 +87,11 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
       return;
     }
     setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    announceFeedbackChange();
   }
 
-  const offen = entries.filter((e) => !e.done).length;
+  const offen = entries.filter((e) => e.status === "open").length;
+  const statusOptions = STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }));
 
   return (
     <div className="space-y-3">
@@ -129,7 +137,13 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
                 <IconButton size="sm" onClick={() => void loeschen(e)} aria-label={t("delete")}>
                   <Trash size={13} />
                 </IconButton>
-                <Checkbox checked={e.done} onChange={() => void toggleDone(e)} label={t("doneAria")} />
+                <Select
+                  size="sm"
+                  value={e.status}
+                  onChange={(s) => void setStatus(e, s)}
+                  options={statusOptions}
+                  ariaLabel={t("statusAria")}
+                />
               </div>
             </li>
           ))}

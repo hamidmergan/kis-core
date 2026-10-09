@@ -7,7 +7,10 @@ import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import LinkBusy from "@/components/ui/LinkBusy";
-import { RANKS, allowedSections, type AdminSection } from "./registry";
+import NoticeDot from "@/components/ui/NoticeDot";
+import { useOpenFeedback } from "@/hooks/useOpenFeedback";
+import { hasPerm, PERM } from "@/lib/permissions";
+import { RANKS, allowedSections, type AdminPage, type AdminSection } from "./registry";
 import { useAdminPerms } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
@@ -25,6 +28,7 @@ function Group({
   open,
   current,
   pageSlug,
+  notices,
   onToggle,
   onNavigate,
 }: {
@@ -32,11 +36,15 @@ function Group({
   open: boolean;
   current: boolean;
   pageSlug: string;
+  notices: Record<NonNullable<AdminPage["notice"]>, boolean>;
   onToggle: () => void;
   onNavigate: () => void;
 }) {
   const t = useTranslations("admin.sections");
+  const tNotice = useTranslations("header");
   const active = current && !section.pages;
+  const waits = (p: AdminPage) => !!p.notice && notices[p.notice];
+  const sectionWaits = section.pages?.some((p) => !p.hidden && waits(p)) ?? false;
 
   // On the phone an area with subpages only unfolds, the jump belongs to the chosen subpage.
   function handleClick(e: React.MouseEvent) {
@@ -70,6 +78,7 @@ function Group({
           </LinkBusy>
         </span>
         <span className="flex-1 min-w-0">{t(`${section.key}.label`)}</span>
+        {sectionWaits && <NoticeDot label={tNotice("openFeedback")} />}
         {section.pages && (
           <CaretRight
             size={12}
@@ -96,6 +105,7 @@ function Group({
                 style={on ? { outlineColor: "var(--kb)" } : undefined}
               >
                 <span className="truncate">{t(`${section.key}.${p.key}.label`)}</span>
+                {waits(p) && <NoticeDot label={tNotice("openFeedback")} />}
                 <LinkBusy size="xs" />
               </Link>
             );
@@ -118,6 +128,7 @@ export default function AdminSidebar({
   onClose: () => void;
 }) {
   const perms = useAdminPerms();
+  const notices = { openFeedback: useOpenFeedback(hasPerm(perms, PERM.usersFeedback)) > 0 };
   const [expandedSlug, setExpandedSlug] = useState(openSlug);
 
   // The unfolded area follows the URL, opening the phone dropdown shows the current one again.
@@ -150,6 +161,7 @@ export default function AdminSidebar({
               open={s.slug === expandedSlug}
               current={s.slug === openSlug}
               pageSlug={pageSlug}
+              notices={notices}
               onToggle={() => setExpandedSlug((v) => (v === s.slug ? "" : s.slug))}
               onNavigate={onClose}
             />

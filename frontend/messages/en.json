@@ -25,7 +25,8 @@
     "languageLevel": "Language level",
     "interfaces": "Interfaces",
     "tour": "Tour through the demo workspace",
-    "evaluation": "Evaluation"
+    "evaluation": "Evaluation",
+    "openFeedback": "Open feedback"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -3282,7 +3283,12 @@
       "categoryIdea": "Idea",
       "categoryOther": "Other",
       "anonymous": "anonymous",
-      "doneAria": "Mark as done",
+      "statusAria": "Status",
+      "status": {
+        "open": "Open",
+        "parked": "On hold",
+        "done": "Done"
+      },
       "delete": "Delete",
       "back": "← Back",
       "notFound": "This entry no longer exists"

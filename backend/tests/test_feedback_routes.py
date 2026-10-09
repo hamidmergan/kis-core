@@ -216,7 +216,7 @@ def test_a_plain_user_may_not_list_feedback(client):
 
 def test_admin_sees_the_list(admin_client):
     zeilen = [{"id": 1, "category": "bug", "message": "x", "contact": None,
-               "page_path": None, "done": False, "created_at": "2026-08-31T10:00:00"}]
+               "page_path": None, "status": "open", "created_at": "2026-08-31T10:00:00"}]
     with patch("src.routes.admin.feedback.repo.list_feedback", return_value=zeilen):
         r = admin_client.get("/admin/feedback")
 
@@ -224,20 +224,41 @@ def test_admin_sees_the_list(admin_client):
     assert r.json()["feedback"] == zeilen
 
 
-def test_marking_an_unknown_entry_done_is_not_found(admin_client):
-    with patch("src.routes.admin.feedback.repo.set_feedback_done", return_value=False) as setzen:
-        r = admin_client.patch("/admin/feedback/9", json={"done": True})
+def test_setting_the_status_of_an_unknown_entry_is_not_found(admin_client):
+    with patch("src.routes.admin.feedback.repo.set_feedback_status", return_value=False) as setzen:
+        r = admin_client.patch("/admin/feedback/9", json={"status": "done"})
 
     assert r.status_code == 404
-    setzen.assert_called_once_with(9, True)
+    setzen.assert_called_once_with(9, "done")
 
 
-def test_marking_done_works(admin_client):
-    with patch("src.routes.admin.feedback.repo.set_feedback_done", return_value=True) as setzen:
-        r = admin_client.patch("/admin/feedback/9", json={"done": True})
+def test_parking_works(admin_client):
+    with patch("src.routes.admin.feedback.repo.set_feedback_status", return_value=True) as setzen:
+        r = admin_client.patch("/admin/feedback/9", json={"status": "parked"})
 
     assert r.status_code == 200
-    setzen.assert_called_once_with(9, True)
+    setzen.assert_called_once_with(9, "parked")
+
+
+def test_an_unknown_status_is_rejected(admin_client):
+    with patch("src.routes.admin.feedback.repo.set_feedback_status") as setzen:
+        r = admin_client.patch("/admin/feedback/9", json={"status": "maybe"})
+
+    assert r.status_code == 422
+    setzen.assert_not_called()
+
+
+def test_open_count(admin_client):
+    with patch("src.routes.admin.feedback.repo.count_open_feedback", return_value=3):
+        r = admin_client.get("/admin/feedback/open-count")
+
+    assert r.status_code == 200
+    assert r.json() == {"open": 3}
+
+
+def test_a_plain_user_may_not_count_feedback(client):
+    r = client.get("/admin/feedback/open-count")
+    assert r.status_code == 403
 
 
 def test_deleting_an_unknown_entry_is_not_found(admin_client):

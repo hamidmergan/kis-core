@@ -1,4 +1,6 @@
 """List, resolve and remove feedback entries."""
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -17,6 +19,11 @@ _require = require_permission(PERM_SET_USERS_FEEDBACK)
 @router.get("/feedback")
 def list_feedback(admin: dict = Depends(_require)):
     return {"feedback": repo.list_feedback()}
+
+
+@router.get("/feedback/open-count")
+def count_open_feedback(admin: dict = Depends(_require)):
+    return {"open": repo.count_open_feedback()}
 
 
 @router.get("/feedback/attachments/{attachment_id}")
@@ -45,18 +52,18 @@ def get_feedback_attachment(
     )
 
 
-class SetFeedbackDoneRequest(BaseModel):
-    done: bool
+class SetFeedbackStatusRequest(BaseModel):
+    status: Literal["open", "parked", "done"]
 
 
 @router.patch("/feedback/{feedback_id}")
-def set_feedback_done(
+def set_feedback_status(
     feedback_id: int,
-    payload: SetFeedbackDoneRequest,
+    payload: SetFeedbackStatusRequest,
     admin: dict = Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    if not repo.set_feedback_done(feedback_id, payload.done):
+    if not repo.set_feedback_status(feedback_id, payload.status):
         raise HTTPException(status_code=404, detail=t("feedback.notFound", locale))
     return {"status": "ok"}
 

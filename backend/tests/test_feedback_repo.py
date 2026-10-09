@@ -144,15 +144,15 @@ def test_listing_groups_attachments_under_their_entry(monkeypatch):
     assert ergebnis[1]["attachments"] == []
 
 
-def test_marking_done_commits(fake_db):
+def test_setting_the_status_commits(fake_db):
     calls = fake_db(rows=[(3,)])
-    assert repo.set_feedback_done(3, True) is True
+    assert repo.set_feedback_status(3, "done") is True
     assert ("commit", None, None) in calls
 
 
 def test_marking_an_unknown_entry_reports_failure(fake_db):
     fake_db(rows=[])
-    assert repo.set_feedback_done(99, True) is False
+    assert repo.set_feedback_status(99, "parked") is False
 
 
 def test_deleting_removes_and_commits_then_clears_storage(fake_db, monkeypatch):

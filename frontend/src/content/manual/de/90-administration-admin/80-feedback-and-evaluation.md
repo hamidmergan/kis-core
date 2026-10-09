@@ -4,7 +4,8 @@
 
 Unter Nutzer bei Feedback lesen Sie, was Personen über Fehler melden oder Idee teilen eingereicht
 haben: Kategorie (Fehler, Idee, Sonstiges), Nachricht, Anhänge und, falls angegeben, Kontakt oder
-Nutzername. Ein Eintrag lässt sich als erledigt markieren oder löschen.
+Nutzername. Ein Eintrag steht auf Offen, Zurückgestellt oder Erledigt und lässt sich löschen.
+Solange ein Eintrag offen ist, zeigt ein roter Punkt am Menü und in der Admin-Leiste darauf.
 
 ## Evaluation
 

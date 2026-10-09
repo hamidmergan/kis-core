@@ -81,13 +81,21 @@ def list_feedback() -> list[dict]:
             return rows
 
 
-def set_feedback_done(feedback_id: int, done: bool) -> bool:
-    """Marks an entry done or open again."""
+def count_open_feedback() -> int:
+    """Number of entries nobody has dealt with yet."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM feedback WHERE status = 'open'")
+            return cur.fetchone()[0]
+
+
+def set_feedback_status(feedback_id: int, status: str) -> bool:
+    """Sets an entry to open, parked or done."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE feedback SET done = %s WHERE id = %s RETURNING id",
-                (done, feedback_id),
+                "UPDATE feedback SET status = %s WHERE id = %s RETURNING id",
+                (status, feedback_id),
             )
             getroffen = cur.fetchone() is not None
         conn.commit()

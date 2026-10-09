@@ -4,7 +4,8 @@
 
 Under Users at Feedback you read what people submitted through Report a bug or share an idea:
 category (bug, idea, other), message, attachments, and, if given, contact or username. An entry
-can be marked done or deleted.
+is Open, On hold or Done and can be deleted. As long as one entry is open, a red dot in the menu
+and in the admin sidebar points to it.
 
 ## Evaluation
 

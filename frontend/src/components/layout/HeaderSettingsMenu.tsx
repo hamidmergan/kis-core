@@ -3,6 +3,7 @@
 import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
+import NoticeDot from "@/components/ui/NoticeDot";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Compass, FileText, Gear, Medal, Moon, PencilSimple, Plugs, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
@@ -30,10 +31,12 @@ interface HeaderSettingsMenuProps {
   areaKey?: AreaKey;
   showLogout?: boolean;
   hasHomeNotice?: boolean;
+  /** Open feedback waits in the admin area. */
+  adminNotice?: boolean;
   onLogout?: () => void;
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, adminNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -142,9 +145,10 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
         aria-label={t("settingsMenu")}
         title={t("settingsMenu")}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-9 h-9 rounded-full btn-on-dark"
+        className="relative flex items-center justify-center w-9 h-9 rounded-full btn-on-dark"
       >
         <Gear size={18} weight="bold" aria-hidden="true" />
+        {adminNotice && <NoticeDot label={t("openFeedback")} className="absolute top-0 right-0" />}
       </button>
 
       {open && (
@@ -309,6 +313,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
                 <UserCircleGear size={18} weight="bold" aria-hidden="true" />
               </LinkBusy>
               <span className="flex-1">{t(areaKey)}</span>
+              {adminNotice && <NoticeDot label={t("openFeedback")} />}
             </Link>
           )}
 

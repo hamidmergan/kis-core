@@ -25,7 +25,8 @@
     "languageLevel": "Sprachniveau",
     "interfaces": "Schnittstellen",
     "tour": "Rundgang durch den Demo-Workspace",
-    "evaluation": "Evaluation"
+    "evaluation": "Evaluation",
+    "openFeedback": "Offenes Feedback"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
@@ -3282,7 +3283,12 @@
       "categoryIdea": "Idee",
       "categoryOther": "Sonstiges",
       "anonymous": "anonym",
-      "doneAria": "Als erledigt markieren",
+      "statusAria": "Status",
+      "status": {
+        "open": "Offen",
+        "parked": "Zurückgestellt",
+        "done": "Erledigt"
+      },
       "delete": "Löschen",
       "back": "← Zurück",
       "notFound": "Diese Rückmeldung gibt es nicht mehr"

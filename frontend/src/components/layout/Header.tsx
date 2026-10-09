@@ -15,6 +15,7 @@ import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
 import HeaderPublicControls from "@/components/layout/HeaderPublicControls";
 import HeaderSettingsMenu from "@/components/layout/HeaderSettingsMenu";
 import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart";
+import { useOpenFeedback } from "@/hooks/useOpenFeedback";
 
 interface HeaderProps {
   hasSession?: boolean;
@@ -41,12 +42,15 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   // The language level page hangs off its own permission, not off the role.
   const [mayLanguageLevel, setMayLanguageLevel] = useState(false);
   const [mayInterfaces, setMayInterfaces] = useState(false);
+  const [mayFeedback, setMayFeedback] = useState(false);
   // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
   const [hasHomeNotice, setHasHomeNotice] = useState(false);
   // The start-page card can be dismissed for good, the menu row is the way back to it.
   const [evaluationActive, setEvaluationActive] = useState(false);
   // The tour lives in the demo course, the menu only offers it while one exists.
   const tour = useTourStart(showLogout && hasSession);
+  // Open feedback keeps a dot on the way into the admin area until someone deals with it.
+  const feedbackNotice = useOpenFeedback(showLogout && hasSession && mayFeedback) > 0;
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -60,6 +64,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
       setHasAia((s.modules ?? ["aia", "tools"]).includes("aia"));
       setMayLanguageLevel(hasPerm(s.permissions, PERM.aiaLanguageLevel));
       setMayInterfaces(hasPerm(s.permissions, PERM.interfaces));
+      setMayFeedback(hasPerm(s.permissions, PERM.usersFeedback));
     });
   }, [showLogout, hasSession]);
 
@@ -182,6 +187,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                   areaKey={areaKey}
                   showLogout={hasSession && !isLocalMode}
                   hasHomeNotice={hasHomeNotice}
+                  adminNotice={hasSession && isAdmin && feedbackNotice}
                   onLogout={handleLogout}
                 />
               </div>
@@ -202,6 +208,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                 hasAia={hasAia}
                 isLocalMode={isLocalMode}
                 hasHomeNotice={hasHomeNotice}
+                adminNotice={isAdmin && feedbackNotice}
                 onLogout={handleLogout}
               />
             )}

@@ -540,11 +540,20 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     contact    TEXT,
                     username   TEXT,
                     page_path  TEXT,
-                    done       BOOLEAN NOT NULL DEFAULT FALSE,
+                    status     TEXT NOT NULL DEFAULT 'open',
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS username TEXT")
+            cur.execute("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open'")
+            # One-time move from the old done flag to the three-way status.
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'feedback' AND column_name = 'done'
+            """)
+            if cur.fetchone():
+                cur.execute("UPDATE feedback SET status = 'done' WHERE done")
+                cur.execute("ALTER TABLE feedback DROP COLUMN done")
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS feedback_created_idx ON feedback (created_at DESC)"
             )

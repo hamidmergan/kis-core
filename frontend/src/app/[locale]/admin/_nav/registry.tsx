@@ -51,6 +51,8 @@ export interface AdminPage {
   home?: true;
   /** Do not show in the sidebar, the URL stays valid. */
   hidden?: true;
+  /** A red dot in the sidebar while something here still waits. */
+  notice?: "openFeedback";
 }
 
 /** First level, without subpages the area itself is the page. */
@@ -210,7 +212,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "all", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
       { slug: "roles", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
       { slug: "impersonation", key: "impersonation", world: "both", perm: PERM.usersImpersonate, Component: ImpersonationPage },
-      { slug: "feedback", key: "feedback", world: "both", perm: PERM.usersFeedback, Component: FeedbackPage },
+      { slug: "feedback", key: "feedback", world: "both", perm: PERM.usersFeedback, Component: FeedbackPage, notice: "openFeedback" },
       // No entry of its own, the page is a jump-off from the feedback list.
       { slug: "feedback-detail", key: "feedbackDetail", world: "both", perm: PERM.usersFeedback, Component: FeedbackDetailPage, hidden: true },
       { slug: "evaluation", key: "evaluation", world: "both", perm: PERM.usersEvaluation, Component: EvaluationPage },
