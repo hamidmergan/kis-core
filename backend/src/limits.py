@@ -397,6 +397,10 @@ PAGES_IMAGE_QUALITY      = 82
 PAGES_IMAGE_STYLE_MAX_CHARS = 600
 # Fewer sections than a summary, a page is read on a screen.
 PAGES_SECTIONS           = (4, 10)
+# What one section of a page writes, its running text, one further block, lead and terms.
+PAGES_SECTION_CHARS      = 2_000
+# What one block call of a page writes at most, so several sections share a call.
+PAGES_SECTION_GROUP_CHARS = 10_000
 # Pictures one page may ever have drawn, the run's and every redraw together.
 PAGES_MAX_DRAWS          = 40
 # A picture or a language not done after this many minutes counts as failed, its worker is gone.
@@ -404,8 +408,10 @@ PAGES_DRAW_WAIT_MINUTES  = 10
 PAGES_TRANSLATE_WAIT_MINUTES = 20
 # Further languages one page may carry besides its own.
 PAGES_MAX_LANGUAGES      = 4
-# Texts per translation call, a section rarely holds more.
-PAGES_TRANSLATE_BATCH    = 40
+# Texts per translation call, several sections share one.
+PAGES_TRANSLATE_BATCH    = 80
+# Characters per translation call, the answer stays well inside the call's time limit.
+PAGES_TRANSLATE_BATCH_CHARS = 7_000
 
 # A next stage or a resumed job queues behind fresh work of its queue (with Redis 9 is last), so a job that
 # keeps running into limits never retakes its slot at once.

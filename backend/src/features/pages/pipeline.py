@@ -16,7 +16,7 @@ from loguru import logger
 
 from src.features.pages import schema
 from src.features.pages.translate import LANGUAGES
-from src.features.pages.writing import write_blocks, write_frame
+from src.features.pages.writing import FRAME_FIELDS, FRAME_RULES, frame_from_plan, write_blocks, write_frame
 from src.features.summary import concurrency
 from src.features.summary import pipeline as summary_pipeline
 from src.features.summary import writing as summary_writing
@@ -25,6 +25,8 @@ from src.features.summary.templates import Template
 from src.i18n import t
 from src.limits import (
     MAP_PASSAGE_NEIGHBOURS,
+    PAGES_SECTION_CHARS,
+    PAGES_SECTION_GROUP_CHARS,
     PAGES_SECTIONS,
     SUMMARY_SECTION_GROUP_CHARS,
     SUMMARY_WRITE_CONCURRENCY,
@@ -131,71 +133,103 @@ def _prose_first(bloecke: list) -> tuple[str, list[dict]]:
     return " ".join(texte), andere[:1]
 
 
+def _usable(teil: dict | None) -> bool:
+    return teil is not None and any(schema.clean_block(b) for b in teil.get("blocks") or [])
+
+
+def _short(teil: dict) -> bool:
+    text, _ = _prose_first(teil["blocks"])
+    return len(re.findall(r"[.!?](?:\s|$)", text)) < MIN_SENTENCES
+
+
+def _prose_lines(prosa: str) -> str:
+    """Running text out of a written section, list lines and headings left out."""
+    return " ".join(z for z in prosa.split("\n") if z.strip()
+                    and not re.match(r"^\s*(?:[-*#|]|\d+[.)]\s)", z))
+
+
 async def _blocks(caller: Caller, *, language: str, plan: Outline, karte: tm.Karte,
                   store: RunStore, should_stop, instructions: str,
                   schon: list[str] | None = None) -> dict[int, dict]:
-    """Every section as blocks, several sections per call, one at a time when that fails.
+    """Every section as blocks, several sections per call, what is missing after that in one more.
+
+    A section the first calls left out is asked for again together with every other one left
+    out, a section whose running text came out too short gets it in one prose call for all of
+    them. So a failure costs one call for the whole page, not one per section.
 
     ``schon`` is what the frame already put on the page, the writers leave it out.
     """
     fertig = dict(store.load_blocks())
-    gruppen = summary_writing.group_sections(plan.sections, summary_pipeline._costs(plan.sections),
-                                             SUMMARY_SECTION_GROUP_CHARS)
+    gruppen = summary_writing.group_sections(plan.sections, _costs(plan.sections), PAGES_SECTION_GROUP_CHARS)
     offen = [g for g in ([i for i in alle if i not in fertig] for alle in gruppen) if g]
+    alle_andere = lambda gruppe: [a for j, a in enumerate(plan.sections) if j not in gruppe]
 
-    async def schreibe(gruppe: list[int]) -> None:
-        abschnitte = [plan.sections[i] for i in gruppe]
-        andere = [a for j, a in enumerate(plan.sections) if j not in gruppe]
-        je = tm.schreib_budget(caller.window_tokens) // max(1, len(abschnitte))
-        stoff = [karte.passagen(a.stellen, vorrang=a.genannt, nachbarn=MAP_PASSAGE_NEIGHBOURS,
-                                budget=je) for a in abschnitte]
-        ergebnis = await write_blocks(caller, language=language, group=abschnitte, indices=gruppe,
-                                      others=andere, material=stoff, names=plan.names,
-                                      instructions=instructions, on_page=schon)
-        if ergebnis is None:
-            ergebnis = []
-            for i in gruppe:
-                einzeln = await write_blocks(
-                    caller, language=language, group=[plan.sections[i]], indices=[i],
-                    others=andere, material=[stoff[gruppe.index(i)]], names=plan.names,
-                    instructions=instructions, on_page=schon)
-                ergebnis.append((einzeln or [None])[0])
+    def stoff(gruppe: list[int]) -> list[str]:
+        je = tm.schreib_budget(caller.window_tokens) // max(1, len(gruppe))
+        return [karte.passagen(plan.sections[i].stellen, vorrang=plan.sections[i].genannt,
+                               nachbarn=MAP_PASSAGE_NEIGHBOURS, budget=je) for i in gruppe]
+
+    async def bloecke(gruppe: list[int]) -> None:
+        ergebnis = await write_blocks(caller, language=language, group=[plan.sections[i] for i in gruppe],
+                                      indices=gruppe, others=alle_andere(gruppe), material=stoff(gruppe),
+                                      names=plan.names, instructions=instructions, on_page=schon)
         for i, teil in zip(gruppe, ergebnis):
-            if teil is not None and any(schema.clean_block(b) for b in teil["blocks"]):
-                # Running text carries the page: every section opens with it, a missing one is written.
+            if _usable(teil):
                 text, zeigt = _prose_first(teil["blocks"])
-                if len(re.findall(r"[.!?](?:\s|$)", text)) < MIN_SENTENCES:
-                    prosa = await summary_writing.write_sections(
-                        caller, language=language, template_body=TEMPLATE.body,
-                        group=[plan.sections[i]], others=andere, written=None,
-                        material=[stoff[gruppe.index(i)]], budget=SUMMARY_SECTION_GROUP_CHARS,
-                        names=plan.names, instructions=instructions)
-                    zeilen = [z for z in (prosa or [""])[0].split("\n") if z.strip()
-                              and not re.match(r"^\s*(?:[-*#|]|\d+[.)]\s)", z)]
-                    text = _sentences(" ".join(zeilen), PROSE_CHARS) or text
-                teil = {**teil, "blocks": ([{"kind": "text", "text": text}] if text else []) + zeigt}
-            if teil is None or not any(schema.clean_block(b) for b in teil["blocks"]):
-                # Prose is the fallback, a section never goes missing for its shape.
-                logger.warning("Pages: Abschnitt {} ohne Bloecke, er wird als Liste geschrieben", i)
-                prosa = await summary_writing.write_sections(
-                    caller, language=language, template_body=TEMPLATE.body,
-                    group=[plan.sections[i]], others=andere, written=None,
-                    material=[stoff[gruppe.index(i)]], budget=SUMMARY_SECTION_GROUP_CHARS,
-                    names=plan.names, instructions=instructions)
-                teil = {"lead": (teil or {}).get("lead", ""), "map_label": "",
-                        "blocks": _text_from_prose((prosa or [""])[0]),
-                        "keywords": (teil or {}).get("keywords", [])}
-            fertig[i] = teil
-            store.save_blocks(i, teil)
+                fertig[i] = {**teil, "blocks": ([{"kind": "text", "text": text}] if text else []) + zeigt}
+                store.save_blocks(i, fertig[i])
         store.progress("section", len(fertig), len(plan.sections))
+
+    async def prosa(gruppe: list[int]) -> list[str]:
+        """Running text for these sections in one call, one call each only when it cannot be cut apart."""
+        andere, material = alle_andere(gruppe), stoff(gruppe)
+        texte = await summary_writing.write_sections(
+            caller, language=language, template_body=TEMPLATE.body,
+            group=[plan.sections[i] for i in gruppe], others=andere, written=None,
+            material=material, budget=SUMMARY_SECTION_GROUP_CHARS, names=plan.names,
+            instructions=instructions)
+        return texte if texte and len(texte) == len(gruppe) else [""] * len(gruppe)
 
     darf = (lambda: not should_stop()) if should_stop else None
     store.progress("section", len(fertig), len(plan.sections))
-    ergebnisse = await concurrency.run_limited([lambda g=g: schreibe(g) for g in offen],
+    ergebnisse = await concurrency.run_limited([lambda g=g: bloecke(g) for g in offen],
                                                SUMMARY_WRITE_CONCURRENCY, may_start=darf)
     if any(e is concurrency.SKIPPED for e in ergebnisse):
         raise PipelineInterrupted
+
+    fehlt = [i for i in range(len(plan.sections)) if i not in fertig]
+    if fehlt:
+        logger.info("Pages: {} Abschnitte fehlen, ein Aufruf holt sie nach", len(fehlt))
+        await bloecke(fehlt)
+    fehlt = [i for i in range(len(plan.sections)) if i not in fertig]
+    if fehlt:
+        # Prose is the fallback, a section never goes missing for its shape.
+        logger.warning("Pages: Abschnitte {} ohne Bloecke, sie werden als Text geschrieben", fehlt)
+        texte = await prosa(fehlt)
+        for i, text in zip(fehlt, texte):
+            if not text.strip():
+                text = (await prosa([i]))[0]
+            fertig[i] = {"lead": "", "map_label": "", "blocks": _text_from_prose(text), "keywords": [],
+                         "prose": True}
+            store.save_blocks(i, fertig[i])
+
+    kurz = [i for i, teil in fertig.items()
+            if teil.get("blocks") and not teil.get("prose") and _short(teil)]
+    if kurz:
+        logger.info("Pages: {} Abschnitte mit zu kurzem Text, ein Aufruf schreibt ihn", len(kurz))
+        for i, text in zip(kurz, await prosa(kurz)):
+            neu = _sentences(_prose_lines(text), PROSE_CHARS)
+            if not neu:
+                continue
+            _, zeigt = _prose_first(fertig[i]["blocks"])
+            fertig[i] = {**fertig[i], "blocks": [{"kind": "text", "text": neu}] + zeigt}
+            store.save_blocks(i, fertig[i])
     return fertig
+
+
+def _costs(sections: list) -> list[int]:
+    """What each section of a page is expected to write, its running text and one further block."""
+    return [PAGES_SECTION_CHARS for _ in sections]
 
 
 async def run(caller: Caller, *, sources: list[Source], store: RunStore,
@@ -214,14 +248,18 @@ async def run(caller: Caller, *, sources: list[Source], store: RunStore,
     plan = await summary_pipeline._outline(caller, language=language, vorlage=TEMPLATE,
                                            should_stop=should_stop,
                                            sources=sources, karte=karte, store=store,
-                                           instructions=instructions)
+                                           instructions=instructions,
+                                           extra_fields=FRAME_FIELDS, extra_rules=FRAME_RULES,
+                                           enforce_schema=False)
     if not plan.sections:
         raise NoPlan("no outline")
     wirksam = "" if anweisung.faellt_weg(plan.instruction_way) else instructions
 
     frame = store.load_frame()
     if frame is None:
-        frame = await write_frame(caller, language=language, plan=plan, instructions=wirksam)
+        # The planning call wrote the frame along, a call of its own only when it left it out.
+        frame = frame_from_plan(plan.extra) or await write_frame(
+            caller, language=language, plan=plan, instructions=wirksam)
         store.save_frame(frame)
     schon = [g for g in (frame.get("gist") or []) if isinstance(g, str)]
     bloecke = await _blocks(caller, language=language, plan=plan, karte=karte, store=store,

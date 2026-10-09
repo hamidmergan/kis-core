@@ -1,6 +1,7 @@
 """Writing phase: plan the outline over the material, write section by section, assemble."""
 
 import asyncio
+import copy
 import json
 import re
 
@@ -110,6 +111,48 @@ OUTLINE_SCHEMA = {
 
 
 
+def outline_schema(extra: dict | None = None) -> dict:
+    """The planning schema, widened by a tool's own fields that come out of the same call."""
+    if not extra:
+        return OUTLINE_SCHEMA
+    schema = copy.deepcopy(OUTLINE_SCHEMA)
+    inner = schema["json_schema"]["schema"]
+    inner["properties"].update(extra)
+    inner["required"] = inner["required"] + list(extra)
+    return schema
+
+
+def _example(feld: dict):
+    """An empty value of a schema field, the shape a model fills in."""
+    if "enum" in feld:
+        return feld["enum"][0]
+    art = feld.get("type")
+    if art == "array":
+        return [_example(feld.get("items") or {"type": "string"})]
+    if art == "object":
+        return {k: _example(v) for k, v in (feld.get("properties") or {}).items()}
+    return 0 if art == "integer" else ""
+
+
+def _descriptions(eigenschaften: dict, vorne: str = "") -> list[str]:
+    zeilen = []
+    for k, v in eigenschaften.items():
+        if v.get("description"):
+            zeilen.append(f"- {vorne}{k}: {v['description']}")
+        unten = (v.get("items") or {}).get("properties") if v.get("type") == "array" else v.get("properties")
+        if unten:
+            zeilen += _descriptions(unten, f"{vorne}{k}.")
+    return zeilen
+
+
+def outline_shape(extra: dict | None = None) -> str:
+    """The plan's shape in words, for a call that leaves the schema unenforced."""
+    eigenschaften = {**OUTLINE_SCHEMA["json_schema"]["schema"]["properties"], **(extra or {})}
+    return ("Answer with one JSON object and nothing else, no code fence, in this shape:\n"
+            + json.dumps({k: _example(v) for k, v in eigenschaften.items()}, ensure_ascii=False)
+            + "\nWhat the fields hold:\n" + "\n".join(_descriptions(eigenschaften)))
+
+
 def target_sections(material_chars: int, sources: int = 1,
                     span: tuple[int, int] | None = None) -> int:
     """How many sections the material carries, a target the planner may deviate from.
@@ -167,7 +210,7 @@ def _names(roh, dateien: list[str] | None) -> dict[str, str]:
 
 
 def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = None,
-                  anker=None) -> Outline:
+                  anker=None, extra: list[str] | None = None) -> Outline:
     """Reads the planning answer, a broken one yields no sections rather than an error.
 
     Headings and the numbers under them come out of the same call. ``stellen`` turns the
@@ -206,13 +249,14 @@ def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = Non
     titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
     return Outline(title=titel[:120], intro=str(roh.get("intro") or "").strip(),
                    sections=abschnitte[:SUMMARY_MAX_SECTIONS],
-                   names=_names(roh.get("documents"), dateien))
+                   names=_names(roh.get("documents"), dateien),
+                   extra={k: roh[k] for k in extra or [] if k in roh})
 
 
 
 def _outline_system(language: str, template_body: str, target: int, sources: int,
                     modus: str = "stellen", span: tuple[int, int] | None = None,
-                    fokus: bool = False) -> str:
+                    fokus: bool = False, extra_rules: str = "") -> str:
     from src.services.text_map import hinweis
 
     lo, hi = span or (SUMMARY_MIN_SECTIONS, SUMMARY_MAX_SECTIONS)
@@ -255,7 +299,8 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         "Rule 16: Under documents, give every file the short name its own text uses for "
         "itself, such as a law's abbreviation, else a title of two to four words. The "
         "beginning of each file is shown next to it. Never use the file name.\n"
-        "\nBUILD PLAN\n" + template_body
+        + extra_rules
+        + "\nBUILD PLAN\n" + template_body
     )
 
 
@@ -285,8 +330,17 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        span: tuple[int, int] | None = None,
                        fehlt: list[str] | None = None,
                        anfaenge: list[str] | None = None,
-                       instructions: str = "", weg: str = "", anker=None) -> Outline:
-    """Plans the headings of the document. Empty when planning failed."""
+                       instructions: str = "", weg: str = "", anker=None,
+                       extra_fields: dict | None = None, extra_rules: str = "",
+                       enforce_schema: bool = True) -> Outline:
+    """Plans the headings of the document. Empty when planning failed.
+
+    ``extra_fields`` are further schema fields a tool wants from the same call, so it saves a
+    call of its own, ``extra_rules`` say how to fill them. Without ``enforce_schema`` the shape
+    is only described, the model then writes the plan faster and never runs on in blank lines.
+    """
+    erzwungen = {"response_format": outline_schema(extra_fields)} if enforce_schema else {}
+    form = "" if enforce_schema else "\n" + outline_shape(extra_fields)
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
         try:
@@ -294,15 +348,17 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 messages=[
                     {"role": "system",
                      "content": _outline_system(language, template_body, target, len(sources),
-                                                modus, span, anweisung.fokus(instructions, weg))},
+                                                modus, span, anweisung.fokus(instructions, weg),
+                                                extra_rules) + form},
                     {"role": "user",
                      "content": _outline_user(sources, material, fehlt, anfaenge, instructions,
                                               weg)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
-                response_format=OUTLINE_SCHEMA, max_tokens=SUMMARY_OUTLINE_MAX_TOKENS,
+                max_tokens=SUMMARY_OUTLINE_MAX_TOKENS, **erzwungen,
             )
-            plan = parse_outline(antwort.choices[0].message.content, stellen, sources, anker)
+            plan = parse_outline(antwort.choices[0].message.content, stellen, sources, anker,
+                                 list(extra_fields or {}))
             # Without a single passage the writers would have nothing to write from.
             if stellen and not any(a.stellen for a in plan.sections):
                 plan = Outline()

@@ -19,6 +19,7 @@ from src.limits import (
     PAGES_MAX_LONG_CHARS,
     PAGES_MAX_SHORT_CHARS,
     PAGES_TRANSLATE_BATCH,
+    PAGES_TRANSLATE_BATCH_CHARS,
 )
 
 # Every language a page can be shown in: the name the model reads and the label a reader picks,
@@ -109,14 +110,25 @@ def _max_chars(text: str, limit: int) -> int:
 
 
 def _batches(items: list[tuple[tuple, str]]) -> list[list[tuple[tuple, str]]]:
-    """The texts of one section together, so the model sees their context, cut to the batch size."""
+    """Whole sections packed into few calls, a section stays in one call so its context stays."""
     gruppen: dict[object, list] = {}
     for path, text in items:
         gruppen.setdefault(path[:2], []).append((path, text))
-    out = []
+    out: list[list] = []
+    laufend: list = []
+    zeichen = 0
     for gruppe in gruppen.values():
         for i in range(0, len(gruppe), PAGES_TRANSLATE_BATCH):
-            out.append(gruppe[i:i + PAGES_TRANSLATE_BATCH])
+            teil = gruppe[i:i + PAGES_TRANSLATE_BATCH]
+            groesse = sum(len(t) for _, t in teil)
+            if laufend and (zeichen + groesse > PAGES_TRANSLATE_BATCH_CHARS
+                            or len(laufend) + len(teil) > PAGES_TRANSLATE_BATCH):
+                out.append(laufend)
+                laufend, zeichen = [], 0
+            laufend += teil
+            zeichen += groesse
+    if laufend:
+        out.append(laufend)
     return out
 
 
@@ -144,11 +156,14 @@ async def _ask(caller: Caller, system: str, page: dict, batch: list[tuple[tuple,
             {"role": "user", "content": f"/no_think\nPAGE TITLE: {title}\n\n"
                                         + json.dumps(payload, ensure_ascii=False)},
         ],
-        temperature=0.2, name="translate", response_format={"type": "json_object"},
+        # No enforced JSON mode: under it the model often answers {} or runs on in blank lines.
+        temperature=0.2, name="translate",
         max_tokens=min(16_000, 1_000 + sum(len(t) for _, t in batch) * 2),
     )
     daten = parse_json(antwort.choices[0].message.content) or {}
-    return {k: v.strip() for k, v in daten.items() if isinstance(v, str) and v.strip()}
+    # The model often answers in the shape it was sent, the text then sits under "text".
+    texte = {k: (v.get("text") if isinstance(v, dict) else v) for k, v in daten.items()}
+    return {k: v.strip() for k, v in texte.items() if isinstance(v, str) and v.strip()}
 
 
 def other_language(page: dict) -> str:
@@ -169,8 +184,14 @@ async def translate(caller: Caller, page: dict, key: str) -> dict:
         async with gate:
             antwort = await _ask(caller, system, page, batch)
             offen = [(i, b) for i, b in enumerate(batch, 1) if str(i) not in antwort]
-            # A key the model dropped gets one more call of its own, merged texts come apart there.
-            for i, (path, text) in offen:
+            # Every key the model dropped goes again in one call, merged texts come apart there.
+            if offen:
+                nach = await _ask(caller, system, page, [b for _, b in offen])
+                for k, (i, _) in enumerate(offen, 1):
+                    if str(k) in nach:
+                        antwort[str(i)] = nach[str(k)]
+            # What still is missing then gets a call of its own, the last resort.
+            for i, (path, text) in [(i, b) for i, b in offen if str(i) not in antwort]:
                 einzeln = await _ask(caller, system, page, [(path, text)])
                 if "1" in einzeln:
                     antwort[str(i)] = einzeln["1"]

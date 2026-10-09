@@ -136,7 +136,9 @@ async def _weg(caller: Caller, instructions: str, material: str) -> str:
 
 async def _outline(caller: Caller, *, language: str, vorlage: Template, sources: list[Source],
                    karte: tm.Karte, store: RunStore, instructions: str = "",
-                   should_stop: Callable[[], bool] | None = None) -> Outline:
+                   should_stop: Callable[[], bool] | None = None,
+                   extra_fields: dict | None = None, extra_rules: str = "",
+                   enforce_schema: bool = True) -> Outline:
     """The plan, taken from the store when a stage already paid for it."""
     gemerkt = store.load_outline()
     if gemerkt:
@@ -159,7 +161,8 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
             instructions=instructions, weg=weg,
             # Over the full text the copied first words find the passage, topics carry their own.
             anker=(lambda nummern, zitat: karte.verankern(nummern, zitat))
-            if g.modus == tm.STELLEN else None)
+            if g.modus == tm.STELLEN else None,
+            extra_fields=extra_fields, extra_rules=extra_rules, enforce_schema=enforce_schema)
 
     plan = await planen(None)
     plan.instruction_way = weg

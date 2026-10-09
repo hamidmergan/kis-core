@@ -53,6 +53,8 @@ class Outline(BaseModel):
     names: dict[str, str] = Field(default_factory=dict)
     # What the person's instruction turned out to be, kept so every stage writes alike.
     instruction_way: str = ""
+    # Fields a tool asked the planning call for besides the plan, such as the frame of a page.
+    extra: dict = Field(default_factory=dict)
 
 
 @dataclass

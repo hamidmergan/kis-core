@@ -128,30 +128,33 @@ def _words(value, most: int) -> list[str]:
 async def write_blocks(caller: Caller, *, language: str, group: list[Section],
                        indices: list[int], others: list[Section], material: list[str],
                        names: dict[str, str], instructions: str = "",
-                       on_page: list[str] | None = None) -> list[dict] | None:
-    """The blocks of a run of sections, None when the answer cannot be matched to them."""
+                       on_page: list[str] | None = None) -> list[dict | None]:
+    """The blocks of a run of sections, None at every section the answer cannot be matched to."""
     antwort = await caller.create(
         messages=[
             {"role": "system", "content": _blocks_system(language, len(group))},
             {"role": "user", "content": _blocks_user(group, indices, others, material, names,
                                                      instructions, on_page)},
         ],
+        # No enforced JSON mode: under it the model often runs on in blank lines to the cap.
         temperature=0.3, name=f"blocks:{len(group)}:{group[0].title}",
-        response_format={"type": "json_object"}, max_tokens=SUMMARY_WRITE_MAX_TOKENS,
+        max_tokens=SUMMARY_WRITE_MAX_TOKENS,
     )
     daten = parse_json(antwort.choices[0].message.content)
     rohe = (daten or {}).get("sections")
     if not isinstance(rohe, list):
-        return None
+        return [None] * len(indices)
     nach_index = {e.get("section_index"): e for e in rohe if isinstance(e, dict)}
     # By the index the model echoed, by position only when the count is exactly right.
-    if not all(i in nach_index for i in indices):
-        if len(rohe) != len(indices) or not all(isinstance(e, dict) for e in rohe):
-            return None
+    if not all(i in nach_index for i in indices) and len(rohe) == len(indices) \
+            and all(isinstance(e, dict) for e in rohe):
         nach_index = dict(zip(indices, rohe))
-    raus = []
+    raus: list[dict | None] = []
     for i in indices:
-        e = nach_index[i]
+        e = nach_index.get(i)
+        if e is None:
+            raus.append(None)
+            continue
         raus.append({
             "lead": " ".join(str(e.get("lead") or "").split()),
             "map_label": " ".join(str(e.get("map_label") or "").split())[:40],
@@ -199,6 +202,52 @@ _FRAME_SYSTEM = (
 )
 
 
+# The frame asked for inside the planning call, the same rules as the frame call of its own.
+FRAME_FIELDS = {
+    "lead": {"type": "string", "description": "One or two sentences under the title, under 220 characters."},
+    "gist": {"type": "array", "items": {"type": "string"},
+             "description": "The three or four most important statements, each one sentence."},
+    "formula": {
+        "type": "object",
+        "properties": {"key": {"type": "string"}, "text": {"type": "string"}},
+        "required": ["key", "text"],
+        "additionalProperties": False,
+        "description": "The formula the whole material turns on, both empty when it has none.",
+    },
+    "design": {"type": "string", "enum": list(DESIGNS)},
+    "hero_prompt": {"type": "string", "description": "The page's one picture, in English."},
+    "hero_alt": {"type": "string", "description": "The picture in one short sentence of the output language."},
+}
+
+FRAME_RULES = (
+    "\nTHE PAGE AROUND THE SECTIONS, filled in the same answer:\n"
+    "- lead is one or two sentences under the title that say what the page is about and why "
+    "it matters, under 220 characters.\n"
+    "- gist holds the three or four most important statements of the whole material, each one "
+    "sentence with its figures. Never cite a source or a label such as SZ12 in them.\n"
+    "- formula is a formula or equation the whole material turns on, with a sentence on what "
+    "it means. Leave key and text empty when the material has none, a rule in words is no "
+    "formula.\n"
+    "- design is the look of the page, pick the one that fits the material best:\n"
+    + "\n".join(f"  {k}: {v}" for k, v in DESIGNS.items()) + "\n"
+    "- hero_prompt describes in English the page's one picture, a calm illustration at the "
+    "top that stands for the subject of the whole material, never for one section or one "
+    "detail. A reader who sees only the picture should guess the topic. " + NO_WRITING + "\n"
+    "- hero_alt describes the picture in the output language in one short sentence.\n"
+)
+
+
+def frame_from_plan(extra: dict) -> dict:
+    """The frame the planning call wrote, {} when it left the frame out."""
+    if not isinstance(extra, dict) or not (str(extra.get("lead") or "").strip() or extra.get("gist")):
+        return {}
+    frame = {k: extra.get(k) for k in FRAME_FIELDS}
+    formel = frame.get("formula")
+    if not isinstance(formel, dict) or not str(formel.get("key") or "").strip():
+        frame["formula"] = None
+    return frame
+
+
 async def write_frame(caller: Caller, *, language: str, plan: Outline,
                       instructions: str = "") -> dict:
     """Lead, key statements and the picture wishes of the page, {} when the call failed."""
@@ -213,8 +262,7 @@ async def write_frame(caller: Caller, *, language: str, plan: Outline,
                     f"/no_think\nTITLE: {plan.title}\n\nOPENING SUMMARY:\n{plan.intro}\n\n"
                     f"SECTIONS (section_index. heading: scope):\n{abschnitte}" + zusatz)},
             ],
-            temperature=0.3, name="frame", response_format={"type": "json_object"},
-            max_tokens=2_000,
+            temperature=0.3, name="frame", max_tokens=2_000,
         )
     except Exception as e:  # noqa: BLE001 - a page without its frame still has its sections
         from src.features.summary import concurrency
