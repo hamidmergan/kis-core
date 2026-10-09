@@ -226,6 +226,9 @@ def update_provider(
     if any(k in updates for k in ("base_url", "api_key")):
         probe_provider(provider_id)
         row = _shared_provider(provider_id)
+    # A provider switched off or without the ability hands its place to the next one in line.
+    if any(k in updates for k in ("enabled", "capabilities", "voices")):
+        _reihenfolgen_neu(locale)
 
     return {"provider": _mask_provider(row)}
 
@@ -245,6 +248,7 @@ def delete_provider(
         raise HTTPException(404, t("admin.providers.notFound", locale))
     cleared = db.clear_provider_from_routes(provider_id)
     db.delete_provider(provider_id)
+    _reihenfolgen_neu(locale)
     return {"ok": True, "routes_cleared": cleared}
 
 
@@ -472,6 +476,57 @@ def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> 
     return fallback_id
 
 
+def _aus_reihenfolge(feature: str, body: SetFeatureRouteRequest, locale: str) -> None:
+    """First choice and fallback out of the order: the first provider that can serve, then the next."""
+    models = body.provider_models or {}
+    ids = [pid for pid in dict.fromkeys(body.provider_order or []) if _shared_provider(pid) is not None]
+    body.provider_order = ids
+
+    # Translating also runs on a translation service of its own, such as DeepL.
+    faehig = {FALLBACK_CAPABILITY[feature]} | ({"translation"} if feature.endswith("_translate") else set())
+
+    def bereit(pid: int) -> bool:
+        provider = _shared_provider(pid)
+        # Only an OpenAI compatible interface needs a model, the others bring their own.
+        return bool(provider and provider.get("enabled")
+                    and faehig & set(provider.get("capabilities") or [])
+                    and (provider.get("protocol") != "openai_compat" or (models.get(str(pid)) or "").strip()))
+
+    erste = next((pid for pid in ids if bereit(pid)), None)
+    body.provider_id = erste
+    body.model_name = (models.get(str(erste)) or "").strip() or None
+    body.fallback_provider_id = None
+    for pid in ids[ids.index(erste) + 1:] if erste is not None else []:
+        body.fallback_provider_id = pid
+        try:
+            _check_fallback(feature, body, locale)
+            return
+        except HTTPException:
+            body.fallback_provider_id = None
+
+
+def _reihenfolgen_neu(locale: str) -> None:
+    """Every ordered route takes its first choice and fallback anew, after a provider changed or went."""
+    for route in db.list_routes():
+        if not route.get("provider_order"):
+            continue
+        body = SetFeatureRouteRequest(
+            provider_models=route.get("provider_models") or {},
+            provider_order=route.get("provider_order"),
+        )
+        _aus_reihenfolge(route["feature"], body, locale)
+        db.set_route(
+            route["feature"],
+            provider_id=body.provider_id,
+            model_name=body.model_name,
+            user_choices=route.get("user_choices") or [],
+            provider_models=route.get("provider_models") or {},
+            provider_sampling=route.get("provider_sampling") or {},
+            fallback_provider_id=body.fallback_provider_id,
+            provider_order=body.provider_order,
+        )
+
+
 @router.patch("/feature-routes/{feature}")
 def set_feature_route(
     feature: str,
@@ -498,6 +553,8 @@ def set_feature_route(
                     t("admin.providers.userChoiceUnknownProvider", locale, provider_id=pid),
                 )
 
+    if body.provider_order is not None:
+        _aus_reihenfolge(feature, body, locale)
     sampling = _pruefe_sampling(feature, body.provider_sampling, locale)
     fallback_id = _check_fallback(feature, body, locale)
 
@@ -509,6 +566,7 @@ def set_feature_route(
         provider_models=body.provider_models,
         provider_sampling=sampling,
         fallback_provider_id=fallback_id,
+        provider_order=body.provider_order,
     )
 
     # Changing the embedding route invalidates the stored fingerprint.
@@ -610,6 +668,7 @@ def build_export(*, exported_from: str | None) -> dict:
         exported_routes.append({
             "feature": r["feature"],
             "provider_name": id_to_name.get(r.get("provider_id")),
+            "provider_order": [id_to_name[pid] for pid in (r.get("provider_order") or []) if pid in id_to_name],
             "model_name": r.get("model_name"),
             "user_choices": user_choice_names,
             "provider_models": provider_models_named,
@@ -857,6 +916,7 @@ def perform_import(cfg: dict) -> dict:
             provider_models=provider_models,
             provider_sampling=provider_sampling,
             fallback_provider_id=fallback_id,
+            provider_order=[name_to_id[n] for n in (r.get("provider_order") or []) if n in name_to_id],
         )
         if r["feature"] in existing_routes:
             routes_updated += 1

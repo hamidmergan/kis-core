@@ -94,8 +94,10 @@ export type FeatureRoute = {
   user_choices: number[];
   provider_models: Record<string, string>;
   provider_sampling: Record<string, Sampling>;
-  // Takes the same call when the first choice fails, its model sits in provider_models.
+  // Derived from the order, the second usable provider, its model sits in provider_models.
   fallback_provider_id: number | null;
+  // The providers in the admin's order, the first usable one is the standard.
+  provider_order: number[];
   updated_at: string;
   limits?: ModelLimits | null;
 };

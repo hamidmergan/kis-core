@@ -1811,6 +1811,11 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ADD COLUMN IF NOT EXISTS fallback_provider_id INTEGER
                     REFERENCES providers(id) ON DELETE SET NULL
             """)
+            # The providers of a feature in the admin's order, the first usable one is the standard.
+            cur.execute("""
+                ALTER TABLE feature_routes
+                ADD COLUMN IF NOT EXISTS provider_order JSONB NOT NULL DEFAULT '[]'::jsonb
+            """)
             # The screencast_translate route is gone, the screencast reads doc_translate.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")
 

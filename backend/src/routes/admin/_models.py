@@ -132,6 +132,8 @@ class SetFeatureRouteRequest(BaseModel):
     provider_sampling: dict[str, dict[str, float]] | None = None
     # Second provider for when the first one fails, its model comes from provider_models.
     fallback_provider_id: int | None = None
+    # The providers in the admin's order, given it decides first choice and fallback itself.
+    provider_order: list[int] | None = None
 
 
 class SetModelWindowRequest(BaseModel):
@@ -163,6 +165,7 @@ class ExportedFeatureRoute(BaseModel):
     provider_models: dict[str, str] = {}
     provider_sampling: dict[str, dict[str, float]] = {}
     fallback_provider_name: str | None = None
+    provider_order: list[str] = []
 
 
 class ExportedConfig(BaseModel):

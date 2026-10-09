@@ -1,25 +1,23 @@
 "use client";
 
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Lightning, Spinner, Star, Warning, XCircle } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
-import { fallbackOptions, firstChoiceMark, type FallbackOption, type FirstChoiceMark } from "./_routeOptions";
-import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
+import { eligibleProviders, modelsOf, orderedProviders } from "./_routeOptions";
+import type { Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 
 type Props = {
   meta: ProviderMeta;
   providers: Provider[];
   routes: FeatureRoute[];
-  onChangeProvider: (feature: Feature, providerId: number | null) => Promise<void>;
-  onChangeModel: (feature: Feature, modelName: string | null) => Promise<void>;
   onChangeProviderModel: (feature: Feature, providerId: number, modelName: string | null) => Promise<void>;
   onChangeSampling: (feature: Feature, providerId: number, werte: Sampling | null) => Promise<void>;
   onToggleUserChoice: (feature: Feature, providerId: number, on: boolean) => Promise<void>;
-  onChangeFallback: (feature: Feature, providerId: number | null) => Promise<void>;
+  onMove: (feature: Feature, providerId: number, step: -1 | 1) => Promise<void>;
 };
 
 // Nur diese Funktionen laufen ueber chat/completions, nur dort wirken die Werte.
@@ -31,11 +29,6 @@ const FELD =
   "w-16 text-xs px-1.5 py-1 border-2 border-border rounded-md font-mono text-center " +
   "hover:border-kb focus:outline-none focus:border-kb bg-background " +
   "disabled:opacity-60 disabled:cursor-not-allowed";
-
-// The native provider dropdown of this card, callers add the width.
-const AUSWAHL =
-  "min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb " +
-  "focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed";
 
 function SamplingRow({
   werte,
@@ -92,28 +85,6 @@ type TestState =
   | { kind: "warning"; message: string }
   | { kind: "error"; message: string };
 
-// One capability per feature, the provider list filters by it.
-const FEATURE_CAPABILITY: Record<Feature, Capability> = {
-  chat: "chat",
-  embedding: "embedding",
-  vision: "vision",
-  ocr: "ocr",
-  stt: "stt",
-  tts: "tts",
-  image_gen: "image_gen",
-  image_edit: "image_edit",
-  doc_translate: "translation",
-  screencast_translate: "translation",
-  transcript_translate: "translation",
-};
-
-// For translating a chat capable provider counts too.
-const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
-  doc_translate: ["chat"],
-  screencast_translate: ["chat"],
-  transcript_translate: ["chat"],
-};
-
 // Display order in the routing table.
 const FEATURE_ORDER: Feature[] = [
   "chat",
@@ -141,12 +112,10 @@ export default function FeatureRoutingCard({
   meta,
   providers,
   routes,
-  onChangeProvider,
-  onChangeModel,
   onChangeProviderModel,
   onChangeSampling,
   onToggleUserChoice,
-  onChangeFallback,
+  onMove,
 }: Props) {
   const t = useTranslations("admin.providers");
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
@@ -209,14 +178,7 @@ export default function FeatureRoutingCard({
         const route = routes.find((r) => r.feature === feature);
         // Rows that list their providers test each of them, the toggle rows test the route once.
         if (!meta.user_choice_features.includes(feature) || SPLIT_USER_CHOICE_FEATURES.has(feature)) {
-          const eligible = providers.filter((p) => {
-            if (!p.enabled) return false;
-            const caps = new Set(p.capabilities);
-            if (caps.has(FEATURE_CAPABILITY[feature])) return true;
-            const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
-            return extras.some((c) => caps.has(c));
-          });
-          for (const p of eligible) {
+          for (const p of eligibleProviders(feature, providers)) {
             await onTestProvider(feature, p.id);
           }
         } else {
@@ -264,19 +226,12 @@ export default function FeatureRoutingCard({
         {FEATURE_ORDER.filter((f) => meta.features.includes(f)).map((feature) => {
           const route = routeByFeature.get(feature);
           const isUserChoice = meta.user_choice_features.includes(feature);
-          const eligible = providers.filter((p) => {
-            if (!p.enabled) return false;
-            const caps = new Set(p.capabilities);
-            if (caps.has(FEATURE_CAPABILITY[feature])) return true;
-            const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
-            return extras.some((c) => caps.has(c));
-          });
+          // The rows come in the admin's order, the first usable one is the standard.
+          const eligible = orderedProviders(feature, route, providers);
 
           const providerTestStates: ProviderTestStates = Object.fromEntries(
             eligible.map((p) => [p.id, testStates[`${feature}-${p.id}`] ?? { kind: "idle" as const }])
           );
-          // Without the list from the server the backend cannot take a fallback yet.
-          const hasFallback = (meta.fallback_features ?? []).includes(feature);
           return (
             <FeatureRow
               key={feature}
@@ -290,13 +245,10 @@ export default function FeatureRoutingCard({
               testsLocked={runAllBusy}
               onTest={() => onTest(feature)}
               onTestProvider={(pid) => onTestProvider(feature, pid)}
-              onChangeProvider={(pid) => onChangeProvider(feature, pid)}
-              onChangeModel={(model) => onChangeModel(feature, model)}
               onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
               onChangeSampling={(pid, werte) => onChangeSampling(feature, pid, werte)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
-              fallback={hasFallback ? fallbackOptions(feature, route, providers) : null}
-              onChangeFallback={(pid) => onChangeFallback(feature, pid)}
+              onMove={(pid, step) => onMove(feature, pid, step)}
               feinAn={feinAn}
             />
           );
@@ -317,13 +269,10 @@ function FeatureRow({
   testsLocked,
   onTest,
   onTestProvider,
-  onChangeProvider,
-  onChangeModel,
   onChangeProviderModel,
   onChangeSampling,
   onToggleUserChoice,
-  fallback,
-  onChangeFallback,
+  onMove,
   feinAn,
 }: {
   feature: Feature;
@@ -336,22 +285,18 @@ function FeatureRow({
   testsLocked: boolean;
   onTest: () => void;
   onTestProvider: (providerId: number) => void;
-  onChangeProvider: (id: number | null) => void;
-  onChangeModel: (model: string | null) => void;
   onChangeProviderModel: (providerId: number, model: string | null) => void;
   onChangeSampling: (providerId: number, werte: Sampling | null) => void;
   onToggleUserChoice: (id: number, on: boolean) => void;
-  fallback: FallbackOption[] | null;
-  onChangeFallback: (id: number | null) => void;
+  onMove: (id: number, step: -1 | 1) => void;
   feinAn: boolean;
 }) {
   const t = useTranslations("admin.providers");
-  const fallbackId = useId();
   const providerId = route?.provider_id ?? null;
   const provider = providerId != null ? providerById.get(providerId) : undefined;
   const userChoices = route?.user_choices ?? [];
   const canTest = providerId != null;
-  const fallbackValue = route?.fallback_provider_id ?? null;
+  const models = modelsOf(route);
 
   if (isUserChoice && !SPLIT_USER_CHOICE_FEATURES.has(feature)) {
     const primary = provider;
@@ -393,10 +338,10 @@ function FeatureRow({
               </label>
               <div className="flex gap-2 items-center">
                 <input
-                    key={route?.model_name ?? ""}
+                    key={models[String(primary.id)] ?? ""}
                     type="text"
-                    defaultValue={route?.model_name ?? ""}
-                    onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+                    defaultValue={models[String(primary.id)] ?? ""}
+                    onBlur={(e) => onChangeProviderModel(primary.id, e.target.value.trim() || null)}
                     placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                     spellCheck={false}
                     className="flex-1 sm:flex-none sm:w-45 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
@@ -423,8 +368,7 @@ function FeatureRow({
     );
   }
 
-  // Every other feature lists its providers, the star marks the standard one.
-  const unusableFirst = provider != null && !eligible.includes(provider);
+  // Every other feature lists its providers in order, the first one with a model is the standard.
   return (
     <div className="py-4 flex flex-col gap-2">
       <div className="min-w-0">
@@ -434,34 +378,30 @@ function FeatureRow({
         {eligible.length === 0 ? (
           <span className="text-2xs text-muted-soft italic">{t("routes.noEligible")}</span>
         ) : (
-          eligible.map((p) => {
+          eligible.map((p, i) => {
             const isFirst = p.id === providerId;
-            // The standard provider may still carry its model only in the route's own field.
-            const modelVal = route?.provider_models?.[String(p.id)] ?? (isFirst ? route?.model_name ?? "" : "");
+            const modelVal = models[String(p.id)] ?? "";
             const pState = providerTestStates[p.id] ?? { kind: "idle" as const };
-            const mark = firstChoiceMark(route, p);
             return (
               <div key={p.id} className="flex flex-col gap-0.5">
                 <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                   <span className={`sm:flex-1 min-w-0 truncate text-sm ${isFirst ? "font-medium text-foreground" : "text-foreground-soft"}`}>
+                    <span className="font-mono text-2xs text-muted-soft mr-2">{i + 1}</span>
                     {p.name}
+                    {isFirst && <span className="ml-2 text-2xs font-normal text-kb">{t("routes.standard")}</span>}
                   </span>
                   <div className="sm:flex-1 min-w-0 flex items-center gap-2">
                     <input
                       key={`${p.id}-${modelVal}`}
                       type="text"
                       defaultValue={modelVal}
-                      onBlur={(e) => {
-                        const model = e.target.value.trim() || null;
-                        // The standard provider's model also keeps the route's own field in step.
-                        if (isFirst) onChangeModel(model);
-                        else onChangeProviderModel(p.id, model);
-                      }}
+                      onBlur={(e) => onChangeProviderModel(p.id, e.target.value.trim() || null)}
                       placeholder={p.protocol === "openai_compat" ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                       spellCheck={false}
                       className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
                     />
-                    <FirstChoiceButton mark={mark} onClick={() => onChangeProvider(p.id)} />
+                    <MoveButton direction="up" disabled={i === 0} onClick={() => onMove(p.id, -1)} />
+                    <MoveButton direction="down" disabled={i === eligible.length - 1} onClick={() => onMove(p.id, 1)} />
                     <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
                   </div>
                 </div>
@@ -481,33 +421,6 @@ function FeatureRow({
           })
         )}
       </div>
-      {eligible.length > 0 && (unusableFirst || fallback) && (
-        <div className="mt-3 pt-3 border-t border-border-soft flex flex-col gap-1.5">
-          {unusableFirst && provider && (
-            <p className="text-2xs text-warn">{t("routes.firstChoiceUnusable", { name: provider.name })}</p>
-          )}
-          {fallback && (
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-              <div className="sm:flex-1 min-w-0 flex items-center gap-1">
-                <label htmlFor={fallbackId} className="truncate text-sm text-foreground-soft">
-                  {t("routes.fallback")}
-                </label>
-                <HelpTooltip text={t(feature === "tts" ? "routes.fallbackHelpTts" : "routes.fallbackHelp")} />
-              </div>
-              <div className="sm:flex-1 min-w-0 flex items-center gap-2">
-                <FallbackSelect
-                  id={fallbackId}
-                  value={fallbackValue}
-                  options={fallback}
-                  onChange={onChangeFallback}
-                  className="flex-1"
-                />
-                <span className="w-18 shrink-0" aria-hidden="true" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       {/* Die Standardstimme haengt an den Anbietern und gehoert deshalb hierher,
           nicht in eine eigene Karte anderswo. Sie waehlt Anbieter und Stimme in
           EINEM Feld, weil es bei einem Nutzer-waehlt-Feature keinen einen
@@ -517,59 +430,20 @@ function FeatureRow({
   );
 }
 
-function FallbackSelect({
-  id,
-  value,
-  options,
-  onChange,
-  className,
-}: {
-  id: string;
-  value: number | null;
-  options: FallbackOption[];
-  onChange: (id: number | null) => void;
-  className: string;
-}) {
+function MoveButton({ direction, disabled, onClick }: { direction: "up" | "down"; disabled: boolean; onClick: () => void }) {
   const t = useTranslations("admin.providers");
-  return (
-    <select
-      id={id}
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      disabled={options.length === 0 && value == null}
-      className={`${AUSWAHL} ${className}`}
-    >
-      <option value="">{t("routes.noFallback")}</option>
-      {options.map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.usable ? o.name : t("routes.providerUnusable", { name: o.name })}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function FirstChoiceButton({ mark, onClick }: { mark: FirstChoiceMark; onClick: () => void }) {
-  const t = useTranslations("admin.providers");
-  const on = mark === "on";
-  const label = on
-    ? t("routes.firstChoice")
-    : mark === "free"
-      ? t("routes.setFirstChoice")
-      : t("routes.firstChoiceNeedsModel");
+  const label = direction === "up" ? t("routes.moveUp") : t("routes.moveDown");
+  const Icon = direction === "up" ? CaretUp : CaretDown;
   return (
     <button
       type="button"
-      onClick={on ? undefined : onClick}
-      disabled={mark === "needsModel"}
-      aria-pressed={on}
+      onClick={onClick}
+      disabled={disabled}
       title={label}
       aria-label={label}
-      className={`w-8 h-8 shrink-0 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors enabled:hover:outline enabled:hover:outline-2 enabled:hover:outline-kb disabled:opacity-50 disabled:cursor-not-allowed ${
-        on ? "text-kb-dark" : "text-muted-soft enabled:hover:text-kb"
-      }`}
+      className="w-8 h-8 shrink-0 rounded-md border border-border-soft bg-background flex items-center justify-center text-muted transition-colors enabled:hover:text-kb enabled:hover:outline enabled:hover:outline-2 enabled:hover:outline-kb disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      <Star size={14} weight={on ? "fill" : "bold"} />
+      <Icon size={14} weight="bold" />
     </button>
   );
 }

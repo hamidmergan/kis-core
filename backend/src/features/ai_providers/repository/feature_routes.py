@@ -52,12 +52,12 @@ FALLBACK_CAPABILITY: dict[str, str] = {
 
 def _row_to_dict(row) -> dict:
     d = dict(row)
-    for jsonb_col in ("user_choices", "provider_models", "provider_sampling"):
+    for jsonb_col in ("user_choices", "provider_models", "provider_sampling", "provider_order"):
         v = d.get(jsonb_col)
         if isinstance(v, str):
             d[jsonb_col] = json.loads(v)
         elif v is None:
-            d[jsonb_col] = [] if jsonb_col == "user_choices" else {}
+            d[jsonb_col] = [] if jsonb_col in ("user_choices", "provider_order") else {}
     v = d.get("updated_at")
     if isinstance(v, datetime):
         d["updated_at"] = v.isoformat()
@@ -65,7 +65,19 @@ def _row_to_dict(row) -> dict:
 
 
 _SELECT = ("id, feature, provider_id, model_name, user_choices, provider_models, "
-           "provider_sampling, fallback_provider_id, updated_at")
+           "provider_sampling, fallback_provider_id, provider_order, updated_at")
+
+
+def ordered_ids(route: Optional[dict], ids: list[int]) -> list[int]:
+    """These provider ids in the admin's order, ids without a place follow in their own order.
+
+    A route saved before the order existed puts its first choice and fallback in front.
+    """
+    route = route or {}
+    gespeichert = list(route.get("provider_order") or []) or [
+        route.get("provider_id"), route.get("fallback_provider_id")]
+    vorne = [i for i in dict.fromkeys(gespeichert) if i in ids]
+    return vorne + [i for i in ids if i not in vorne]
 
 
 def list_routes() -> list[dict]:
@@ -98,8 +110,10 @@ def set_route(
     provider_models: Optional[dict] = None,
     provider_sampling: Optional[dict] = None,
     fallback_provider_id: Optional[int] = None,
+    provider_order: Optional[list[int]] = None,
 ) -> dict:
     """Upsert the row for one feature. Pass None to clear a field."""
+    payload_order = json.dumps(provider_order or [])
     payload_choices = json.dumps(user_choices or [])
     payload_models = json.dumps(provider_models or {})
     payload_sampling = json.dumps(provider_sampling or {})
@@ -108,8 +122,8 @@ def set_route(
             cur.execute(
                 f"""INSERT INTO feature_routes
                        (feature, provider_id, model_name, user_choices, provider_models,
-                        provider_sampling, fallback_provider_id)
-                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s)
+                        provider_sampling, fallback_provider_id, provider_order)
+                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s::jsonb)
                    ON CONFLICT (feature) DO UPDATE
                        SET provider_id = EXCLUDED.provider_id,
                            model_name = EXCLUDED.model_name,
@@ -117,10 +131,11 @@ def set_route(
                            provider_models = EXCLUDED.provider_models,
                            provider_sampling = EXCLUDED.provider_sampling,
                            fallback_provider_id = EXCLUDED.fallback_provider_id,
+                           provider_order = EXCLUDED.provider_order,
                            updated_at = NOW()
                    RETURNING {_SELECT}""",
                 (feature, provider_id, model_name, payload_choices, payload_models,
-                 payload_sampling, fallback_provider_id),
+                 payload_sampling, fallback_provider_id, payload_order),
             )
             conn.commit()
             return _row_to_dict(cur.fetchone())
@@ -135,8 +150,9 @@ def routes_using_provider(provider_id: int) -> list[dict]:
                    FROM feature_routes
                    WHERE provider_id = %s
                       OR fallback_provider_id = %s
-                      OR user_choices @> %s::jsonb""",
-                (provider_id, provider_id, json.dumps([provider_id])),
+                      OR user_choices @> %s::jsonb
+                      OR provider_order @> %s::jsonb""",
+                (provider_id, provider_id, json.dumps([provider_id]), json.dumps([provider_id])),
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
 
@@ -174,6 +190,18 @@ def clear_provider_from_routes(provider_id: int) -> int:
                 (provider_id, json.dumps([provider_id])),
             )
             cleared += cur.rowcount
+            # The order closes up behind the deleted provider.
+            cur.execute(
+                """UPDATE feature_routes
+                   SET provider_order = (
+                       SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                       FROM jsonb_array_elements(provider_order) elem
+                       WHERE (elem)::int <> %s
+                   ),
+                   updated_at = NOW()
+                   WHERE provider_order @> %s::jsonb""",
+                (provider_id, json.dumps([provider_id])),
+            )
             # Remove the deleted provider's model entry from provider_models.
             cur.execute(
                 """UPDATE feature_routes

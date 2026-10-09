@@ -2372,7 +2372,7 @@
       },
       "routes": {
         "title": "Features",
-        "hint": "One provider and one model per feature. The bolt button tests whether the selected pairing actually works.",
+        "hint": "Per feature the providers in your order. The first one with a model is the standard, if it fails or is full the next one steps in. The bolt button tests whether the selection actually works.",
         "unselected": "— pick a provider —",
         "modelPlaceholder": "model name",
         "userChoiceLabel": "User may choose:",
@@ -2399,16 +2399,10 @@
         "samplingAuto": "auto",
         "samplingHelp": "Leave empty and the provider uses its own value. Temperature controls how freely the model writes. 0 stays close to the text, 1 is loose. top_p limits how many word candidates the model picks from. 0.9 drops the unlikely ones. As a rule, set only one of the two.",
         "samplingToggle": "Fine tuning",
-        "firstChoice": "First choice",
-        "setFirstChoice": "Set as first choice",
-        "firstChoiceNeedsModel": "Enter a model first",
-        "firstChoiceUnusable": "First choice: {name} (not usable)",
-        "fallback": "Fallback",
-        "noFallback": "No fallback",
-        "providerUnusable": "{name} (not usable)",
-        "fallbackHelp": "If the first choice does not answer or rejects the call, the same call goes to the fallback. Only providers with an OpenAI compatible interface and an entered model qualify. For embeddings only the same model as the first choice.",
         "fallbackHelpModel": "You enter a provider's model while it is the first choice. It stays saved when you switch.",
-        "fallbackHelpTts": "If the first choice cannot be reached when a job starts, the whole job runs with the fallback. The voice never changes within a job. Only providers with an OpenAI compatible interface, an entered model and voices of their own qualify."
+        "standard": "Standard",
+        "moveUp": "Move up",
+        "moveDown": "Move down"
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",

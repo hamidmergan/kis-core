@@ -194,7 +194,7 @@ def fallback_target(feature: str, primary_id: int, primary_model: str = "") -> O
 
 
 def further_targets(feature: str, skip: set[int], primary_model: str = "") -> list[Target]:
-    """Every other provider the admin gave a model for this feature, in the order of the admin list."""
+    """Every other provider the admin gave a model for this feature, in the admin's order for it."""
     if feature in NO_FALLBACK_FEATURES:
         return []
     from src import database as db
@@ -204,8 +204,11 @@ def further_targets(feature: str, skip: set[int], primary_model: str = "") -> li
     if not capability:
         return []
     try:
-        models = (db.get_route(feature) or {}).get("provider_models") or {}
+        route = db.get_route(feature) or {}
+        models = route.get("provider_models") or {}
         providers = db.list_providers_with_capability(capability)
+        stelle = {pid: i for i, pid in enumerate(db.ordered_ids(route, [p.get("id") for p in providers]))}
+        providers = sorted(providers, key=lambda p: stelle.get(p.get("id"), len(stelle)))
     except Exception as e:  # noqa: BLE001 - without the database the call simply asks nobody further
         logger.warning("Weitere Anbieter für {} nicht lesbar: {}", feature, e)
         return []
@@ -444,7 +447,7 @@ class _Door:
         return not last
 
     def spill_targets(self, order: list[Target]) -> list[Target]:
-        """Where an LLM call may go instead of waiting when its first choice is full, in the order of the admin list."""
+        """Where an LLM call may go instead of waiting when its first choice is full, in the admin's order."""
         if self.bucket != "llm" or _exempt.get() or len(order) < 2:
             return []
         return [t for t in order[1:] if not _is_down(t, self.bucket)]

@@ -46,6 +46,9 @@ def _candidates(feature: str) -> tuple[list[dict], Optional[dict]]:
         return [], None
     route = db.get_route(feature)
     rows = [p for p in db.list_providers_with_capability(cap) if _model_for(route, p["id"])]
+    # People see the providers in the admin's order, the standard one first.
+    stelle = {pid: i for i, pid in enumerate(db.ordered_ids(route, [p["id"] for p in rows]))}
+    rows.sort(key=lambda p: stelle[p["id"]])
     return rows, route
 
 
@@ -136,10 +139,8 @@ async def list_reachable_choices(feature: str) -> dict:
 
     reachable = await only_reachable(candidates)
 
-    # The admin's first choice, else the admin's fallback, only then the oldest provider that answers.
-    reachable_ids = {p["id"] for p in reachable}
-    wunsch = [route.get("provider_id"), route.get("fallback_provider_id")] if route else []
-    default_id = next((pid for pid in wunsch if pid in reachable_ids), reachable[0]["id"] if reachable else None)
+    # The candidates come in the admin's order, so the first that answers is the default.
+    default_id = reachable[0]["id"] if reachable else None
 
     return {
         "providers": [{"id": p["id"], "name": p["name"], "model": _model_for(route, p["id"])}

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Feature, FeatureRoute, ModelWindows, Provider, ProviderMeta, Sampling } from "./_types";
-import { keptFallback } from "./_routeOptions";
+import { modelsOf, moved, orderedProviders } from "./_routeOptions";
 import {
   clearAllProviders,
   createProvider,
@@ -141,85 +141,31 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
   }, [deleteTarget, refreshAll]);
 
   // ── route mutations ─────────────────────────────────────────────────────
-  // Every save resends the fallback, it only drops when this very change breaks it.
+  // Every save sends the whole order, the server takes first choice and fallback from it.
   const saveRoute = useCallback(
-    async (
-      feature: Feature,
-      existing: FeatureRoute | undefined,
-      input: Omit<SetRouteInput, "fallback_provider_id">,
-    ) => {
-      const fallback = keptFallback(
-        feature,
-        {
-          provider_id: input.provider_id,
-          model_name: input.model_name,
-          provider_models: input.provider_models ?? {},
-          fallback_provider_id: existing?.fallback_provider_id ?? null,
-        },
-        providers,
-      );
-      await setFeatureRoute(feature, { ...input, fallback_provider_id: fallback });
+    async (feature: Feature, change: Partial<SetRouteInput>) => {
+      const existing = routes.find((r) => r.feature === feature);
+      await setFeatureRoute(feature, {
+        user_choices: existing?.user_choices ?? null,
+        provider_models: modelsOf(existing),
+        provider_sampling: existing?.provider_sampling,
+        provider_order: orderedProviders(feature, existing, providers).map((p) => p.id),
+        ...change,
+      });
       await refreshAll();
     },
-    [providers, refreshAll],
-  );
-
-  const onChangeProvider = useCallback(
-    async (feature: Feature, providerId: number | null) => {
-      const existing = routes.find((r) => r.feature === feature);
-      const carriedModel =
-        providerId != null
-          ? existing?.provider_models?.[String(providerId)] ?? null
-          : null;
-      await saveRoute(feature, existing, {
-        provider_id: providerId,
-        model_name: carriedModel,
-        user_choices: existing?.user_choices ?? null,
-        provider_models: existing?.provider_models,
-        provider_sampling: existing?.provider_sampling,
-      });
-    },
-    [routes, saveRoute],
-  );
-
-  const onChangeModel = useCallback(
-    async (feature: Feature, modelName: string | null) => {
-      const existing = routes.find((r) => r.feature === feature);
-      if (!existing?.provider_id) return;
-      const nextProviderModels = { ...(existing.provider_models ?? {}) };
-      const key = String(existing.provider_id);
-      if (modelName) {
-        nextProviderModels[key] = modelName;
-      } else {
-        delete nextProviderModels[key];
-      }
-      await saveRoute(feature, existing, {
-        provider_id: existing.provider_id,
-        model_name: modelName,
-        user_choices: existing.user_choices ?? null,
-        provider_models: nextProviderModels,
-        provider_sampling: existing.provider_sampling,
-      });
-    },
-    [routes, saveRoute],
+    [routes, providers, refreshAll],
   );
 
   const onChangeProviderModel = useCallback(
     async (feature: Feature, providerId: number, modelName: string | null) => {
-      const existing = routes.find((r) => r.feature === feature);
-      const next = { ...(existing?.provider_models ?? {}) };
+      const next = modelsOf(routes.find((r) => r.feature === feature));
       if (modelName) {
         next[String(providerId)] = modelName;
       } else {
         delete next[String(providerId)];
       }
-      await saveRoute(feature, existing, {
-        provider_id: existing?.provider_id ?? null,
-        model_name: existing?.model_name ?? null,
-        user_choices: existing?.user_choices ?? null,
-        provider_models: next,
-        provider_sampling: existing?.provider_sampling,
-      });
+      await saveRoute(feature, { provider_models: next });
     },
     [routes, saveRoute],
   );
@@ -233,13 +179,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       } else {
         delete next[String(providerId)];
       }
-      await saveRoute(feature, existing, {
-        provider_id: existing?.provider_id ?? null,
-        model_name: existing?.model_name ?? null,
-        user_choices: existing?.user_choices ?? null,
-        provider_models: existing?.provider_models,
-        provider_sampling: next,
-      });
+      await saveRoute(feature, { provider_sampling: next });
     },
     [routes, saveRoute],
   );
@@ -252,32 +192,21 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         ? Array.from(new Set([...current, providerId]))
         : current.filter((id) => id !== providerId);
       // The first entry of the selection is the row's default provider.
-      const defaultProvider = nextChoices[0] ?? null;
-      await saveRoute(feature, existing, {
-        provider_id: defaultProvider,
-        model_name: existing?.model_name ?? null,
+      const rest = orderedProviders(feature, existing, providers).map((p) => p.id);
+      await saveRoute(feature, {
         user_choices: nextChoices,
-        provider_models: existing?.provider_models,
-        provider_sampling: existing?.provider_sampling,
+        provider_order: [...nextChoices, ...rest.filter((id) => !nextChoices.includes(id))],
       });
     },
-    [routes, saveRoute],
+    [routes, providers, saveRoute],
   );
 
-  const onChangeFallback = useCallback(
-    async (feature: Feature, providerId: number | null) => {
-      const existing = routes.find((r) => r.feature === feature);
-      await setFeatureRoute(feature, {
-        provider_id: existing?.provider_id ?? null,
-        model_name: existing?.model_name ?? null,
-        user_choices: existing?.user_choices ?? null,
-        provider_models: existing?.provider_models,
-        provider_sampling: existing?.provider_sampling,
-        fallback_provider_id: providerId,
-      });
-      await refreshAll();
+  const onMove = useCallback(
+    async (feature: Feature, providerId: number, step: -1 | 1) => {
+      const order = orderedProviders(feature, routes.find((r) => r.feature === feature), providers).map((p) => p.id);
+      await saveRoute(feature, { provider_order: moved(order, providerId, step) });
     },
-    [routes, refreshAll],
+    [routes, providers, saveRoute],
   );
 
   const handleExportDownload = useCallback((config: unknown, filename: string) => {
@@ -396,12 +325,10 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
           meta={meta}
           providers={providers}
           routes={routes}
-          onChangeProvider={onChangeProvider}
-          onChangeModel={onChangeModel}
           onChangeProviderModel={onChangeProviderModel}
           onChangeSampling={onChangeSampling}
           onToggleUserChoice={onToggleUserChoice}
-          onChangeFallback={onChangeFallback}
+          onMove={onMove}
         />
       )}
 

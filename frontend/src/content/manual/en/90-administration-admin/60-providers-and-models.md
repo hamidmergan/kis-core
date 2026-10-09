@@ -13,15 +13,17 @@ reachability, edit, delete, plus export/import and delete everything in the menu
 ## Functions
 
 Each function (chat, image analysis, image generation, OCR, speech recognition, text-to-speech,
-translation, ...) shows every eligible provider with its own model field.
+translation, ...) shows every eligible provider with its own model field, in an order that the
+arrows change.
 
-- **First choice**: the star directly on the provider, for text-to-speech it also sets the
+- **Standard**: the topmost provider with an entered model. For text-to-speech it also sets the
   default voice.
-- **Fallback**: steps in when the first choice does not answer or refuses. For text-to-speech the
-  voice never switches within a running job.
-- If the first provider for the LLM is full, a call shifts to the next one with a model
-  automatically. Images and voices never shift.
+- **The next one steps in** when the standard does not answer, refuses, or is full for the LLM,
+  then the one after it. Images do not shift when a provider is full. For text-to-speech only the
+  second one takes over, at the start and for the whole job, the voice never switches midway.
+- When a provider is disabled or deleted, the next one in the order moves up.
 - For some functions the person chooses the provider in the service themselves, likewise for
-  podcast, presentation, and report, where the star is only the default.
+  podcast, presentation, and report, where the standard is only the default and the list follows
+  the order.
 - Per row, a test of the current selection. Every change applies immediately for everyone, there
   is no preview and no test mode.

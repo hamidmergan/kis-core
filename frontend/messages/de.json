@@ -2372,7 +2372,7 @@
       },
       "routes": {
         "title": "Funktionen",
-        "hint": "Pro Funktion ein Anbieter und ein Modell. Mit dem Blitz-Symbol testest du, ob die konkrete Auswahl tatsächlich funktioniert.",
+        "hint": "Pro Funktion die Anbieter in deiner Reihenfolge. Der erste mit Modell ist Standard, fällt er aus oder ist er voll, springt der nächste ein. Mit dem Blitz testest du, ob die Auswahl tatsächlich funktioniert.",
         "unselected": "— Anbieter wählen —",
         "modelPlaceholder": "Modellname",
         "userChoiceLabel": "Nutzer kann wählen:",
@@ -2399,16 +2399,10 @@
         "samplingAuto": "auto",
         "samplingHelp": "Leer lassen heißt: Der Anbieter nimmt seinen eigenen Wert. Temperatur steuert, wie frei das Modell formuliert. 0 bleibt streng am Text, 1 formuliert locker. top_p begrenzt, aus wie vielen Wortvarianten das Modell wählt. 0,9 streicht die unwahrscheinlichen Wörter weg. Im Normalfall nur eins von beiden setzen.",
         "samplingToggle": "Feinjustierung",
-        "firstChoice": "Erste Wahl",
-        "setFirstChoice": "Als erste Wahl setzen",
-        "firstChoiceNeedsModel": "Erst ein Modell eintragen",
-        "firstChoiceUnusable": "Erste Wahl: {name} (nicht nutzbar)",
-        "fallback": "Rückfall",
-        "noFallback": "Kein Rückfall",
-        "providerUnusable": "{name} (nicht nutzbar)",
-        "fallbackHelp": "Antwortet die erste Wahl nicht oder weist den Aufruf ab, geht derselbe Aufruf an den Rückfall. Infrage kommen nur Anbieter mit OpenAI-kompatibler Schnittstelle und eingetragenem Modell. Bei Embeddings nur dasselbe Modell wie bei der ersten Wahl.",
         "fallbackHelpModel": "Das Modell eines Anbieters trägst du ein, während er die erste Wahl ist. Es bleibt gespeichert, wenn du wechselst.",
-        "fallbackHelpTts": "Ist die erste Wahl beim Start eines Auftrags nicht erreichbar, läuft der ganze Auftrag mit dem Rückfall. Innerhalb eines Auftrags wechselt die Stimme nie. Infrage kommen nur Anbieter mit OpenAI-kompatibler Schnittstelle, eingetragenem Modell und eigenen Stimmen."
+        "standard": "Standard",
+        "moveUp": "Nach oben",
+        "moveDown": "Nach unten"
       },
       "delete": {
         "title": "Anbieter „{name}\" löschen?",

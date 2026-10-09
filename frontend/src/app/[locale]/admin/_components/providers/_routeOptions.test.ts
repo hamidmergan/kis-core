@@ -1,7 +1,7 @@
-/** Which providers the first choice and fallback dropdowns of a feature row offer. */
+/** The order of the providers per feature, the first usable one is the standard. */
 import { describe, expect, it } from "vitest";
 
-import { fallbackOptions, firstChoiceMark, firstChoiceOptions, keptFallback } from "./_routeOptions";
+import { eligibleProviders, modelsOf, moved, orderedProviders } from "./_routeOptions";
 import type { FeatureRoute, Provider } from "./_types";
 
 function anbieter(id: number, extra: Partial<Provider> = {}): Provider {
@@ -36,186 +36,63 @@ function route(extra: Partial<FeatureRoute> = {}): FeatureRoute {
     provider_sampling: {},
     updated_at: "",
     fallback_provider_id: null,
+    provider_order: [],
     ...extra,
   };
 }
 
 const ids = (liste: Array<{ id: number }>) => liste.map((o) => o.id);
 
-const stimme = { voice_id: "nova", name: "Nova", language: "de" };
-
-describe("fallbackOptions", () => {
-  it("bietet einen passenden Anbieter mit Modell an", () => {
-    expect(fallbackOptions("chat", route(), [anbieter(1), anbieter(2)])).toEqual([
-      { id: 2, name: "P2", model: "m2", usable: true },
-    ]);
+describe("eligibleProviders", () => {
+  it("laesst abgeschaltete Anbieter und fremde Faehigkeiten weg", () => {
+    const liste = [anbieter(1), anbieter(2, { enabled: false }), anbieter(3, { capabilities: ["tts"] })];
+    expect(ids(eligibleProviders("chat", liste))).toEqual([1]);
   });
 
-  it("bietet nie die erste Wahl selbst an", () => {
-    expect(ids(fallbackOptions("chat", route(), [anbieter(1)]))).toEqual([]);
-  });
-
-  it("laesst abgeschaltete Anbieter weg", () => {
-    expect(ids(fallbackOptions("chat", route(), [anbieter(2, { enabled: false })]))).toEqual([]);
-  });
-
-  it("laesst Anbieter ohne OpenAI-kompatible Schnittstelle weg", () => {
-    expect(ids(fallbackOptions("chat", route(), [anbieter(2, { protocol: "deepl" })]))).toEqual([]);
-  });
-
-  it("laesst Anbieter ohne die Faehigkeit der Funktion weg", () => {
-    const p = anbieter(2, { capabilities: ["embedding"] });
-    expect(ids(fallbackOptions("chat", route(), [p]))).toEqual([]);
-  });
-
-  it("laesst Anbieter ohne eingetragenes Modell weg", () => {
-    const r = route({ provider_models: { "1": "m1", "2": "  " } });
-    expect(ids(fallbackOptions("chat", r, [anbieter(2), anbieter(3)]))).toEqual([]);
-  });
-
-  it("bietet fuer Stimmen einen Anbieter mit Sprachausgabe und Stimmen an", () => {
-    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
-    expect(fallbackOptions("tts", route({ feature: "tts" }), [p])).toEqual([
-      { id: 2, name: "P2", model: "m2", usable: true },
-    ]);
-  });
-
-  it("laesst fuer Stimmen Anbieter ohne Stimmen weg", () => {
-    const p = anbieter(2, { capabilities: ["tts"] });
-    expect(ids(fallbackOptions("tts", route({ feature: "tts" }), [p]))).toEqual([]);
-  });
-
-  it("laesst fuer Stimmen Anbieter ohne Sprachausgabe weg", () => {
-    const p = anbieter(2, { voices: [stimme] });
-    expect(ids(fallbackOptions("tts", route({ feature: "tts" }), [p]))).toEqual([]);
-  });
-
-  it("verlangt bei Uebersetzungen die Chat-Faehigkeit", () => {
-    const r = route({ feature: "doc_translate" });
-    const nurUebersetzung = anbieter(2, { capabilities: ["translation"] });
-    expect(ids(fallbackOptions("doc_translate", r, [nurUebersetzung]))).toEqual([]);
-    expect(ids(fallbackOptions("doc_translate", r, [anbieter(2)]))).toEqual([2]);
-  });
-
-  it("nimmt bei Embeddings nur dasselbe Modell wie die erste Wahl", () => {
-    const r = route({ feature: "embedding", provider_models: { "1": "e5", "2": "e5", "3": "bge" } });
-    expect(ids(fallbackOptions("embedding", r, [anbieter(2), anbieter(3)]))).toEqual([2]);
-  });
-
-  it("liest das Modell der ersten Wahl bei Embeddings notfalls aus model_name", () => {
-    const r = route({ feature: "embedding", model_name: "e5", provider_models: { "2": "e5" } });
-    expect(ids(fallbackOptions("embedding", r, [anbieter(2)]))).toEqual([2]);
-  });
-
-  it("bietet bei Embeddings ohne Modell der ersten Wahl nichts an", () => {
-    const r = route({ feature: "embedding", model_name: null, provider_models: { "2": "e5" } });
-    expect(ids(fallbackOptions("embedding", r, [anbieter(2)]))).toEqual([]);
-  });
-
-  it("zeigt einen gespeicherten, nicht mehr nutzbaren Rueckfall als solchen", () => {
-    const r = route({ fallback_provider_id: 2 });
-    expect(fallbackOptions("chat", r, [anbieter(2, { enabled: false })])).toEqual([
-      { id: 2, name: "P2", model: "m2", usable: false },
-    ]);
-  });
-
-  it("bietet ohne Route nichts an", () => {
-    expect(fallbackOptions("chat", undefined, [anbieter(2)])).toEqual([]);
+  it("nimmt beim Uebersetzen DeepL und LLM", () => {
+    const liste = [anbieter(1), anbieter(4, { protocol: "deepl", capabilities: ["translation"] })];
+    expect(ids(eligibleProviders("doc_translate", liste))).toEqual([1, 4]);
   });
 });
 
-describe("keptFallback", () => {
-  it("behaelt einen gueltigen Rueckfall", () => {
-    expect(keptFallback("chat", route({ fallback_provider_id: 2 }), [anbieter(1), anbieter(2)])).toBe(2);
+describe("orderedProviders", () => {
+  const liste = [anbieter(1), anbieter(2), anbieter(3)];
+
+  it("folgt der gespeicherten Reihenfolge, der Rest haengt hinten an", () => {
+    expect(ids(orderedProviders("chat", route({ provider_order: [3, 1] }), liste))).toEqual([3, 1, 2]);
   });
 
-  it("gibt null ohne gespeicherten Rueckfall", () => {
-    expect(keptFallback("chat", route(), [anbieter(2)])).toBeNull();
+  it("stellt bei einer alten Route erste Wahl und Rueckfall nach vorn", () => {
+    expect(ids(orderedProviders("chat", route({ provider_id: 3, fallback_provider_id: 2 }), liste))).toEqual([3, 2, 1]);
   });
 
-  it("verwirft den Rueckfall, sobald er zur ersten Wahl wird", () => {
-    const r = route({ provider_id: 2, fallback_provider_id: 2 });
-    expect(keptFallback("chat", r, [anbieter(1), anbieter(2)])).toBeNull();
+  it("laesst geloeschte Anbieter aus der Reihenfolge fallen", () => {
+    expect(ids(orderedProviders("chat", route({ provider_order: [9, 2] }), liste))).toEqual([2, 1, 3]);
   });
 
-  it("verwirft den Rueckfall, wenn sein Modell geloescht wird", () => {
-    const r = route({ provider_models: { "1": "m1" }, fallback_provider_id: 2 });
-    expect(keptFallback("chat", r, [anbieter(2)])).toBeNull();
-  });
-
-  it("verwirft den Embedding-Rueckfall, wenn die erste Wahl das Modell wechselt", () => {
-    const r = route({
-      feature: "embedding",
-      provider_models: { "1": "bge", "2": "e5" },
-      fallback_provider_id: 2,
-    });
-    expect(keptFallback("embedding", r, [anbieter(2)])).toBeNull();
-  });
-
-  it("behaelt den Stimmen-Rueckfall beim Speichern", () => {
-    const r = route({ feature: "tts", fallback_provider_id: 2 });
-    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
-    expect(keptFallback("tts", r, [anbieter(1), p])).toBe(2);
-  });
-
-  it("bietet bei Stimmen auch den Anbieter der Route als Rueckfall an", () => {
-    // Die Person waehlt ihre Stimme selbst, der Anbieter der Route taugt als Rueckfall fuer Auftraege bei anderen.
-    const r = route({ feature: "tts", provider_id: 2, fallback_provider_id: 2 });
-    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
-    expect(ids(fallbackOptions("tts", r, [p]))).toEqual([2]);
-    expect(keptFallback("tts", r, [p])).toBe(2);
-  });
-
-  it("verwirft den Stimmen-Rueckfall, wenn er keine Stimmen mehr hat", () => {
-    const r = route({ feature: "tts", fallback_provider_id: 2 });
-    expect(keptFallback("tts", r, [anbieter(2, { capabilities: ["tts"] })])).toBeNull();
-  });
-
-  it("vertraegt eine Route ohne das Feld", () => {
-    const r: Omit<FeatureRoute, "fallback_provider_id"> = route();
-    expect(keptFallback("chat", r, [anbieter(2)])).toBeNull();
+  it("vertraegt eine fehlende Route", () => {
+    expect(ids(orderedProviders("chat", undefined, liste))).toEqual([1, 2, 3]);
   });
 });
 
-describe("firstChoiceOptions", () => {
-  it("listet Anbieter mit eingetragenem Modell", () => {
-    const r = route({ provider_id: null, provider_models: { "2": "m2" } });
-    expect(ids(firstChoiceOptions(r, [anbieter(2), anbieter(3)]))).toEqual([2]);
+describe("moved", () => {
+  it("tauscht mit dem Nachbarn", () => {
+    expect(moved([1, 2, 3], 2, -1)).toEqual([2, 1, 3]);
+    expect(moved([1, 2, 3], 2, 1)).toEqual([1, 3, 2]);
   });
 
-  it("laesst Anbieter ohne Modellpflicht auch ohne Modell zu", () => {
-    const r = route({ provider_id: null, provider_models: {} });
-    expect(ids(firstChoiceOptions(r, [anbieter(2, { protocol: "deepl" }), anbieter(3)]))).toEqual([2]);
-  });
-
-  it("behaelt die aktuelle erste Wahl auch ohne Modell", () => {
-    const r = route({ provider_id: 3, provider_models: {} });
-    expect(ids(firstChoiceOptions(r, [anbieter(2), anbieter(3)]))).toEqual([3]);
-  });
-
-  it("listet ohne Route nur Anbieter ohne Modellpflicht", () => {
-    expect(ids(firstChoiceOptions(undefined, [anbieter(2), anbieter(4, { protocol: "deepl" })]))).toEqual([4]);
+  it("bleibt am Rand stehen", () => {
+    expect(moved([1, 2, 3], 1, -1)).toEqual([1, 2, 3]);
+    expect(moved([1, 2, 3], 3, 1)).toEqual([1, 2, 3]);
   });
 });
 
-describe("firstChoiceMark", () => {
-  it("zeigt die aktuelle erste Wahl als gesetzt, auch ohne Modell", () => {
-    expect(firstChoiceMark(route({ provider_id: 3, provider_models: {} }), anbieter(3))).toBe("on");
+describe("modelsOf", () => {
+  it("holt das Modell einer alten ersten Wahl aus model_name", () => {
+    expect(modelsOf(route({ provider_id: 3, model_name: "m3", provider_models: { "1": "m1" } }))).toEqual({ "1": "m1", "3": "m3" });
   });
 
-  it("gibt einen Anbieter mit Modell frei", () => {
-    expect(firstChoiceMark(route(), anbieter(2))).toBe("free");
-  });
-
-  it("gibt einen Anbieter ohne Modellpflicht auch ohne Modell frei", () => {
-    expect(firstChoiceMark(route({ provider_models: {} }), anbieter(4, { protocol: "deepl" }))).toBe("free");
-  });
-
-  it("sperrt einen Anbieter mit Modellpflicht ohne Modell", () => {
-    expect(firstChoiceMark(route({ provider_models: { "1": "m1", "2": "  " } }), anbieter(2))).toBe("needsModel");
-  });
-
-  it("sperrt ohne Route jeden Anbieter mit Modellpflicht", () => {
-    expect(firstChoiceMark(undefined, anbieter(2))).toBe("needsModel");
+  it("laesst ein eingetragenes Modell stehen", () => {
+    expect(modelsOf(route({ model_name: "alt" }))).toEqual({ "1": "m1", "2": "m2" });
   });
 });

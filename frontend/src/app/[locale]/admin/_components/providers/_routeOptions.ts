@@ -1,7 +1,7 @@
 import type { Capability, Feature, FeatureRoute, Provider } from "./_types";
 
-/** The capability a fallback needs per feature, mirrors the backend rules. */
-const FALLBACK_CAPABILITY: Record<Feature, Capability> = {
+// One capability per feature, the provider list filters by it.
+const FEATURE_CAPABILITY: Record<Feature, Capability> = {
   chat: "chat",
   embedding: "embedding",
   vision: "vision",
@@ -10,81 +10,57 @@ const FALLBACK_CAPABILITY: Record<Feature, Capability> = {
   tts: "tts",
   image_gen: "image_gen",
   image_edit: "image_edit",
-  doc_translate: "chat",
-  screencast_translate: "chat",
-  transcript_translate: "chat",
+  doc_translate: "translation",
+  screencast_translate: "translation",
+  transcript_translate: "translation",
 };
 
-type RouteModels = Pick<FeatureRoute, "provider_id" | "model_name" | "provider_models"> & {
-  fallback_provider_id?: number | null;
+// For translating a chat capable provider counts too.
+const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
+  doc_translate: ["chat"],
+  screencast_translate: ["chat"],
+  transcript_translate: ["chat"],
 };
 
-export type FallbackOption = { id: number; name: string; model: string; usable: boolean };
+type RouteOrder = Pick<FeatureRoute, "provider_id" | "provider_models"> &
+  Partial<Pick<FeatureRoute, "fallback_provider_id" | "provider_order" | "model_name">>;
 
-function modelOf(route: RouteModels | undefined, providerId: number): string {
-  return (route?.provider_models?.[String(providerId)] ?? "").trim();
-}
-
-/** The model the first choice runs with. */
-function primaryModel(route: RouteModels): string {
-  const id = route.provider_id;
-  return ((id != null ? route.provider_models?.[String(id)] : "") || route.model_name || "").trim();
-}
-
-function candidates(feature: Feature, route: RouteModels | undefined, providers: Provider[]): Provider[] {
-  if (!route) return [];
-  const capability = FALLBACK_CAPABILITY[feature];
-  const primary = primaryModel(route);
+/** The enabled providers that can serve a feature, in the order they were added. */
+export function eligibleProviders(feature: Feature, providers: Provider[]): Provider[] {
   return providers.filter((p) => {
-    // People pick their voice themselves, so for voices the route's own provider is a fine fallback too.
-    if (feature !== "tts" && p.id === route.provider_id) return false;
-    if (!p.enabled || p.protocol !== "openai_compat") return false;
-    if (!p.capabilities.includes(capability)) return false;
-    // A voice fallback takes over whole jobs, so it needs voices of its own.
-    if (feature === "tts" && !p.voices?.length) return false;
-    const model = modelOf(route, p.id);
-    if (!model) return false;
-    return feature !== "embedding" || model === primary;
+    if (!p.enabled) return false;
+    const caps = new Set(p.capabilities);
+    if (caps.has(FEATURE_CAPABILITY[feature])) return true;
+    return (FEATURE_EXTRA_CAPABILITIES[feature] ?? []).some((c) => caps.has(c));
   });
 }
 
-/** Fallback choices of a feature, a stored fallback that broke stays listed as unusable. */
-export function fallbackOptions(
-  feature: Feature,
-  route: RouteModels | undefined,
-  providers: Provider[],
-): FallbackOption[] {
-  const options: FallbackOption[] = candidates(feature, route, providers).map((p) => ({
-    id: p.id,
-    name: p.name,
-    model: modelOf(route, p.id),
-    usable: true,
-  }));
-  const stored = route?.fallback_provider_id ?? null;
-  const storedProvider = providers.find((p) => p.id === stored);
-  if (storedProvider && !options.some((o) => o.id === stored)) {
-    options.push({ id: storedProvider.id, name: storedProvider.name, model: modelOf(route, storedProvider.id), usable: false });
-  }
-  return options;
+/** The providers of a feature in the admin's order, a route without one puts first choice and fallback in front. */
+export function orderedProviders(feature: Feature, route: RouteOrder | undefined, providers: Provider[]): Provider[] {
+  const listed = eligibleProviders(feature, providers);
+  const stored = route?.provider_order?.length
+    ? route.provider_order
+    : [route?.provider_id, route?.fallback_provider_id];
+  const front = [...new Set(stored)]
+    .map((id) => listed.find((p) => p.id === id))
+    .filter((p): p is Provider => p !== undefined);
+  return [...front, ...listed.filter((p) => !front.includes(p))];
 }
 
-/** The stored fallback while it still satisfies the rules for this route, otherwise null. */
-export function keptFallback(feature: Feature, route: RouteModels, providers: Provider[]): number | null {
-  const stored = route.fallback_provider_id ?? null;
-  if (stored == null) return null;
-  return candidates(feature, route, providers).some((p) => p.id === stored) ? stored : null;
+/** The order after moving one provider a step up (-1) or down (+1). */
+export function moved(order: number[], providerId: number, step: -1 | 1): number[] {
+  const from = order.indexOf(providerId);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= order.length) return order;
+  const next = [...order];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
 }
 
-export type FirstChoiceMark = "on" | "free" | "needsModel";
-
-/** Whether a provider is the first choice, can become it, or first needs a model. */
-export function firstChoiceMark(route: RouteModels | undefined, provider: Provider): FirstChoiceMark {
-  if (provider.id === route?.provider_id) return "on";
-  if (provider.protocol !== "openai_compat" || modelOf(route, provider.id) !== "") return "free";
-  return "needsModel";
-}
-
-/** Providers of a row that can be the first choice, the current one always stays listed. */
-export function firstChoiceOptions(route: RouteModels | undefined, listed: Provider[]): Provider[] {
-  return listed.filter((p) => firstChoiceMark(route, p) !== "needsModel");
+/** The models per provider, a route from before the per provider models keeps its first choice's model. */
+export function modelsOf(route: RouteOrder | undefined): Record<string, string> {
+  const models = { ...(route?.provider_models ?? {}) };
+  const first = route?.provider_id;
+  if (first != null && !models[String(first)] && route?.model_name) models[String(first)] = route.model_name;
+  return models;
 }

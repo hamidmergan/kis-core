@@ -113,13 +113,11 @@ export async function fetchRoutes(): Promise<FeatureRoute[]> {
 }
 
 export type SetRouteInput = {
-  provider_id: number | null;
-  model_name: string | null;
   user_choices: number[] | null;
-  provider_models?: Record<string, string>;
+  provider_models: Record<string, string>;
   provider_sampling?: Record<string, Sampling>;
-  // Required so no save silently drops the fallback.
-  fallback_provider_id: number | null;
+  // The server takes first choice and fallback from this order.
+  provider_order: number[];
 };
 
 export async function setFeatureRoute(

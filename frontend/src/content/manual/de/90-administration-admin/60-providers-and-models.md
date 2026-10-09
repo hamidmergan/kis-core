@@ -14,15 +14,18 @@ Export/Import und Alles löschen im Menü.
 ## Funktionen
 
 Jede Funktion (Chat, Bildanalyse, Bildgenerierung, Texterkennung, Spracherkennung,
-Text-to-Speech, Übersetzung, ...) zeigt alle passenden Anbieter mit eigenem Modellfeld.
+Text-to-Speech, Übersetzung, ...) zeigt alle passenden Anbieter mit eigenem Modellfeld, in einer
+Reihenfolge, die sich mit den Pfeilen ändern lässt.
 
-- **Erste Wahl**: der Stern direkt am Anbieter, bei Text-to-Speech legt er zusätzlich die
-  Standardstimme fest.
-- **Rückfall**: springt ein, wenn die erste Wahl nicht antwortet oder ablehnt. Bei Text-to-Speech
-  wechselt die Stimme dabei nie innerhalb eines laufenden Auftrags.
-- Läuft der erste Anbieter beim LLM voll, weicht ein Aufruf von selbst auf den nächsten mit Modell
-  aus. Bilder und Stimmen weichen nie aus.
+- **Standard**: der oberste Anbieter mit eingetragenem Modell. Bei Text-to-Speech legt er
+  zusätzlich die Standardstimme fest.
+- **Der Nächste springt ein**, wenn der Standard nicht antwortet, ablehnt oder beim LLM voll ist,
+  danach der Übernächste. Bilder weichen bei vollem Anbieter nicht aus. Bei Text-to-Speech
+  übernimmt nur der Zweite, und zwar beim Start für den ganzen Auftrag, die Stimme wechselt nie
+  mittendrin.
+- Wird ein Anbieter abgeschaltet oder gelöscht, rückt der nächste in der Reihenfolge auf.
 - Bei einigen Funktionen wählt die Person den Anbieter selbst im Dienst, bei Podcast,
-  Präsentation und Report ebenso, der Stern ist dort nur die Vorgabe.
+  Präsentation und Report ebenso, der Standard ist dort nur die Vorgabe, die Liste folgt der
+  Reihenfolge.
 - Je Zeile ein Test der aktuellen Auswahl. Jede Änderung gilt sofort für alle, eine Vorschau oder
   einen Testbetrieb gibt es nicht.
