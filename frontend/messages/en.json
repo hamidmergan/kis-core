@@ -1547,7 +1547,8 @@
         "blankHeading": "Your own script",
         "blankIntro": "Add contributions, pick who speaks and type the text. The voicing only happens once you are happy.",
         "blankEmpty": "No contribution yet. Add the first one.",
-        "emptyLine": "Nothing written yet"
+        "emptyLine": "Nothing written yet",
+        "retry": "Try again"
       },
       "voicing": {
         "heading": "Voicing",

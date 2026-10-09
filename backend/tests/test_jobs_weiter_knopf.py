@@ -93,3 +93,15 @@ def test_eine_zusammenfassung_ohne_angaben_wird_abgelehnt(umgebung, monkeypatch)
     with pytest.raises(HTTPException) as fehler:
         route.retry_job("j", current_user={"user_id": 1}, locale="de")
     assert fehler.value.status_code == 400
+
+
+@pytest.mark.parametrize("tool", ["podcast", "praesentation"])
+def test_ein_gescheitertes_skript_laeuft_wieder_an(umgebung, monkeypatch, tool):
+    """09.10.: zwei Podcasts scheiterten am vollen Anbieter beim Skript, die Seite hatte keinen Knopf."""
+    _, _, gestartet = umgebung
+    db = _Db(_job(tool, status="failed"))
+    monkeypatch.setattr(route, "db", db)
+
+    assert route.retry_job("j", current_user={"user_id": 1}, locale="de") == {"ok": True}
+    assert db.job["status"] == "running"
+    assert gestartet == [("resume", tool)]

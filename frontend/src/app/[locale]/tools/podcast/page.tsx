@@ -22,7 +22,7 @@ import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
-import { cancelJob, demoAvailable, fetchJob, fetchPodcast, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
+import { cancelJob, demoAvailable, fetchJob, fetchPodcast, retryJob, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
 import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
@@ -232,6 +232,21 @@ function PodcastPageInner() {
     }
   };
 
+  /** A script that failed is written again on the same job, with its material and settings. */
+  const skriptNeu = async () => {
+    const uuid = state.jobUuid;
+    if (!uuid) return;
+    try {
+      await retryJob(uuid);
+      // The old provider message would otherwise stay above the new script.
+      dispatch({ type: "RESTORE", state: { error: "" } });
+      dispatch({ type: "JOB", status: "running", progress: { step: "script" }, error: null });
+      notifyJobsChanged();
+    } catch (e) {
+      dispatch({ type: "FAIL", error: e instanceof Error ? e.message : tCommon("unknownError") });
+    }
+  };
+
   /** Back from the cast: without a job this starts one, with a job it only recasts. */
   const besetzungWeiter = async () => {
     const uuid = stateRef.current.jobUuid;
@@ -373,6 +388,7 @@ function PodcastPageInner() {
                 onBack={() => dispatch({ type: "GO", step: "cast" })}
                 onVoice={vertonen}
                 onToDone={() => dispatch({ type: "GO", step: "done" })}
+                onRetry={state.jobStatus === "failed" || state.jobStatus === "paused" ? skriptNeu : null}
                 allDone={state.jobStatus === "success"}
                 selfWritten={ohneKi(state)}
                 instructionUnmatched={state.instructionUnmatched}

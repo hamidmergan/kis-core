@@ -1547,7 +1547,8 @@
         "blankHeading": "Eigenes Skript",
         "blankIntro": "Leg Beiträge an, wähle die sprechende Person und tippe den Text. Vertont wird erst, wenn du zufrieden bist.",
         "blankEmpty": "Noch kein Beitrag. Leg den ersten an.",
-        "emptyLine": "Noch nichts geschrieben"
+        "emptyLine": "Noch nichts geschrieben",
+        "retry": "Erneut versuchen"
       },
       "voicing": {
         "heading": "Vertonung",

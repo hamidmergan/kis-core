@@ -41,6 +41,8 @@ interface ScriptStepProps {
   onBack: (() => void) | null;
   onVoice: () => void;
   onToDone: () => void;
+  /** Writes a failed script again, null while there is nothing to retry. */
+  onRetry: (() => void) | null;
   /** The prepared demo run, its script can be read but not changed. */
   demo?: boolean;
 }
@@ -48,7 +50,7 @@ interface ScriptStepProps {
 export default function ScriptStep(props: ScriptStepProps) {
   const { lines, draft, draftParts, persons, count, voicedIds, busy, error, allDone, selfWritten,
           instructionUnmatched,
-          onUpdate, onSpeaker, onDelete, onAdd, onBack, onVoice, onToDone, demo = false } = props;
+          onUpdate, onSpeaker, onDelete, onAdd, onBack, onVoice, onToDone, onRetry, demo = false } = props;
   const t = useTranslations("tools.podcast.script");
   const tDemo = useTranslations("tools.podcastDemo");
   const tCast = useTranslations("tools.podcast.cast");
@@ -115,7 +117,14 @@ export default function ScriptStep(props: ScriptStepProps) {
             </button>
           </>
         ) : (
-          <p className="text-sm text-error">{error || t("generating")}</p>
+          <>
+            <p className="text-sm text-error">{error || t("generating")}</p>
+            {onRetry && (
+              <button type="button" onClick={onRetry} className="mt-4 px-4 py-2 text-sm btn-primary rounded-lg">
+                {t("retry")}
+              </button>
+            )}
+          </>
         )}
       </section>
     );

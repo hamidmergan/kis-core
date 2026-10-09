@@ -102,6 +102,12 @@ export async function startRender(jobUuid: string): Promise<void> {
   if (!res.ok) throw new Error(await fehlerText(res));
 }
 
+/** Starts a failed or paused job again where it stopped, the script step included. */
+export async function retryJob(jobUuid: string): Promise<void> {
+  const res = await fetch(`/api/jobs/${jobUuid}/retry`, { method: "POST", credentials: "include" });
+  if (!res.ok) throw new Error(await fehlerText(res));
+}
+
 export async function cancelJob(jobUuid: string): Promise<void> {
   await fetch(`/api/jobs/${jobUuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
 }

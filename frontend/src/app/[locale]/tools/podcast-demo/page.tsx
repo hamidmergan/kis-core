@@ -163,7 +163,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
                 onUpdate={keineAktion} onSpeaker={keineAktion}
                 onDelete={keineAktion} onAdd={keineAktion}
                 onBack={() => dispatch({ type: "GO", step: "cast" })}
-                onVoice={vertonen} onToDone={() => dispatch({ type: "GO", step: "done" })} demo />
+                onVoice={vertonen} onToDone={() => dispatch({ type: "GO", step: "done" })} onRetry={null} demo />
             )}
             {state.step === "voicing" && (
               <VoicingStep jobUuid={DEMO_JOB} lines={state.lines} persons={state.persons} voicedIds={state.voicedIds}
