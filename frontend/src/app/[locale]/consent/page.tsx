@@ -108,9 +108,9 @@ export default function ConsentPage() {
       <div className="flex-1 flex items-center justify-center px-4">
         {step === "loading" && <Spinner size="lg" />}
         {step !== "loading" && (
-          <div className="max-w-md w-full space-y-5">
-            <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
-            <p className="text-sm leading-relaxed text-foreground-soft">
+          <div className="max-w-lg w-full space-y-6">
+            <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
+            <p className="text-base leading-relaxed text-foreground-soft">
               {t.rich("body", {
                 link: (chunks) => (
                   <Link href="/privacy" className="text-kb hover:underline">
@@ -119,19 +119,19 @@ export default function ConsentPage() {
                 ),
               })}
             </p>
-            <p className="text-xs leading-relaxed text-muted-soft">{t("dataProtection")}</p>
+            <p className="text-sm leading-relaxed text-muted-soft">{t("dataProtection")}</p>
             <Checkbox
               checked={read}
               onChange={setRead}
               label={t("checkbox")}
-              labelClassName="whitespace-normal! text-sm text-foreground text-left"
+              labelClassName="whitespace-normal! text-base text-foreground text-left"
               className="items-start!"
             />
             <button
               type="button"
               onClick={() => void accept()}
               disabled={!read || busy}
-              className="px-4 py-2 text-sm font-medium rounded-md btn-primary disabled:opacity-50"
+              className="px-5 py-2.5 text-base font-medium rounded-md btn-primary disabled:opacity-50"
             >
               {t("cta")}
             </button>
