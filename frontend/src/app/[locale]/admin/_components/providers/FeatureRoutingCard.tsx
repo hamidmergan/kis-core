@@ -341,7 +341,11 @@ function FeatureRow({
                     key={models[String(primary.id)] ?? ""}
                     type="text"
                     defaultValue={models[String(primary.id)] ?? ""}
-                    onBlur={(e) => onChangeProviderModel(primary.id, e.target.value.trim() || null)}
+                    onBlur={(e) => {
+                      const wert = e.target.value.trim();
+                      // Only a real change saves, a mere click elsewhere must not send a request.
+                      if (wert !== (models[String(primary.id)] ?? "")) onChangeProviderModel(primary.id, wert || null);
+                    }}
                     placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                     spellCheck={false}
                     className="flex-1 sm:flex-none sm:w-45 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
@@ -395,7 +399,11 @@ function FeatureRow({
                       key={`${p.id}-${modelVal}`}
                       type="text"
                       defaultValue={modelVal}
-                      onBlur={(e) => onChangeProviderModel(p.id, e.target.value.trim() || null)}
+                      onBlur={(e) => {
+                        const wert = e.target.value.trim();
+                        // Only a real change saves, a mere click on an arrow must not send a second request.
+                        if (wert !== modelVal) onChangeProviderModel(p.id, wert || null);
+                      }}
                       placeholder={p.protocol === "openai_compat" ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                       spellCheck={false}
                       className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
