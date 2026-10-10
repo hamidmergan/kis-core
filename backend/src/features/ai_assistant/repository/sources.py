@@ -83,11 +83,16 @@ def get_aia_source_by_id(source_id: int) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
+
+# Manually placed rows follow the unplaced ones, which stay newest first.
+SOURCE_LIST_ORDER = "position ASC NULLS FIRST, created_at DESC, id DESC"
+
+
 def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM aia_sources WHERE workspace_id = %s ORDER BY created_at DESC",
+                f"SELECT * FROM aia_sources WHERE workspace_id = %s ORDER BY {SOURCE_LIST_ORDER}",
                 (workspace_id,),
             )
             rows = cur.fetchall()

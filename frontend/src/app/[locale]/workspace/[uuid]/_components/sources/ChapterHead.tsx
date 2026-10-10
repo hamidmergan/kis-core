@@ -11,6 +11,7 @@ import type { Chapter } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { MenuItem } from "./SourceRow";
 import { GroupCheckbox } from "./GroupCheckbox";
+import { MoveArrows } from "./MoveArrows";
 
 /** Header of a chapter, the checkbox only sets the checkboxes of the files in it. */
 export function ChapterHead({
@@ -33,6 +34,7 @@ export function ChapterHead({
   onRename,
   onMove,
   onDelete,
+  arranging,
 }: {
   chapter: Chapter;
   count: number;
@@ -54,6 +56,8 @@ export function ChapterHead({
   onRename: (uuid: string, name: string) => Promise<void>;
   onMove: (uuid: string, direction: "up" | "down") => void;
   onDelete: (chapter: Chapter) => void;
+  /** Ordering mode, the arrows take the place of the menu. */
+  arranging?: boolean;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [value, setValue] = useState(chapter.name);
@@ -157,7 +161,11 @@ export function ChapterHead({
         </span>
       </button>
 
-      <OwnerOnly show={isOwner && !compact}>
+      <OwnerOnly show={isOwner && !compact && !!arranging}>
+        <MoveArrows isFirst={isFirst} isLast={isLast} onMove={(d) => onMove(chapter.uuid, d)} />
+      </OwnerOnly>
+
+      <OwnerOnly show={isOwner && !compact && !arranging}>
         <div className="relative flex-shrink-0">
           <button
             type="button"

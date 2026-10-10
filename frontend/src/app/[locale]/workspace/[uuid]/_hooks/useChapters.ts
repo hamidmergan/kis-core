@@ -10,7 +10,7 @@ interface UseChaptersOptions {
   setSources: (updater: (prev: Source[]) => Source[]) => void;
 }
 
-/** Create, rename, move and delete chapters, assign files, fold and unfold. */
+/** Create, rename, move and delete chapters, assign and order files, fold and unfold. */
 export function useChapters({ uuid, setSources }: UseChaptersOptions) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [closedChapters, setClosedChapters] = useState<string[]>([]);
@@ -93,6 +93,27 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
+  // Sorts the files by the server's order, rows it does not know yet stay on top.
+  const applyOrder = useCallback((order: unknown) => {
+    if (!Array.isArray(order)) return;
+    const rank = new Map(order.map((id, i) => [id, i]));
+    setSources((prev) => [...prev].sort((a, b) => (rank.get(a.uuid) ?? -1) - (rank.get(b.uuid) ?? -1)));
+  }, [setSources]);
+
+  const moveSource = useCallback(async (sourceUuid: string, direction: "up" | "down") => {
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${sourceUuid}/move`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      applyOrder(data?.order);
+    } catch { /* ignore */ }
+  }, [uuid, applyOrder]);
+
   const setSourceChapter = useCallback(async (sourceUuid: string, chapterUuid: string | null) => {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${sourceUuid}/chapter`, {
@@ -105,12 +126,14 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
       setSources((prev) =>
         prev.map((s) => (s.uuid === sourceUuid ? { ...s, chapter_uuid: chapterUuid } : s))
       );
+      const data = await res.json().catch(() => null);
+      applyOrder(data?.order);
     } catch { /* ignore */ }
-  }, [uuid, setSources]);
+  }, [uuid, setSources, applyOrder]);
 
   return {
     chapters, setChapters,
     closedChapters, toggleChapterOpen, openChapter,
-    createChapter, renameChapter, deleteChapter, moveChapter, setSourceChapter,
+    createChapter, renameChapter, deleteChapter, moveChapter, setSourceChapter, moveSource,
   };
 }

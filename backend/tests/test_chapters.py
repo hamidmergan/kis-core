@@ -144,7 +144,48 @@ def test_zuordnen_ohne_kapitel_setzt_null(datenbank):
 
     repo.set_aia_source_chapter("q1", None)
 
-    assert zustand["calls"][0][1] == (None, "q1")
+    assert zustand["calls"][0][1] == (None, None, "q1")
+
+
+def test_zuordnen_in_ein_neues_kapitel_setzt_die_quelle_nach_oben(datenbank):
+    """A changed chapter drops the manual slot, so the file lands on top."""
+    zustand = datenbank([[]])
+
+    repo.set_aia_source_chapter("q1", 4)
+
+    sql = zustand["calls"][0][0]
+    assert "chapter_id IS DISTINCT FROM %s THEN NULL" in sql
+
+
+def test_quelle_verschieben_nummeriert_die_ganze_gruppe(datenbank):
+    # SELECT Quelle, SELECT Gruppe, UPDATE Positionen
+    zustand = datenbank([[(5, 7, 3)], [(8,), (5,), (2,)], []])
+
+    assert repo.move_aia_source("q1", "up") is True
+
+    gruppe = zustand["calls"][1]
+    assert "chapter_id IS NOT DISTINCT FROM %s" in gruppe[0]
+    assert gruppe[1] == (7, 3)
+    update = zustand["calls"][2]
+    assert update[0].startswith("UPDATE aia_sources SET position")
+    assert update[1] == ([5, 8, 2], [5, 8, 2])
+    assert zustand["conn"].committed
+
+
+def test_quelle_verschieben_am_rand_macht_nichts(datenbank):
+    zustand = datenbank([[(5, 7, None)], [(8,), (5,)], []])
+
+    assert repo.move_aia_source("q1", "down") is False
+
+    assert not [c for c in zustand["calls"] if c[0].startswith("UPDATE")]
+
+
+def test_quelle_verschieben_mit_unsinniger_richtung_ruehrt_die_datenbank_nicht_an(datenbank):
+    zustand = datenbank([])
+
+    assert repo.move_aia_source("q1", "seitwaerts") is False
+
+    assert zustand["calls"] == []
 
 
 # ─── Routen ──────────────────────────────────────────────────────────────────
@@ -169,7 +210,7 @@ def _route_vorbereiten(monkeypatch, vorhandene=(), anzahl=0, fremd=False):
         lambda u: {"id": 1, "uuid": u, "name": "K", "position": 0,
                    "workspace_id": 99 if fremd else 7},
     )
-    gerufen = {"create": [], "rename": [], "delete": [], "move": [], "assign": []}
+    gerufen = {"create": [], "rename": [], "delete": [], "move": [], "assign": [], "move_source": []}
     monkeypatch.setattr(
         _chapters.db, "create_aia_chapter",
         lambda ws_id, u, n: gerufen["create"].append((ws_id, n))
@@ -179,6 +220,11 @@ def _route_vorbereiten(monkeypatch, vorhandene=(), anzahl=0, fremd=False):
     monkeypatch.setattr(_chapters.db, "delete_aia_chapter", lambda u: gerufen["delete"].append(u))
     monkeypatch.setattr(_chapters.db, "move_aia_chapter", lambda u, d: gerufen["move"].append((u, d)))
     monkeypatch.setattr(_chapters.db, "set_aia_source_chapter", lambda u, cid: gerufen["assign"].append((u, cid)))
+    monkeypatch.setattr(_chapters.db, "move_aia_source", lambda u, d: gerufen["move_source"].append((u, d)))
+    monkeypatch.setattr(
+        _chapters.db, "get_aia_sources_by_workspace",
+        lambda ws_id: [{"uuid": "q2"}, {"uuid": "q1"}],
+    )
     return gerufen
 
 
@@ -308,7 +354,7 @@ def test_zuordnen_setzt_die_interne_id_des_kapitels(monkeypatch):
     )
 
     assert gerufen["assign"] == [("q1", 1)]
-    assert antwort == {"uuid": "q1", "chapter_uuid": "k1"}
+    assert antwort == {"uuid": "q1", "chapter_uuid": "k1", "order": ["q2", "q1"]}
 
 
 def test_zuordnen_ohne_kapitel_loest_die_zuordnung(monkeypatch):
@@ -336,3 +382,30 @@ def test_zuordnen_in_ein_fremdes_kapitel_geht_nicht(monkeypatch):
 
     assert fehler.value.status_code == 404
     assert gerufen["assign"] == []
+
+
+def test_quelle_verschieben_gibt_die_neue_reihenfolge_zurueck(monkeypatch):
+    gerufen = _route_vorbereiten(monkeypatch)
+
+    antwort = _chapters.move_source(
+        workspace_uuid="w1", source_uuid="q1",
+        body=_chapters.MoveChapterBody(direction="up"),
+        current_user={"user_id": 42}, locale="de",
+    )
+
+    assert gerufen["move_source"] == [("q1", "up")]
+    assert antwort == {"order": ["q2", "q1"]}
+
+
+def test_quelle_verschieben_lehnt_eine_unsinnige_richtung_ab(monkeypatch):
+    gerufen = _route_vorbereiten(monkeypatch)
+
+    with pytest.raises(HTTPException) as fehler:
+        _chapters.move_source(
+            workspace_uuid="w1", source_uuid="q1",
+            body=_chapters.MoveChapterBody(direction="seitwaerts"),
+            current_user={"user_id": 42}, locale="de",
+        )
+
+    assert fehler.value.status_code == 400
+    assert gerufen["move_source"] == []

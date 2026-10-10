@@ -3,6 +3,7 @@
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
+from src.features.ai_assistant.repository.sources import SOURCE_LIST_ORDER
 
 
 def get_aia_chapters_by_workspace(workspace_id: int) -> list[dict]:
@@ -117,14 +118,53 @@ def move_aia_chapter(uuid: str, direction: str) -> bool:
 
 
 def set_aia_source_chapter(source_uuid: str, chapter_id: int | None) -> None:
-    """Assign a source to a chapter, ``None`` means no chapter."""
+    """Assign a source to a chapter, ``None`` means no chapter, a new chapter puts it on top."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE aia_sources SET chapter_id = %s WHERE uuid = %s",
-                (chapter_id, source_uuid),
+                """UPDATE aia_sources
+                   SET position = CASE WHEN chapter_id IS DISTINCT FROM %s THEN NULL ELSE position END,
+                       chapter_id = %s
+                   WHERE uuid = %s""",
+                (chapter_id, chapter_id, source_uuid),
             )
         conn.commit()
+
+
+def move_aia_source(uuid: str, direction: str) -> bool:
+    """Move a source by one slot within its chapter, returns False at the edge."""
+    if direction not in ("up", "down"):
+        return False
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, workspace_id, chapter_id FROM aia_sources WHERE uuid = %s",
+                (uuid,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            source_id, workspace_id, chapter_id = row
+            cur.execute(
+                f"""SELECT id FROM aia_sources
+                    WHERE workspace_id = %s AND chapter_id IS NOT DISTINCT FROM %s
+                    ORDER BY {SOURCE_LIST_ORDER}""",
+                (workspace_id, chapter_id),
+            )
+            ids = [r[0] for r in cur.fetchall()]
+            i = ids.index(source_id)
+            j = i - 1 if direction == "up" else i + 1
+            if j < 0 or j >= len(ids):
+                return False
+            ids[i], ids[j] = ids[j], ids[i]
+            # The whole group gets numbers, unplaced rows would otherwise jump back on top.
+            cur.execute(
+                """UPDATE aia_sources SET position = array_position(%s::int[], id) - 1
+                   WHERE id = ANY(%s::int[])""",
+                (ids, ids),
+            )
+        conn.commit()
+    return True
 
 
 def _renumber(cur, workspace_id: int) -> None:

@@ -1,4 +1,4 @@
-"""Create, rename, move and delete chapters, pure structure."""
+"""Create, rename, move and delete chapters and order the sources in them, pure structure."""
 
 import uuid as uuid_lib
 
@@ -166,4 +166,30 @@ def set_source_chapter(
         chapter = _load_workspace_chapter(body.chapter_uuid, workspace, locale)
         chapter_id = chapter["id"]
     db.set_aia_source_chapter(source_uuid, chapter_id)
-    return {"uuid": source_uuid, "chapter_uuid": body.chapter_uuid or None}
+    return {
+        "uuid": source_uuid,
+        "chapter_uuid": body.chapter_uuid or None,
+        "order": _source_order(workspace["id"]),
+    }
+
+
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/move")
+def move_source(
+    workspace_uuid: str,
+    source_uuid: str,
+    body: MoveChapterBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Move a source one slot up or down within its chapter."""
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
+    _load_workspace_source(source_uuid, workspace, locale)
+    if body.direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail=t("ai.chapter.badDirection", locale))
+    db.move_aia_source(source_uuid, body.direction)
+    return {"order": _source_order(workspace["id"])}
+
+
+def _source_order(workspace_id: int) -> list[str]:
+    """Uuids of all sources in list order, the interface sorts by it."""
+    return [s["uuid"] for s in db.get_aia_sources_by_workspace(workspace_id)]

@@ -17,11 +17,13 @@ import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { splitFilename, _isMediaFile } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
+import { MoveArrows } from "./MoveArrows";
 
 /** One row of the source list, the panel drives the renaming. */
 export function SourceRow({
   src,
   checked,
+  hideCheck,
   selectAny,
   isOwner,
   ocrEnabled,
@@ -45,9 +47,15 @@ export function SourceRow({
   onSummarize,
   onMoveToChapter,
   onShowSummary,
+  arranging,
+  isFirst,
+  isLast,
+  onMove,
 }: {
   src: Source;
   checked: boolean;
+  /** Ordering without chapters has nothing to pick. */
+  hideCheck?: boolean;
   /** Moving picks files that are still being read in too. */
   selectAny?: boolean;
   isOwner: boolean;
@@ -77,6 +85,12 @@ export function SourceRow({
   onSummarize?: (uuid: string) => void;
   onMoveToChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
   onShowSummary?: (source: Source) => void;
+  /** Ordering mode, the arrows take the place of the row's buttons. */
+  arranging?: boolean;
+  /** Position within the chapter, the ends grey out. */
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMove?: (sourceUuid: string, direction: "up" | "down") => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [renameValue, setRenameValue] = useState("");
@@ -140,7 +154,7 @@ export function SourceRow({
       className="group relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
       style={{ borderBottom: "1px solid var(--border)" }}
     >
-      <div className={`flex-shrink-0 py-2.5 ${nested ? "pl-7" : "pl-4"}`}>
+      <div className={`flex-shrink-0 py-2.5 ${nested ? "pl-7" : "pl-4"} ${hideCheck ? "invisible" : ""}`}>
         <button
           type="button"
           data-tour="source-check"
@@ -227,7 +241,11 @@ export function SourceRow({
         </div>
       )}
 
-      {!compact && (
+      {!compact && arranging && onMove && (
+        <MoveArrows isFirst={!!isFirst} isLast={!!isLast} onMove={(d) => onMove(src.uuid, d)} />
+      )}
+
+      {!compact && !arranging && (
         <>
           {src.has_summary && onShowSummary && (
             <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">

@@ -99,6 +99,7 @@ export default function KiTutorWorkspacePage() {
     deleteChapter: handleDeleteChapter,
     moveChapter: handleMoveChapter,
     setSourceChapter: handleSetSourceChapter,
+    moveSource: handleMoveSource,
   } = useChapters({ uuid, setSources });
 
   // The course room is the one truth, the structure comes along every time.
@@ -598,6 +599,7 @@ export default function KiTutorWorkspacePage() {
         onDeleteChapter={handleDeleteChapter}
         onMoveChapter={handleMoveChapter}
         onSetSourceChapter={handleSetSourceChapter}
+        onMoveSource={handleMoveSource}
         closedChapters={closedChapters}
         onToggleChapterOpen={toggleChapterOpen}
         {...(hh ? { hideHeader: true } : {})}

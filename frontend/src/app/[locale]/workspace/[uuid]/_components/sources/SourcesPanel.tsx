@@ -57,6 +57,7 @@ export function SourcesPanel({
   onDeleteChapter,
   onMoveChapter,
   onSetSourceChapter,
+  onMoveSource,
   closedChapters,
   onToggleChapterOpen,
 }: {
@@ -98,6 +99,8 @@ export function SourcesPanel({
   onDeleteChapter?: (uuid: string) => void;
   onMoveChapter?: (uuid: string, direction: "up" | "down") => void;
   onSetSourceChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
+  /** Moves a file one slot within its chapter. */
+  onMoveSource?: (sourceUuid: string, direction: "up" | "down") => void;
   /** Folded chapters, kept by the page so the tour can unfold one. */
   closedChapters: string[];
   onToggleChapterOpen: (chapterUuid: string) => void;
@@ -200,10 +203,12 @@ export function SourcesPanel({
   }
 
   const canMove = isOwner && !!onSetSourceChapter && chapterList.length > 0;
-  // A mode without anything to move to ends by itself.
+  // The pen orders chapters and files, moving into chapters only exists with chapters.
+  const canArrange = isOwner && (canMove || !!onMoveSource);
+  // A mode without anything to do ends by itself.
   useEffect(() => {
-    if (moving && !canMove) stopMoving();
-  }, [moving, canMove]);
+    if (moving && !canArrange) stopMoving();
+  }, [moving, canArrange]);
   const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
 
   const toggleGroup = (list: Source[]) =>
@@ -226,12 +231,15 @@ export function SourcesPanel({
     }
   }
 
-  function renderRow(src: Source, nested: boolean) {
+  // The position counts within the file's own group, not the whole list.
+  function renderRow(src: Source, nested: boolean, group: Source[]) {
+    const index = group.indexOf(src);
     return (
       <SourceRow
         key={src.uuid}
         src={src}
         checked={picked.includes(src.uuid)}
+        hideCheck={moving && !canMove}
         selectAny={moving}
         isOwner={isOwner}
         ocrEnabled={ocrEnabled}
@@ -255,6 +263,10 @@ export function SourcesPanel({
         onSummarize={onSummarizeSource}
         onMoveToChapter={onSetSourceChapter}
         onShowSummary={setSummarySource}
+        arranging={moving}
+        isFirst={index === 0}
+        isLast={index === group.length - 1}
+        onMove={isOwner ? onMoveSource : undefined}
       />
     );
   }
@@ -455,7 +467,7 @@ export function SourcesPanel({
           zeigt die Zeile in Hausblau, dass jetzt fuers Verschieben gewaehlt wird. */}
       {sources.length > 0 && (
         <div
-          onClick={toggleAll}
+          onClick={moving && !canMove ? undefined : toggleAll}
           data-testid={moving ? "move-bar" : undefined}
           className="sources-select-all flex items-center gap-3 px-4 py-2 flex-shrink-0 cursor-pointer"
           style={moving
@@ -465,7 +477,7 @@ export function SourcesPanel({
           <button
             type="button"
             aria-label={allSelected ? t("deselectAll") : t("selectAll")}
-            className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+            className={`${moving && !canMove ? "invisible" : ""} flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
               allSelected
                 ? "border-[var(--kb)] bg-[var(--kb)]"
                 : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
@@ -478,13 +490,13 @@ export function SourcesPanel({
             className={`flex-1 min-w-0 truncate text-sm ${moving ? "font-medium" : ""}`}
             style={moving ? { color: "var(--kb)" } : undefined}
           >
-            {moving ? t("moveModeHint") : t("selectAll")}
+            {moving ? (canMove ? t("moveModeHint") : t("arrangeModeHint")) : t("selectAll")}
           </span>
-          <OwnerOnly show={canMove}>
+          <OwnerOnly show={canArrange}>
             <div className="relative flex-shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
               {moving ? (
                 <>
-                  <button
+                  {canMove && <button
                     type="button"
                     data-testid="move-checked"
                     disabled={checkedSources.length === 0}
@@ -493,7 +505,7 @@ export function SourcesPanel({
                   >
                     <FolderSimple size={13} weight="bold" />
                     {compact ? checkedSources.length : t("moveChecked", { count: checkedSources.length })}
-                  </button>
+                  </button>}
                   <IconButton
                     data-testid="move-cancel"
                     onClick={stopMoving}
@@ -507,8 +519,8 @@ export function SourcesPanel({
                 <IconButton
                   data-testid="move-mode"
                   onClick={startMoving}
-                  title={t("moveModeStart")}
-                  aria-label={t("moveModeStart")}
+                  title={canMove ? t("moveModeStart") : t("arrangeModeStart")}
+                  aria-label={canMove ? t("moveModeStart") : t("arrangeModeStart")}
                   className="text-[var(--kb)]"
                   style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
                 >
@@ -621,6 +633,7 @@ export function SourcesPanel({
                     onRename={onRenameChapter ?? (async () => {})}
                     onMove={onMoveChapter ?? (() => {})}
                     onDelete={setDeleteChapterTarget}
+                    arranging={moving}
                   />
                   {open && mine.length === 0 && (
                     <p
@@ -630,7 +643,7 @@ export function SourcesPanel({
                       {t("chapterEmpty")}
                     </p>
                   )}
-                  {open && mine.map((src) => renderRow(src, true))}
+                  {open && mine.map((src) => renderRow(src, true, mine))}
                 </div>
               );
             })}
@@ -656,7 +669,7 @@ export function SourcesPanel({
                 </span>
               </div>
             )}
-            {loose.map((src) => renderRow(src, chapterList.length > 0))}
+            {loose.map((src) => renderRow(src, chapterList.length > 0, loose))}
           </>
         )}
       </div>

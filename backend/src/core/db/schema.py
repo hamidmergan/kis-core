@@ -1108,6 +1108,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS chapter_id INTEGER
                     REFERENCES aia_chapters(id) ON DELETE SET NULL
             """)
+            # Manual order within a chapter, NULL keeps the newest on top.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS position INTEGER
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,
