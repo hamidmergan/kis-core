@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { UploadSimple } from "@phosphor-icons/react";
+import { Info, UploadSimple } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
-import HelpTooltip from "@/components/ui/HelpTooltip";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import { TextSourceArea } from "./TextSourceArea";
@@ -302,8 +301,6 @@ export function AddMaterialModal({
         <div>
           <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
             <span>{t("youtubeHeading")}</span>
-            {/* Says why the transcript is typed in by hand instead of fetched. */}
-            <HelpTooltip text={t("youtubeWhyHelp")} />
           </div>
           <form
             onSubmit={(e) => { e.preventDefault(); void submitYoutube(); }}
@@ -333,6 +330,11 @@ export function AddMaterialModal({
               style={fieldStyle()}
             />
             <CollapsibleCard title={t("youtubeHowTitle")}>
+              {/* Says why the transcript is typed in by hand instead of fetched. */}
+              <p className="mb-3 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+                <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+                {t("youtubeWhyHelp")}
+              </p>
               <ol className="list-decimal pl-5 text-sm space-y-1" style={{ color: "var(--foreground-soft)" }}>
                 <li>{t("youtubeHow1")}</li>
                 <li>{t("youtubeHow2")}</li>
