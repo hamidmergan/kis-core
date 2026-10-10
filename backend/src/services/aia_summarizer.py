@@ -14,6 +14,7 @@ from src.features.ai_assistant.prompts.summarizer_prompts import (
     aia_summary_combine_system,
     aia_summary_combine_user,
 )
+from src.services.text_language import language_name
 
 # Signs of a refusal due to overload, deliberately via the text.
 _RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
@@ -121,11 +122,13 @@ def build_source_summary(
     if not batches:
         return ""
 
+    # Read once from the whole source, a model guessing per batch drifts to English.
+    language = language_name("\n\n".join("\n\n".join(b) for b in batches))
     partials: list[str] = []
     for i, batch in enumerate(batches, 1):
         text = "\n\n".join(batch)
         partial = _call(
-            client, model, aia_summary_system(), aia_summary_user(text), retries=retries
+            client, model, aia_summary_system(language), aia_summary_user(text), retries=retries
         )
         partials.append(partial)
         logger.info(
@@ -138,7 +141,7 @@ def build_source_summary(
 
     combined = _call(
         client, model,
-        aia_summary_combine_system(),
+        aia_summary_combine_system(language),
         aia_summary_combine_user(partials),
         retries=retries,
         temperature=0.2,  # faithful merge: don't invent section-number attributions
