@@ -94,12 +94,21 @@ function buildSegmentRects(g: any, a: number, b: number): { segmentRects: any[];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
   const cur = refs.citationHighlightRef?.current;
-  if (!cur) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anno = (reg as any)?.getPlugin?.("annotation")?.provides?.();
-  for (const id of cur.ids) {
-    try { anno?.purgeAnnotation?.(cur.pageIndex, id); } catch { /* ignore */ }
+  for (const id of cur?.ids ?? []) {
+    try { anno?.purgeAnnotation?.(cur!.pageIndex, id); } catch { /* ignore */ }
   }
+  // Sweep for orphans our bookkeeping lost (a reset ref or a racing draw leaves a marker nobody tracks).
+  try {
+    const pages = anno?.getState?.()?.pages as Record<number, string[]> | undefined;
+    for (const [pi, uids] of Object.entries(pages ?? {})) {
+      for (const uid of [...uids]) {
+        if (uid.startsWith("kis-cite-") || uid.startsWith("kis-pageborder-")) anno.purgeAnnotation(Number(pi), uid);
+      }
+    }
+  } catch { /* ignore */ }
+  if (!cur) return;
   refs.citationHighlightRef.current = null;
   refs.onHighlightActive?.(false);
 }
