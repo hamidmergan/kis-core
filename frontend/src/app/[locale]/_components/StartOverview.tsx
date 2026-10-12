@@ -77,13 +77,13 @@ export default function StartOverview({
             <div className="sm:col-span-2">
               <Greeting firstName={firstName} />
             </div>
-            {/* Right after the greeting in the source so the invite tops the single column on a phone, wide screens move it below the tiles. */}
-            <div className="flex flex-col md:flex-row gap-4 empty:hidden sm:col-span-2 lg:col-span-3 sm:order-last sm:mt-4">
+            {/* Right after the greeting, above the tiles on every screen size. */}
+            <div className="flex flex-col md:flex-row gap-4 empty:hidden sm:col-span-2 lg:col-span-3 lg:row-start-2">
               <EvaluationInvite />
             </div>
             {/* Before the assistant in the source so it follows on a phone, the grid keeps it in the third column on wide screens. */}
             {stamp && (
-              <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
+              <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-3">
                 <h2 className={headingClass}>{t("groups.event")}</h2>
                 <StartTile
                   href={stamp === "open" ? ROUTES.stamp : undefined}
@@ -96,7 +96,7 @@ export default function StartOverview({
               </section>
             )}
             {aia && (
-              <section className="flex flex-col gap-2 lg:col-start-1 lg:row-start-2">
+              <section className="flex flex-col gap-2 lg:col-start-1 lg:row-start-3">
                 <div className="flex items-center gap-2">
                   <h2 className={headingClass}>{t("groups.aia")}</h2>
                   <AudienceTags tags={audienceTags(AIA_AUDIENCE)} />
@@ -111,7 +111,7 @@ export default function StartOverview({
               </section>
             )}
             {campus && (
-              <section className="flex flex-col gap-2 lg:col-start-2 lg:row-start-2">
+              <section className="flex flex-col gap-2 lg:col-start-2 lg:row-start-3">
                 <h2 className={headingClass}>{t("groups.campus")}</h2>
                 <StartTile
                   href={campus.href}
