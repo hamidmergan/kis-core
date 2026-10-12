@@ -25,28 +25,29 @@ _SHAPE = (
     'Respond ONLY with a JSON object:\n'
     '{"title": "Short topic title", '
     '"instruction": "What the learner has to do, one or two sentences", '
-    '"text": "A coherent passage where the target words are replaced by {{1}}, {{2}}, ...", '
+    '"text": "The COMPLETE passage, fully written out with every target word in its correct '
+    'form. No placeholders, no gaps, no brackets", '
     '"page": 12, '
     '"gaps": [{"base": "the dictionary form of the word", '
-    '"solution": "the form that belongs in that gap"}]}\n'
+    '"solution": "the exact piece of the text that is the target word, copied letter for '
+    'letter"}]}\n'
 )
 
 _RULES = (
     "RULES:\n"
     "- The passage is ONE coherent text about the source content, not a list of "
     "unrelated sentences. It must read as if it came from the material.\n"
-    "- Number the placeholders {{1}}, {{2}} and so on, without gaps, in the order "
-    "they appear. The gaps array is in the same order.\n"
-    # The rule names the bracket explicitly, _strip_answer_hints clears the rest.
-    "- At each gap, the passage contains ONLY the placeholder, nothing beside it: no "
-    "parenthesis, no bracket, no hint, no base form, no translation, no synonym next to "
-    "its own gap. The chips shown below the text are the ONLY place a base form appears.\n"
+    "- The code cuts the gaps out of your text afterwards: each 'solution' must appear in "
+    "the text exactly once, spelled exactly as in the text, and the gaps array lists them "
+    "in the order they appear.\n"
+    "- Never put a base form, hint, bracket or translation next to a target word.\n"
     "- Never use the same base word twice.\n"
-    "- Never write a solution somewhere else in the passage, that gives it away.\n"
+    "- A solution is used only at its own spot, never a second time in the passage.\n"
     "- 'base' is always the plain dictionary form, that is what the learner sees.\n"
     "- The instruction must say that some words keep their form and others do not.\n"
-    "- Write the complete, natural, grammatically correct passage FIRST with every target "
-    "word in use, and only then cut the gaps out of it.\n"
+    "- Write a complete, natural, grammatically correct passage. Choose short, simple "
+    "sentences with a clear structure, a sentence you are unsure about is replaced by a "
+    "simpler one.\n"
     "- A solution is ONE unbroken piece of text that sits in its gap exactly as written. "
     "A word or phrase whose parts must stand in different places of the sentence "
     "(separable verbs, verb brackets, reflexive verbs split by the subject, verb-final "
@@ -55,18 +56,18 @@ _RULES = (
     "clause or the participle/infinitive in its final position. Otherwise choose another "
     "sentence. Never put a multi-word solution in a gap when other words of the sentence "
     "belong between its parts.\n"
-    "- Check every gap before you answer: put each solution back and reread the whole "
+    "- Before you answer, reread the whole "
     "passage for grammar, word order, verb forms, punctuation and meaning. Pay special "
     "attention to word order after connectors (because, although, that, when) and to "
     "separable verbs. If anything is wrong, rewrite the sentence and the gap first.\n"
-    "- A gap to AVOID (German): 'Obwohl sie Angst hatte, {{3}} sie schnell.' "
-    "with the solution 'machte Fortschritte', because 'sie schnell' belongs between the "
-    "parts. Contiguous alternative: 'Obwohl sie Angst hatte, wollte sie schnell {{3}}.' "
-    "with 'Fortschritte machen'.\n"
+    "- A solution to AVOID (German): 'machte Fortschritte' in 'Obwohl sie Angst hatte, "
+    "machte sie schnell Fortschritte.', because 'sie schnell' sits between the parts. "
+    "Contiguous alternative: 'Obwohl sie Angst hatte, wollte sie schnell Fortschritte "
+    "machen.' with the solution 'Fortschritte machen'.\n"
     "- A reflexive pronoun stands either inside the solution or in the text next to the "
-    "gap, never in both. A gap to AVOID (German): 'Die Zeit wird sich {{4}}.' with the "
-    "solution 'sich lohnen', because it reads 'sich sich lohnen'. Correct: 'Die Zeit "
-    "wird {{4}}.' with 'sich lohnen'.\n"
+    "gap, never in both. A solution to AVOID (German): 'sich lohnen' in 'Die Zeit wird "
+    "sich sich lohnen.' Correct: 'Die Zeit wird sich lohnen.' with the solution 'sich "
+    "lohnen'.\n"
 )
 
 
@@ -208,7 +209,37 @@ def _build_prompt(count: int, language: str, words: list[str] | None) -> str:
     return kopf + auftrag + _SHAPE + _RULES + _mix_rule(count) + PAGE_RULE
 
 
-def generate_cloze_from_source(
+def _cut_gaps(text: str, gaps: list) -> tuple[str, list]:
+    """Cuts each solution out of the finished passage and numbers the gaps by position."""
+    if not text or not isinstance(gaps, list):
+        return text, gaps
+    treffer: list[tuple[int, int, dict]] = []
+    for gap in gaps:
+        loesung = (gap.get("solution") or "").strip() if isinstance(gap, dict) else ""
+        if not loesung:
+            continue
+        muster = re.compile(r"(?<!\w)" + re.escape(loesung) + r"(?!\w)", re.IGNORECASE)
+        funde = list(muster.finditer(text))
+        # Missing or ambiguous: the spot is unclear, so the gap is dropped.
+        if len(funde) != 1:
+            continue
+        m = funde[0]
+        # Keep the spelling the text really has.
+        treffer.append((m.start(), m.end(), {**gap, "solution": m.group(0)}))
+    treffer.sort(key=lambda t: t[0])
+    teile, geordnet, pos = [], [], 0
+    for start, ende, gap in treffer:
+        if start < pos:
+            continue
+        geordnet.append(gap)
+        teile.append(text[pos:start])
+        teile.append("{{%d}}" % len(geordnet))
+        pos = ende
+    teile.append(text[pos:])
+    return "".join(teile), geordnet
+
+
+def _generate_once(
     client, model,
     ctx: QuelleContext,
     count: int,
@@ -226,7 +257,7 @@ def generate_cloze_from_source(
     ]
     try:
         response = create_logged(client, endpoint="wortschatz", model=model, messages=messages,
-                                      temperature=0.6)
+                                      temperature=0.3)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:  # noqa: BLE001
         logger.warning("KI Tutor: Lückentext nicht lesbar: {}", e)
@@ -238,6 +269,9 @@ def generate_cloze_from_source(
         logger.warning("KI Tutor: Lückentext-Antwort hatte die falsche Form")
         return None
 
+    # A finished passage without placeholders gets its gaps cut out here.
+    if not placeholders(data["text"]):
+        data["text"], data["gaps"] = _cut_gaps(data["text"], data["gaps"])
     # Remove the revealing brackets first, then count the placeholders.
     roh_text = _strip_answer_hints(data.get("text"), data.get("gaps"))
     text, gaps = clean_gaps(roh_text, data.get("gaps"), words)
@@ -269,6 +303,59 @@ def generate_cloze_from_source(
     attach_chips_cited([item], [item["back"]], ctx)
 
     return [item], title
+
+
+_PROOF_PROMPT = (
+    "You are a strict proofreader of {language}. Below is a finished passage. Check every "
+    "sentence for grammar, word order (verb position in main and subordinate clauses, "
+    "separable verbs, verb brackets), verb forms, case, reflexive pronouns (each used once, "
+    "not twice), punctuation and meaning. Be strict: a sentence that a native speaker "
+    "would not write is an error. Answer with JSON only: {{\"errors\": [\"<the faulty "
+    "sentence> - <what is wrong>\"]}}. An empty list means the passage is flawless."
+)
+
+
+def _proofread(client, model, passage: str, language: str) -> list[str]:
+    """Faulty sentences of the solved passage; empty when flawless or the check fails."""
+    try:
+        response = create_logged(
+            client, endpoint="wortschatz", model=model, temperature=0,
+            messages=[
+                {"role": "system", "content": _PROOF_PROMPT.format(language=language)},
+                {"role": "user", "content": passage},
+            ],
+        )
+        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+        errors = data.get("errors") if isinstance(data, dict) else None
+    except Exception as e:  # noqa: BLE001
+        logger.warning("KI Tutor: Lückentext-Prüfung nicht lesbar: {}", e)
+        return []
+    return [str(x) for x in errors if x] if isinstance(errors, list) else []
+
+
+_MAX_ATTEMPTS = 3
+
+
+def generate_cloze_from_source(
+    client, model,
+    ctx: QuelleContext,
+    count: int,
+    words: list[str] | None = None,
+    language: str = "German",
+    adaptive_suffix: str = "",
+    title_avoidance: str = "",
+):
+    """Write the cloze, let a second call proofread the solved text, retry on errors."""
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        result = _generate_once(client, model, ctx, count, words, language,
+                                adaptive_suffix, title_avoidance)
+        if result is None:
+            continue
+        errors = _proofread(client, model, result[0][0]["back"], language)
+        if not errors:
+            return result
+        logger.warning("KI Tutor: Lückentext Versuch {} verworfen: {}", attempt, errors[:3])
+    return None
 
 
 def usable_flashcard_set(ex_set: dict | None, workspace_id: int, user_id: int) -> bool:

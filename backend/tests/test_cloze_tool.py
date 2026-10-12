@@ -7,6 +7,7 @@ import pytest
 
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._source_cloze import (
+    _cut_gaps,
     clean_gaps,
     generate_cloze_from_source,
     placeholders,
@@ -74,7 +75,9 @@ def test_ein_set_ist_genau_eine_aufgabe(attributed):
     assert result is not None
     items, title = result
     assert len(items) == 1
-    assert len(calls) == 1, "genau ein Modellaufruf, nie zwei"
+    # One call writes the exercise, a second one only proofreads it.
+    assert len(calls) == 2
+    assert "proofreader" in calls[1][0]["content"]
     assert title == "Anlage und Filter"
 
 
@@ -324,3 +327,30 @@ def test_die_formen_mischung_nennt_die_erzwingenden_satzstellen():
     assert "grammatical case" in auftrag
     assert "does NOT count towards this number" in auftrag
     assert "must not all be the same part of speech" in auftrag
+
+
+def test_cut_gaps_schneidet_in_textreihenfolge():
+    text, gaps = _cut_gaps(
+        "Man muss sich einleben und Fortschritte machen.",
+        [{"base": "Fortschritt", "solution": "Fortschritte"},
+         {"base": "einleben", "solution": "einleben"}],
+    )
+    assert text == "Man muss sich {{1}} und {{2}} machen."
+    assert [g["solution"] for g in gaps] == ["einleben", "Fortschritte"]
+
+
+def test_cut_gaps_verwirft_mehrdeutige_und_fehlende():
+    text, gaps = _cut_gaps(
+        "Sie lernt viel und lernt gern. Das Ziel ist klar.",
+        [{"base": "lernen", "solution": "lernt"},
+         {"base": "Ziel", "solution": "Ziel"},
+         {"base": "Plan", "solution": "Plan"}],
+    )
+    assert text == "Sie lernt viel und lernt gern. Das {{1}} ist klar."
+    assert [g["solution"] for g in gaps] == ["Ziel"]
+
+
+def test_cut_gaps_nur_ganze_woerter():
+    text, gaps = _cut_gaps("Die Sprachprüfung ist schwer.", [{"base": "Prüfung", "solution": "Prüfung"}])
+    assert text == "Die Sprachprüfung ist schwer."
+    assert gaps == []
