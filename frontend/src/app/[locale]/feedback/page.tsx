@@ -1,6 +1,6 @@
 "use client";
 
-/** Anonymes Feedback-Formular, erreichbar über Fußzeile und Startseiten-Hinweis. */
+/** Anonymes Feedback-Formular für eingeloggte Personen, erreichbar über Fußzeile und Startseiten-Hinweis. */
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,9 @@ import { Paperclip, X } from "@phosphor-icons/react";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 import IconButton from "@/components/ui/IconButton";
+import Spinner from "@/components/ui/Spinner";
+import { useRouter } from "@/i18n/navigation";
+import { checkAuthStatus } from "@/lib/auth";
 
 type Category = "bug" | "idea" | "other";
 
@@ -24,6 +27,8 @@ function formatSize(bytes: number): string {
 
 export default function FeedbackPage() {
   const t = useTranslations("feedback");
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
   const [category, setCategory] = useState<Category>("bug");
   const [message, setMessage] = useState("");
   const [contact, setContact] = useState("");
@@ -33,6 +38,13 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    checkAuthStatus().then((status) => {
+      if (!status.authenticated) router.replace("/login");
+      else setReady(true);
+    });
+  }, [router]);
 
   useEffect(() => {
     if (!document.referrer) return;
@@ -103,6 +115,14 @@ export default function FeedbackPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner />
+      </div>
+    );
   }
 
   if (submitted) {
