@@ -333,7 +333,7 @@ def _proofread(client, model, passage: str, language: str) -> list[str]:
     return [str(x) for x in errors if x] if isinstance(errors, list) else []
 
 
-_MAX_ATTEMPTS = 3
+_MAX_ATTEMPTS = 5
 
 
 def generate_cloze_from_source(
