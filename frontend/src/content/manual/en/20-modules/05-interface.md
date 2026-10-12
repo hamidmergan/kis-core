@@ -10,7 +10,7 @@ assistant released lands here straight after signing in.
 - **Services** only appears when at least one service is released, and so does **Jobs**
 - **Calendar** only comes together with the learning assistant
 - **Gear**: language, light or dark, and depending on your rights language level, interfaces,
-  tour through the demo workspace, evaluation and documentation. The entry for the
+  tour through the demo workspace, evaluation and manual. The entry for the
   administration is called Admin, Administration or Statistics, depending on what you may do.
   More in the article Settings
 - On a phone all of it sits in one menu

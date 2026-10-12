@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readManualTree } from "../src/app/[locale]/manual/_lib/articles";
 
-/** Opens every documentation article in both languages and checks that it really renders. */
+/** Opens every manual article in both languages and checks that it really renders. */
 const LOCALES = ["de", "en"] as const;
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 

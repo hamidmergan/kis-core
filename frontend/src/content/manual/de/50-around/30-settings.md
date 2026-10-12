@@ -14,7 +14,7 @@ Einträge hängen an Rechten und daran, was die Verwaltung eingeschaltet hat:
 - **Rundgang durch den Demo-Workspace**, solange die Verwaltung einen Demo-Workspace bereitstellt
 - **Evaluation**, solange eine Evaluation läuft. Der Weg zurück, wenn die Karte auf der Startseite
   weg ist
-- **Dokumentation**, diese Seiten, mit dem Recht Handbuch ansehen
+- **Handbuch**, diese Seiten, mit dem Recht Handbuch ansehen
 - **Admin**, **Verwaltung** oder **Statistik**, je nach Verwaltungsrechten der Rolle. Wer alle hat,
   sieht Admin, wer nur Zahlen lesen darf, Statistik, alle anderen Verwaltung
 - **Abmelden**

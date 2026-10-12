@@ -26,6 +26,7 @@
     "interfaces": "Interfaces",
     "tour": "Tour through the demo workspace",
     "evaluation": "Evaluation",
+    "faq": "FAQ",
     "openFeedback": "Open feedback"
   },
   "footer": {
@@ -4793,89 +4794,12 @@
     "toc": "Contents",
     "imageOpen": "{alt}, show larger",
     "imageClose": "Close image",
-    "title": "Documentation",
+    "title": "Manual",
     "subtitle": "KIS - KInternationalisierung von Studiengängen",
-    "navLabel": "Documentation articles",
+    "navLabel": "Manual articles",
     "filterPlaceholder": "Filter articles",
     "filterClear": "Clear search",
     "noMatch": "No article matches this filter."
-  },
-  "faq": {
-    "title": "FAQ",
-    "intro": "Short answers to what comes up most often. The full detail is in the documentation.",
-    "todoLabel": "Still open",
-    "groups": {
-      "basics": "Basics",
-      "data": "Data and law",
-      "francis": "The learning assistant",
-      "operation": "Day to day"
-    },
-    "closer": {
-      "heading": "Question not covered?",
-      "body": "The full detail is in the <manual>documentation</manual>, or write to us through the <feedback>feedback form</feedback>."
-    },
-    "items": {
-      "whatIsKis": {
-        "q": "What is KIS and what is it for?",
-        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the learning assistant, who answers from the materials stored in a workspace, and the services you use to produce teaching material."
-      },
-      "vsChatgpt": {
-        "q": "How is the learning assistant different from ChatGPT?",
-        "a": "The learning assistant is built on RAG (Retrieval-Augmented Generation): it looks up the matching passages in your workspace's materials and answers only from those, attaching a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down. The closer comparison is Gemini Notebook by Google (formerly NotebookLM), not ChatGPT.\n\nOn top of that, processing runs with providers in Germany, not in the US. Our data is not used for training.\n\nKIS itself is open source under the Apache 2.0 license."
-      },
-      "moduleServiceTool": {
-        "q": "What is the difference between a workspace, a service and a tool?",
-        "a": "A workspace is a course room with materials and chat. A service stands on its own, such as translation or screencast. A tool sits in the studio inside a workspace, such as flashcards or quizzes."
-      },
-      "costs": {
-        "q": "Does this cost anything, is there a limit?",
-        "a": "Using it costs you nothing.\n\nPart of the models run through KISSKI at GWDG, under a strict quota shared across the whole university: 2 requests per second, 15 per minute, 900 per hour, 21,000 per day and 350,000 per month. If other people have that quota busy right now, a request can come back with an error.\n\nTHL myLab, the second provider, has no fixed limit at the moment. On the second Thursday of each month from 8 pm, its systems get updated, and it can be unreachable during that window."
-      },
-      "gdpr": {
-        "q": "Is my data safe and GDPR-compliant?",
-        "a": "Yes. Processing happens at THL myLab, GWDG/KISSKI and DeepL, all in Germany or the EU. None of them train on the data.\n\nWhat is stored in detail, and for how long, is set out in the privacy policy."
-      },
-      "hosting": {
-        "q": "Who runs the platform, where are the servers?",
-        "a": "The platform runs at Hetzner in Germany, uploaded files are held in Hetzner Object Storage."
-      },
-      "models": {
-        "q": "Which AI models are used and who decides that?",
-        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the learning assistant, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, text to audio or the image generator, you pick it yourself in the form."
-      },
-      "whoSees": {
-        "q": "Who can see my materials and my chat?",
-        "a": "Materials and chat belong to the workspace and are visible to its members. A small circle of people with the corresponding permission may inspect them for technical support, as set out in the privacy policy."
-      },
-      "afterPilot": {
-        "q": "What happens to my data once the pilot project ends?",
-        "a": "At the latest when the pilot project ends, your workspaces and uploaded files are deleted. If you want that sooner, send us an email or a message through the feedback form."
-      },
-      "notFound": {
-        "q": "Why does the learning assistant not know something that is in the document?",
-        "a": "The learning assistant does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
-      },
-      "generalQuestions": {
-        "q": "Why does he not answer general questions?",
-        "a": "That is deliberate. The learning assistant is tied to the materials of the workspace so that nothing enters an answer that is not in them. He is not meant for anything else."
-      },
-      "trust": {
-        "q": "Can I trust the answers, and what are the sources on each sentence for?",
-        "a": "The small sources behind a sentence lead to the spot in the document it came from. One click opens and highlights it. Use them to check anything that matters, AI answers can be wrong."
-      },
-      "studentView": {
-        "q": "What do students see when I give them access to a workspace?",
-        "a": "Materials, chat and the tools in the studio. Not visible are the workspace settings, the participant management and the figures for the whole workspace. You can check this yourself in the student view."
-      },
-      "bugReport": {
-        "q": "Where do I report a problem?",
-        "a": "Through the feedback form. Say what you did and what happened, that saves a follow-up question."
-      },
-      "presentationTemplate": {
-        "q": "What does my own template need for the presentation service?",
-        "a": "A pptx or potx file up to 30 MB without macros. The first slide master counts. Layouts need a heading, otherwise they are skipped. Image fields are needed for images to be created. The image style is described in English."
-      }
-    }
   },
   "invite": {
     "welcome": "Welcome to KIS",

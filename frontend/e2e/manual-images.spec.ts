@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Takes the screenshots the documentation articles use, in both UI languages. Run it again
+ * Takes the screenshots the manual articles use, in both UI languages. Run it again
  * whenever the interface changes: E2E_BASE_URL=http://localhost:3010 npx playwright test manual-images
  */
 const LOCALES = ["de", "en"] as const;
@@ -217,16 +217,6 @@ test.describe("Handbuch-Bilder", () => {
       await page.locator('header button[aria-haspopup="menu"]').last().click();
       await page.waitForTimeout(500);
       await page.screenshot({ path: shot(locale, "header-menu") });
-    });
-
-    test(`faq ${locale}`, async ({ page }) => {
-      await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/faq`, { waitUntil: "domcontentloaded" });
-      await settle(page);
-      // One answer open, otherwise the picture only shows closed rows.
-      await page.locator("details.faq-item summary").first().click();
-      await page.waitForTimeout(600);
-      await page.screenshot({ path: shot(locale, "faq") });
     });
 
     test(`feedback ${locale}`, async ({ page }) => {

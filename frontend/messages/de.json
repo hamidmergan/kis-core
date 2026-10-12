@@ -26,6 +26,7 @@
     "interfaces": "Schnittstellen",
     "tour": "Rundgang durch den Demo-Workspace",
     "evaluation": "Evaluation",
+    "faq": "FAQ",
     "openFeedback": "Offenes Feedback"
   },
   "footer": {
@@ -4793,89 +4794,12 @@
     "toc": "Inhalt",
     "imageOpen": "{alt}, größer anzeigen",
     "imageClose": "Bild schließen",
-    "title": "Dokumentation",
+    "title": "Handbuch",
     "subtitle": "KIS - KInternationalisierung von Studiengängen",
-    "navLabel": "Artikel der Dokumentation",
+    "navLabel": "Artikel des Handbuchs",
     "filterPlaceholder": "Artikel filtern",
     "filterClear": "Suche leeren",
     "noMatch": "Kein Artikel passt zu diesem Filter."
-  },
-  "faq": {
-    "title": "FAQ",
-    "intro": "Kurze Antworten auf das, was am häufigsten gefragt wird. Ausführlich steht alles in der Dokumentation.",
-    "todoLabel": "Noch offen",
-    "groups": {
-      "basics": "Grundsätzliches",
-      "data": "Daten und Recht",
-      "francis": "Der Lernassistent",
-      "operation": "Im Betrieb"
-    },
-    "closer": {
-      "heading": "Frage nicht dabei?",
-      "body": "Ausführlich steht alles in der <manual>Dokumentation</manual>, oder schreib uns über das <feedback>Feedback-Formular</feedback>."
-    },
-    "items": {
-      "whatIsKis": {
-        "q": "Was ist KIS und wofür ist es da?",
-        "a": "KIS ist ein Pilotprojekt an der TH Lübeck. Es bündelt zwei Dinge: den Lernassistenten, der in einem Workspace aus den hinterlegten Materialien antwortet, und die Dienste, mit denen sich Lehrmaterial erzeugen lässt."
-      },
-      "vsChatgpt": {
-        "q": "Was unterscheidet den Lernassistenten von ChatGPT?",
-        "a": "Der Lernassistent setzt auf RAG (Retrieval-Augmented Generation): Er sucht die passenden Stellen in den Materialien deines Workspaces und antwortet nur daraus, mit einem Beleg an jedem Satz, mit dem du die Stelle im Dokument aufschlägst. Alles darüber hinaus lehnt er ab. Der Vergleich passt deshalb eher zu Gemini Notebook von Google (früher NotebookLM) als zu ChatGPT.\n\nDazu läuft die Verarbeitung bei Anbietern in Deutschland, nicht in den USA. Mit den Daten wird nicht trainiert.\n\nAußerdem ist KIS Open Source unter der Apache-2.0-Lizenz."
-      },
-      "moduleServiceTool": {
-        "q": "Was ist der Unterschied zwischen Workspace, Dienst und Tool?",
-        "a": "Ein Workspace ist ein Kursraum mit Materialien und Chat. Ein Dienst steht für sich allein, etwa Übersetzung oder Screencast. Ein Tool sitzt im Studio innerhalb eines Workspaces, etwa Karteikarten oder Quiz."
-      },
-      "costs": {
-        "q": "Kostet das etwas, gibt es ein Limit?",
-        "a": "Die Nutzung ist für dich kostenlos.\n\nEin Teil der Modelle läuft über KISSKI der GWDG, mit einem strengen Kontingent für die ganze Hochschule: 2 Anfragen pro Sekunde, 15 pro Minute, 900 pro Stunde, 21.000 pro Tag und 350.000 pro Monat. Ist das Kontingent gerade durch andere Personen ausgelastet, kann eine Anfrage mit einem Fehler zurückkommen.\n\nBei THL myLab, dem zweiten Anbieter, gibt es aktuell kein festgelegtes Limit. Am zweiten Donnerstag im Monat ab 20 Uhr werden dort die Systeme gewartet, in dieser Zeit kann es zu Ausfällen kommen."
-      },
-      "gdpr": {
-        "q": "Sind meine Daten sicher und DSGVO-konform?",
-        "a": "Ja. Verarbeitet wird bei THL myLab, GWDG/KISSKI und DeepL, alle in Deutschland beziehungsweise der EU. Trainiert wird mit den Daten nicht.\n\nWas im Einzelnen gespeichert wird und wie lange, steht in der Datenschutzerklärung."
-      },
-      "hosting": {
-        "q": "Wer betreibt die Plattform, wo stehen die Server?",
-        "a": "Die Plattform läuft bei Hetzner in Deutschland, die hochgeladenen Dateien liegen im Hetzner Object Storage."
-      },
-      "models": {
-        "q": "Welche KI-Modelle werden genutzt und wer entscheidet das?",
-        "a": "Die Modelle stellt das KIS-Team zentral ein. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI von der GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit dem Lernassistenten antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich. Ist für einen Dienst mehr als ein Anbieter eingerichtet, zum Beispiel bei Übersetzung, Text in Audio oder Bildgenerator, wählst du ihn im Formular selbst aus."
-      },
-      "whoSees": {
-        "q": "Wer sieht meine Materialien und meinen Chat?",
-        "a": "Materialien und Chat gehören zum Workspace und sind für dessen Mitglieder sichtbar. Ein kleiner Kreis von Personen mit der entsprechenden Berechtigung kann zur technischen Betreuung Einsicht nehmen, das steht in der Datenschutzerklärung."
-      },
-      "afterPilot": {
-        "q": "Was passiert mit meinen Daten, wenn das Pilotprojekt endet?",
-        "a": "Spätestens wenn das Pilotprojekt endet, werden deine Workspaces und hochgeladenen Dateien gelöscht. Willst du das früher, schreib uns eine E-Mail oder eine Nachricht über das Feedback-Formular."
-      },
-      "notFound": {
-        "q": "Warum weiß der Lernassistent etwas nicht, obwohl es im Dokument steht?",
-        "a": "Der Lernassistent sucht nicht im ganzen Dokument auf einmal, sondern in Abschnitten. Steht die Antwort verteilt über viele Stellen oder nur in einer Tabelle oder Grafik, findet er sie unter Umständen nicht.\n\nWas hilft: die Frage enger stellen, den Kapitelnamen nennen, oder in der Quellenauswahl nur das eine Dokument aktiv lassen."
-      },
-      "generalQuestions": {
-        "q": "Warum antwortet er nicht auf allgemeine Fragen?",
-        "a": "Das ist Absicht. Der Lernassistent ist an die Materialien des Workspaces gebunden, damit nichts in die Antwort gerät, was dort nicht steht. Für alles andere ist er nicht gedacht."
-      },
-      "trust": {
-        "q": "Kann ich den Antworten trauen, und wofür sind die Belege am Satz?",
-        "a": "Die kleinen Belege hinter einem Satz führen auf die Stelle im Dokument, aus der er stammt. Ein Klick öffnet sie und hebt sie hervor. Prüfe damit alles, worauf es ankommt, KI-Antworten können falsch sein."
-      },
-      "studentView": {
-        "q": "Was sehen Studierende, wenn ich ihnen ein Workspace freigebe?",
-        "a": "Materialien, Chat und die Tools im Studio. Nicht sichtbar sind die Einstellungen des Workspaces, die Teilnehmerverwaltung und die Zahlen zum ganzen Workspace. In der Studierenden-Ansicht kannst du das selbst nachsehen."
-      },
-      "bugReport": {
-        "q": "Wo melde ich einen Fehler?",
-        "a": "Über das Feedback-Formular. Schreib dazu, was du gemacht hast und was passiert ist, das spart eine Rückfrage."
-      },
-      "presentationTemplate": {
-        "q": "Was muss eine eigene Vorlage für die Präsentation mitbringen?",
-        "a": "Eine pptx- oder potx-Datei bis 30 MB ohne Makros. Es zählt der erste Folienmaster. Layouts brauchen eine Überschrift, sonst werden sie übersprungen. Bildfelder sind nötig, damit Bilder entstehen. Der Bildstil wird auf Englisch beschrieben."
-      }
-    }
   },
   "invite": {
     "welcome": "Willkommen bei KIS",

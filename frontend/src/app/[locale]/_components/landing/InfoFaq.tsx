@@ -20,7 +20,7 @@ const ROW =
 export default function InfoFaq() {
   const t = useTranslations("eventInfo.faq");
   return (
-    <Band tone="tint" testId="info-faq">
+    <Band tone="tint" testId="info-faq" id="faq">
       <div className="grid grid-cols-1 @min-[64rem]:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-8 @min-[64rem]:gap-16">
         <SectionHeading>{t("heading")}</SectionHeading>
         <div className="faq-list">

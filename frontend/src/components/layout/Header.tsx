@@ -186,6 +186,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                   showEvaluation={hasSession && evaluationActive}
                   areaKey={areaKey}
                   showLogout={hasSession && !isLocalMode}
+                  showFaq={hasSession}
                   hasHomeNotice={hasHomeNotice}
                   adminNotice={hasSession && isAdmin && feedbackNotice}
                   onLogout={handleLogout}

@@ -13,7 +13,7 @@ type PrintGroup = {
   articles: { slug: string; title: string; markdown: string }[];
 };
 
-/** Die ganze Dokumentation am Stueck, mit Inhalt vorweg und Seitenumbruch je Artikel. */
+/** Das ganze Handbuch am Stueck, mit Inhalt vorweg und Seitenumbruch je Artikel. */
 export default function ManualPrintView({
   groups,
   sizes,

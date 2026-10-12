@@ -10,7 +10,7 @@ nichts freigeschaltet hat, landet nach der Anmeldung direkt hier.
 - **Dienste** steht nur da, wenn mindestens ein Dienst freigeschaltet ist, **Jobs** ebenso
 - **Kalender** gibt es nur zusammen mit dem Lernassistenten
 - **Zahnrad**: Sprache, Hell oder Dunkel, dazu je nach Rechten Sprachniveau, Schnittstellen,
-  Rundgang durch den Demo-Workspace, Evaluation und Dokumentation. Der Eintrag zur
+  Rundgang durch den Demo-Workspace, Evaluation und Handbuch. Der Eintrag zur
   Verwaltung heißt Admin, Verwaltung oder Statistik, je nachdem, was Sie dürfen. Mehr dazu
   im Artikel Einstellungen
 - Am Handy liegt alles zusammen in einem Menü
