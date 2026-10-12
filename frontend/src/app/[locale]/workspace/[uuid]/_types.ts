@@ -193,6 +193,8 @@ export interface GrammarTopic {
   id: number;
   name: string;
   created_by?: number | null;
+  // Fixed formats set by staff, empty means free choice.
+  kinds?: string[] | null;
 }
 
 /** Result of marking one free-text grammar answer. */

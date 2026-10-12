@@ -21,6 +21,18 @@ from src.services import aia_flashcard_speech as speech
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
+def _effective_kinds(workspace, topic, user_id, chosen):
+    """Staff fix the formats of their topics, learners cannot override them."""
+    from src.features.ai_assistant.routes.language_training.grammar_topics import (
+        _is_topic_manager,
+    )
+    fixed = clean_kinds(topic.get("kinds"))
+    if (fixed and not _is_topic_manager(workspace, user_id)
+            and _is_topic_manager(workspace, topic.get("created_by"))):
+        return fixed
+    return chosen
+
+
 def _numbered_sources(ex_set: dict) -> list[dict]:
     """The sources of a set, numbered in the order they were picked."""
     uuids = ex_set.get("source_uuids") or []
@@ -87,6 +99,7 @@ def create_exercise_set(
         grammar_topic_id = topic["id"]
         # Unknown codes are dropped, a mixed exercise beats an error.
         grammar_kinds = clean_kinds(body.grammar_kinds)
+        grammar_kinds = _effective_kinds(workspace, topic, user_id, grammar_kinds)
 
     flashcard_set_id = None
     if body.tool == "wortschatz":

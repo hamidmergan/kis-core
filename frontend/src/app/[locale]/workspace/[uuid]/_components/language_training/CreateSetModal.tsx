@@ -151,9 +151,15 @@ export function CreateSetModal({
     return map[tool] || t("tools.exerciseFallback");
   })();
 
+  // Staff fixed the formats of an official topic, learners only see them.
+  const chosenTopic = topics.find((x) => x.id === topicId);
+  const lockedKinds = !canManage && chosenTopic && chosenTopic.created_by !== currentUserId && chosenTopic.kinds?.length
+    ? GRAMMAR_FORMATS.filter((k) => chosenTopic.kinds!.includes(k))
+    : null;
+
   const canCreate = isGrammar
     ? Boolean(hasSource && topicId && !addingTopic && !editingTopic
-              && formatChoiceReady(formats))
+              && (lockedKinds || formatChoiceReady(formats)))
     : isVocabulary
       // The text always comes from the sources, on the card path too.
       ? Boolean(hasSource && (mode !== "cards" || flashcardSetId))
@@ -321,16 +327,19 @@ export function CreateSetModal({
                   key={editingTopic.id}
                   workspaceUuid={workspaceUuid}
                   topic={editingTopic}
+                  fixFormats={canManage}
                   onCancel={() => setEditingTopic(null)}
                   onSaved={(topic) => {
                     setEditingTopic(null);
                     setTopicId(topic.id);
+                    setTopics((prev) => prev.map((x) => (x.id === topic.id ? { ...x, kinds: topic.kinds } : x)));
                   }}
                 />
               )}
               {addingTopic && (
                 <GrammarTopicForm
                   workspaceUuid={workspaceUuid}
+                  fixFormats={canManage}
                   onCancel={() => setAddingTopic(false)}
                   onSaved={(topic) => {
                     setAddingTopic(false);
@@ -350,6 +359,12 @@ export function CreateSetModal({
             {/* Kaestchen aus dem Bestand, damit sie aussehen wie ueberall sonst.
                 Alle vier an heisst gemischt, dafuer braucht es keinen eigenen
                 Auswahlpunkt. */}
+            {lockedKinds ? (
+              <div className="mb-3">
+                <p className="text-xs">{lockedKinds.map((k) => t(`createModal.format.${k}`)).join(", ")}</p>
+                <p className="text-3xs mt-1" style={{ color: "var(--muted)" }}>{t("createModal.formatFixedHint")}</p>
+              </div>
+            ) : (
             <div className="flex flex-col gap-1.5 mb-3">
               {GRAMMAR_FORMATS.map((format) => (
                 <Checkbox
@@ -365,6 +380,7 @@ export function CreateSetModal({
                 </p>
               )}
             </div>
+            )}
           </>
         )}
 
@@ -406,7 +422,7 @@ export function CreateSetModal({
           <button type="button" onClick={() => onCreate(
             mode, count,
             isGrammar && topicId ? topicId : undefined,
-            isGrammar ? sentKinds(formats) : undefined,
+            isGrammar && !lockedKinds ? sentKinds(formats) : undefined,
             isVocabulary && mode === "cards" && flashcardSetId ? flashcardSetId : undefined,
             withInstruction ? instruction : undefined,
           )}

@@ -156,10 +156,13 @@ class GrammarTopicCreateBody(BaseModel):
     name: str = Field(..., max_length=120)
     rule: str = Field(..., max_length=4000)
     examples: list[GrammarExamplePair]
+    # Fixed formats for learners, missing or all four means free choice.
+    kinds: Optional[list[str]] = None
 
 
 class GrammarTopicUpdateBody(BaseModel):
     examples: list[GrammarExamplePair]
+    kinds: Optional[list[str]] = None
     # Only used when the topic has no elaboration yet, as with the seeded ones.
     rule: str | None = Field(None, max_length=4000)
 

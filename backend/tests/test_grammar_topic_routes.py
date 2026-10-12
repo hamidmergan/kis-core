@@ -110,7 +110,7 @@ async def test_a_missing_suggested_name_is_an_empty_field_and_not_an_error(
 
 def _create_body(name: str, pairs: list[dict]):
     return types.SimpleNamespace(
-        name=name, rule="r",
+        name=name, rule="r", kinds=None,
         examples=[types.SimpleNamespace(model_dump=lambda p=p: p) for p in pairs],
     )
 
@@ -120,7 +120,8 @@ async def test_create_topic_saves_more_than_one_pattern_pair(workspace, monkeypa
     saved = {}
     monkeypatch.setattr(grammar_topics.db, "list_grammar_topics", lambda ws_id: [])
     monkeypatch.setattr(grammar_topics.db, "create_grammar_topic",
-                        lambda ws_id, name, uid: {"id": 42, "name": name, "created_by": uid})
+                        lambda ws_id, name, uid, kinds=None: {"id": 42, "name": name,
+                                                          "created_by": uid, "kinds": kinds})
     monkeypatch.setattr(grammar_topics.db, "save_topic_spec",
                         lambda topic_id, locale, rule, pairs: saved.setdefault("pairs", pairs))
 
@@ -145,7 +146,8 @@ async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
     saved = {}
     monkeypatch.setattr(grammar_topics.db, "list_grammar_topics", lambda ws_id: [])
     monkeypatch.setattr(grammar_topics.db, "create_grammar_topic",
-                        lambda ws_id, name, uid: {"id": 42, "name": name, "created_by": uid})
+                        lambda ws_id, name, uid, kinds=None: {"id": 42, "name": name,
+                                                          "created_by": uid, "kinds": kinds})
     monkeypatch.setattr(grammar_topics.db, "save_topic_spec",
                         lambda topic_id, locale, rule, pairs: saved.setdefault("pairs", pairs))
 
@@ -161,7 +163,7 @@ async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
 _PAAR = {"before": "Das Team prüft die Quelle.", "after": "Die Quelle wird geprüft."}
 
 
-def _edit(monkeypatch, spec, body_rule):
+def _edit(monkeypatch, spec, body_rule, kinds=None):
     """Runs the PATCH with a stubbed store, returns what was saved."""
     saved = {}
     monkeypatch.setattr(grammar_topics.db, "get_grammar_topic",
@@ -171,15 +173,17 @@ def _edit(monkeypatch, spec, body_rule):
     monkeypatch.setattr(grammar_topics.db, "update_topic_examples",
                         lambda tid, loc, rule, pairs: saved.update(rule=rule, pairs=pairs)
                         or {"examples": pairs})
+    monkeypatch.setattr(grammar_topics.db, "set_grammar_topic_kinds",
+                        lambda tid, kinds: saved.update(kinds=kinds))
     body = types.SimpleNamespace(
-        rule=body_rule, examples=[types.SimpleNamespace(model_dump=lambda: _PAAR)])
+        rule=body_rule, kinds=kinds, examples=[types.SimpleNamespace(model_dump=lambda: _PAAR)])
     grammar_topics.update_topic_examples("w-1", 5, body, {"user_id": EIGENTUEMER}, "de")
     return saved
 
 
 def test_editing_keeps_the_stored_rule(workspace, monkeypatch):
     saved = _edit(monkeypatch, {"rule": "gespeichert", "examples": []}, "geschickt")
-    assert saved == {"rule": "gespeichert", "pairs": [_PAAR]}
+    assert saved == {"rule": "gespeichert", "pairs": [_PAAR], "kinds": None}
 
 
 def test_a_topic_without_elaboration_takes_the_sent_rule(workspace, monkeypatch):
@@ -192,3 +196,42 @@ def test_a_topic_without_any_rule_is_refused(workspace, monkeypatch):
     with pytest.raises(HTTPException) as err:
         _edit(monkeypatch, None, None)
     assert err.value.status_code == 400
+
+
+def test_editing_stores_the_chosen_formats(workspace, monkeypatch):
+    saved = _edit(monkeypatch, {"rule": "r", "examples": []}, "r", ["cloze", "choice"])
+    assert saved["kinds"] == ["cloze", "choice"]
+
+
+def test_editing_with_all_formats_means_free_choice(workspace, monkeypatch):
+    saved = _edit(monkeypatch, {"rule": "r", "examples": []}, "r",
+                  ["transform", "cloze", "statement", "choice"])
+    assert saved["kinds"] is None
+
+
+# ─── Feste Formate ───────────────────────────────────────────────────────────
+
+def _kinds(creator, user, topic_kinds, chosen):
+    from src.features.ai_assistant.routes.language_training import exercises
+    topic = {"created_by": creator, "kinds": topic_kinds}
+    return exercises._effective_kinds(WORKSPACE, topic, user, chosen)
+
+
+def test_learner_cannot_override_formats_of_a_staff_topic(workspace):
+    assert _kinds(EIGENTUEMER, LERNENDER, ["cloze", "choice"], ["transform"]) == ["cloze", "choice"]
+
+
+def test_tutor_topic_is_locked_for_learners(workspace):
+    assert _kinds(TUTOR, LERNENDER, ["cloze"], None) == ["cloze"]
+
+
+def test_staff_keeps_free_choice(workspace):
+    assert _kinds(EIGENTUEMER, TUTOR, ["cloze", "choice"], ["transform"]) == ["transform"]
+
+
+def test_learner_topic_stays_free(workspace):
+    assert _kinds(LERNENDER, FREMDER, ["cloze", "choice"], ["transform"]) == ["transform"]
+
+
+def test_topic_without_formats_stays_free(workspace):
+    assert _kinds(EIGENTUEMER, LERNENDER, None, ["transform"]) == ["transform"]

@@ -1356,6 +1356,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Fixed formats of a topic by staff, NULL means all four.
+            cur.execute("ALTER TABLE aia_grammar_topics ADD COLUMN IF NOT EXISTS kinds JSONB")
             # One pool per source, tool and level, filled as a by-product of use.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_pool (

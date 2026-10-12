@@ -3725,6 +3725,7 @@
           "grammarTypeHeading": "Thema",
           "formatHeading": "Aufgabenformat",
           "formatNoneHint": "Mindestens ein Format auswählen.",
+          "formatFixedHint": "Die Formate hat dein Kurs festgelegt.",
           "format": {
             "transform": "Umformen",
             "cloze": "Lücke füllen",
@@ -3889,6 +3890,7 @@
           "afterPlaceholder": "Satz nachher",
           "addPattern": "+ weiteres Muster",
           "removePattern": "Muster entfernen",
+          "formatsHint": "Welche Formate sollen Lernende für dieses Thema bekommen?",
           "needExample": "Bitte lass mindestens ein Musterpaar stehen, beide Sätze und nicht zweimal denselben",
           "failed": "Das hat nicht geklappt, bitte nochmal versuchen",
           "deleteTopic": "Thema entfernen",

@@ -3725,6 +3725,7 @@
           "grammarTypeHeading": "Topic",
           "formatHeading": "Exercise format",
           "formatNoneHint": "Pick at least one format.",
+          "formatFixedHint": "Your course set these formats.",
           "format": {
             "transform": "Rewrite",
             "cloze": "Fill the gap",
@@ -3889,6 +3890,7 @@
           "afterPlaceholder": "Sentence after",
           "addPattern": "+ Another pattern",
           "removePattern": "Remove pattern",
+          "formatsHint": "Which formats should learners get for this topic?",
           "needExample": "Please keep at least one example pair, both sentences and not the same one twice",
           "failed": "That did not work, please try again",
           "deleteTopic": "Remove topic",

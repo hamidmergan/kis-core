@@ -6,7 +6,15 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowClockwise, Sparkle, X } from "@phosphor-icons/react";
 
+import Checkbox from "@/components/ui/Checkbox";
 import IconButton from "@/components/ui/IconButton";
+import {
+  GRAMMAR_FORMATS,
+  formatChoiceReady,
+  sentKinds,
+  toggleFormat,
+  type GrammarFormat,
+} from "./_grammarFormats";
 import {
   editedPairs,
   MAX_EXAMPLES,
@@ -18,13 +26,16 @@ import {
 export function GrammarTopicForm({
   workspaceUuid,
   topic,
+  fixFormats = false,
   onSaved,
   onCancel,
 }: {
   workspaceUuid: string;
   // Set means editing: the name stays, only the patterns change.
-  topic?: { id: number; name: string };
-  onSaved: (topic: { id: number; name: string }) => void;
+  topic?: { id: number; name: string; kinds?: string[] | null };
+  // Staff only: the formats learners get for this topic.
+  fixFormats?: boolean;
+  onSaved: (topic: { id: number; name: string; kinds?: string[] | null }) => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
@@ -32,6 +43,9 @@ export function GrammarTopicForm({
   const [rule, setRule] = useState("");
   const [suggested, setSuggested] = useState("");
   const [pairs, setPairs] = useState<ExamplePair[]>([]);
+  const [formats, setFormats] = useState<GrammarFormat[]>(
+    GRAMMAR_FORMATS.filter((k) => !topic?.kinds?.length || topic.kinds.includes(k)),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -98,6 +112,7 @@ export function GrammarTopicForm({
 
   async function save() {
     const examples = usablePairs(pairs);
+    const kinds = fixFormats ? (sentKinds(formats) ?? null) : undefined;
     if (!examples.length) {
       setError(t("grammarTopics.needExample"));
       return;
@@ -115,8 +130,8 @@ export function GrammarTopicForm({
           headers: { "Content-Type": "application/json" },
           // The rule only counts on an edit when the topic never had one.
           body: JSON.stringify(topic
-            ? { examples, rule: rule || null }
-            : { name: name.trim(), rule, examples }),
+            ? { examples, rule: rule || null, kinds }
+            : { name: name.trim(), rule, examples, kinds }),
         },
       );
       const data = await res.json().catch(() => null);
@@ -124,7 +139,7 @@ export function GrammarTopicForm({
         setError(data?.detail || t("grammarTopics.failed"));
         return;
       }
-      onSaved(topic ?? data.topic);
+      onSaved(topic ? { ...topic, ...(data?.topic ?? {}) } : data.topic);
     } catch {
       setError(t("grammarTopics.failed"));
     } finally {
@@ -246,6 +261,24 @@ export function GrammarTopicForm({
         </>
       )}
 
+      {previewed && fixFormats && (
+        <>
+          <p className="text-3xs mt-1" style={{ color: "var(--muted)" }}>
+            {t("grammarTopics.formatsHint")}
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {GRAMMAR_FORMATS.map((format) => (
+              <Checkbox
+                key={format}
+                checked={formats.includes(format)}
+                onChange={() => setFormats((prev) => toggleFormat(prev, format))}
+                label={t(`createModal.format.${format}`)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
       {error && (
         <p className="text-3xs" style={{ color: "#c4820e" }}>
           {error}
@@ -284,7 +317,7 @@ export function GrammarTopicForm({
         <button
           type="button"
           onClick={previewed ? save : preview}
-          disabled={busy || !name.trim()}
+          disabled={busy || !name.trim() || (previewed && fixFormats && !formatChoiceReady(formats))}
           className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-semibold disabled:opacity-50"
         >
           <Sparkle size={12} weight="bold" />

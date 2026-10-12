@@ -12,6 +12,7 @@ from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.grammar_topics import MAX_EXAMPLES
 from src.features.ai_assistant.routes._workspace_access import _require_workspace_access
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
+from src.services.aia_grammar_formats import clean_kinds
 from src.services.aia_grammar_topic import derive_topic
 
 router = APIRouter(tags=["ki-assistent: language-training"])
@@ -120,7 +121,7 @@ def create_topic(
     if name.casefold() in existing:
         raise HTTPException(status_code=409, detail=t("grammar.topicExists", locale))
 
-    topic = db.create_grammar_topic(workspace["id"], name, user_id)
+    topic = db.create_grammar_topic(workspace["id"], name, user_id, clean_kinds(body.kinds))
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
     db.save_topic_spec(topic["id"], locale, body.rule, pairs)
     return {"topic": topic}
@@ -146,6 +147,10 @@ def update_topic_examples(
     if not rule or not pairs:
         raise HTTPException(status_code=400, detail=t("grammar.topicNeedsExample", locale))
     saved = db.update_topic_examples(topic["id"], locale, rule, pairs)
+    # Always sent by the form, so a missing value means free choice again.
+    kinds = clean_kinds(body.kinds)
+    db.set_grammar_topic_kinds(topic["id"], kinds)
+    topic = {**topic, "kinds": kinds}
     return {"topic": topic, "examples": saved["examples"]}
 
 

@@ -45,7 +45,7 @@ def list_grammar_topics(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, name, created_by FROM aia_grammar_topics "
+                "SELECT id, name, created_by, kinds FROM aia_grammar_topics "
                 "WHERE workspace_id = %s ORDER BY name",
                 (workspace_id,),
             )
@@ -58,7 +58,7 @@ def get_grammar_topic(topic_id) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, workspace_id, name, created_by FROM aia_grammar_topics "
+                "SELECT id, workspace_id, name, created_by, kinds FROM aia_grammar_topics "
                 "WHERE id = %s",
                 (topic_id,),
             )
@@ -66,13 +66,15 @@ def get_grammar_topic(topic_id) -> dict | None:
             return dict(row) if row else None
 
 
-def create_grammar_topic(workspace_id: int, name: str, created_by: int) -> dict:
+def create_grammar_topic(workspace_id: int, name: str, created_by: int,
+                         kinds: list[str] | None = None) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO aia_grammar_topics (workspace_id, name, created_by) "
-                "VALUES (%s, %s, %s) RETURNING id, name, created_by",
-                (workspace_id, name.strip(), created_by),
+                "INSERT INTO aia_grammar_topics (workspace_id, name, created_by, kinds) "
+                "VALUES (%s, %s, %s, %s) RETURNING id, name, created_by, kinds",
+                (workspace_id, name.strip(), created_by,
+                 json.dumps(kinds) if kinds else None),
             )
             row = dict(cur.fetchone())
         conn.commit()
@@ -127,6 +129,17 @@ def save_topic_spec(topic_id: int, language: str, rule: str, examples: list) -> 
             row = dict(cur.fetchone())
         conn.commit()
     return row
+
+
+def set_grammar_topic_kinds(topic_id: int, kinds: list[str] | None) -> None:
+    """Fixed formats of a topic, None means all four."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_grammar_topics SET kinds = %s WHERE id = %s",
+                (json.dumps(kinds) if kinds else None, topic_id),
+            )
+        conn.commit()
 
 
 def seed_grammar_topics(workspace_id: int, created_by: int) -> None:
