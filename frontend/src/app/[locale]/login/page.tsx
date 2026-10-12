@@ -77,6 +77,15 @@ export default function LoginPage() {
   // A QR code links here with the code in the address, that opens the code tab and redeems it at once.
   const autoDone = useRef(false);
   useEffect(() => {
+    // A plain link only fills in the code tab, the person presses the button themselves.
+    const prefill = new URLSearchParams(window.location.search).get("vorbelegt");
+    if (prefill) {
+      setTab("code");
+      setCode(prefill);
+    }
+  }, []);
+
+  useEffect(() => {
     const fromLink = new URLSearchParams(window.location.search).get("code");
     if (fromLink && !autoDone.current) {
       autoDone.current = true;

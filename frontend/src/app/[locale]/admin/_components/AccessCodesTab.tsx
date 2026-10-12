@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, PencilSimple, QrCode, Trash, Users } from "@phosphor-icons/react";
+import { Check, LinkSimple, PencilSimple, QrCode, Trash, Users } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import IconButton from "@/components/ui/IconButton";
@@ -106,6 +106,7 @@ export default function AccessCodesTab() {
   const [kopiert, setKopiert] = useState<number | null>(null);
   const [bearbeiten, setBearbeiten] = useState<Code | null>(null);
   const [loeschen, setLoeschen] = useState<Code | null>(null);
+  const [linkKopiert, setLinkKopiert] = useState<number | null>(null);
   const [qrCode, setQrCode] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
   const [konten, setKonten] = useState<KontenUmfang | null>(null);
@@ -124,6 +125,13 @@ export default function AccessCodesTab() {
   }, [t]);
 
   useEffect(laden, [laden]);
+
+  // The link only fills in the code, the person still has to press the button themselves.
+  function linkKopieren(code: Code) {
+    copyTextFromPromise(Promise.resolve(`${window.location.origin}/redeem?vorbelegt=${encodeURIComponent(code.code)}`));
+    setLinkKopiert(code.id);
+    setTimeout(() => setLinkKopiert(null), 1500);
+  }
 
   function kopieren(code: Code) {
     copyTextFromPromise(Promise.resolve(code.code));
@@ -304,6 +312,15 @@ export default function AccessCodesTab() {
                         onClick={() => setKonten({ id: e.id, label: e.label, code: e.code })}
                       >
                         <Users size={14} weight="bold" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        title={t("copyLink")}
+                        aria-label={t("copyLink")}
+                        data-testid="access-code-copy-link"
+                        onClick={() => linkKopieren(e)}
+                      >
+                        {linkKopiert === e.id ? <Check size={14} weight="bold" className="text-kb" /> : <LinkSimple size={14} weight="bold" />}
                       </IconButton>
                       <IconButton
                         size="sm"

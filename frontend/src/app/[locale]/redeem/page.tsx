@@ -35,7 +35,9 @@ function AccessCodePageInner() {
 
   // A QR code links here with the code already filled in.
   const codeAusLink = useRef(searchParams.get("code") ?? "").current;
-  const [code, setCode] = useState(codeAusLink);
+  // A plain link only fills in the field, redeeming stays the person's own click.
+  const vorbelegt = useRef(searchParams.get("vorbelegt") ?? "").current;
+  const [code, setCode] = useState(codeAusLink || vorbelegt);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [fertig, setFertig] = useState<Fertig | null>(null);

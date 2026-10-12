@@ -3356,6 +3356,7 @@
       "accessHours": "{n, plural, one {# hour} other {# hours}}",
       "accessUnlimited": "Unlimited",
       "copyCode": "Copy code",
+      "copyLink": "Copy link",
       "copied": "Copied!",
       "disable": "Switch off",
       "enable": "Switch on",
