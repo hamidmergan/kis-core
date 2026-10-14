@@ -69,7 +69,12 @@ def _call(
     temperature: float = 0.4,
 ) -> str:
     """One call with a simple retry, returns the trimmed text."""
+    from src.services import model_limits
+
     last: Optional[Exception] = None
+    # Switches against thinking, used one by one after a model spent the whole budget on its thoughts.
+    switches = [model_limits.THINK_OFF_SWITCHES[n] for n in model_limits._SWITCH_ORDER]
+    switch: dict = {}
     for attempt in range(retries + 1):
         try:
             resp = client.chat.completions.create(
@@ -82,8 +87,10 @@ def _call(
                 # No frequency penalty: measured on a schedule full of dates it punishes
                 # the very words the text has to repeat, and the answer derails.
                 max_tokens=_MAX_OUTPUT_TOKENS,
+                **({"extra_body": switch} if switch else {}),
             )
-            text = (resp.choices[0].message.content or "").strip()
+            message = resp.choices[0].message
+            text = (message.content or "").strip()
             if text and not _is_derailed(text):
                 return text
             if text:
@@ -94,6 +101,9 @@ def _call(
                 last = RuntimeError("derailed summary response")
             else:
                 last = RuntimeError("empty summary response")
+                if switches and (getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)):
+                    logger.warning("Summary answer empty, the model only thought, next attempt without thinking")
+                    switch = dict(switches.pop(0))
         except Exception as e:  # retried below, re-raised if all attempts fail
             last = e
             rate_limited = _is_rate_limit(e)

@@ -377,6 +377,26 @@ def _with_model(body: bytes, content_type: str, model: str) -> bytes:
     return body
 
 
+def _with_think_off(body: bytes, target: Target) -> bytes:
+    """The fallback's own switch against thinking instead of the first choice's, once its model was measured."""
+    from src.services import model_limits
+    profile = model_limits.stored_profile(target.provider_id, target.model)
+    if profile is None:
+        return body
+    try:
+        data = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return body
+    if not isinstance(data, dict):
+        return body
+    for switch in model_limits.THINK_OFF_SWITCHES.values():
+        for key, value in switch.items():
+            if data.get(key) == value:
+                data.pop(key)
+    data.update(model_limits.think_off_body(profile))
+    return json.dumps(data, ensure_ascii=False).encode("utf-8")
+
+
 class _Door:
     """Everything both transports share: order, seats, rewriting and the memory of who failed."""
 
@@ -415,7 +435,10 @@ class _Door:
         # A call that names its model in the header names the fallback's model there too.
         headers = [(k, target.model if k.lower() == INFERENCE_SERVICE_HEADER else v) for k, v in headers]
         url = target.root + str(request.url)[len(self.primary.root):]
-        content = _with_model(body, request.headers.get("content-type", ""), target.model)
+        content_type = request.headers.get("content-type", "")
+        content = _with_model(body, content_type, target.model)
+        if self.bucket == "llm" and "application/json" in content_type:
+            content = _with_think_off(content, target)
         return type(request)(request.method, url, headers=headers, content=content, extensions=extensions)
 
     def seats(self, target: Target, body: bytes) -> list[tuple[str, int]]:

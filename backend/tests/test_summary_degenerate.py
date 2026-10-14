@@ -90,3 +90,21 @@ def test_the_call_goes_out_without_a_frequency_penalty():
     calls = []
     sm._call(_client([SAUBER], calls), "m", "sys", "user", retries=0)
     assert "frequency_penalty" not in calls[0]
+
+
+def test_an_answer_lost_in_thought_is_asked_again_without_thinking(monkeypatch):
+    monkeypatch.setattr(sm.time, "sleep", lambda s: None)
+    calls = []
+
+    def create(**kw):
+        calls.append(kw)
+        if len(calls) == 1:
+            msg = types.SimpleNamespace(content="", reasoning="Here's a thinking process ...")
+        else:
+            msg = types.SimpleNamespace(content=SAUBER)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg, finish_reason="length")])
+
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create)))
+    assert sm._call(client, "m", "sys", "user", retries=2) == SAUBER
+    assert "extra_body" not in calls[0]
+    assert calls[1]["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
