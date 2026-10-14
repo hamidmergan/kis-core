@@ -1,0 +1,21 @@
+# isy-kis-thl (THL server), loaded explicitly via -f by deploy/start-thl.sh.
+# The THL system nginx sits in front, so there is no nginx container here,
+# and files stay in the external bucket, so there is no MinIO either.
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    container_name: kis-frontend
+    # Serves every page, when memory runs out the kernel takes a worker before this.
+    oom_score_adj: -500
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      # localhost only, the THL nginx reaches it on 127.0.0.1:3000
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
