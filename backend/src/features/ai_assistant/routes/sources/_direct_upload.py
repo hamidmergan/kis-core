@@ -1,7 +1,7 @@
-"""Direct upload of large media: the browser sends parts straight into the bucket.
+"""Direct upload of large files: the browser sends parts straight into the bucket.
 
 The server only signs the parts and checks the joined file at the end, so a long
-video costs this box neither bandwidth nor memory and leaves the page connection free.
+file costs this box neither bandwidth nor memory and leaves the page connection free.
 """
 import json
 import math
@@ -40,8 +40,8 @@ from ._shared import (
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
-# Only media goes this way, documents still need conversion and page counts on arrival.
-_DIRECT_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"} & _ALLOWED_EXTENSIONS
+# Documents go this way too, the worker converts and counts pages after the upload.
+_DIRECT_EXTENSIONS = set(_ALLOWED_EXTENSIONS)
 
 # The smallest part S3 allows, a broken line loses little and progress moves often.
 _PART_SIZE = 5 * 1024 * 1024
@@ -57,6 +57,9 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _CONTENT_TYPES = {
     ".mp3": "audio/mpeg", ".mp4": "video/mp4", ".wav": "audio/wav",
     ".flac": "audio/flac", ".m4a": "audio/mp4", ".webm": "video/webm",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
 

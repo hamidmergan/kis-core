@@ -195,6 +195,18 @@ def update_aia_source_progress(
             )
         conn.commit()
 
+
+def update_aia_source_file(uuid: str, filename: str, file_path: str, file_type: str) -> None:
+    """Points a source at its converted file, name and type follow the file."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET filename = %s, file_path = %s, file_type = %s WHERE uuid = %s",
+                (filename, file_path, file_type, uuid),
+            )
+        conn.commit()
+
+
 def update_aia_source_ocr_info(uuid: str, ocr_info: dict | None) -> None:
     """Records how text recognition went, None clears the column."""
     with get_connection() as conn:

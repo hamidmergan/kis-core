@@ -63,8 +63,13 @@ def _start(name="vorlesung.webm", size=PART * 2 + 5, request=None):
     )
 
 
-def test_dokumente_bleiben_beim_klassischen_weg(bucket):
-    assert _start(name="skript.pdf") == {"direct": False}
+def test_dokumente_gehen_ebenfalls_direkt(bucket):
+    for name in ("skript.pdf", "folien.pptx", "text.docx"):
+        assert _start(name=name)["direct"] is True
+
+
+def test_unbekannte_endung_bleibt_beim_klassischen_weg(bucket):
+    assert _start(name="notiz.txt") == {"direct": False}
     assert bucket["redis"] == {}
 
 

@@ -2,6 +2,7 @@
 
 import time
 
+from fastapi import HTTPException
 from loguru import logger
 
 from src.celery_app import celery_app
@@ -17,9 +18,11 @@ from src.storage import (
     aia_transcript_prefix,
     aia_vtt_error_key,
     aia_vtt_key,
+    aia_source_base,
     delete_file,
     list_keys,
     open_input_file,
+    put_file,
 )
 
 from src.features.ai_assistant.tasks._helpers import _format_ts
@@ -135,6 +138,33 @@ def _page_chunks(file_path: str) -> list[dict]:
     return chunks
 
 
+def _convert_office_source(source_uuid: str, file_path: str, file_type: str, filename: str, locale: str):
+    """Turns a stored docx or pptx into a PDF in place, so everything after reads one format."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    from src.features.ai_assistant.routes._media_files import _convert_office_to_pdf_path
+
+    ext = f".{file_type}"
+    with tempfile.TemporaryDirectory(prefix="aia_convert_") as tmpdir:
+        with open_input_file(file_path, suffix=ext) as local_path:
+            pdf_path = _convert_office_to_pdf_path(local_path, ext, tmpdir, locale)
+        new_path = aia_source_base(file_path) + ".pdf"
+        put_file(new_path, pdf_path)
+    # A converted name can collide with a source added meanwhile, then it gets a number.
+    taken = {
+        (s["filename"] or "").strip().lower()
+        for s in db.get_aia_sources_by_workspace(db.get_aia_source(source_uuid)["workspace_id"])
+        if s["uuid"] != source_uuid
+    }
+    from src.features.ai_assistant.routes.sources._shared import _unique_filename
+    new_name = _unique_filename(Path(filename).stem + ".pdf", taken)
+    db.update_aia_source_file(source_uuid, new_name, new_path, "pdf")
+    delete_file(file_path)
+    return new_path, "pdf", new_name
+
+
 @celery_app.task(bind=True, name="aia.index_source", queue="aia_ingest")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
     try:
@@ -161,6 +191,12 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         fingerprint: str | None = None  # set from the first embedded batch (step 7)
 
         embedding_model = provider.model_name
+
+        # A document that arrived directly is converted and counted here, not on upload.
+        if file_type in ("docx", "pptx"):
+            file_path_stored, file_type, filename = _convert_office_source(
+                source_uuid, file_path_stored, file_type, filename, locale,
+            )
 
         # 4. Fetch file from storage
         import os
@@ -224,6 +260,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
                 # An unrecognised page no longer fails the source, it just shows up here.
                 ocr_report: dict = {}
+                if file_type == "pdf":
+                    from src.utils.file_validation import pages_or_raise
+                    pages_or_raise(".pdf", local_path, locale)
                 # A pasted text is read from its rendered PDF so pages match the viewer.
                 chunks = aia_chunker.extract_chunks(
                     local_path, "pdf" if file_type == "text" else file_type,
@@ -336,6 +375,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                               chars=_zahl(e.chars, locale), max=_zahl(e.limit, locale))
         elif isinstance(e, AudioTooLongError):
             error_message = audio_too_long_message(e, locale)
+        elif isinstance(e, HTTPException):
+            error_message = str(e.detail)
         else:
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
