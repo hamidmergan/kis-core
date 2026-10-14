@@ -139,6 +139,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur fehlgeschlagene Sources können neu indexiert werden",
         "en": "Only failed sources can be re-indexed",
     },
+    "ai.source.summaryFailed": {
+        "de": "Die Zusammenfassung konnte nicht erstellt werden. Wiederholen macht dort weiter.",
+        "en": "The summary could not be created. Retry continues from there.",
+    },
     "ai.source.summaryNotPossible": {
         "de": "Für dieses Material kann gerade keine Zusammenfassung erstellt werden.",
         "en": "No summary can be created for this material right now.",

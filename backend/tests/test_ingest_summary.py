@@ -1,4 +1,4 @@
-"""The per-source summary at ingest: it runs, and a failure never costs the source."""
+"""The per-source summary at ingest: it runs, and without it the source is not finished."""
 
 import pytest
 
@@ -11,7 +11,10 @@ CHUNKS = [{"content": "Ein Satz über Projektmanagement."}]
 @pytest.fixture
 def welt(monkeypatch):
     """Database and model under test control."""
-    state = {"gespeichert": None, "fortschritt": []}
+    state = {"gespeichert": None, "fortschritt": [], "status": []}
+    monkeypatch.setattr("src.database.update_aia_source_status",
+                        lambda uuid, status, **k: state["status"].append((status, k)))
+    monkeypatch.setattr("src.database.get_aia_sources_by_workspace", lambda wid: [])
     monkeypatch.setattr("src.database.update_aia_source_summary",
                         lambda uuid, text: state.__setitem__("gespeichert", text))
     monkeypatch.setattr("src.database.update_aia_source_progress",
@@ -36,19 +39,19 @@ def test_the_summary_is_stored(welt, monkeypatch):
     assert welt["gespeichert"] == "Kurzfassung"
 
 
-def test_a_failing_summary_does_not_cost_the_source(welt, monkeypatch):
+def test_a_failing_summary_reports_false(welt, monkeypatch):
     def kaputt(*a, **k):
         raise RuntimeError("Anbieter weg")
 
     monkeypatch.setattr("src.services.aia_summarizer.build_source_summary", kaputt)
-    ingestion._build_source_summary_safely("u1", CHUNKS)
+    assert ingestion._build_source_summary_safely("u1", CHUNKS) is False
     assert welt["gespeichert"] is None
 
 
 def test_a_source_without_chunks_asks_no_model(welt, monkeypatch):
     monkeypatch.setattr("src.services.aia_summarizer.build_source_summary",
                         lambda *a, **k: pytest.fail("no model call for an empty source"))
-    ingestion._build_source_summary_safely("u1", [])
+    assert ingestion._build_source_summary_safely("u1", []) is True
     assert welt["gespeichert"] is None
 
 
@@ -56,12 +59,29 @@ def test_a_source_without_chunks_asks_no_model(welt, monkeypatch):
 
 def test_the_backfill_task_summarises_one_source(welt, monkeypatch):
     monkeypatch.setattr("src.database.get_aia_source",
-                        lambda uuid: {"id": 7, "uuid": uuid})
+                        lambda uuid: {"id": 7, "uuid": uuid, "workspace_id": 5})
     monkeypatch.setattr("src.database.get_chunks_by_source", lambda sid: CHUNKS)
     monkeypatch.setattr("src.services.aia_summarizer.build_source_summary",
                         lambda chunks, client, model, cap: "Kurzfassung")
     ingestion.run_summarize_source("u1")
     assert welt["gespeichert"] == "Kurzfassung"
+    assert welt["status"] == [("ready", {})]
+
+
+def test_a_failed_resume_marks_the_source_failed_again(welt, monkeypatch):
+    # The row must not keep spinning, it goes back to failed with the retry icon.
+    monkeypatch.setattr("src.database.get_aia_source",
+                        lambda uuid: {"id": 7, "uuid": uuid, "workspace_id": 5})
+    monkeypatch.setattr("src.database.get_chunks_by_source", lambda sid: CHUNKS)
+
+    def kaputt(*a, **k):
+        raise RuntimeError("Anbieter weg")
+
+    monkeypatch.setattr("src.services.aia_summarizer.build_source_summary", kaputt)
+    ingestion.run_summarize_source("u1", "en")
+    status, felder = welt["status"][-1]
+    assert status == "failed"
+    assert felder["error_message"]
 
 
 def test_the_backfill_task_skips_a_source_that_is_gone(welt, monkeypatch):

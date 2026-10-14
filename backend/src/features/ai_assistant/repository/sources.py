@@ -251,6 +251,20 @@ def delete_aia_chunks_by_source(source_id: int) -> None:
             cur.execute("DELETE FROM aia_chunks WHERE source_id = %s", (source_id,))
         conn.commit()
 
+def resume_aia_source_summary(uuid: str) -> None:
+    """Puts a source whose summary failed back to indexing, chunks and vectors stay."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE aia_sources
+                   SET status = 'indexing', error_message = NULL,
+                       progress = %s
+                   WHERE uuid = %s""",
+                (json.dumps({"stage": "summarizing"}), uuid),
+            )
+        conn.commit()
+
+
 def reset_aia_source_for_retry(uuid: str) -> None:
     """Resets a source to pending and clears error and OCR report."""
     with get_connection() as conn:

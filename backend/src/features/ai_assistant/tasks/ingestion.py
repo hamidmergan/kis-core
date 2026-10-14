@@ -54,10 +54,10 @@ def _zahl(n: int, locale: str) -> str:
     return f"{n:,}".replace(",", ".") if locale == "de" else f"{n:,}"
 
 
-def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> None:
-    """The summary is a bonus, a failure here must never cost the finished source."""
+def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> bool:
+    """Builds the summary and says whether it worked, chunks and embeddings stay either way."""
     if not chunks:
-        return
+        return True
     from src import database as db
     from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
     try:
@@ -72,11 +72,38 @@ def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> None:
         db.update_aia_source_summary(source_uuid, summary)
         logger.info("KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
                     source_uuid, len(summary), time.monotonic() - beginn)
-    except Exception as e:  # noqa: BLE001 - chunks and embeddings are already done
+        return True
+    except Exception as e:  # noqa: BLE001 - the caller marks the source failed, retry resumes here
         logger.warning("KI Tutor: no summary for source {}: {}", source_uuid, e)
+        return False
     finally:
         # A source left on "summarizing" spins in the interface for ever.
         db.clear_aia_source_progress(source_uuid)
+
+
+def _fail_summary(source_uuid: str, locale: str, **fields) -> None:
+    """Marks a source failed because its summary is missing, retry then only redoes the summary."""
+    from src.i18n import t
+    db.update_aia_source_status(source_uuid, "failed",
+                                error_message=t("ai.source.summaryFailed", locale), **fields)
+
+
+def _mark_workspace_ready_if_done(workspace_id: int, embedding_model: str | None,
+                                  fingerprint: str | None) -> None:
+    """Sets the workspace ready once every source that has not failed is ready."""
+    sources = db.get_aia_sources_by_workspace(workspace_id)
+    non_failed = [s for s in sources if s["status"] != "failed"]
+    if not non_failed or not all(s["status"] == "ready" for s in non_failed):
+        return
+    workspace = db.get_aia_workspace_by_id(workspace_id)
+    if workspace:
+        db.update_aia_workspace_status(
+            workspace["uuid"],
+            "ready",
+            embedding_model=embedding_model,
+            embedding_fingerprint=fingerprint,
+        )
+        logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
 
 def _save_transcript_artifact(key: str, text: str) -> None:
@@ -105,13 +132,22 @@ def _store_transcript_artifacts(file_path_stored: str, segments: list[dict], lan
 
 @celery_app.task(name="aia.summarize_source", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
-def run_summarize_source(source_uuid: str):
-    """Builds the summary of a source that was indexed before summaries existed."""
+def run_summarize_source(source_uuid: str, locale: str = "de"):
+    """Builds the missing summary of an indexed source, also the resume step of a retry."""
     source = db.get_aia_source(source_uuid)
     if not source:
         logger.warning("KI Tutor: summary skipped, source {} is gone", source_uuid)
         return
-    _build_source_summary_safely(source_uuid, db.get_chunks_by_source(source["id"]))
+    try:
+        ok = _build_source_summary_safely(source_uuid, db.get_chunks_by_source(source["id"]))
+    except Exception:
+        # Even a database hiccup must not leave the row spinning on indexing.
+        ok = False
+    if not ok:
+        _fail_summary(source_uuid, locale)
+        return
+    db.update_aia_source_status(source_uuid, "ready")
+    _mark_workspace_ready_if_done(source["workspace_id"], None, None)
 
 
 def _page_chunks(file_path: str) -> list[dict]:
@@ -317,8 +353,13 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             # A pasted text is short enough to be its own summary, no LLM call.
             from src.storage import aia_text_key, get_file
             db.update_aia_source_summary(source_uuid, get_file(aia_text_key(file_path_stored)).decode("utf-8"))
-        elif _BUILD_INGEST_SUMMARY:
-            _build_source_summary_safely(source_uuid, chunks)
+        elif _BUILD_INGEST_SUMMARY and not _build_source_summary_safely(source_uuid, chunks):
+            # Without a summary the source is not finished, retry picks up at the summary.
+            _fail_summary(source_uuid, locale, chunk_count=len(chunks),
+                          embedding_model=embedding_model, duration=media_duration,
+                          language=media_language)
+            _mark_workspace_ready_if_done(workspace_id, embedding_model, fingerprint)
+            return
 
         # 8. Source status → ready
         db.update_aia_source_status(
@@ -332,19 +373,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
         # 9. Check if all non-failed sources for this workspace are ready → set workspace ready
-        sources = db.get_aia_sources_by_workspace(workspace_id)
-        non_failed = [s for s in sources if s["status"] != "failed"]
-        all_ready = len(non_failed) > 0 and all(s["status"] == "ready" for s in non_failed)
-        if all_ready:
-            workspace = db.get_aia_workspace_by_id(workspace_id)
-            if workspace:
-                db.update_aia_workspace_status(
-                    workspace["uuid"],
-                    "ready",
-                    embedding_model=embedding_model,
-                    embedding_fingerprint=fingerprint,
-                )
-                logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
+        _mark_workspace_ready_if_done(workspace_id, embedding_model, fingerprint)
 
         # The source is done, the progress field is cleared.
         db.clear_aia_source_progress(source_uuid)

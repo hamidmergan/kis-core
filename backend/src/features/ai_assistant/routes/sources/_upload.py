@@ -183,6 +183,21 @@ def retry_source(
     if source["status"] != "failed" and not catching_up_ocr:
         raise HTTPException(status_code=409, detail=t("ai.source.retryFailedOnly", locale))
 
+    # Only the summary failed, so retry resumes there and keeps chunks and vectors.
+    if source["status"] == "failed" and source.get("file_type") != "text" \
+            and not (source.get("summary") or "").strip():
+        total, unembedded = db.count_chunks_and_unembedded(source["id"])
+        if total > 0 and unembedded == 0:
+            from src.features.ai_assistant.tasks.ingestion import run_summarize_source
+            db.resume_aia_source_summary(source_uuid)
+            try:
+                run_summarize_source.delay(source_uuid, locale)
+            except Exception:
+                db.update_aia_source_status(source_uuid, "failed")
+                raise
+            logger.info("KI Tutor: source {} resumes at the summary", source_uuid)
+            return {"uuid": source_uuid, "status": "indexing"}
+
     db.delete_aia_chunks_by_source(source["id"])
     db.reset_aia_source_for_retry(source_uuid)
 

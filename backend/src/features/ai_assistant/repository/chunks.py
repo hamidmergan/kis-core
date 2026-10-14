@@ -259,6 +259,19 @@ def get_source_page_numbers(source_id: int) -> set[int]:
             )
             return {row[0] for row in cur.fetchall() if row[0] is not None}
 
+def count_chunks_and_unembedded(source_id: int) -> tuple[int, int]:
+    """How many chunks a source has and how many of them still lack a vector."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*), COUNT(*) FILTER (WHERE embedding IS NULL)
+                   FROM aia_chunks WHERE source_id = %s""",
+                (source_id,),
+            )
+            total, unembedded = cur.fetchone()
+            return int(total), int(unembedded)
+
+
 def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
