@@ -3,6 +3,39 @@
 # and files stay in the external bucket, so there is no MinIO either.
 
 services:
+
+  # One image for all backend containers: eight separate builds filled the 38 GB disk.
+  # Only backend builds it, the others reuse it.
+  backend:
+    image: kis-backend:thl
+
+  celery-worker-screencast:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-worker-general:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-worker-long:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-worker-voice:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-worker-control:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-worker-aia:
+    image: kis-backend:thl
+    build: !reset null
+
+  celery-beat:
+    image: kis-backend:thl
+    build: !reset null
   frontend:
     build:
       context: ./frontend
