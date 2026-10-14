@@ -83,7 +83,9 @@ services:
       retries: 10
 
   backend:
+    # One image for all backend containers, only this service builds it.
     build: ./backend
+    image: kis-backend
     container_name: kis-backend
     env_file:
       - .env
@@ -146,7 +148,7 @@ services:
         max-file: "7"
 
   celery-worker-screencast:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-screencast
     profiles: ["tools"]
     # Ceiling from the cores instead of fixed. On today's 4-core box the formula
@@ -185,7 +187,7 @@ services:
         max-file: "7"
 
   celery-worker-general:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-general
     # Short services: translation, transcription, images. They take seconds
     # to a few minutes and never wait behind a summary, presentation or podcast script, those
@@ -224,7 +226,7 @@ services:
         max-file: "7"
 
   celery-worker-long:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-long
     # Long services: summary, presentation outline and build, podcast script, the nightly backup.
     # One of them holds a process for minutes, mostly waiting on the language and image
@@ -261,7 +263,7 @@ services:
         max-file: "7"
 
   celery-worker-voice:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-voice
     # Read aloud and podcast voicing. The voice provider manages only a few requests at
     # once (measured 2026-09-26 at myLab: 4), every tool shares those seats. More
@@ -293,7 +295,7 @@ services:
         max-file: "7"
 
   celery-worker-control:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-control
     # Only the watchdog, in a single process. It has to run exactly when every other
     # worker is busy, it restarts their jobs and frees their slots.
@@ -320,7 +322,7 @@ services:
         max-file: "7"
 
   celery-worker-aia:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-aia
     profiles: ["aia"]
     # One process per slot of the Francis pool (AIA_PARALLEL_SLOTS = 6), the pool
@@ -357,7 +359,7 @@ services:
         max-file: "7"
 
   celery-beat:
-    build: ./backend
+    image: kis-backend
     container_name: kis-celery-beat
     command: celery -A src.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
     env_file:
