@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -822,8 +822,8 @@ def import_preview(
     return build_import_preview(body.config.model_dump())
 
 
-def perform_import(cfg: dict) -> dict:
-    """Applies an import without deleting existing rows or overwriting keys."""
+def perform_import(cfg: dict, *, probe_ids: list[int] | None = None) -> dict:
+    """Applies an import without deleting existing rows or overwriting keys, probes are queued in probe_ids when given."""
     validate_import_config(cfg)
 
     # ── Provider merge ──
@@ -869,7 +869,10 @@ def perform_import(cfg: dict) -> dict:
             row = db.update_provider(existing["id"], **update_kwargs)
             providers_updated += 1
         # Re-probe so probe_status reflects current reachability.
-        probe_provider(row["id"])
+        if probe_ids is None:
+            probe_provider(row["id"])
+        else:
+            probe_ids.append(row["id"])
         # The key is only set on creation or when backfilling.
         if _needs_api_key(p["protocol"], p["base_url"]) and not row.get("api_key"):
             providers_needing_key.append(p["name"])
@@ -939,12 +942,26 @@ def perform_import(cfg: dict) -> dict:
     }
 
 
+def _probe_all(provider_ids: list[int]) -> None:
+    """Probes one provider after the other, one failure never stops the rest."""
+    for pid in provider_ids:
+        try:
+            probe_provider(pid)
+        except Exception:  # noqa: BLE001 - background task must not die on one provider
+            logger.exception("background probe failed for provider id={}", pid)
+
+
 @router.post("/providers/import")
 def import_config(
     body: ImportConfigRequest,
+    background: BackgroundTasks,
     _admin=Depends(_require),
 ):
-    return perform_import(body.config.model_dump())
+    # Probing every provider can outlast the proxy timeout, so it runs after the response.
+    probe_ids: list[int] = []
+    result = perform_import(body.config.model_dump(), probe_ids=probe_ids)
+    background.add_task(_probe_all, probe_ids)
+    return result
 
 
 def perform_clear_all() -> dict:
