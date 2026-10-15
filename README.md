@@ -49,7 +49,7 @@ For working on the code, the frontend runs from the Next.js dev server instead o
 In `.env`, swap the two `COMPOSE_` lines for the development lines below them, then:
 
 ```bash
-docker compose up -d      # add --build after changing a Dockerfile or requirements
+docker compose up -d
 cd frontend && npm install && npm run dev
 ```
 
