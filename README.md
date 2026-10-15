@@ -4,6 +4,7 @@
 
 A self hosted teaching platform with AI assisted tools for course material and study support.
 Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck.
+Website with screenshots: [kis-thl.de](https://kis-thl.de)
 
 Runs entirely on your own infrastructure. No data leaves it unless you configure an external
 provider.
