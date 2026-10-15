@@ -75,14 +75,9 @@ model works too, KIS measures its window and sizes the context to fit.
 
 ### Fully local with Ollama
 
-KIS also runs without any cloud provider, with every model on your own machine. Tested on one
-machine only, a MacBook Pro M5 Max with 64 GB. Other machines, Windows and NVIDIA are not tested.
-
-`gemma4:31b-mlx` is the smallest model that worked. Smaller ones tested (gemma4 12b and 26b,
-Mistral Small 24b, Qwen 14b and 30b) often claimed the answer was not in the sources. Both models
-loaded take 34 GB.
-
-Measured on that Mac: a chat answer takes 9 to 34 seconds, a mind map about four minutes.
+KIS also runs without any cloud provider. Tested only on a MacBook Pro M5 Max with 64 GB, using
+`gemma4:31b-mlx` for chat and `qwen3-embedding:4b` for embedding. Smaller chat models often
+claimed the answer was not in the sources. A chat answer took 9 to 34 seconds.
 
 ## License
 
