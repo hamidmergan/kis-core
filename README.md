@@ -73,10 +73,10 @@ Speech and local models run outside the stack and are reached by base URL, for e
 The study assistant works best with a large context window, we run it with 256k tokens. A smaller
 model works too, KIS measures its window and sizes the context to fit.
 
-### Fully local with Ollama
+### Study assistant with Ollama
 
-KIS also runs without any cloud provider. Tested only on a MacBook Pro M5 Max with 64 GB, using
-`gemma4:31b-mlx` for chat and `qwen3-embedding:4b` for embedding. Smaller chat models often
+The study assistant also runs on local models. Tested only on a MacBook Pro M5 Max with 64 GB,
+using `gemma4:31b-mlx` for chat and `qwen3-embedding:4b` for embedding. Smaller chat models often
 claimed the answer was not in the sources. A chat answer took 9 to 34 seconds.
 
 ## License
