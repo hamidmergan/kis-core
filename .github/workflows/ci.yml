@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - '**'
+  workflow_dispatch:
 
 # A newer push to the same ref cancels the in-flight run.
 concurrency:
