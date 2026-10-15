@@ -45,15 +45,17 @@ Open `http://localhost:3000`.
 
 ## Development setup
 
-For working on the code, the frontend runs from the Next.js dev server instead of the container:
+For working on the code, the frontend runs from the Next.js dev server instead of the container.
+In `.env`, swap the two `COMPOSE_` lines for the development lines below them, then:
 
 ```bash
-./start-local.sh          # start-local.bat on Windows
+docker compose up -d      # add --build after changing a Dockerfile or requirements
 cd frontend && npm install && npm run dev
 ```
 
-The script leaves the frontend container out, so port 3000 stays free, and it adds Adminer
-and Langfuse. The API docs are on `http://localhost:8000/docs`.
+This leaves the frontend container out, so port 3000 stays free, reloads the backend on every
+change and adds Adminer and Langfuse. With an NVIDIA GPU, append `:docker-compose.gpu.yml` to
+`COMPOSE_FILE`. The API docs are on `http://localhost:8000/docs`.
 
 ## AI providers
 
@@ -80,7 +82,7 @@ Measured on that Mac: a chat answer takes 9 to 34 seconds, a mind map about four
 1. Start Ollama so the containers can reach it, and fetch the models:
 
    ```bash
-   ./start-ollama.sh
+   scripts/start-ollama.sh
    ```
 
    On a Mac use the Ollama download from ollama.com, not Homebrew. The Homebrew build lacks

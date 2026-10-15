@@ -1,8 +1,8 @@
 #!/bin/bash
 # Starts Ollama for a fully local KIS and fetches the models KIS is tested with.
 #
-#   ./start-ollama.sh            start Ollama and pull the models
-#   OLLAMA_BIN=/path/ollama ./start-ollama.sh   use a specific Ollama binary
+#   scripts/start-ollama.sh            start Ollama and pull the models
+#   OLLAMA_BIN=/path/ollama scripts/start-ollama.sh   use a specific Ollama binary
 #
 # Ollama listens on all interfaces, otherwise the Docker containers cannot reach it.
 # That also makes it reachable from your network, so keep the firewall on.

@@ -3,11 +3,12 @@
 # Aufruf vom Repo-Root: bash deploy/start-thl.sh [up|down|restart]
 cd "$(dirname "$0")/.." || exit 1
 
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.thl.yml"
+# -f explizit, damit ein COMPOSE_FILE aus der .env nichts dazuladen kann.
+COMPOSE_FILES="-f docker-compose.yml"
 
 # Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
 MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | cut -d'#' -f1 | tr -d " \"'")
-export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools}"
+export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools},app"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 
 CMD=${1:-up}

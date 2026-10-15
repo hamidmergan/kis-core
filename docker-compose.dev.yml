@@ -1,5 +1,5 @@
-# Local development, loaded explicitly via -f in start-local.bat/sh.
-# Not used on the server.
+# Local development: hot reload, Adminer and Langfuse. Switched on via COMPOSE_FILE
+# in .env, see the development lines in .env.example. Not used on the servers.
 
 services:
   # ── Hot-Reload-Tweaks ──────────────────────────────────────────────────

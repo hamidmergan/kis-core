@@ -34,12 +34,12 @@ test-unit: ## Run both fast unit suites (backend + frontend), no live stack need
 
 test-backend: ## Run fast backend pytest in the container (excludes live @e2e). Pass args via ARGS=...
 	@docker ps --format '{{.Names}}' | grep -qx $(BACKEND_CONTAINER) \
-		|| { echo "✗ $(BACKEND_CONTAINER) is not running. Start the stack first (./start-local.sh)."; exit 1; }
+		|| { echo "✗ $(BACKEND_CONTAINER) is not running. Start the stack first (docker compose up -d)."; exit 1; }
 	docker exec $(BACKEND_CONTAINER) python -m pytest tests/ -m "not e2e" $(ARGS)
 
 test-backend-e2e: ## Run the live backend RAG-eval suites (@e2e). Needs the stack up + eval data ingested.
 	@docker ps --format '{{.Names}}' | grep -qx $(BACKEND_CONTAINER) \
-		|| { echo "✗ $(BACKEND_CONTAINER) is not running. Start the stack first (./start-local.sh)."; exit 1; }
+		|| { echo "✗ $(BACKEND_CONTAINER) is not running. Start the stack first (docker compose up -d)."; exit 1; }
 	docker exec $(BACKEND_CONTAINER) python -m pytest tests/ -m e2e $(ARGS)
 
 test-frontend: ## Run frontend Vitest unit tests on the host

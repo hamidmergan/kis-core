@@ -1,5 +1,5 @@
 # GPU tweaks for local development with an NVIDIA GPU.
-# Loaded explicitly via -f in start-local.bat.
+# Add it to COMPOSE_FILE in .env, see the development lines in .env.example.
 
 services:
   celery-worker-general:
