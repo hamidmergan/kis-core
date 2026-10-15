@@ -37,11 +37,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open `http://localhost:3000`.
-
-- Login: `admin` / `adminpw` from `.env.example`, by user name or mail address.
-- `AUTH_DISABLED=true` skips login, giving a `local` account every permission. Not a deployment
-  mode, blocked by `PRODUCTION=true`.
+Open `http://localhost:3000` and log in with `admin` / `adminpw`.
 
 ## Development setup
 
