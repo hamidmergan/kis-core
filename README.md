@@ -49,8 +49,7 @@ docker compose up -d
 cd frontend && npm install && npm run dev
 ```
 
-This leaves the frontend container out, so port 3000 stays free, reloads the backend on every
-change and adds Adminer and Langfuse. The API docs are on `http://localhost:8000/docs`.
+Adds backend reload, Adminer and Langfuse. API docs: `http://localhost:8000/docs`.
 
 ## AI providers
 
