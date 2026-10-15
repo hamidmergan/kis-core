@@ -84,29 +84,6 @@ loaded take 34 GB.
 
 Measured on that Mac: a chat answer takes 9 to 34 seconds, a mind map about four minutes.
 
-1. Start Ollama so the containers can reach it, and fetch the models:
-
-   ```bash
-   scripts/start-ollama.sh
-   ```
-
-   On a Mac use the Ollama download from ollama.com, not Homebrew. The Homebrew build lacks
-   structured output, which KIS needs.
-
-   The script lets Ollama listen on every network interface, otherwise the containers cannot
-   reach it. Ollama has no login, so anyone on the same network can use your models. Run it
-   only on a trusted network with the firewall on.
-
-2. Under **Admin → AI** add a provider with the base URL `http://host.docker.internal:11434/v1`
-   and no API key.
-3. Route chat, transcript translation and document translation to `gemma4:31b-mlx`, and
-   embedding to `qwen3-embedding:4b`.
-KIS reads the context window from Ollama when the route is saved, then sizes its context and
-splits large mind maps into smaller steps to fit the model. After changing `OLLAMA_CONTEXT_LENGTH`,
-clear the window field of the model under **Admin → AI** so KIS measures again.
-
-Changing the embedding model later means the sources have to be indexed again.
-
 ## License
 
 Apache 2.0, Copyright 2026 Technische Hochschule Lübeck.
