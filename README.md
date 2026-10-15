@@ -11,13 +11,15 @@ provider.
 
 ## Features
 
-- Document translation with glossary
-- Slide decks from an outline: layouts, charts, images
-- Screencasts from PPTX: script, speech, video, subtitles
-- Podcasts from source material: script, voices, audio
-- Live interpreter: two-way speech and text translation
-- Transcription, text to speech, summaries, image generation
-- Study assistant: modules, sources, chat with citations, flashcards, quiz, mindmaps, data tables, schedules, notes
+- Translation of documents
+- Slide decks from an outline
+- Screencasts from PPTX
+- Podcasts from source material
+- Pages from source material
+- Transcription, text to speech, summaries, images
+- Study assistant: chat with citations and learning tools
+- Info assistant with its own document index
+- Admin for accounts, rights and AI providers
 
 ## Stack
 
