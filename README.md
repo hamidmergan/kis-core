@@ -54,8 +54,7 @@ cd frontend && npm install && npm run dev
 ```
 
 This leaves the frontend container out, so port 3000 stays free, reloads the backend on every
-change and adds Adminer and Langfuse. With an NVIDIA GPU, append `:docker-compose.gpu.yml` to
-`COMPOSE_FILE`. The API docs are on `http://localhost:8000/docs`.
+change and adds Adminer and Langfuse. The API docs are on `http://localhost:8000/docs`.
 
 If the stack ran in the normal setup before, remove its frontend container once, so port 3000 is free:
 
