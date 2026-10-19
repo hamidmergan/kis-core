@@ -175,7 +175,7 @@ async def get_reachable_tts_providers_with_voices(user: dict | None = None) -> l
     from src.services import provider_check
 
     # A voice service can answer the probe and still turn down every real request.
-    refused = await asyncio.to_thread(provider_check.refused_ids, "tts")
+    refused = await asyncio.to_thread(provider_check.refused_ids, "tts", {p["id"] for p in providers})
     providers = [p for p in providers if p["id"] not in refused]
     loop = asyncio.get_running_loop()
     flags = await asyncio.gather(

@@ -14,7 +14,7 @@ async def test_translate_config_hides_unreachable(monkeypatch):
     monkeypatch.setattr(feature_provider_choices, "_is_reachable", fake_reachable)
     from src.services import provider_check
 
-    monkeypatch.setattr(provider_check, "refused_ids", lambda feature: set())
+    monkeypatch.setattr(provider_check, "refused_ids", lambda feature, ids=None: set())
 
     result = await translate.get_translate_config(current_user={}, locale="de")
     assert result["providers"] == [{"id": 21, "label": "THL myLab"}]

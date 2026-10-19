@@ -82,24 +82,65 @@ async def test_das_dropdown_zeigt_keinen_anbieter_dessen_letzter_echter_aufruf_s
     monkeypatch.setattr(svc.db, "get_route",
                         lambda f: {"provider_id": 21, "model_name": "m", "provider_models": {"20": "m", "22": "m"}})
     monkeypatch.setattr(svc, "make_adapter", lambda **kw: _Ok())
-    monkeypatch.setattr(provider_check, "refused_ids", lambda feature: {21} if feature == "chat" else set())
+    monkeypatch.setattr(provider_check, "refused_ids", lambda feature, ids=None: {21} if feature == "chat" else set())
 
     result = await svc.list_reachable_choices("chat")
     assert [p["id"] for p in result["providers"]] == [20, 22]
     assert result["default_id"] == 20
 
 
-def test_ein_veralteter_stand_stoesst_eine_neue_pruefung_an(monkeypatch):
-    gestartet = []
-    monkeypatch.setattr(provider_check, "_stale", lambda: True)
-    monkeypatch.setattr(provider_check.threading, "Thread",
-                        lambda target, kwargs, daemon: type("T", (), {"start": lambda self: gestartet.append(kwargs)})())
-    monkeypatch.setattr(provider_check.provider_checks, "list_checks", lambda: {
-        (21, "chat"): {"status": "error"}, (20, "chat"): {"status": "ok"}, (21, "tts"): {"status": "error"},
-        (22, "chat"): {"status": "busy"},
-    })
-    assert provider_check.refused_ids("chat") == {21}
-    assert gestartet == [{"force": False}]
+def _ziele(*ids):
+    return [("chat", {"id": i, "name": f"P{i}"}, "m") for i in ids] + [("tts", {"id": 21, "name": "P21"}, None)]
+
+
+def test_alte_ergebnisse_werden_sofort_und_parallel_neu_geprueft(monkeypatch):
+    from datetime import datetime, timedelta
+
+    jetzt = datetime.now().isoformat()
+    alt = (datetime.now() - timedelta(hours=1)).isoformat()
+    stand = {(20, "chat"): {"status": "ok", "checked_at": jetzt},
+             (21, "chat"): {"status": "ok", "checked_at": alt},
+             (21, "tts"): {"status": "error", "checked_at": alt}}
+    geprueft = []
+
+    def check(feature, provider, model):
+        geprueft.append((provider["id"], feature))
+        stand[(provider["id"], feature)] = {"status": "error", "checked_at": datetime.now().isoformat()}
+
+    monkeypatch.setattr(provider_check, "targets", lambda: _ziele(20, 21, 22))
+    monkeypatch.setattr(provider_check.provider_checks, "list_checks", lambda: dict(stand))
+    monkeypatch.setattr(provider_check, "_check_one", check)
+
+    assert provider_check.refused_ids("chat", {20, 21, 22}) == {21, 22}
+    assert sorted(geprueft) == [(21, "chat"), (22, "chat")]
+
+
+def test_nur_die_anbieter_im_dropdown_werden_geprueft(monkeypatch):
+    geprueft = []
+    monkeypatch.setattr(provider_check, "targets", lambda: _ziele(20, 21))
+    monkeypatch.setattr(provider_check.provider_checks, "list_checks", lambda: {})
+    monkeypatch.setattr(provider_check, "_check_one", lambda f, p, m: geprueft.append(p["id"]))
+
+    assert provider_check.refused_ids("chat", {21, 99}) == set()
+    assert geprueft == [21]
+
+
+def test_eine_langsame_pruefung_behaelt_ihr_letztes_ergebnis(monkeypatch):
+    import threading
+    from datetime import datetime, timedelta
+
+    alt = (datetime.now() - timedelta(hours=1)).isoformat()
+    frei = threading.Event()
+    monkeypatch.setattr(provider_check, "PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS", 0.1)
+    monkeypatch.setattr(provider_check, "targets", lambda: _ziele(20))
+    monkeypatch.setattr(provider_check.provider_checks, "list_checks",
+                        lambda: {(20, "chat"): {"status": "error", "checked_at": alt}})
+    monkeypatch.setattr(provider_check, "_check_one", lambda f, p, m: frei.wait(5))
+
+    try:
+        assert provider_check.refused_ids("chat") == {20}
+    finally:
+        frei.set()
 
 
 def test_funktionen_ohne_pruefung_blenden_nichts_aus():

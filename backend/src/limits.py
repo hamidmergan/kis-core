@@ -128,6 +128,11 @@ PROVIDER_CHECK_MAX_AGE_SECONDS = 600
 PROVIDER_CHECK_MIN_GAP_SECONDS = 60
 # A check waits this long for a seat, a provider whose seats stay full is busy with our own jobs.
 PROVIDER_CHECK_SEAT_WAIT_SECONDS = 20
+# A provider dropdown checks every entry again with a real call once its result is older than this,
+# so a provider costs at most one call per two minutes however often the dropdown opens.
+PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS = 120
+# The dropdown waits this long for those checks, one that takes longer keeps its last result.
+PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS = 8
 
 # How many slides are voiced at once per screencast, more than the provider's seats only waits.
 SCREENCAST_TTS_PARALLELISM = TTS_PROVIDER_MAX_CONCURRENT

@@ -130,7 +130,8 @@ async def only_reachable(providers: list[dict], feature: str | None = None) -> l
     from src.services import provider_check
 
     # A provider can answer the probe and still turn down every real request.
-    refused = await asyncio.to_thread(provider_check.refused_ids, feature) if feature else set()
+    ids = {p["id"] for p in providers}
+    refused = await asyncio.to_thread(provider_check.refused_ids, feature, ids) if feature else set()
     providers = [p for p in providers if p["id"] not in refused]
     flags = await asyncio.gather(*(_is_reachable(p) for p in providers))
     return [p for p, ok in zip(providers, flags) if ok]
