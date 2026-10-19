@@ -7,6 +7,7 @@ from typing import Optional
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
+from src.features.ai_providers.repository import provider_checks
 
 
 # The fixed feature ids, here so the API can validate them.
@@ -138,7 +139,10 @@ def set_route(
                  payload_sampling, fallback_provider_id, payload_order),
             )
             conn.commit()
-            return _row_to_dict(cur.fetchone())
+            row = _row_to_dict(cur.fetchone())
+    # A result checked with the old model must not keep a provider out of the dropdown.
+    provider_checks.clear_feature(feature)
+    return row
 
 
 def routes_using_provider(provider_id: int) -> list[dict]:

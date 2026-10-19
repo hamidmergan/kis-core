@@ -34,3 +34,11 @@ def set_check(provider_id: int, feature: str, *, status: str, error: Optional[st
                 (provider_id, feature, status, error),
             )
             conn.commit()
+
+
+def clear_feature(feature: str) -> None:
+    """Drops the stored results of one function, so the next dropdown checks the new models."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM provider_checks WHERE feature = %s", (feature,))
+            conn.commit()
