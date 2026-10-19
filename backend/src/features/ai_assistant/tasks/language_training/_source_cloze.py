@@ -14,6 +14,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.services.llm_call import create_logged
+from src.services.upstream_errors import is_provider_refusal
 
 
 _PLACEHOLDER_RE = re.compile(r"\{\{(\d+)\}\}")
@@ -260,6 +261,8 @@ def _generate_once(
                                       temperature=0.3)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:  # noqa: BLE001
+        if is_provider_refusal(e):
+            raise
         logger.warning("KI Tutor: Lückentext nicht lesbar: {}", e)
         return None
     if not isinstance(data, dict):
@@ -328,6 +331,8 @@ def _proofread(client, model, passage: str, language: str) -> list[str]:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         errors = data.get("errors") if isinstance(data, dict) else None
     except Exception as e:  # noqa: BLE001
+        if is_provider_refusal(e):
+            raise
         logger.warning("KI Tutor: Lückentext-Prüfung nicht lesbar: {}", e)
         return []
     return [str(x) for x in errors if x] if isinstance(errors, list) else []

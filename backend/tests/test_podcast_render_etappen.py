@@ -206,7 +206,7 @@ def test_ein_voller_anbieter_wird_als_voll_gemeldet(umgebung, monkeypatch):
     with pytest.raises(RuntimeError):
         _render.run_podcast_render(JOB, UID, "de", 1, 0)
 
-    assert gemeldet == [{"busy": True}]
+    assert gemeldet == [{"busy": True, "refused": False}]
 
 
 def test_eine_fremd_uebernommene_etappe_schreibt_nichts(umgebung, monkeypatch):

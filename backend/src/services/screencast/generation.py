@@ -174,7 +174,7 @@ async def generate_all_tts(
         raise HTTPException(
             status_code=502,
             detail=f"TTS-Fehler bei Folie {i + 1}: {last_error}",
-        )
+        ) from last_error
 
     def _sichern(i: int, audio_bytes: bytes) -> None:
         audio_paths[i].write_bytes(audio_bytes)

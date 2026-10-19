@@ -28,7 +28,7 @@ from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.job_statistik import angaben_merken, route_kennung
 from src.services.provider_slots import ProviderFull
-from src.services.upstream_errors import is_upstream_busy
+from src.services.upstream_errors import is_provider_refusal, is_upstream_busy
 from src.storage import save_result_and_evict
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
@@ -122,7 +122,9 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
         return {"cancelled": True}
     except Exception as e:
         logger.error("Präsentation-Bau {} fehlgeschlagen: {}", job_uuid[:8], e)
-        attempt_failed(job_uuid, t("praesentation.buildFailed", locale), busy=is_upstream_busy(e))
+        nein = is_provider_refusal(e)
+        attempt_failed(job_uuid, t("job.providerRefused" if nein else "praesentation.buildFailed", locale),
+                       busy=is_upstream_busy(e), refused=nein)
         raise
 
 

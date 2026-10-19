@@ -24,7 +24,7 @@ from src.services import sources as quellen
 from src.services import text_map as tm
 from src.services.job_files import parse_job_json, read_job_text, write_job_text
 from src.services.job_recovery import attempt_failed, still_mine
-from src.services.upstream_errors import is_upstream_busy
+from src.services.upstream_errors import is_provider_refusal, is_upstream_busy
 from src.services.job_statistik import messe, route_kennung
 from src.tasks._stage import StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
@@ -254,7 +254,8 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
         return {"cancelled": True}
     except Exception as e:
         logger.error("Podcast-Skript {} fehlgeschlagen: {}", job_uuid[:8], e)
-        busy = is_upstream_busy(e)
+        busy, nein = is_upstream_busy(e), is_provider_refusal(e)
         # While it only waits on the provider the job shows that, not advice to shorten the material.
-        attempt_failed(job_uuid, t("job.upstreamBusy" if busy else "podcast.scriptFailed", locale), busy=busy)
+        key = "job.providerRefused" if nein else "job.upstreamBusy" if busy else "podcast.scriptFailed"
+        attempt_failed(job_uuid, t(key, locale), busy=busy, refused=nein)
         raise

@@ -21,7 +21,7 @@ from src.limits import (
 from src.services import tts_job_provider
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.job_statistik import anbieter_und_modelle, angaben_merken, messe
-from src.services.upstream_errors import is_upstream_busy
+from src.services.upstream_errors import is_provider_refusal, is_upstream_busy
 from src.storage import (
     load_result_meta,
     save_result_and_evict,
@@ -330,5 +330,8 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         # A person's own voice service said why, that tells more than the number of the contribution.
         if hasattr(e.__cause__ or e, "vendor_label"):
             meldung = (e.__cause__ or e).message(locale)
-        attempt_failed(job_uuid, meldung, busy=is_upstream_busy(e.__cause__ or e))
+        nein = is_provider_refusal(e)
+        if nein and not hasattr(e.__cause__ or e, "vendor_label"):
+            meldung = t("job.providerRefused", locale)
+        attempt_failed(job_uuid, meldung, busy=is_upstream_busy(e.__cause__ or e), refused=nein)
         raise

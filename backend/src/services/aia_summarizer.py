@@ -15,6 +15,7 @@ from src.features.ai_assistant.prompts.summarizer_prompts import (
     aia_summary_combine_user,
 )
 from src.services.text_language import language_name
+from src.services.upstream_errors import is_provider_refusal
 
 # Signs of a refusal due to overload, deliberately via the text.
 _RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
@@ -105,6 +106,8 @@ def _call(
                     logger.warning("Summary answer empty, the model only thought, next attempt without thinking")
                     switch = dict(switches.pop(0))
         except Exception as e:  # retried below, re-raised if all attempts fail
+            if is_provider_refusal(e):
+                raise
             last = e
             rate_limited = _is_rate_limit(e)
             logger.warning(

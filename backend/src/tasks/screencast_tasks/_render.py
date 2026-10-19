@@ -22,7 +22,7 @@ from src.utils.heartbeat import job_heartbeat
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.screencast.naming import build_artifact_stem
 
-from src.tasks._errors import handle_task_exception, is_upstream_busy, job_locale
+from src.tasks._errors import handle_task_exception, is_provider_refusal, is_upstream_busy, job_locale
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
@@ -172,10 +172,12 @@ def run_screencast_render(
         detail = str(getattr(e, "detail", e))
         logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
         # Otherwise the raw provider message ends up on screen.
-        voll = is_upstream_busy(detail)
-        if voll:
+        voll, nein = is_upstream_busy(detail), is_provider_refusal(detail)
+        if nein:
+            detail = t("job.providerRefused", job_locale(translate_job_uuid))
+        elif voll:
             detail = t("job.upstreamBusy", job_locale(translate_job_uuid))
-        attempt_failed(translate_job_uuid, detail, busy=voll)
+        attempt_failed(translate_job_uuid, detail, busy=voll, refused=nein)
         _maybe_dispatch_next(translate_job_uuid)
         raise
 

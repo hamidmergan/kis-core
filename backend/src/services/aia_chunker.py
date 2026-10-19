@@ -11,6 +11,7 @@ from src.services.text_pieces import (
 )
 
 from loguru import logger
+from src.services.upstream_errors import is_provider_refusal
 
 
 class PdfNoReadableTextError(ValueError):
@@ -95,10 +96,11 @@ class _OcrRun:
             text = _ocr_image_with_retry(
                 self._provider, png_bytes, page_number, sleep=self._sleep
             )
-        except OcrFailedError:
+        except OcrFailedError as e:
             self._failed += 1
             self.open.append(page_number)
-            if self._failed >= OCR_MAX_FAILED_PAGES:
+            # A provider that turned one page down turns down every page after it.
+            if self._failed >= OCR_MAX_FAILED_PAGES or is_provider_refusal(e):
                 self._given_up = True
                 logger.warning(
                     "OCR: {} page(s) failed, switching OCR off for the rest of this "

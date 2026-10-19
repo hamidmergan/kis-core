@@ -128,3 +128,13 @@ def status() -> dict:
             "checked_at": row.get("checked_at"),
         })
     return out
+
+
+def refused_ids(feature: str) -> set[int]:
+    """Providers whose last real call for the function failed, a stale result starts a fresh check."""
+    if feature not in FEATURES:
+        return set()
+    if _stale() and not _lock.locked():
+        threading.Thread(target=run_checks, kwargs={"force": False}, daemon=True).start()
+    return {pid for (pid, f), row in provider_checks.list_checks().items()
+            if f == feature and row.get("status") == "error"}

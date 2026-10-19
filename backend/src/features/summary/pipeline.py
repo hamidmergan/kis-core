@@ -26,6 +26,7 @@ from src.services import anweisung
 from src.services import text_map as tm
 from src.services.source_reading import Source
 from src.services.text_language import language_name
+from src.services.upstream_errors import is_provider_refusal
 
 
 # Where the answers of the topic pieces wait until every piece is in.
@@ -63,7 +64,7 @@ async def _themen(caller: Caller, nachrichten: list[dict], teil: int) -> str | N
                                       response_format={"type": "json_object"})
         return antwort.choices[0].message.content
     except Exception as e:  # noqa: BLE001 - a lost part costs its topics, not the run
-        if concurrency.overloaded(e):
+        if concurrency.overloaded(e) or is_provider_refusal(e):
             raise
         logger.warning("Zusammenfassung: Themen von Teil {} nicht gelesen ({})", teil, e)
         return None
@@ -126,7 +127,7 @@ async def _weg(caller: Caller, instructions: str, material: str) -> str:
             temperature=0.0, name="anweisung", response_format={"type": "json_object"})
         weg = anweisung.lies_weg(antwort.choices[0].message.content)
     except Exception as e:  # noqa: BLE001 - a lost call keeps the instruction under guard
-        if concurrency.overloaded(e):
+        if concurrency.overloaded(e) or is_provider_refusal(e):
             raise
         logger.warning("Zusammenfassung: Anweisung nicht eingeordnet ({}), sie gilt als Stil", e)
         weg = anweisung.STIL

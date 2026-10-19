@@ -6,6 +6,13 @@ from src.services import feature_provider_choices as svc
 from src.services.feature_router import FeatureNotConfigured
 
 
+@pytest.fixture(autouse=True)
+def _keine_gescheiterten_pruefungen(monkeypatch):
+    from src.services import provider_check
+
+    monkeypatch.setattr(provider_check, "refused_ids", lambda feature: set())
+
+
 def _route(provider_id=20, model_name="primary-model", provider_models=None):
     return {
         "provider_id": provider_id,

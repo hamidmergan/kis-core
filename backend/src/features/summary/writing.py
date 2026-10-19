@@ -9,6 +9,7 @@ from loguru import logger
 
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.services import anweisung
+from src.services.upstream_errors import is_provider_refusal
 from src.limits import (
     SUMMARY_CHARS_PER_SECTION,
     SUMMARY_COMPOSE_MAX_ATTEMPTS,
@@ -366,6 +367,8 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 break
             logger.warning("Zusammenfassung: Gliederung {} unlesbar", versuch)
         except Exception as e:  # noqa: BLE001 - the single call still saves the run
+            if is_provider_refusal(e):
+                raise
             logger.warning("Zusammenfassung: Planungsaufruf {} gescheitert ({})", versuch, e)
         if versuch < SUMMARY_OUTLINE_MAX_ATTEMPTS:
             await asyncio.sleep(SUMMARY_RETRY_DELAY_SECONDS)
@@ -649,6 +652,8 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
             )
             return _finished(antwort)
         except Exception as e:  # noqa: BLE001 - the last attempt hands the failure on
+            if is_provider_refusal(e):
+                raise
             logger.warning("Zusammenfassung: Einzelaufruf {} gescheitert ({})", versuch, e)
             if versuch >= SUMMARY_COMPOSE_MAX_ATTEMPTS:
                 raise

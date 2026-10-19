@@ -10,6 +10,7 @@ from loguru import logger
 
 from src import database as db
 from src.i18n import t
+from src.services.upstream_errors import is_provider_refusal
 from src.limits import (
     CONTINUED_PRIORITY, MAX_AUTO_RESUMES, PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS,
     RETRY_BACKOFF_SECONDS,
@@ -53,13 +54,17 @@ def _progress(job: dict) -> dict:
         return {}
 
 
-def attempt_failed(job_uuid: str, message: str, *, stale_before=None, busy: bool = False) -> str | None:
+def attempt_failed(job_uuid: str, message: str, *, stale_before=None, busy: bool = False,
+                   refused: bool = False) -> str | None:
     """Counts one failed attempt, returns the new status or None when it no longer applied."""
     job = db.get_job(job_uuid)
     if not job:
         return None
+    if refused and job.get("status") not in ("pending", "running", "waiting_retry"):
+        return None
     tuer = resume_entry(job)
-    if tuer is None:
+    # A provider that refused the call refuses the next one as well, so the job ends now.
+    if tuer is None or refused:
         db.update_job_status(job_uuid, "failed", error_message=message)
         return "failed"
     if busy and not _busy_too_long(job):
@@ -109,7 +114,7 @@ def resume_due_jobs() -> int:
             dispatch_resume(job)
         except Exception as e:  # noqa: BLE001 - a failed dispatch is just the next failed attempt
             logger.error("Job {}: Wiederanlauf nicht absendbar: {}", job["job_uuid"][:8], e)
-            attempt_failed(job["job_uuid"], str(e))
+            attempt_failed(job["job_uuid"], str(e), refused=is_provider_refusal(e))
     return len(faellig)
 
 

@@ -238,7 +238,7 @@ class TestOutline:
         umgebung.setattr(_outline, "db", db)
         umgebung.setattr(_outline, "call_json_llm", _Llm(["Quatsch", "Nochmal Quatsch"]))
         gemeldet = []
-        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: gemeldet.append(busy))
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False, **k: gemeldet.append(busy))
         with pytest.raises(RuntimeError):
             _outline.run_praesentation_outline.run(JOB, UID, "de")
         # An unusable answer is no overload, the recovery path lets it fail as before.
@@ -255,7 +255,7 @@ class TestOutline:
 
         umgebung.setattr(_outline, "call_json_llm", zu_langsam)
         gemeldet = []
-        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: gemeldet.append(busy))
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False, **k: gemeldet.append(busy))
         with pytest.raises(RuntimeError):
             _outline.run_praesentation_outline.run(JOB, UID, "de")
         assert gemeldet == [True]
@@ -274,7 +274,7 @@ class TestOutline:
 
         umgebung.setattr(_outline, "call_json_llm", zu_langsam)
         texte = []
-        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: texte.append(msg))
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False, **k: texte.append(msg))
         with pytest.raises(RuntimeError):
             _outline.run_praesentation_outline.run(JOB, UID, "de")
         assert texte == [t("job.upstreamBusy", "de")]
@@ -533,7 +533,7 @@ def test_ein_voller_anbieter_beim_bau_wird_als_voll_gemeldet(umgebung):
     umgebung.setattr(_build, "attempt_failed", lambda job, msg, **k: gemeldet.append(k))
     with pytest.raises(RuntimeError):
         _build.run_praesentation_build.run(JOB, UID, "de")
-    assert gemeldet == [{"busy": True}]
+    assert gemeldet == [{"busy": True, "refused": False}]
 
 
 def test_die_folienpakete_werden_gleichzeitig_geschrieben(umgebung):

@@ -45,7 +45,7 @@ async def get_translate_config(
 ):
     from src.dependencies import get_translation_providers
     from src.services.feature_provider_choices import only_reachable
-    raw_providers = await only_reachable(get_translation_providers())
+    raw_providers = await only_reachable(get_translation_providers(), "chat")
     providers = [{"id": p["id"], "label": p["name"]} for p in raw_providers]
 
     languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES]

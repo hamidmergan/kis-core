@@ -114,6 +114,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Die KI steht wegen begrenzter Rechenkapazität nicht immer zur Verfügung. Bitte versuche es später noch einmal.",
         "en": "The AI is not always available because computing capacity is limited. Please try again later.",
     },
+    "job.providerRefused": {
+        "de": "Der KI-Anbieter hat die Anfrage abgelehnt. Wähle einen anderen Anbieter oder versuche es später noch einmal.",
+        "en": "The AI provider turned the request down. Pick another provider or try again later.",
+    },
     "job.unexpectedError": {
         "de": "Unerwarteter Fehler: {error}",
         "en": "Unexpected error: {error}",

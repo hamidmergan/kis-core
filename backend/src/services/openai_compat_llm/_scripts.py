@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 
 from src.security.usage_log import log_llm_response as _verbrauch
+from src.services.upstream_errors import is_provider_refusal
 
 # Wait before the second attempt of a batch.
 _BATCH_RETRY_DELAY = 5.0
@@ -276,6 +277,8 @@ class _ScriptsMixin:
                     batch_materials=_stoff(slide_no - 1, 1),
                 )[0]
             except RuntimeError as e:
+                if is_provider_refusal(e):
+                    raise
                 logger.warning("Folie {} einzeln fehlgeschlagen: {}", slide_no, e)
                 return ""
 
@@ -324,6 +327,9 @@ class _ScriptsMixin:
                     single = [_one_slide(t, idx, start + i + 1) for i, t in enumerate(texts)]
                     return idx, _fill_gaps(single, texts, idx, start, retry=False)
                 except RuntimeError as e:
+                    # A provider that turned the call down turns every slide down, the job ends.
+                    if is_provider_refusal(e):
+                        raise
                     if attempt == 0:
                         logger.warning(
                             "Batch {}/{} failed (attempt 1): {} - retrying in {}s",
@@ -357,6 +363,8 @@ class _ScriptsMixin:
                     results[idx] = scripts
                     logger.info("Batch {}/{} completed", idx + 1, batch_count)
                 except Exception as e:
+                    if is_provider_refusal(e):
+                        raise
                     idx = futures[future]
                     logger.warning("Batch {}/{} unexpected error: {}", idx + 1, batch_count, e)
                     # Length of the actual batch, the last one is usually shorter.

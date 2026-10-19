@@ -7,7 +7,7 @@ from loguru import logger
 from src import database as db
 from src.i18n import t
 # The check sits neutrally in services, here only its name.
-from src.services.upstream_errors import is_upstream_busy  # noqa: F401
+from src.services.upstream_errors import is_provider_refusal, is_upstream_busy  # noqa: F401
 
 
 def job_locale(job_uuid: str) -> str:
@@ -58,6 +58,10 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
         msg = audio_too_long_message(e, job_locale(job_uuid))
     elif isinstance(e, WindowTooSmall):
         msg = window_too_small_message(e, job_locale(job_uuid))
+    elif is_provider_refusal(e):
+        # Asking again gets the same no, the admin has to fix the provider.
+        dauerhaft = True
+        msg = t("job.providerRefused", job_locale(job_uuid))
     elif is_upstream_busy(e):
         msg = t("job.upstreamBusy", job_locale(job_uuid))
     else:

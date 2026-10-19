@@ -125,8 +125,13 @@ async def _is_reachable(provider: dict) -> bool:
         return False
 
 
-async def only_reachable(providers: list[dict]) -> list[dict]:
-    """The providers that answer right now, order kept."""
+async def only_reachable(providers: list[dict], feature: str | None = None) -> list[dict]:
+    """The providers that answer right now and did not fail their last real call, order kept."""
+    from src.services import provider_check
+
+    # A provider can answer the probe and still turn down every real request.
+    refused = await asyncio.to_thread(provider_check.refused_ids, feature) if feature else set()
+    providers = [p for p in providers if p["id"] not in refused]
     flags = await asyncio.gather(*(_is_reachable(p) for p in providers))
     return [p for p, ok in zip(providers, flags) if ok]
 
@@ -137,7 +142,7 @@ async def list_reachable_choices(feature: str) -> dict:
     if not candidates:
         return {"providers": [], "default_id": None}
 
-    reachable = await only_reachable(candidates)
+    reachable = await only_reachable(candidates, feature)
 
     # The candidates come in the admin's order, so the first that answers is the default.
     default_id = reachable[0]["id"] if reachable else None

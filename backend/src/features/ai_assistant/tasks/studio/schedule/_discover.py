@@ -8,6 +8,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.services.upstream_errors import is_provider_refusal
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
 
 
@@ -207,7 +208,7 @@ def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[in
         try:
             found.update(_discover_batch(client, model, batch))
         except Exception as e:  # noqa: BLE001 - der Zeitplan entsteht auch ohne diese Suche
-            if "429" in str(e):
+            if "429" in str(e) or is_provider_refusal(e):
                 logger.warning("Terminsuche: Anfrage {}/{} abgewiesen, Quelle wird abgebrochen: {}",
                                i + 1, len(batches), e)
                 break

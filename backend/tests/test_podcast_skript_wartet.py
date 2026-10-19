@@ -14,7 +14,7 @@ def gemeldet(monkeypatch):
     liste = []
     monkeypatch.setattr(_script, "assert_not_cancelled", lambda job: None)
     monkeypatch.setattr(_script, "still_mine", lambda job, versuch: True)
-    monkeypatch.setattr(_script, "attempt_failed", lambda job, msg, busy=False: liste.append(busy))
+    monkeypatch.setattr(_script, "attempt_failed", lambda job, msg, busy=False, **k: liste.append(busy))
     return liste
 
 
@@ -45,7 +45,7 @@ def test_beim_warten_steht_kein_rat_zu_weniger_material(monkeypatch):
     texte = []
     monkeypatch.setattr(_script, "assert_not_cancelled", lambda job: None)
     monkeypatch.setattr(_script, "still_mine", lambda job, versuch: True)
-    monkeypatch.setattr(_script, "attempt_failed", lambda job, msg, busy=False: texte.append((busy, msg)))
+    monkeypatch.setattr(_script, "attempt_failed", lambda job, msg, busy=False, **k: texte.append((busy, msg)))
     _mit_fehler(monkeypatch, RuntimeError("Request timed out."))
     with pytest.raises(RuntimeError):
         _script.run_podcast_script.run("j" * 32, 7, "de")

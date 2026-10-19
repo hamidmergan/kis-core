@@ -27,6 +27,7 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     """Speaks a sentence and returns the MP3 bytes, with pool and two attempts."""
     from fastapi import HTTPException
     from loguru import logger
+    from src.services.upstream_errors import is_provider_refusal
 
     from src.dependencies import get_tts_client_for_provider, tts_model_for_provider
     from src.features.ai_assistant.repository import speech_cache
@@ -81,6 +82,8 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
             audio = client.synthesize_chunk(text, voice_id=voice_id, speed=_SPEED)
         except Exception as exc:  # noqa: BLE001 - jeder Anbieterfehler ist derselbe Fall
             logger.warning("Lernkarten-Aussprache Versuch {} fehlgeschlagen: {}", versuch, exc)
+            if is_provider_refusal(exc):
+                break
             continue
         try:
             speech_cache.put(key, audio)

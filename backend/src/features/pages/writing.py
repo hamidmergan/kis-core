@@ -15,6 +15,7 @@ from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.features.summary.writing import _strip_thinking
 from src.limits import SUMMARY_WRITE_MAX_TOKENS
 from src.services import anweisung
+from src.services.upstream_errors import is_provider_refusal
 
 _BLOCKS_GUIDE = """BLOCK KINDS, pick per section what fits its content:
 - text: {"kind":"text","text":"three to six sentences"} running text that explains, every section opens with one.
@@ -266,7 +267,7 @@ async def write_frame(caller: Caller, *, language: str, plan: Outline,
         )
     except Exception as e:  # noqa: BLE001 - a page without its frame still has its sections
         from src.features.summary import concurrency
-        if concurrency.overloaded(e):
+        if concurrency.overloaded(e) or is_provider_refusal(e):
             raise
         logger.warning("Pages: Rahmen nicht geschrieben ({})", e)
         return {}
@@ -297,6 +298,8 @@ async def write_hero_prompt(caller: Caller, *, title: str, lead: str, headings: 
             temperature=0.4, name="hero", max_tokens=300,
         )
     except Exception as e:  # noqa: BLE001 - the owner still writes the description themselves
+        if is_provider_refusal(e):
+            raise
         logger.warning("Pages: Bildvorschlag nicht geschrieben ({})", e)
         return ""
     return " ".join(_strip_thinking(antwort.choices[0].message.content or "").split()).strip('"')
