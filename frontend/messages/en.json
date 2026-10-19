@@ -3543,7 +3543,7 @@
     },
     "recipients": {
       "heading": "4. Recipients",
-      "body": "For AI features and translations, content is sent to services of TH Lübeck (THL myLab), GWDG and DeepL. The platform is operated by Hetzner Online GmbH in Germany.\nEmbedded YouTube videos load only after a click. Google then receives the IP address and device data, including in the USA.\nTeachers can connect their own accounts with external providers. Content then goes to that provider, possibly outside the EU."
+      "body": "For AI features and translations, content is sent to services of TH Lübeck (THL myLab) and GWDG. The platform runs at kis-isy.th-luebeck.de on servers of TH Lübeck. The test platform at kis-thl.de is operated by Hetzner Online GmbH in Germany.\nEmbedded YouTube videos load only after confirmation.\nTeachers can connect their own accounts with external providers. Content then goes to that provider, possibly outside the EU."
     },
     "retention": {
       "heading": "5. Retention",
