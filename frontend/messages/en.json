@@ -607,6 +607,7 @@
       "deleteTitle": "Delete page?",
       "deleteText": "“{title}” will be deleted. If the page was shared, its link stops working.",
       "cancel": "Cancel",
+      "cancelDelete": "Cancel and delete",
       "back": "Pages",
       "modeAria": "Mode",
       "modeEdit": "Edit",

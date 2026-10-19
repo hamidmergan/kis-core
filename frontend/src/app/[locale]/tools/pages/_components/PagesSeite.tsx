@@ -510,8 +510,8 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
                                 disabled={cancelling === p.job_uuid}
                                 className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0 disabled:opacity-50"
                                 style={{ backgroundColor: "var(--surface-dim)" }}
-                                title={t("cancel")}
-                                aria-label={t("cancel")}
+                                title={t("cancelDelete")}
+                                aria-label={t("cancelDelete")}
                               >
                                 <X size={13} weight="bold" />
                               </button>}

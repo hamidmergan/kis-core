@@ -607,6 +607,7 @@
       "deleteTitle": "Seite löschen?",
       "deleteText": "„{title}“ wird gelöscht. War die Seite geteilt, funktioniert ihr Link danach nicht mehr.",
       "cancel": "Abbrechen",
+      "cancelDelete": "Abbrechen und löschen",
       "back": "Pages",
       "modeAria": "Modus",
       "modeEdit": "Bearbeiten",
