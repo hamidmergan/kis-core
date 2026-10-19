@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import JobCancelButton from "@/components/jobs/JobCancelButton";
 import Checkbox from "@/components/ui/Checkbox";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { AnbieterReihe, Band, Chips, Reihe } from "../_components/Einstellungen";
@@ -14,10 +15,11 @@ interface Props {
   offen: boolean;
   onToggle: () => void;
   onStart: (formular: FormData) => void;
+  onCancel: () => void;
 }
 
 /** The create settings and the button, the prompt itself and later the picture stand on the right. */
-export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart }: Props) {
+export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart, onCancel }: Props) {
   const t = useTranslations("tools.image.generate");
   const tOpt = useTranslations("tools.image.options");
   const tCommon = useTranslations("common");
@@ -89,6 +91,7 @@ export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart 
       >
         {laeuft ? tCommon("processing") : anzahl > 1 ? t("submitMany", { n: anzahl }) : t("submit")}
       </button>
+      {laeuft && <div className="mt-2 flex"><JobCancelButton onClick={onCancel} /></div>}
     </>
   );
 }

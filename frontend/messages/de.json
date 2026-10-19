@@ -487,7 +487,8 @@
       "template": "Vorlage",
       "imageStyle": "Bildstil"
     },
-    "providerAvailability": "Nicht alle Anbieter sind immer verfügbar, weil die Rechenkapazität begrenzt ist. Fehlt einer, schau später wieder vorbei."
+    "providerAvailability": "Nicht alle Anbieter sind immer verfügbar, weil die Rechenkapazität begrenzt ist. Fehlt einer, schau später wieder vorbei.",
+    "cancelJob": "Abbrechen"
   },
   "tools": {
     "stt": {

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { Trash } from "@phosphor-icons/react";
+import { Trash, X } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import { isActive, isExpired, type MyJob } from "../_types";
 import { StatusBadge } from "./StatusBadge";
@@ -76,7 +76,7 @@ export function JobListItem({
               title={t("cancel")}
               className="mt-auto disabled:opacity-50"
             >
-              <Trash size={13} />
+              <X size={13} weight="bold" />
             </IconButton>
           )}
           {canRetry && (

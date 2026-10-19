@@ -487,7 +487,8 @@
       "template": "Template",
       "imageStyle": "Image style"
     },
-    "providerAvailability": "Not every provider is always available because computing capacity is limited. If one is missing, check back later."
+    "providerAvailability": "Not every provider is always available because computing capacity is limited. If one is missing, check back later.",
+    "cancelJob": "Cancel"
   },
   "tools": {
     "stt": {

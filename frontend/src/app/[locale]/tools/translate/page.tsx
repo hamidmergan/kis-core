@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Copy, Check } from "@phosphor-icons/react";
@@ -11,6 +11,7 @@ import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
 import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { useJobHistory } from "@/hooks/useJobHistory";
@@ -118,8 +119,21 @@ function UebersetzungPageInner() {
     setDoneJobUuid(null);
   };
 
+  const abortRef = useRef<AbortController | null>(null);
+  const jobUuidRef = useRef<string | null>(null);
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
+    cancelJob(jobUuidRef.current);
+    jobUuidRef.current = null;
+    setStallMessage("");
+    setProcessing(false);
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit || processing) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setProcessing(true);
     setErrorMessage("");
     setStallMessage("");
@@ -143,17 +157,21 @@ function UebersetzungPageInner() {
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data = await response.json();
+      // A cancel during the upload stops the job as soon as its id is known.
+      if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
+      jobUuidRef.current = data.job_uuid;
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid, undefined, 3000, undefined,
+      await pollJob(data.job_uuid, undefined, 3000, controller.signal,
         () => setStallMessage(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
-      setProcessing(false);
+      if (abortRef.current === controller) setProcessing(false);
     }
   };
 
@@ -240,7 +258,7 @@ function UebersetzungPageInner() {
             </div>
           )}
 
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || processing}
@@ -251,6 +269,7 @@ function UebersetzungPageInner() {
               )}
               {processing ? tCommon("processing") : t("submit")}
             </button>
+            {processing && <JobCancelButton onClick={handleCancel} />}
           </div>
 
           {stallMessage && !errorMessage && (

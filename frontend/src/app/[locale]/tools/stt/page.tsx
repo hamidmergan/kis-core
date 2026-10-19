@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
@@ -9,6 +9,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -82,8 +83,22 @@ function TranscriptionPageInner() {
     setDoneJobUuid(null);
   }, []);
 
+  const abortRef = useRef<AbortController | null>(null);
+  const jobUuidRef = useRef<string | null>(null);
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
+    cancelJob(jobUuidRef.current);
+    jobUuidRef.current = null;
+    setStallMessage("");
+    setChunkProgress(null);
+    setProcessing(false);
+  };
+
   const handleSubmit = async () => {
     if (!pendingFile || processing) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setProcessing(true);
     setErrorMessage("");
     setStallMessage("");
@@ -101,6 +116,9 @@ function TranscriptionPageInner() {
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data = await response.json();
+      // A cancel during the upload stops the job as soon as its id is known.
+      if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
+      jobUuidRef.current = data.job_uuid;
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(
         data.job_uuid,
@@ -111,7 +129,7 @@ function TranscriptionPageInner() {
           }
         },
         3000,
-        undefined,
+        controller.signal,
         () => setStallMessage(t("longRunning")),
         60_000,
       );
@@ -125,9 +143,10 @@ function TranscriptionPageInner() {
       setTranscriptFilename(filename);
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
-      setProcessing(false);
+      if (abortRef.current === controller) setProcessing(false);
     }
   };
 
@@ -193,7 +212,7 @@ function TranscriptionPageInner() {
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || processing}
@@ -204,6 +223,7 @@ function TranscriptionPageInner() {
               )}
               {processing ? tCommon("processing") : t("submit")}
             </button>
+            {processing && <JobCancelButton onClick={handleCancel} />}
           </div>
 
           {stallMessage && !errorMessage && (

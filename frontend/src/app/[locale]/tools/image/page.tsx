@@ -143,10 +143,10 @@ function ImagePageInner() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
           <section className="min-w-0">
             <div className={tab === "generate" ? "" : "hidden"}>
-              <GenerateTab {...band} entwurf={entwurf} laeuft={erzeugen.laeuft} onStart={startErzeugen} />
+              <GenerateTab {...band} entwurf={entwurf} laeuft={erzeugen.laeuft} onStart={startErzeugen} onCancel={erzeugen.abbrechen} />
             </div>
             <div className={tab === "edit" ? "" : "hidden"}>
-              <EditTab {...band} bild={bild} laeuft={bearbeiten.laeuft} onStart={startBearbeiten} />
+              <EditTab {...band} bild={bild} laeuft={bearbeiten.laeuft} onStart={startBearbeiten} onCancel={bearbeiten.abbrechen} />
             </div>
             <div className={tab === "analyze" ? "" : "hidden"}>
               <AnalyzeTab {...band} bild={bild} laeuft={fragen.laeuft} onStart={(f) => void startFragen(f)} />

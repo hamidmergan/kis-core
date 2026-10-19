@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import JobCancelButton from "@/components/jobs/JobCancelButton";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { AnbieterReihe, Band, Chips, Reihe } from "../_components/Einstellungen";
 import type { BildErgebnis } from "../_components/useBildAuftraege";
@@ -13,13 +14,14 @@ interface Props {
   offen: boolean;
   onToggle: () => void;
   onStart: (formular: FormData) => void;
+  onCancel: () => void;
 }
 
 const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
 const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors disabled:opacity-50";
 
 /** The edit form, it always works on the large picture on the right, one result each time. */
-export default function EditTab({ bild, laeuft, offen, onToggle, onStart }: Props) {
+export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCancel }: Props) {
   const t = useTranslations("tools.image.edit");
   const tOpt = useTranslations("tools.image.options");
   const tCommon = useTranslations("common");
@@ -86,6 +88,7 @@ export default function EditTab({ bild, laeuft, offen, onToggle, onStart }: Prop
       >
         {laeuft ? tCommon("processing") : t("submit")}
       </button>
+      {laeuft && <div className="mt-2 flex"><JobCancelButton onClick={onCancel} /></div>}
     </>
   );
 }

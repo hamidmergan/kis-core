@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowRight, BookOpenText, Info, Trash } from "@phosphor-icons/react";
+import { ArrowRight, BookOpenText, Info, Trash, X } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -92,6 +92,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   // Also read outside the demo, so the badge shows only when a prepared page is there.
   const [demoSetup, setDemoSetup] = useState<DemoSetup | null>(null);
@@ -202,6 +203,14 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
       collection: { ...list.collection, ...res.collection },
       pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, public: res.public, code: res.code } : x)),
     });
+  };
+
+  const cancel = async (p: PageCard) => {
+    setCancelling(p.job_uuid);
+    await api.deletePage(p.job_uuid).catch(() => {});
+    setCancelling(null);
+    notifyJobsChanged();
+    load();
   };
 
   const remove = async () => {
@@ -477,7 +486,20 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
                             </div>
                           </div>
                           {RUNNING.has(p.status) ? (
-                            <div className="mx-3.5 mb-3.5 mt-2"><Spinner size="xs" label={undefined} /></div>
+                            <div className="flex items-center justify-between gap-2 mx-3.5 mb-3 mt-2" onClick={(e) => e.stopPropagation()}>
+                              <Spinner size="xs" label={undefined} />
+                              {!demo && <button
+                                type="button"
+                                onClick={() => cancel(p)}
+                                disabled={cancelling === p.job_uuid}
+                                className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0 disabled:opacity-50"
+                                style={{ backgroundColor: "var(--surface-dim)" }}
+                                title={t("cancel")}
+                                aria-label={t("cancel")}
+                              >
+                                <X size={13} weight="bold" />
+                              </button>}
+                            </div>
                           ) : (
                             <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
                               {open && !demo ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} /> : <span />}

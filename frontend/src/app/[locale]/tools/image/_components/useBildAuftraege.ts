@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { backendApi, downloadJobAsBlob, parseDetail, pollJob } from "@/lib/api";
+import { cancelJob } from "@/components/jobs/JobCancelButton";
 
 /** What a picture was made with, as far as the backend stored it. */
 export interface BildAngaben {
@@ -58,12 +59,17 @@ export function useBildAuftraege(spinner: string, laenger: string, unbekannt: st
   const [label, setLabel] = useState(spinner);
   const [fehler, setFehler] = useState("");
   const [teilweise, setTeilweise] = useState<{ gestartet: number; gewuenscht: number } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const jobsRef = useRef<string[]>([]);
 
   const starte = useCallback(async (pfad: string, formular: FormData, onBild: (bild: BildErgebnis, erstes: boolean) => void) => {
     setLaeuft(true);
     setLabel(spinner);
     setFehler("");
     setTeilweise(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    jobsRef.current = [];
     try {
       const antwort = await backendApi.fetch(pfad, { method: "POST", body: formular });
       if (!antwort.ok) {
@@ -72,26 +78,45 @@ export function useBildAuftraege(spinner: string, laenger: string, unbekannt: st
       }
       const daten = await antwort.json();
       const jobs: string[] = daten.job_uuids ?? [daten.job_uuid];
+      // A cancel during the upload stops the jobs as soon as their ids are known.
+      if (controller.signal.aborted) {
+        jobs.forEach(cancelJob);
+        return;
+      }
+      jobsRef.current = jobs;
       if (daten.teilweise) setTeilweise({ gestartet: jobs.length, gewuenscht: Number(formular.get("varianten")) });
       window.dispatchEvent(new Event("kis-jobs-changed"));
       let erstes = true;
       const ausgang = await Promise.allSettled(jobs.map(async (jobUuid) => {
-        const status = await pollJob(jobUuid, undefined, 3000, undefined, () => setLabel(laenger), 60_000);
+        const status = await pollJob(jobUuid, undefined, 3000, controller.signal, () => setLabel(laenger), 60_000);
         const { blob, filename } = await downloadJobAsBlob(jobUuid);
         onBild({ key: jobUuid, jobUuid, url: URL.createObjectURL(blob), blob, filename, ...ausMeta(status.meta) }, erstes);
         erstes = false;
       }));
       window.dispatchEvent(new Event("kis-jobs-changed"));
+      if (controller.signal.aborted) return;
       const gescheitert = ausgang.find((a): a is PromiseRejectedResult => a.status === "rejected");
       if (gescheitert) {
         setFehler(gescheitert.reason instanceof Error ? gescheitert.reason.message : unbekannt);
       }
     } catch (err) {
-      setFehler(err instanceof Error ? err.message : unbekannt);
+      if (!controller.signal.aborted) setFehler(err instanceof Error ? err.message : unbekannt);
     } finally {
-      setLaeuft(false);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setLaeuft(false);
+      }
     }
   }, [spinner, laenger, unbekannt]);
 
-  return { laeuft, label, fehler, setFehler, starte, teilweise };
+  const abbrechen = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    jobsRef.current.forEach(cancelJob);
+    jobsRef.current = [];
+    setLaeuft(false);
+    setLabel(spinner);
+  }, [spinner]);
+
+  return { laeuft, label, fehler, setFehler, starte, abbrechen, teilweise };
 }

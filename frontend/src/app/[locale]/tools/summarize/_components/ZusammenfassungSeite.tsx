@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
@@ -246,9 +247,23 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
     }
   };
 
+  const abortRef = useRef<AbortController | null>(null);
+  const jobUuidRef = useRef<string | null>(null);
+
+  const handleCancel = () => {
+    demoLauf.current?.abort();
+    abortRef.current?.abort();
+    cancelJob(jobUuidRef.current);
+    jobUuidRef.current = null;
+    setProcessing(false);
+    setStep("");
+  };
+
   const handleSubmit = async () => {
     if (demo) return demoStarten();
     if (!hatInhalt || !messung.ready || processing) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setProcessing(true);
     setErrorMessage("");
     setDoneJobUuid(null);
@@ -270,6 +285,9 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data = await response.json();
+      // A cancel during the upload stops the job as soon as its id is known.
+      if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
+      jobUuidRef.current = data.job_uuid;
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(
         data.job_uuid,
@@ -283,14 +301,18 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
             : t(`step.${p.step}`));
         },
         3000,
+        controller.signal,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
-      setProcessing(false);
-      setStep("");
+      if (abortRef.current === controller) {
+        setProcessing(false);
+        setStep("");
+      }
     }
   };
 
@@ -430,7 +452,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
           />
 
           {!doneJobUuid && (
-            <div className="mt-6">
+            <div className="mt-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
                 disabled={!hatInhalt || !bereit || processing}
@@ -439,6 +461,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                 {processing && <Spinner size="sm" color="current" />}
                 {processing ? tCommon("processing") : t("submit")}
               </button>
+              {processing && <JobCancelButton onClick={handleCancel} />}
             </div>
           )}
 
