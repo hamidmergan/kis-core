@@ -13,6 +13,7 @@ from src.services.upstream_errors import is_provider_refusal
 from src.limits import (
     SUMMARY_CHARS_PER_SECTION,
     SUMMARY_COMPOSE_MAX_ATTEMPTS,
+    SUMMARY_JSON_REPAIR_LINES,
     SUMMARY_MAX_SECTIONS,
     SUMMARY_MIN_SECTIONS,
     SUMMARY_OUTLINE_MAX_ATTEMPTS,
@@ -188,6 +189,24 @@ def _strip_thinking(raw: str | None) -> str:
     return antwort
 
 
+def loose_json(text: str):
+    """The first JSON object in a text, a line the model garbled is dropped. None when unreadable."""
+    treffer = re.search(r"\{.*\}", text, re.S)
+    if not treffer:
+        return None
+    roh = treffer.group(0)
+    for _ in range(SUMMARY_JSON_REPAIR_LINES + 1):
+        try:
+            return json.loads(roh)
+        except json.JSONDecodeError as e:
+            anfang = roh.rfind("\n", 0, e.pos) + 1
+            ende = roh.find("\n", e.pos)
+            if anfang == 0 or ende == -1:
+                return None
+            roh = roh[:anfang] + roh[ende + 1:]
+    return None
+
+
 def _stamm(name: str) -> str:
     """A file name without extension and case, how a model tends to repeat it."""
     return name.rsplit(".", 1)[0].casefold() if "." in name else name.casefold()
@@ -218,13 +237,8 @@ def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = Non
     refs of a section into passage numbers, invented ones drop out there. ``anker`` moves
     them to where the section's copied first words stand.
     """
-    text = _strip_thinking(raw)
-    treffer = re.search(r"\{.*\}", text, re.S)
-    if not treffer:
-        return Outline()
-    try:
-        roh = json.loads(treffer.group(0))
-    except ValueError:
+    roh = loose_json(_strip_thinking(raw))
+    if not isinstance(roh, dict):
         return Outline()
     rohe = roh.get("sections")
     if rohe is not None and not isinstance(rohe, list):

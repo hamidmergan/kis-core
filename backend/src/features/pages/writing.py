@@ -6,13 +6,10 @@ the frontend draws, the model picks the kind of block that fits the content.
 
 from __future__ import annotations
 
-import json
-import re
-
 from loguru import logger
 
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
-from src.features.summary.writing import _strip_thinking
+from src.features.summary.writing import _strip_thinking, loose_json
 from src.limits import SUMMARY_WRITE_MAX_TOKENS
 from src.services import anweisung
 from src.services.upstream_errors import is_provider_refusal
@@ -106,14 +103,7 @@ def _blocks_user(group: list[Section], indices: list[int], others: list[Section]
 
 def parse_json(raw: str | None) -> dict | None:
     """The first JSON object in an answer, None when there is none."""
-    text = _strip_thinking(raw)
-    treffer = re.search(r"\{.*\}", text, re.S)
-    if not treffer:
-        return None
-    try:
-        daten = json.loads(treffer.group(0))
-    except ValueError:
-        return None
+    daten = loose_json(_strip_thinking(raw))
     return daten if isinstance(daten, dict) else None
 
 

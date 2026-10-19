@@ -380,6 +380,8 @@ SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
 # Load tests 29.09.2026: an outline takes 12 to 30 s, but 2 to 3 of 20 ran on to the 270 s limit at every
 # provider in turn, so a cap ends such an answer after about two minutes and the second attempt takes over.
 SUMMARY_OUTLINE_MAX_TOKENS   = 4_096
+# A slow provider spends minutes on one plan, so a few broken lines in it are dropped instead of the plan.
+SUMMARY_JSON_REPAIR_LINES    = 3
 # The fallback call writes the whole document from facts that are already on disk.
 # One dropped call would otherwise cost the stage everything it read.
 SUMMARY_COMPOSE_MAX_ATTEMPTS = 2

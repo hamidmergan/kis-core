@@ -464,3 +464,19 @@ class TestKurznamen:
 def test_der_schreiber_liest_die_seite_nie_als_paragraf():
     system = wr._section_system("German", "Plan", 2)
     assert "page number is never the number of a paragraph" in system
+
+
+def test_eine_verstuemmelte_zeile_kostet_nicht_den_ganzen_plan():
+    abschnitte = ",\n".join(
+        f'    {{\n      "title": "Thema {i}",\n'
+        + ('      "refs": datei.webm[SZ1-SZ3], "\n' if i == 2 else "")
+        + f'      "refs": ["SZ{i}"]\n    }}'
+        for i in range(SUMMARY_MIN_SECTIONS))
+    roh = '```json\n{\n  "title": "Plan",\n  "sections": [\n' + abschnitte + "\n  ]\n}\n```"
+    plan = wr.parse_outline(roh)
+    assert [a.title for a in plan.sections] == [f"Thema {i}" for i in range(SUMMARY_MIN_SECTIONS)]
+
+
+def test_unrettbares_json_bleibt_leer():
+    assert wr.loose_json("{ kaputt") is None
+    assert wr.loose_json('{\n"a": x\n"b": y\n"c": z\n"d": w\n"e": v\n}') is None
