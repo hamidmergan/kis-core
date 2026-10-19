@@ -3551,11 +3551,11 @@
     },
     "legalBasis": {
       "heading": "6. Legal basis",
-      "body": "Art. 6(1)(e) GDPR (task in the public interest), for server logs Art. 6(1)(f) GDPR (legitimate interest)."
+      "body": "Art. 6(1)(b) GDPR (provision of the platform), for server logs Art. 6(1)(f) GDPR (legitimate interest in secure operation). Embedded YouTube videos load only with your consent (Art. 6(1)(a) GDPR). The transfer to the USA is based on the adequacy decision of the EU Commission (Art. 45 GDPR, EU-US Data Privacy Framework)."
     },
     "rights": {
       "heading": "7. Your rights",
-      "body": "You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15 to 21 GDPR). To exercise them, please contact:",
+      "body": "You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15 to 21 GDPR). You can withdraw your consent at any time with effect for the future, for YouTube by deleting the site data in your browser. To exercise them, please contact:",
       "complaint": "You can also lodge a complaint with the Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein (ULD)."
     }
   },

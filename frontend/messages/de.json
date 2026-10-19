@@ -3551,11 +3551,11 @@
     },
     "legalBasis": {
       "heading": "6. Rechtsgrundlage",
-      "body": "Art. 6 Abs. 1 lit. e DSGVO (Aufgabe im öffentlichen Interesse), für Server-Logs Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)."
+      "body": "Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung der Plattform), für Server-Logs Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am sicheren Betrieb). Eingebettete YouTube-Videos laden nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Die Übermittlung in die USA stützt sich auf den Angemessenheitsbeschluss der EU-Kommission (Art. 45 DSGVO, EU-US Data Privacy Framework)."
     },
     "rights": {
       "heading": "7. Ihre Rechte",
-      "body": "Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Wenden Sie sich dazu an:",
+      "body": "Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Eine Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen, für YouTube durch Löschen der Website-Daten in Ihrem Browser. Wenden Sie sich dazu an:",
       "complaint": "Außerdem können Sie sich beim Unabhängigen Landeszentrum für Datenschutz Schleswig-Holstein (ULD) beschweren."
     }
   },
