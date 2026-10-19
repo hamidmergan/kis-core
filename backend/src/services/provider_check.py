@@ -16,6 +16,7 @@ from src.features.ai_providers.repository.providers import list_providers_with_c
 from src.limits import (
     PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS,
     PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS,
+    PROVIDER_CHECK_DROPDOWN_WORKERS,
     PROVIDER_CHECK_MAX_AGE_SECONDS,
     PROVIDER_CHECK_MIN_GAP_SECONDS,
     PROVIDER_CHECK_SEAT_WAIT_SECONDS,
@@ -132,7 +133,10 @@ def status() -> dict:
     return out
 
 
+_pool = ThreadPoolExecutor(max_workers=PROVIDER_CHECK_DROPDOWN_WORKERS, thread_name_prefix="provider-check")
 _running: dict[tuple[int, str], Future] = {}
+# When each check last started in this process, so a result that could not be stored does not lift the cap.
+_last_start: dict[tuple[int, str], float] = {}
 _running_lock = threading.Lock()
 
 
@@ -143,25 +147,26 @@ def _age(row: Optional[dict]) -> float:
     return time.time() - datetime.fromisoformat(row["checked_at"]).timestamp()
 
 
-def _check_soon(feature: str, provider: dict, model: Optional[str]) -> Future:
-    """Starts one check in its own thread, or hands back the one already running for that provider."""
+def _check_soon(feature: str, provider: dict, model: Optional[str], stored_age: float) -> Optional[Future]:
+    """The running check for that provider, a new one once both results are old, else None."""
     key = (provider["id"], feature)
     with _running_lock:
         laufend = _running.get(key)
         if laufend is not None:
             return laufend
-        future: Future = Future()
+        seit_start = time.time() - _last_start.get(key, float("-inf"))
+        if min(stored_age, seit_start) <= PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS:
+            return None
+        future = _pool.submit(_check_one, feature, provider, model)
+        _last_start[key] = time.time()
         _running[key] = future
 
-    def run():
-        try:
-            _check_one(feature, provider, model)
-        finally:
-            with _running_lock:
+    def forget(done: Future) -> None:
+        with _running_lock:
+            if _running.get(key) is done:
                 _running.pop(key, None)
-            future.set_result(None)
 
-    threading.Thread(target=run, daemon=True).start()
+    future.add_done_callback(forget)
     return future
 
 
@@ -172,8 +177,8 @@ def refused_ids(feature: str, provider_ids: Optional[set[int]] = None) -> set[in
     todo = [(p, model) for f, p, model in targets()
             if f == feature and (provider_ids is None or p["id"] in provider_ids)]
     stored = provider_checks.list_checks()
-    futures = [_check_soon(feature, p, model) for p, model in todo
-               if _age(stored.get((p["id"], feature))) > PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS]
+    futures = [f for p, model in todo
+               if (f := _check_soon(feature, p, model, _age(stored.get((p["id"], feature))))) is not None]
     if futures:
         # A check still running after the wait keeps its last result, the next opening sees the new one.
         wait(futures, timeout=PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS)

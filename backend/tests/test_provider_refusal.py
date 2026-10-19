@@ -89,6 +89,12 @@ async def test_das_dropdown_zeigt_keinen_anbieter_dessen_letzter_echter_aufruf_s
     assert result["default_id"] == 20
 
 
+@pytest.fixture(autouse=True)
+def _frische_pruefungen(monkeypatch):
+    monkeypatch.setattr(provider_check, "_running", {})
+    monkeypatch.setattr(provider_check, "_last_start", {})
+
+
 def _ziele(*ids):
     return [("chat", {"id": i, "name": f"P{i}"}, "m") for i in ids] + [("tts", {"id": 21, "name": "P21"}, None)]
 
@@ -141,6 +147,23 @@ def test_eine_langsame_pruefung_behaelt_ihr_letztes_ergebnis(monkeypatch):
         assert provider_check.refused_ids("chat") == {20}
     finally:
         frei.set()
+
+
+def test_ein_nicht_gespeichertes_ergebnis_hebt_die_grenze_nicht_auf(monkeypatch):
+    geprueft = []
+
+    def check(feature, provider, model):
+        geprueft.append(provider["id"])
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(provider_check, "targets", lambda: _ziele(20))
+    monkeypatch.setattr(provider_check.provider_checks, "list_checks", lambda: {})
+    monkeypatch.setattr(provider_check, "_check_one", check)
+
+    for _ in range(3):
+        assert provider_check.refused_ids("chat") == set()
+    assert geprueft == [20]
+    assert provider_check._running == {}
 
 
 def test_funktionen_ohne_pruefung_blenden_nichts_aus():

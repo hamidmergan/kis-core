@@ -133,6 +133,8 @@ PROVIDER_CHECK_SEAT_WAIT_SECONDS = 20
 PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS = 120
 # The dropdown waits this long for those checks, one that takes longer keeps its last result.
 PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS = 8
+# At most this many of those checks run at the same time, the rest queue up.
+PROVIDER_CHECK_DROPDOWN_WORKERS = 8
 
 # How many slides are voiced at once per screencast, more than the provider's seats only waits.
 SCREENCAST_TTS_PARALLELISM = TTS_PROVIDER_MAX_CONCURRENT
