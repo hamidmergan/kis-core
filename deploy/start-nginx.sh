@@ -18,9 +18,9 @@ elif [ "$CMD" = "restart" ]; then
     docker compose $COMPOSE_FILES down --remove-orphans
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
-    docker builder prune -af
+    docker builder prune -f
 else
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
-    docker builder prune -af
+    docker builder prune -f
 fi
