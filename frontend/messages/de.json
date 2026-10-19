@@ -3543,7 +3543,7 @@
     },
     "recipients": {
       "heading": "4. Empfänger",
-      "body": "Für KI-Funktionen und Übersetzungen gehen Inhalte an Dienste der TH Lübeck (THL myLab) und der GWDG. Die Plattform läuft unter kis-isy.th-luebeck.de auf Servern der TH Lübeck. Die Testplattform unter kis-thl.de wird bei der Hetzner Online GmbH in Deutschland betrieben.\nEingebettete YouTube-Videos laden erst nach einer Bestätigung.\nLehrende können eigene Konten bei externen Anbietern verbinden. Inhalte gehen dann an diesen Anbieter, unter Umständen auch außerhalb der EU."
+      "body": "Für KI-Funktionen und Übersetzungen gehen Inhalte an Dienste der TH Lübeck (THL myLab) und der GWDG. Die Plattform läuft unter kis-isy.th-luebeck.de auf Servern der TH Lübeck. Die Testplattform unter kis-thl.de wird bei der Hetzner Online GmbH in Deutschland betrieben.\nEingebettete YouTube-Videos laden erst nach einer Bestätigung. Erst dann gehen Daten an YouTube (Google LLC, USA).\nLehrende können eigene Konten bei externen Anbietern verbinden. Inhalte gehen dann an diesen Anbieter, unter Umständen auch außerhalb der EU."
     },
     "retention": {
       "heading": "5. Speicherdauer",
