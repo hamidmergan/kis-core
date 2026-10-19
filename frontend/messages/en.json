@@ -593,7 +593,9 @@
       "copied": "Copied",
       "creating": "Being created",
       "failed": "The page could not be created.",
-      "paused": "Paused, resume it in the history",
+      "paused": "Paused",
+      "retry": "Retry",
+      "continue": "Continue",
       "step": {
         "outline": "Planning the structure",
         "section": "Writing the sections",

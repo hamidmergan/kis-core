@@ -93,6 +93,8 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<{ uuid: string; message: string } | null>(null);
   const [offset, setOffset] = useState(0);
   // Also read outside the demo, so the badge shows only when a prepared page is there.
   const [demoSetup, setDemoSetup] = useState<DemoSetup | null>(null);
@@ -209,6 +211,19 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
     setCancelling(p.job_uuid);
     await api.deletePage(p.job_uuid).catch(() => {});
     setCancelling(null);
+    notifyJobsChanged();
+    load();
+  };
+
+  const retry = async (p: PageCard) => {
+    setRetrying(p.job_uuid);
+    setRetryError(null);
+    try {
+      await api.retryPage(p.job_uuid);
+    } catch (err) {
+      setRetryError({ uuid: p.job_uuid, message: err instanceof Error ? err.message : tCommon("unknownError") });
+    }
+    setRetrying(null);
     notifyJobsChanged();
     load();
   };
@@ -483,6 +498,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
                               {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
                               {p.status === "paused" && <div className="text-xs text-warn-strong mt-0.5">{t("paused")}</div>}
                               {p.status === "failed" && <div className="text-xs text-error mt-0.5 line-clamp-2">{p.error || t("failed")}</div>}
+                              {retryError?.uuid === p.job_uuid && <div className="text-xs text-error mt-0.5 line-clamp-2" role="alert">{retryError.message}</div>}
                             </div>
                           </div>
                           {RUNNING.has(p.status) ? (
@@ -502,7 +518,17 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
                             </div>
                           ) : (
                             <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
-                              {open && !demo ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} /> : <span />}
+                              {open && !demo ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} />
+                                : !demo && (p.status === "failed" || p.status === "paused") ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => retry(p)}
+                                    disabled={retrying === p.job_uuid}
+                                    className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md disabled:opacity-50"
+                                  >
+                                    {retrying === p.job_uuid ? "..." : t(p.status === "paused" ? "continue" : "retry")}
+                                  </button>
+                                ) : <span />}
                               <div className="flex items-center gap-1.5">
                                 {open && p.shared && p.code && (
                                   <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />

@@ -40,10 +40,10 @@ export function JobListItem({
         ? praesentationJumpHref(job.job_uuid)
         : undefined;
   const canRetry =
-    ((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
+    ((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "pages")
       && (job.status === "failed" || job.status === "paused"))
     // A paused summary resumes where it stopped, a failed one would only fail again.
-    || ((job.tool === "summary" || job.tool === "pages") && job.status === "paused");
+    || (job.tool === "summary" && job.status === "paused");
 
   return (
     <li className={`px-5 py-4 hover:bg-surface transition ${expired ? "opacity-50" : ""}`}>

@@ -593,7 +593,9 @@
       "copied": "Kopiert",
       "creating": "Wird erstellt",
       "failed": "Die Seite ließ sich nicht erstellen.",
-      "paused": "Angehalten, im Verlauf fortsetzen",
+      "paused": "Angehalten",
+      "retry": "Wiederholen",
+      "continue": "Weiter",
       "step": {
         "outline": "Der Aufbau wird geplant",
         "section": "Die Abschnitte werden geschrieben",
