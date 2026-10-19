@@ -9,6 +9,8 @@ COMPOSE_FILES="-f docker-compose.yml"
 # Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
 MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | cut -d'#' -f1 | tr -d " \"'")
 export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools},app"
+# Der HPC-Tunnel startet nur, wenn der Schlüssel für die GWDG da ist.
+[ -f "${HPC_SSH_KEY:-$HOME/.ssh/kis-hpc}" ] && COMPOSE_PROFILES="$COMPOSE_PROFILES,hpc"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 
 CMD=${1:-up}
