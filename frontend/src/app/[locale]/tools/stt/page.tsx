@@ -52,7 +52,7 @@ function TranscriptionPageInner() {
   const [responseFormat, setResponseFormat] = useState("text");
 
   // Reachable providers with a model, an empty list means hide the choice.
-  const { providers, providerId, setProviderId } = useFeatureProviders("/transcription/providers");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/transcription/providers");
 
   /** A finished transcript, fresh or from the history, loaded and shown the same way. */
   const ladeErgebnis = useCallback(async (jobUuid: string) => {
@@ -187,6 +187,7 @@ function TranscriptionPageInner() {
             value={providerId}
             onChange={setProviderId}
             disabled={processing}
+            loading={providersLoading}
           />
 
           <div className="mb-6 mt-6">

@@ -327,6 +327,7 @@ function PodcastPageInner() {
                 llmProviders={llm.providers}
                 llmProviderId={llm.providerId}
                 onLlmProvider={llm.setProviderId}
+                llmLoading={llm.loading}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}

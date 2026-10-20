@@ -77,7 +77,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const tResult = useTranslations("common.result");
   const router = useRouter();
   const date = useDate();
-  const { providers, providerId, setProviderId } = useFeatureProviders("/pages/providers");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/pages/providers");
   const { permissions } = usePermissions();
   const [list, setList] = useState<PagesList | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -436,7 +436,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
             </div>
 
             <ProviderSelect id="pages-provider-select" label={t("providerLabel")} providers={providers} value={providerId}
-              onChange={setProviderId} disabled={sending || demo} className="mt-6" showModel />
+              onChange={setProviderId} disabled={sending || demo} loading={providersLoading} className="mt-6" showModel />
 
             <div className="mt-6">
               <button

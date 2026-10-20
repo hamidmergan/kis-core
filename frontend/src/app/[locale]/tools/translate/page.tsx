@@ -20,7 +20,8 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Select from "@/components/ui/Select";
-import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import Tabs from "@/components/ui/Tabs";
 import { TEXT_MODE_FILENAME, TRANSLATE_MAX_CHARS } from "@/lib/constants";
 
@@ -48,13 +49,12 @@ function UebersetzungPageInner() {
   const [translatedText, setTranslatedText] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  // Null until the provider checks answered, the field shows a loading state meanwhile.
-  const [providers, setProviders] = useState<{ id: number; label: string }[] | null>(null);
+  const { providers, providerId: translationProviderId, setProviderId: setTranslationProviderId,
+    loading: providersLoading } = useFeatureProviders("/translate/providers");
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
-  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const [targetLang, setTargetLang] = useState<string>("");
 
-  // Languages come right away, the providers follow once their checks are done.
+  // Languages come right away, the providers load on their own.
   useEffect(() => {
     api
       .fetch("/translate/languages")
@@ -64,15 +64,6 @@ function UebersetzungPageInner() {
         setTargetLang(data.default_target ?? "");
       })
       .catch(() => {});
-    api
-      .fetch("/translate/config")
-      .then((r) => r.json())
-      .then((data) => {
-        const provs: { id: number; label: string }[] = data.providers ?? [];
-        setProviders(provs);
-        if (provs.length > 0) setTranslationProviderId(provs[0].id);
-      })
-      .catch(() => setProviders([]));
   }, []);
 
   // Arriving from the jobs list: open straight on that one result.
@@ -251,21 +242,9 @@ function UebersetzungPageInner() {
 
           <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
 
-          {(providers === null || providers.length > 1) && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground-soft mb-1">
-                {t("engine")}
-              </label>
-              <Select
-                value={translationProviderId != null ? String(translationProviderId) : ""}
-                onChange={(v) => setTranslationProviderId(v ? Number(v) : null)}
-                disabled={processing || providers === null}
-                placeholder={providers === null ? t("engineLoading") : undefined}
-                options={(providers ?? []).map((p) => ({ value: String(p.id), label: p.label }))}
-              />
-              {providers !== null && <ProviderAvailabilityHint />}
-            </div>
-          )}
+          <ProviderSelect id="translate-provider-select" label={t("engine")} providers={providers}
+            value={translationProviderId} onChange={setTranslationProviderId} disabled={processing}
+            loading={providersLoading} />
 
           <div className="mb-6 flex items-center gap-3">
             <button

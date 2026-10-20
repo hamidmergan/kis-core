@@ -11,9 +11,11 @@ type ProvidersResponse = { providers: FeatureProvider[]; default_id: number | nu
 export function useFeatureProviders(path: string) {
   const [providers, setProviders] = useState<FeatureProvider[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     backendApi
       .fetch(path)
       .then((r) => (r.ok ? r.json() : { providers: [], default_id: null }))
@@ -25,11 +27,14 @@ export function useFeatureProviders(path: string) {
       })
       .catch(() => {
         // Leave the dropdown hidden — backend falls back to its default route.
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
   }, [path]);
 
-  return { providers, providerId, setProviderId };
+  return { providers, providerId, setProviderId, loading };
 }

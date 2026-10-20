@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 import ToggleRow from "@/components/ui/ToggleRow";
 import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
+import { ProviderPicker, showProviderField } from "@/components/tools/ProviderSelect";
 import StepFooter from "./StepFooter";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
@@ -36,6 +37,7 @@ interface UploadStepProps {
   translationProviders: { id: number; name: string }[];
   translationProviderId: number | null;
   onTranslationProviderChange: (id: number | null) => void;
+  translationProvidersLoading?: boolean;
   onUploadNext: () => void;
   /** In the demo the file is given, this is its name. */
   demoDatei?: string;
@@ -65,6 +67,7 @@ export default function UploadStep(props: UploadStepProps) {
     translationProviders,
     translationProviderId,
     onTranslationProviderChange,
+    translationProvidersLoading = false,
     onUploadNext,
     demoDatei,
     onBeenden,
@@ -79,7 +82,9 @@ export default function UploadStep(props: UploadStepProps) {
   const zeile = (z: Zeile) => ({ offen: offen === z, onToggle: () => setOffen((alt) => (alt === z ? null : z)) });
   const weiterGesperrt = demoDatei ? false : !file || !!hasActiveJob;
   const sprache = languages.find((l) => l.id === targetLang)?.label ?? "";
-  const anbieter = translationProviders.find((p) => p.id === translationProviderId)?.name ?? "";
+  const anbieter = translationProvidersLoading
+    ? tCommon("providersLoading")
+    : translationProviders.find((p) => p.id === translationProviderId)?.name ?? "";
   const glossare = glossaryIds.filter(Boolean).length;
 
   return (
@@ -165,14 +170,15 @@ export default function UploadStep(props: UploadStepProps) {
                 <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} className="" />
               </EinstellungsFeld>
 
-              {translationProviders.length > 1 && (
+              {showProviderField(translationProviders, translationProvidersLoading) && (
                 <EinstellungsFeld titel={t("upload.translationProvider")} wert={anbieter} htmlFor="screencast-anbieter" {...zeile("provider")}>
-                  <Select
+                  <ProviderPicker
                     id="screencast-anbieter"
-                    value={translationProviderId != null ? String(translationProviderId) : ""}
-                    onChange={(v) => onTranslationProviderChange(v ? Number(v) : null)}
+                    providers={translationProviders}
+                    value={translationProviderId}
+                    onChange={onTranslationProviderChange}
+                    loading={translationProvidersLoading}
                     ariaLabel={t("upload.translationProvider")}
-                    options={translationProviders.map((p) => ({ value: String(p.id), label: p.name }))}
                   />
                 </EinstellungsFeld>
               )}

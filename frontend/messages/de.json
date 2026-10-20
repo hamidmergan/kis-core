@@ -434,6 +434,7 @@
     }
   },
   "common": {
+    "providersLoading": "Wird geladen…",
     "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
     "downloadFailed": "Download fehlgeschlagen",
     "processing": "Wird verarbeitet…",
@@ -750,7 +751,6 @@
       "targetLang": "Zielsprache",
       "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
       "engine": "KI-Anbieter",
-      "engineLoading": "Wird geladen…",
       "submit": "Übersetzen",
       "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
       "downloadLabel": "Herunterladen",

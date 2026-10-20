@@ -7,7 +7,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
-import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
+import { ProviderPicker, showProviderField } from "@/components/tools/ProviderSelect";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import ToggleRow from "@/components/ui/ToggleRow";
@@ -51,6 +51,7 @@ interface ContentStepProps {
   llmProviders: FeatureProvider[];
   llmProviderId: number | null;
   onLlmProvider: (id: number) => void;
+  llmLoading?: boolean;
   onSource: (source: Partial<Source>) => void;
   onLanguage: (language: Language) => void;
   onNotes: (notes: boolean) => void;
@@ -65,7 +66,7 @@ interface ContentStepProps {
 
 /** Step 1 in two fixed columns: settings in a card on the left, the material to upload on the right. */
 export default function ContentStep({ canUseModules, source, language, notes, instructions, imageStyle, presenter, templateId, hasActiveJob,
-                                        error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
+                                        error, llmProviders, llmProviderId, llmLoading = false, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
                                         onPresenter, onTemplate, onNext, demo }: ContentStepProps) {
   const t = useTranslations("tools.praesentation.content");
   const tDemo = useTranslations("tools.praesentationDemo");
@@ -118,7 +119,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
   const zeile = (z: Zeile) => ({ offen: offen === z, onToggle: () => setOffen((alt) => (alt === z ? null : z)) });
 
   const stil = imageStyle ?? vorlage?.stiltext ?? "";
-  const anbieter = llmProviders.find((p) => p.id === llmProviderId)?.name ?? "";
+  const anbieter = llmLoading ? tCommon("providersLoading") : llmProviders.find((p) => p.id === llmProviderId)?.name ?? "";
   const gesperrt = !demo && (!hasContent({ ...source, mode }) || !messung.ready || hasActiveJob === true);
 
   return (
@@ -148,11 +149,10 @@ export default function ContentStep({ canUseModules, source, language, notes, in
               options={[{ value: "de", label: t("languages.de") }, { value: "en", label: t("languages.en") }]} />
           </EinstellungsFeld>
 
-          {llmProviders.length > 0 && (
+          {showProviderField(llmProviders, llmLoading, true) && (
             <EinstellungsFeld titel={t("providerLabel")} wert={anbieter} htmlFor="praesentation-provider" {...zeile("provider")}>
-              <Select id="praesentation-provider" value={String(llmProviderId ?? "")} onChange={(v) => onLlmProvider(Number(v))}
-                ariaLabel={t("providerLabel")} options={llmProviders.map((p) => ({ value: String(p.id), label: p.name }))} />
-              <ProviderAvailabilityHint />
+              <ProviderPicker id="praesentation-provider" providers={llmProviders} value={llmProviderId} onChange={onLlmProvider}
+                loading={llmLoading} ariaLabel={t("providerLabel")} />
             </EinstellungsFeld>
           )}
 

@@ -351,7 +351,7 @@ function PraesentationPageInner() {
                 notes={state.notes} instructions={state.instructions} imageStyle={state.imageStyle}
                 presenter={state.presenter} templateId={state.templateId}
                 hasActiveJob={hasActiveJob} error={state.error}
-                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
+                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId} llmLoading={llm.loading}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 onNotes={(notes) => dispatch({ type: "SET_NOTES", notes })}

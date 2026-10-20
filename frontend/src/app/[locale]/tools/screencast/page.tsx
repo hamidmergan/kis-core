@@ -46,6 +46,7 @@ import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import ZusatzMaterial from "./_components/ZusatzMaterial";
 import { useZusatzMaterial } from "./_hooks/useZusatzMaterial";
 
@@ -94,8 +95,12 @@ function ScreencastPageInner() {
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
-  const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
-  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
+  const {
+    providers: translationProviders,
+    providerId: translationProviderId,
+    setProviderId: setTranslationProviderId,
+    loading: translationProvidersLoading,
+  } = useFeatureProviders("/translate/providers");
   const renderResult = useRenderResult();
   const { videoUrl, audioId, hasSubtitles, videoFolien, laufStempel, clear: clearRenderResult } = renderResult;
 
@@ -233,19 +238,6 @@ function ScreencastPageInner() {
     if (id) setTargetLang(id);
   }, [languages, locale, setTargetLang]);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
-
-  useEffect(() => {
-    fetch("/api/translate/config", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        const provs: { id: number; name: string }[] = (data.providers ?? []).map(
-          (p: { id: number; label: string }) => ({ id: p.id, name: p.label })
-        );
-        setTranslationProviders(provs);
-        if (provs.length > 0) setTranslationProviderId(provs[0].id);
-      })
-      .catch(() => {});
-  }, []);
 
   const { permissions } = usePermissions();
   const zusatz = useZusatzMaterial(translateJobUuid, step === "user-prompt", tCommon("unknownError"));
@@ -588,6 +580,7 @@ function ScreencastPageInner() {
             translationProviders={translationProviders}
             translationProviderId={translationProviderId}
             onTranslationProviderChange={setTranslationProviderId}
+            translationProvidersLoading={translationProvidersLoading}
             onUploadNext={handleUploadNext}
           />
         )}

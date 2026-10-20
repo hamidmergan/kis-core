@@ -25,7 +25,7 @@ export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCanc
   const t = useTranslations("tools.image.edit");
   const tOpt = useTranslations("tools.image.options");
   const tCommon = useTranslations("common");
-  const { providers, providerId, setProviderId } = useFeatureProviders("/image/providers/edit");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/image/providers/edit");
   const [prompt, setPrompt] = useState("");
   const [format, setFormat] = useState<Format | "vorlage">("vorlage");
   const [groesse, setGroesse] = useState<Groesse>("mittel");
@@ -77,7 +77,7 @@ export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCanc
           <Chips label={tOpt("quality")} wert={qualitaet} onChange={setQualitaet} disabled={laeuft}
             optionen={QUALITAETEN.map((q) => ({ key: q, label: tOpt(`qualities.${q}`) }))} />
         </Reihe>
-        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={laeuft} />
+        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={laeuft} loading={providersLoading} />
       </Band>
 
       <button

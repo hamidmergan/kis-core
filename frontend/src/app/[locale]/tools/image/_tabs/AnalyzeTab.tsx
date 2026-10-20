@@ -32,7 +32,7 @@ export default function AnalyzeTab({ bild, laeuft, offen, onToggle, onStart }: P
   const t = useTranslations("tools.image.analyze");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const { providers, providerId, setProviderId } = useFeatureProviders("/image/providers/analyze");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/image/providers/analyze");
   const [aufgabe, setAufgabe] = useState<Aufgabe>("beschreiben");
   const [sprache, setSprache] = useState<"de" | "en">(locale === "en" ? "en" : "de");
   const [frage, setFrage] = useState("");
@@ -57,7 +57,7 @@ export default function AnalyzeTab({ bild, laeuft, offen, onToggle, onStart }: P
           <Chips label={t("language")} wert={sprache} onChange={setSprache} disabled={laeuft}
             optionen={(["de", "en"] as const).map((s) => ({ key: s, label: t(`languages.${s}`) }))} />
         </Reihe>
-        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={laeuft} />
+        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={laeuft} loading={providersLoading} />
       </Band>
 
       <button

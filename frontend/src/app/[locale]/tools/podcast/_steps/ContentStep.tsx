@@ -7,7 +7,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
-import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
+import { ProviderPicker, showProviderField } from "@/components/tools/ProviderSelect";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
@@ -45,6 +45,7 @@ interface ContentStepProps {
   llmProviders: FeatureProvider[];
   llmProviderId: number | null;
   onLlmProvider: (id: number) => void;
+  llmLoading?: boolean;
   onSource: (source: Partial<Source>) => void;
   onLanguage: (language: Language) => void;
   onInstructions: (text: string) => void;
@@ -57,7 +58,7 @@ interface ContentStepProps {
   onBeenden?: () => void;
 }
 
-export default function ContentStep({ canUseModules, source, language, instructions, llmProviders, llmProviderId,
+export default function ContentStep({ canUseModules, source, language, instructions, llmProviders, llmProviderId, llmLoading = false,
                                       onLlmProvider, onSource, onLanguage, onInstructions, onNext,
                                       demo, demoDa = false, onBeenden }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
@@ -118,7 +119,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
   const bereit = fest || (hatInhalt && !zuViele && !zuGross && (mode === "blank" || messung.ready));
 
   const zeile = (z: Zeile) => ({ offen: offen === z, onToggle: () => setOffen((alt) => (alt === z ? null : z)) });
-  const anbieter = llmProviders.find((p) => p.id === llmProviderId)?.name ?? "";
+  const anbieter = llmLoading ? tCommon("providersLoading") : llmProviders.find((p) => p.id === llmProviderId)?.name ?? "";
   const materialWert = demo ? tCommon("material.sourcesN", { n: demo.files.length })
     : mode === "files" ? tCommon("material.filesN", { n: source.files.length })
     : mode === "module" ? tCommon("material.sourcesN", { n: source.sourceIds.length })
@@ -179,11 +180,10 @@ export default function ContentStep({ canUseModules, source, language, instructi
                 />
               </EinstellungsFeld>
 
-              {llmProviders.length > 0 && (
+              {showProviderField(llmProviders, llmLoading, true) && (
                 <EinstellungsFeld titel={t("providerLabel")} wert={anbieter} htmlFor="podcast-provider" {...zeile("provider")}>
-                  <Select id="podcast-provider" value={String(llmProviderId ?? "")} onChange={(v) => onLlmProvider(Number(v))}
-                    ariaLabel={t("providerLabel")} options={llmProviders.map((p) => ({ value: String(p.id), label: p.name }))} />
-                  <ProviderAvailabilityHint />
+                  <ProviderPicker id="podcast-provider" providers={llmProviders} value={llmProviderId} onChange={onLlmProvider}
+                    loading={llmLoading} ariaLabel={t("providerLabel")} />
                 </EinstellungsFeld>
               )}
 

@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CaretRight } from "@phosphor-icons/react";
-import Select from "@/components/ui/Select";
-import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
+import { ProviderPicker, showProviderField } from "@/components/tools/ProviderSelect";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 
 interface Option<T extends string> {
@@ -57,24 +56,19 @@ export function Reihe({ label, hinweis, children }: { label: string; hinweis?: s
 }
 
 /** The provider row, with at most one provider there is nothing to choose and the row stays away. */
-export function AnbieterReihe({ providers, value, onChange, disabled }: {
+export function AnbieterReihe({ providers, value, onChange, disabled, loading }: {
   providers: FeatureProvider[];
   value: number | null;
   onChange: (id: number) => void;
   disabled?: boolean;
+  loading?: boolean;
 }) {
   const t = useTranslations("tools.image");
-  if (providers.length <= 1) return null;
+  if (!showProviderField(providers, loading)) return null;
   return (
     <Reihe label={t("providerLabel")}>
-      <Select
-        value={String(value ?? "")}
-        onChange={(v) => onChange(Number(v))}
-        disabled={disabled}
-        ariaLabel={t("providerLabel")}
-        options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
-      />
-      <ProviderAvailabilityHint />
+      <ProviderPicker providers={providers} value={value} onChange={onChange} disabled={disabled}
+                      loading={loading} ariaLabel={t("providerLabel")} />
     </Reihe>
   );
 }

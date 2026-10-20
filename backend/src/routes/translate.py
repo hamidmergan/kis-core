@@ -50,6 +50,18 @@ async def get_translate_config(
     return {"providers": providers, **_languages(locale)}
 
 
+@router.get("/translate/providers")
+async def get_translate_providers(current_user: dict = Depends(get_current_user)):
+    """The reachable providers alone, in the shape every provider dropdown loads."""
+    from src.dependencies import get_translation_providers
+    from src.services.feature_provider_choices import only_reachable
+    providers = await only_reachable(get_translation_providers(), "chat")
+    return {
+        "providers": [{"id": p["id"], "name": p["name"]} for p in providers],
+        "default_id": providers[0]["id"] if providers else None,
+    }
+
+
 @router.get("/translate/languages")
 async def get_translate_languages(
     current_user: dict = Depends(get_current_user),

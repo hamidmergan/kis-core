@@ -23,7 +23,7 @@ export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart,
   const t = useTranslations("tools.image.generate");
   const tOpt = useTranslations("tools.image.options");
   const tCommon = useTranslations("common");
-  const { providers, providerId, setProviderId } = useFeatureProviders("/image/providers/generate");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/image/providers/generate");
   const { prompt, ausformuliert } = entwurf;
   const [stil, setStil] = useState<(typeof STILE)[number]>("keiner");
   const [format, setFormat] = useState<Format>("16:9");
@@ -80,7 +80,7 @@ export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart,
             <Checkbox checked={ohneSchrift} onChange={setOhneSchrift} label={tOpt("noText")} disabled={beschaeftigt} />
           </div>
         </Reihe>
-        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={beschaeftigt} />
+        <AnbieterReihe providers={providers} value={providerId} onChange={setProviderId} disabled={beschaeftigt} loading={providersLoading} />
       </Band>
 
       <button

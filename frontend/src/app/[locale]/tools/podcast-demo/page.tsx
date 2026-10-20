@@ -141,7 +141,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
             {state.step === "content" && (
               <ContentStep canUseModules={false} source={state.source} language={state.language}
                 instructions={state.instructions}
-                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
+                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId} llmLoading={llm.loading}
                 onSource={keineAktion} onLanguage={keineAktion} onInstructions={keineAktion}
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
                 demo={{ workspace: view.workspace, files: view.files }} onBeenden={beenden} />

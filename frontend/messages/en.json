@@ -434,6 +434,7 @@
     }
   },
   "common": {
+    "providersLoading": "Loading…",
     "unknownError": "Unknown error. Please try again.",
     "downloadFailed": "Download failed",
     "processing": "Processing…",
@@ -750,7 +751,6 @@
       "targetLang": "Target language",
       "autoDetectHint": "The source language is detected automatically.",
       "engine": "AI provider",
-      "engineLoading": "Loading…",
       "submit": "Translate",
       "longRunning": "Still running - large documents may take a few minutes…",
       "downloadLabel": "Download",

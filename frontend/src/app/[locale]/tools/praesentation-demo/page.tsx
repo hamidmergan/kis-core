@@ -146,7 +146,7 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
               <ContentStep canUseModules={false} source={state.source} language={state.language}
                 notes={state.notes} instructions={state.instructions} imageStyle={state.imageStyle}
                 presenter={state.presenter} templateId={state.templateId} hasActiveJob={null} error=""
-                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
+                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId} llmLoading={llm.loading}
                 onSource={keineAktion} onLanguage={keineAktion} onNotes={keineAktion} onInstructions={keineAktion}
                 onImageStyle={keineAktion} onPresenter={keineAktion} onTemplate={keineAktion}
                 onNext={starten} demo={{ workspace: view.workspace, files: view.files }} />

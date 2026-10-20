@@ -15,6 +15,7 @@ import { useVoices } from "@/hooks/useVoices";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
 import { useScriptEditing } from "@/hooks/useScriptEditing";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import UploadStep from "../screencast/_steps/UploadStep";
 import { TranslatingStep, GeneratingScriptsStep, RenderingStep, DoneStep, ErrorStep } from "../screencast/_steps/StatusSteps";
 import UserPromptStep from "../screencast/_steps/UserPromptStep";
@@ -67,8 +68,12 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
 
   const [skipTranslation, setSkipTranslation] = useState(true);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
-  const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
-  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
+  const {
+    providers: translationProviders,
+    providerId: translationProviderId,
+    setProviderId: setTranslationProviderId,
+    loading: translationProvidersLoading,
+  } = useFeatureProviders("/translate/providers");
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES, DEMO_SPRACHE);
   // The prepared files exist per language, the chosen language decides which ones the run shows.
   const sprache = targetLang.split("-")[0].toLowerCase();
@@ -125,19 +130,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   const auswahl = useFolienAuswahl({ slides, stand: null, hatTon: KEIN_TON, gespeichert: null, bereit: true });
 
   useEffect(() => () => abortRef.current?.abort(), []);
-
-  useEffect(() => {
-    fetch("/api/translate/config", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        const provs: { id: number; name: string }[] = (data.providers ?? []).map(
-          (p: { id: number; label: string }) => ({ id: p.id, name: p.label }),
-        );
-        setTranslationProviders(provs);
-        if (provs.length > 0) setTranslationProviderId(provs[0].id);
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
@@ -334,6 +326,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             translationProviders={translationProviders}
             translationProviderId={translationProviderId}
             onTranslationProviderChange={setTranslationProviderId}
+            translationProvidersLoading={translationProvidersLoading}
             onUploadNext={handleUploadNext}
             demoDatei={tDemo("dateiName")}
             onBeenden={beenden}

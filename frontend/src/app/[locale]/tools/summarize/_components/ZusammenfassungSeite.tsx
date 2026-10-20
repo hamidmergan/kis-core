@@ -57,7 +57,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const tResult = useTranslations("common.result");
   const locale = useLocale();
   // Runs on the chat model, an empty list hides the choice.
-  const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
+  const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/summary/providers");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   // Whoever has no assistant sees no workspace tab, so the choice cannot get stuck.
@@ -447,6 +447,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
             value={providerId}
             onChange={setProviderId}
             disabled={processing}
+            loading={providersLoading}
             className="mt-6"
             showModel
           />
