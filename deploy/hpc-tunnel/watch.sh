@@ -1,6 +1,6 @@
 #!/bin/sh
 # Keeps one SSH tunnel to the nodes of the running HPC jobs and rebuilds it when a job moves to another node.
-LOGIN="${HPC_LOGIN:-u26949@glogin-gpu.hpc.gwdg.de}"
+LOGIN="${HPC_LOGIN:?HPC_LOGIN fehlt, z. B. user@glogin-gpu.hpc.gwdg.de}"
 # Each entry is local port:job name:port on the node.
 MAP="${HPC_TUNNEL_MAP:-18000:kis-llm:28400 18002:kis-stimmen:28402 18003:kis-stimmen:28403 18880:kis-stimmen:28880}"
 INTERVAL="${HPC_TUNNEL_INTERVAL:-60}"
