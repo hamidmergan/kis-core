@@ -37,7 +37,7 @@ async def test_das_dropdown_bekommt_nur_erreichbare_anbieter(monkeypatch):
     assert result == {"providers": [{"id": 21, "name": "THL myLab"}], "default_id": 21}
 
 
-async def test_die_sprachen_warten_nicht_auf_die_anbieter(monkeypatch):
+def test_die_sprachen_warten_nicht_auf_die_anbieter(monkeypatch):
     from src.routes import translate
 
     def nie_fragen():
@@ -45,6 +45,6 @@ async def test_die_sprachen_warten_nicht_auf_die_anbieter(monkeypatch):
 
     monkeypatch.setattr("src.dependencies.get_translation_providers", nie_fragen)
 
-    result = await translate.get_translate_languages(current_user={}, locale="de")
+    result = translate.get_translate_languages(current_user={}, locale="de")
     assert "providers" not in result
     assert result["languages"] and result["default_target"]

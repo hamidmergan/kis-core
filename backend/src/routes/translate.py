@@ -63,7 +63,7 @@ async def get_translate_providers(current_user: dict = Depends(get_current_user)
 
 
 @router.get("/translate/languages")
-async def get_translate_languages(
+def get_translate_languages(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
