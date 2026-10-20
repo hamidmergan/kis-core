@@ -18,6 +18,14 @@ def _global_consent_given(monkeypatch):
     monkeypatch.setattr(rbac, "has_global_consent", lambda user_id: True)
 
 
+@pytest.fixture(autouse=True)
+def _keine_alten_erreichbarkeiten(monkeypatch):
+    """Each test probes its own fake providers, a result from an earlier test must not answer for them."""
+    from src.services import feature_provider_choices
+    monkeypatch.setattr(feature_provider_choices, "_probed", {})
+    monkeypatch.setattr(feature_provider_choices, "_probing", {})
+
+
 @pytest.fixture
 def lokal(monkeypatch, tmp_path):
     """Storage without S3, the keys end up as files in the test directory."""

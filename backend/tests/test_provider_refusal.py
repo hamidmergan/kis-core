@@ -149,6 +149,28 @@ def test_eine_langsame_pruefung_behaelt_ihr_letztes_ergebnis(monkeypatch):
         frei.set()
 
 
+def test_ein_altes_ergebnis_wird_sofort_gezeigt_und_nur_ein_fehlendes_abgewartet(monkeypatch):
+    import threading
+    import time
+    from datetime import datetime, timedelta
+
+    alt = (datetime.now() - timedelta(hours=1)).isoformat()
+    frei = threading.Event()
+    monkeypatch.setattr(provider_check, "PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS", 2)
+    monkeypatch.setattr(provider_check, "targets", lambda: _ziele(20))
+    monkeypatch.setattr(provider_check.provider_checks, "list_checks",
+                        lambda: {(20, "chat"): {"status": "ok", "checked_at": alt}})
+    monkeypatch.setattr(provider_check, "_check_one", lambda f, p, m: frei.wait(5))
+
+    try:
+        start = time.time()
+        assert provider_check.refused_ids("chat") == set()
+        assert time.time() - start < 0.5
+        assert (20, "chat") in provider_check._running
+    finally:
+        frei.set()
+
+
 def test_ein_nicht_gespeichertes_ergebnis_hebt_die_grenze_nicht_auf(monkeypatch):
     geprueft = []
 

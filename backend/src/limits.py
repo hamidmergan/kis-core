@@ -131,8 +131,10 @@ PROVIDER_CHECK_SEAT_WAIT_SECONDS = 20
 # A provider dropdown checks every entry again with a real call once its result is older than this,
 # so a provider costs at most one call per two minutes however often the dropdown opens.
 PROVIDER_CHECK_DROPDOWN_MAX_AGE_SECONDS = 120
-# The dropdown waits this long for those checks, one that takes longer keeps its last result.
+# The dropdown waits this long for those checks, only for a provider without any result yet.
 PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS = 8
+# A dropdown reuses a reachability probe this long, an older one is shown and renewed in the background.
+PROVIDER_PROBE_MAX_AGE_SECONDS = 30
 # At most this many of those checks run at the same time, the rest queue up.
 PROVIDER_CHECK_DROPDOWN_WORKERS = 8
 

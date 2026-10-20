@@ -259,3 +259,55 @@ async def test_list_reachable_names_the_model_of_each_provider(monkeypatch):
     monkeypatch.setattr(svc, "make_adapter", lambda **kw: _FakeAdapter("ok"))
     result = await svc.list_reachable_choices("chat")
     assert {p["id"]: p["model"] for p in result["providers"]} == {20: "m20", 21: "m21"}
+
+
+# ─── _is_reachable ───────────────────────────────────────────────────────────
+
+
+class _CountingAdapter:
+    def __init__(self, calls, status):
+        self._calls = calls
+        self._status = status
+
+    def probe(self):
+        from src.services.protocols.base import ProbeResult
+
+        self._calls.append(1)
+        return ProbeResult(capabilities=[], status=self._status, error=None)
+
+
+async def test_ein_frischer_ping_wird_nicht_wiederholt(monkeypatch):
+    calls = []
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _CountingAdapter(calls, "ok"))
+    provider = _provider(20)
+
+    assert await svc._is_reachable(provider) is True
+    assert await svc._is_reachable(provider) is True
+    assert len(calls) == 1
+
+
+async def test_ein_alter_ping_antwortet_sofort_und_wird_im_hintergrund_erneuert(monkeypatch):
+    import asyncio
+    import time
+
+    calls = []
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _CountingAdapter(calls, "error"))
+    provider = _provider(20)
+    svc._probed[svc._probe_key(provider)] = (time.time() - svc.PROVIDER_PROBE_MAX_AGE_SECONDS - 1, True)
+
+    # The old answer comes back without waiting, the renewal flips it for the next opening.
+    assert await svc._is_reachable(provider) is True
+    await asyncio.gather(*svc._probing.values())
+    assert len(calls) == 1
+    assert await svc._is_reachable(provider) is False
+
+
+async def test_eine_neue_adresse_wird_neu_gepingt(monkeypatch):
+    import time
+
+    calls = []
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _CountingAdapter(calls, "error"))
+    svc._probed[svc._probe_key(_provider(20, base_url="http://alt"))] = (time.time(), True)
+
+    assert await svc._is_reachable(_provider(20, base_url="http://neu")) is False
+    assert len(calls) == 1

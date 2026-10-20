@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Optional
 
 from loguru import logger
 
 from src import database as db
+from src.limits import PROVIDER_PROBE_MAX_AGE_SECONDS
 from src.services import feature_router
 from src.services.feature_router import FeatureBinding, FeatureNotConfigured
 from src.services.protocols import make_adapter
@@ -24,6 +26,10 @@ _FEATURE_CAPABILITY: dict[str, str] = {
 
 # Cap for a single reachability probe.
 _PROBE_TIMEOUT = 6.0
+
+# Last probe per provider as (time, reachable), and the probes renewing them right now.
+_probed: dict[tuple, tuple[float, bool]] = {}
+_probing: dict[tuple, asyncio.Task] = {}
 
 
 def _model_for(route: Optional[dict], provider_id: int) -> str:
@@ -106,7 +112,7 @@ def fallback_candidates(feature: str) -> list[FeatureBinding]:
     return [FeatureBinding(feature=feature, provider=provider, model=ziel.model)]
 
 
-async def _is_reachable(provider: dict) -> bool:
+async def _probe_reachable(provider: dict) -> bool:
     """Probes reachability outside the event loop, False on any error."""
     def _probe() -> bool:
         try:
@@ -120,9 +126,30 @@ async def _is_reachable(provider: dict) -> bool:
             return False
 
     try:
-        return await asyncio.wait_for(asyncio.to_thread(_probe), _PROBE_TIMEOUT)
+        ok = await asyncio.wait_for(asyncio.to_thread(_probe), _PROBE_TIMEOUT)
     except (asyncio.TimeoutError, Exception):  # noqa: BLE001
-        return False
+        ok = False
+    _probed[_probe_key(provider)] = (time.time(), ok)
+    return ok
+
+
+def _probe_key(provider: dict) -> tuple:
+    """A changed address in the admin counts as a new provider."""
+    return provider["id"], provider["protocol"], provider["base_url"]
+
+
+async def _is_reachable(provider: dict) -> bool:
+    """The last probe result, an old one is renewed in the background and only a missing one is awaited."""
+    key = _probe_key(provider)
+    known = _probed.get(key)
+    if known is None:
+        return await _probe_reachable(provider)
+    checked_at, ok = known
+    if time.time() - checked_at > PROVIDER_PROBE_MAX_AGE_SECONDS and key not in _probing:
+        task = asyncio.create_task(_probe_reachable(provider))
+        _probing[key] = task
+        task.add_done_callback(lambda _t: _probing.pop(key, None))
+    return ok
 
 
 async def only_reachable(providers: list[dict], feature: str | None = None) -> list[dict]:

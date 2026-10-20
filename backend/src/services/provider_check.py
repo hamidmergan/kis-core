@@ -177,10 +177,15 @@ def refused_ids(feature: str, provider_ids: Optional[set[int]] = None) -> set[in
     todo = [(p, model) for f, p, model in targets()
             if f == feature and (provider_ids is None or p["id"] in provider_ids)]
     stored = provider_checks.list_checks()
-    futures = [f for p, model in todo
-               if (f := _check_soon(feature, p, model, _age(stored.get((p["id"], feature))))) is not None]
+    futures = []
+    for p, model in todo:
+        alter = _age(stored.get((p["id"], feature)))
+        f = _check_soon(feature, p, model, alter)
+        # An old result is shown right away while the new check runs, only a missing one is waited for.
+        if f is not None and alter == float("inf"):
+            futures.append(f)
     if futures:
-        # A check still running after the wait keeps its last result, the next opening sees the new one.
+        # A check still running after the wait counts as passed, the next opening sees its result.
         wait(futures, timeout=PROVIDER_CHECK_DROPDOWN_WAIT_SECONDS)
         stored = provider_checks.list_checks()
     return {p["id"] for p, _ in todo if (stored.get((p["id"], feature)) or {}).get("status") == "error"}
