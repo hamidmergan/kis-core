@@ -48,23 +48,31 @@ function UebersetzungPageInner() {
   const [translatedText, setTranslatedText] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  const [providers, setProviders] = useState<{ id: number; label: string }[]>([]);
+  // Null until the provider checks answered, the field shows a loading state meanwhile.
+  const [providers, setProviders] = useState<{ id: number; label: string }[] | null>(null);
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const [targetLang, setTargetLang] = useState<string>("");
 
+  // Languages come right away, the providers follow once their checks are done.
   useEffect(() => {
+    api
+      .fetch("/translate/languages")
+      .then((r) => r.json())
+      .then((data) => {
+        setLanguages(data.languages ?? []);
+        setTargetLang(data.default_target ?? "");
+      })
+      .catch(() => {});
     api
       .fetch("/translate/config")
       .then((r) => r.json())
       .then((data) => {
         const provs: { id: number; label: string }[] = data.providers ?? [];
         setProviders(provs);
-        setLanguages(data.languages ?? []);
         if (provs.length > 0) setTranslationProviderId(provs[0].id);
-        setTargetLang(data.default_target ?? "");
       })
-      .catch(() => {});
+      .catch(() => setProviders([]));
   }, []);
 
   // Arriving from the jobs list: open straight on that one result.
@@ -243,7 +251,7 @@ function UebersetzungPageInner() {
 
           <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
 
-          {providers.length > 1 && (
+          {(providers === null || providers.length > 1) && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("engine")}
@@ -251,10 +259,11 @@ function UebersetzungPageInner() {
               <Select
                 value={translationProviderId != null ? String(translationProviderId) : ""}
                 onChange={(v) => setTranslationProviderId(v ? Number(v) : null)}
-                disabled={processing}
-                options={providers.map((p) => ({ value: String(p.id), label: p.label }))}
+                disabled={processing || providers === null}
+                placeholder={providers === null ? t("engineLoading") : undefined}
+                options={(providers ?? []).map((p) => ({ value: String(p.id), label: p.label }))}
               />
-              <ProviderAvailabilityHint />
+              {providers !== null && <ProviderAvailabilityHint />}
             </div>
           )}
 

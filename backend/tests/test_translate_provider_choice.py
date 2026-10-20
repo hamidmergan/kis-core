@@ -18,3 +18,16 @@ async def test_translate_config_hides_unreachable(monkeypatch):
 
     result = await translate.get_translate_config(current_user={}, locale="de")
     assert result["providers"] == [{"id": 21, "label": "THL myLab"}]
+
+
+async def test_die_sprachen_warten_nicht_auf_die_anbieter(monkeypatch):
+    from src.routes import translate
+
+    def nie_fragen():
+        raise AssertionError("languages must not touch the providers")
+
+    monkeypatch.setattr("src.dependencies.get_translation_providers", nie_fragen)
+
+    result = await translate.get_translate_languages(current_user={}, locale="de")
+    assert "providers" not in result
+    assert result["languages"] and result["default_target"]

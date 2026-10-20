@@ -47,12 +47,22 @@ async def get_translate_config(
     from src.services.feature_provider_choices import only_reachable
     raw_providers = await only_reachable(get_translation_providers(), "chat")
     providers = [{"id": p["id"], "label": p["name"]} for p in raw_providers]
+    return {"providers": providers, **_languages(locale)}
 
-    languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES]
 
+@router.get("/translate/languages")
+async def get_translate_languages(
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The languages alone, so a page does not wait for the provider checks."""
+    return _languages(locale)
+
+
+def _languages(locale: str) -> dict:
+    """The target languages with their defaults."""
     return {
-        "providers": providers,
-        "languages": languages,
+        "languages": [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES],
         "default_source": DEFAULT_TRANSLATE_SOURCE,
         "default_target": DEFAULT_TRANSLATE_TARGET,
     }

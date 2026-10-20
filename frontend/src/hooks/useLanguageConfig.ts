@@ -31,7 +31,7 @@ export function useLanguageConfig(allowed?: readonly string[], start?: string) {
 
   useEffect(() => {
     api
-      .getJson<TranslateConfigResponse>("/api/translate/config")
+      .getJson<TranslateConfigResponse>("/api/translate/languages")
       .then((data) => {
         if (data.languages?.length) setLanguages(data.languages);
         if (data.default_target && !start) setTargetLang(data.default_target);

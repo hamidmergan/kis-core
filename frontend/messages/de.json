@@ -750,6 +750,7 @@
       "targetLang": "Zielsprache",
       "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
       "engine": "KI-Anbieter",
+      "engineLoading": "Wird geladen…",
       "submit": "Übersetzen",
       "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
       "downloadLabel": "Herunterladen",
