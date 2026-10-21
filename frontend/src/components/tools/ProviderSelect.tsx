@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
+import Spinner from "@/components/ui/Spinner";
 import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 
@@ -20,21 +21,30 @@ type PickerProps = {
   loading?: boolean;
 };
 
-/** The provider dropdown with its availability hint, locked with a loading text until the list arrives. */
-export function ProviderPicker({ id, ariaLabel, providers, value, onChange, disabled = false, loading = false }: PickerProps) {
+/** A spinner in the shape of a dropdown, shown where a list is still loading. */
+export function LoadingField() {
   const t = useTranslations("common");
+  return (
+    <div className="flex items-center rounded-md border border-border-soft px-3 py-2 text-sm">
+      <Spinner size="sm" label={t("providersLoading")} />
+    </div>
+  );
+}
+
+/** The provider dropdown with its availability hint, replaced by a spinner until the list arrives. */
+export function ProviderPicker({ id, ariaLabel, providers, value, onChange, disabled = false, loading = false }: PickerProps) {
+  if (loading) return <LoadingField />;
   return (
     <>
       <Select
         id={id}
         ariaLabel={ariaLabel}
-        value={loading ? "" : String(value ?? "")}
+        value={String(value ?? "")}
         onChange={(v) => onChange(Number(v))}
-        disabled={disabled || loading}
-        placeholder={loading ? t("providersLoading") : undefined}
-        options={loading ? [] : providers.map((p) => ({ value: String(p.id), label: p.name }))}
+        disabled={disabled}
+        options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
       />
-      {!loading && <ProviderAvailabilityHint />}
+      <ProviderAvailabilityHint />
     </>
   );
 }

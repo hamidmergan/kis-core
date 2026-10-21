@@ -20,7 +20,7 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Select from "@/components/ui/Select";
-import ProviderSelect from "@/components/tools/ProviderSelect";
+import ProviderSelect, { LoadingField } from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import Tabs from "@/components/ui/Tabs";
 import { TEXT_MODE_FILENAME, TRANSLATE_MAX_CHARS } from "@/lib/constants";
@@ -53,6 +53,7 @@ function UebersetzungPageInner() {
     loading: providersLoading } = useFeatureProviders("/translate/providers");
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
   const [targetLang, setTargetLang] = useState<string>("");
+  const [languagesLoading, setLanguagesLoading] = useState(true);
 
   // Languages come right away, the providers load on their own.
   useEffect(() => {
@@ -63,7 +64,8 @@ function UebersetzungPageInner() {
         setLanguages(data.languages ?? []);
         setTargetLang(data.default_target ?? "");
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLanguagesLoading(false));
   }, []);
 
   // Arriving from the jobs list: open straight on that one result.
@@ -225,7 +227,14 @@ function UebersetzungPageInner() {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-translation">
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-          {languages.length > 0 && (
+          {languagesLoading ? (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground-soft mb-1">
+                {t("targetLang")}
+              </label>
+              <LoadingField />
+            </div>
+          ) : languages.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("targetLang")}
