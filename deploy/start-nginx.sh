@@ -10,7 +10,7 @@ MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut 
 export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools},app"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 
-# Without a size limit the prune empties the whole build cache, so every deploy rebuilt from scratch.
+# Without a size limit the prune drops the unshared build stages, so npm ci ran again on every frontend change.
 CMD=${1:-up}
 
 if [ "$CMD" = "down" ]; then

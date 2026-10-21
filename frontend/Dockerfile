@@ -4,7 +4,8 @@ FROM node:20-alpine AS base
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci || npm install
+# The npm cache survives between builds, so a changed lockfile only downloads what is new.
+RUN --mount=type=cache,target=/root/.npm npm ci || npm install
 
 # Build
 FROM base AS builder
@@ -13,7 +14,8 @@ ARG BACKEND_URL=http://localhost:8000
 ENV BACKEND_URL=$BACKEND_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# Next.js reuses its compile cache from the last build, so only changed files are compiled again.
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Production
 FROM base AS runner
