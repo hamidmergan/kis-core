@@ -13,6 +13,7 @@ export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools},app"
 [ -f "${HPC_SSH_KEY:-$HOME/.ssh/kis-hpc}" ] && COMPOSE_PROFILES="$COMPOSE_PROFILES,hpc"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 
+# Without a size limit the prune empties the whole build cache, so every deploy rebuilt from scratch.
 CMD=${1:-up}
 
 if [ "$CMD" = "down" ]; then
@@ -21,9 +22,9 @@ elif [ "$CMD" = "restart" ]; then
     docker compose $COMPOSE_FILES down --remove-orphans
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
-    docker builder prune -f
+    docker builder prune -f --keep-storage 8GB
 else
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
-    docker builder prune -f
+    docker builder prune -f --keep-storage 8GB
 fi
