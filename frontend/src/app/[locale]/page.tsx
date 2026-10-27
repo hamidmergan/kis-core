@@ -48,20 +48,23 @@ export default function InfoPage() {
   useFitZoom(mainRef, "info-hero");
   const { data } = usePublicEvent();
   return (
-    // Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width.
-    <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
+    <>
+      {/* Outside the zoomed main so the banner keeps the header's size whatever zoom the hero gets. */}
       <EventBanner block={data?.eventBlock ?? null} />
-      <Suspense fallback={<HeroTabs />}>
-        <CodeForward />
-        <Hero />
-      </Suspense>
-      <EventBlock block={data?.eventBlock ?? null} bleed />
-      <PurposeSection />
-      <LearnRows />
-      <ServiceGrid />
-      <InfoFaq />
-      <ContactSection />
-      <ScrollTopButton />
-    </main>
+      {/* Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width. */}
+      <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
+        <Suspense fallback={<HeroTabs />}>
+          <CodeForward />
+          <Hero />
+        </Suspense>
+        <EventBlock block={data?.eventBlock ?? null} bleed />
+        <PurposeSection />
+        <LearnRows />
+        <ServiceGrid />
+        <InfoFaq />
+        <ContactSection />
+        <ScrollTopButton />
+      </main>
+    </>
   );
 }
