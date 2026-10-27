@@ -13,6 +13,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.features.event import tasks as event_tasks
 from src.i18n import get_locale, t
 from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS, FOLLOWUP_HISTORY_ROUNDS
 from src.services import model_limits
@@ -121,6 +122,8 @@ async def chat(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    # Sending is enough for the event task, the answer may still fail.
+    event_tasks.mark_question(user_id, workspace_uuid)
 
     # The tutor language per course room and person drives the refusal sentence.
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}

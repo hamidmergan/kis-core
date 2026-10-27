@@ -11,6 +11,9 @@ CODE_LENGTH = 4
 VISITOR_CODE_LENGTH = 6
 MAX_TILES = 4
 TILE_TARGET_KINDS = ("stamp", "info", "internal", "directLogin")
+# The task card's three tasks, the first is ticked by the chat, the other two by opening their demo.
+TASK_IDS = ("question", "praesentation", "screencast")
+CLIENT_TASK_IDS = ("praesentation", "screencast")
 
 # The browser makes the id up, anything else is a stray request.
 _VISITOR_ID = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
@@ -124,6 +127,19 @@ def default_config() -> dict:
                 },
             ],
         },
+        "taskCard": default_task_card(),
+    }
+
+
+def default_task_card() -> dict:
+    """The task card stays off until the admin switches it on and names its code and workspace."""
+    return {
+        "enabled": False,
+        "ignoreWindow": False,
+        "from": "2026-11-13",
+        "until": "2026-11-13",
+        "accessCode": "KIS-DEMO-0000",
+        "workspace": "",
     }
 
 
@@ -234,6 +250,31 @@ def build_card(*, stamped: dict[str, int], station_ids, locked_until: int | None
     }
 
 
+# --- the task card ------------------------------------------------------------
+
+def same_access_code(a: str | None, b: str | None) -> bool:
+    """Codes compare without case and outer spaces, an empty code never matches."""
+    a, b = (a or "").strip().upper(), (b or "").strip().upper()
+    return bool(a) and a == b
+
+
+def task_card_for(card: dict, today: date, user_code: str | None) -> bool:
+    """Whether this account sees the task card today, only accounts from the card's code do."""
+    return event_block_visible(card, today) and same_access_code(user_code, card.get("accessCode"))
+
+
+def tasks_view(done: dict[str, int], workspace: str, workspace_title: str = "") -> dict:
+    """The card as the browser shows it, trimmed to the tasks that exist."""
+    aktuell = {task_id: done[task_id] for task_id in TASK_IDS if task_id in done}
+    return {
+        "visible": True,
+        "done": aktuell,
+        "completedAt": completed_at(aktuell, TASK_IDS),
+        "workspace": workspace,
+        "workspaceTitle": workspace_title,
+    }
+
+
 # --- the admin form -----------------------------------------------------------
 
 def validate_config(config: dict) -> dict:
@@ -286,4 +327,22 @@ def validate_config(config: dict) -> dict:
         geprueft.append({**tile, "id": tile_id, "availableFrom": ab})
     block["tiles"] = geprueft
 
-    return {"stations": stations, "eventBlock": block, "hideCodeOnPosters": bool(config.get("hideCodeOnPosters"))}
+    karte = {**default_task_card(), **(config.get("taskCard") or {})}
+    for feld in ("from", "until"):
+        if not is_valid_date_or_empty(karte[feld] or ""):
+            raise EventValidationError("event.config.dateInvalid", value=karte[feld])
+    karte = {
+        "enabled": bool(karte["enabled"]),
+        "ignoreWindow": bool(karte["ignoreWindow"]),
+        "from": karte["from"] or "",
+        "until": karte["until"] or "",
+        "accessCode": str(karte["accessCode"] or "").strip(),
+        "workspace": str(karte["workspace"] or "").strip(),
+    }
+
+    return {
+        "stations": stations,
+        "eventBlock": block,
+        "hideCodeOnPosters": bool(config.get("hideCodeOnPosters")),
+        "taskCard": karte,
+    }

@@ -24,7 +24,7 @@ from src.features.event.service import (
 
 def test_the_seed_carries_neither_master_code_nor_statistics():
     config = default_config()
-    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters"}
+    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters", "taskCard"}
     assert config["hideCodeOnPosters"] is False
     assert "masterCode" not in config
     assert len(config["stations"]) == 5

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from src.dependencies_rbac import require_full_admin, require_permission
 from src.features.event import repository as repo
+from src.features.event import tasks
 from src.features.event.service import EventValidationError, normalize_code, validate_config
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_EVENT
@@ -53,11 +54,22 @@ class EventBlockPayload(BaseModel):
     tiles: list[EventTilePayload] = []
 
 
+class TaskCardPayload(BaseModel):
+    enabled: bool = False
+    ignoreWindow: bool = False
+    from_: str = Field("", alias="from")
+    until: str = ""
+    accessCode: str = Field("", max_length=64)
+    workspace: str = Field("", max_length=64)
+
+
 class EventConfigPayload(BaseModel):
     stations: list[StationPayload]
     eventBlock: EventBlockPayload
     # Posters then carry the QR code only, the codes are told at the stand.
     hideCodeOnPosters: bool = False
+    # Missing in an older form, the saved card is then kept instead of reset.
+    taskCard: TaskCardPayload | None = None
 
 
 @router.get("")
@@ -71,8 +83,11 @@ def save_event(
     admin: dict = Depends(_require),
     locale: str = Depends(get_locale),
 ):
+    roh = payload.model_dump(by_alias=True)
+    if roh.get("taskCard") is None:
+        roh["taskCard"] = repo.get_config()["taskCard"]
     try:
-        config = validate_config(payload.model_dump(by_alias=True))
+        config = validate_config(roh)
     except EventValidationError as fehler:
         raise HTTPException(status_code=422, detail=t(fehler.key, locale, **fehler.params))
     repo.save_config(config)
@@ -86,7 +101,14 @@ def event_stats(admin: dict = Depends(_require)):
     return {
         "visitsByStation": {stand_id: besuche.get(stand_id, 0) for stand_id in ids},
         "completeCards": repo.complete_cards(ids),
+        "tasks": tasks.counts(),
     }
+
+
+@router.get("/task-workspaces")
+def task_workspaces(code: str = "", admin: dict = Depends(_require)):
+    """The workspaces of the card's access code, to pick the one for the question task."""
+    return {"workspaces": tasks.workspaces_for_code(code) if code.strip() else []}
 
 
 @router.delete("/card")
@@ -112,4 +134,5 @@ def reset_one_card(code: str, admin: dict = Depends(_require), locale: str = Dep
 def reset_all_stamps(admin: dict = Depends(require_full_admin)):
     repo.delete_all_stamps()
     repo.delete_all_visitor_codes()
+    tasks.delete_all()
     return {"ok": True}

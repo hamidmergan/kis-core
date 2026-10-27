@@ -104,6 +104,7 @@ import EvaluationPage from "../_pages/nutzer/evaluation";
 import EventStationsPage from "../_pages/event/stations";
 import EventBlockPage from "../_pages/event/block";
 import EventStatsPage from "../_pages/event/stats";
+import EventTasksPage from "../_pages/event/tasks";
 import SystemPage from "../_pages/system";
 import CampusAdminPage from "../_pages/campus";
 import HildePage from "../_pages/mascot/hilde";
@@ -231,6 +232,7 @@ export const SECTIONS: AdminSection[] = [
     tabs: [
       { slug: "stations", labelKey: "stations", Component: EventStationsPage },
       { slug: "block", labelKey: "block", Component: EventBlockPage },
+      { slug: "tasks", labelKey: "tasks", Component: EventTasksPage },
       { slug: "stats", labelKey: "stats", Component: EventStatsPage },
     ],
   },

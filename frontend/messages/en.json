@@ -2102,7 +2102,8 @@
         "tabs": {
           "stations": "Stands",
           "block": "Event block",
-          "stats": "Results"
+          "stats": "Results",
+          "tasks": "Task card"
         }
       },
       "campus": {
@@ -5316,6 +5317,54 @@
     "loadFailed": "The settings could not be loaded.",
     "saving": "Saving …",
     "saved": "Saved",
-    "saveFailed": "Saving failed."
+    "saveFailed": "Saving failed.",
+    "tasks": {
+      "title": "Task card on the services page",
+      "active": "Active. Accounts from the access code see the card while the period runs.",
+      "disabled": "Disabled. Nobody sees the card.",
+      "toggleAria": "Toggle task card",
+      "from": "From",
+      "until": "Until",
+      "ignoreWindow": "Ignore the period, for example to test in advance",
+      "accessCode": "Access code",
+      "accessCodeHint": "Only accounts created with this code see the card.",
+      "workspace": "Workspace for the question",
+      "workspaceNone": "No workspace",
+      "workspaceUnknown": "Saved workspace, no longer on the access code",
+      "workspaceHint": "The choice lists the workspaces of the access code. A question there sets the first tick.",
+      "workspaceEmpty": "The access code has no workspaces. Add the workspace to the access code first.",
+      "statsTitle": "Statistics",
+      "statsFailed": "The numbers could not be loaded.",
+      "accounts": "{n, plural, one {# account} other {# accounts}}",
+      "complete": "All three done"
+    }
+  },
+  "eventTasks": {
+    "title": "Your tasks at Tag der Lehre",
+    "progress": "{n} of {total} done",
+    "minimize": "Minimise",
+    "intro": "Finish all three and a gift is waiting for you at the stand.",
+    "demo": "Demo",
+    "doneAria": "Done",
+    "openAria": "Open",
+    "tasks": {
+      "question": {
+        "title": "Ask the AI a question",
+        "body": "In the workspace {title}",
+        "bodyNoTitle": "In the learning assistant"
+      },
+      "praesentation": {
+        "title": "Create a presentation",
+        "body": "A prepared run shows you every step. You upload nothing."
+      },
+      "screencast": {
+        "title": "Create a screencast",
+        "body": "A prepared run shows you every step. You upload nothing."
+      }
+    },
+    "finishTitle": "Done!",
+    "finishText": "Pick up your gift at the stand.",
+    "button": "Your tasks",
+    "buttonDone": "Pick up gift"
   }
 }

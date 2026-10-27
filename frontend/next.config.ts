@@ -211,6 +211,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/event/:path*`,
       },
       {
+        source: "/api/event-tasks",
+        destination: `${backendUrl}/event-tasks`,
+      },
+      {
+        source: "/api/event-tasks/:path*",
+        destination: `${backendUrl}/event-tasks/:path*`,
+      },
+      {
         source: "/api/evaluation/:path*",
         destination: `${backendUrl}/evaluation/:path*`,
       },

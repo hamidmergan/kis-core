@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "
 import { Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useTickEventTask } from "@/lib/event/tasks";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
 import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
@@ -510,6 +511,8 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
 }
 
 export default function ScreencastDemoPage() {
+  // Opening the demo is enough for the event task card.
+  useTickEventTask("screencast");
   const [lauf, setLauf] = useState(0);
   return (
     <Suspense>

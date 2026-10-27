@@ -607,6 +607,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     code         TEXT NOT NULL UNIQUE
                 )
             """)
+            # Ticks of the event task card, one per account and task.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS event_tasks (
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    task_id TEXT NOT NULL,
+                    done_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (user_id, task_id)
+                )
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

@@ -4,6 +4,7 @@ import { Info } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { useEffect, useReducer, useRef, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useTickEventTask } from "@/lib/event/tasks";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
 import ToolBackLink from "@/components/ui/ToolBackLink";
@@ -176,6 +177,8 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
 }
 
 export default function PraesentationDemoPage() {
+  // Opening the demo is enough for the event task card.
+  useTickEventTask("praesentation");
   const [lauf, setLauf] = useState(0);
   return <PraesentationDemoLauf key={lauf} onNeu={() => setLauf((n) => n + 1)} />;
 }

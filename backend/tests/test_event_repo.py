@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 from src.features.event import repository as repo
+from src.features.event.service import default_task_card
 from src.limits import EVENT_CODE_LOCK_SECONDS, EVENT_CODE_MAX_ATTEMPTS
 
 HASH = "a" * 64
@@ -109,7 +110,9 @@ def test_an_unsaved_configuration_is_the_seed(monkeypatch):
 
 def test_a_saved_configuration_wins_over_the_seed(monkeypatch):
     monkeypatch.setattr(repo, "get_setting", lambda key, default="": '{"stations": [], "eventBlock": {}}')
-    assert repo.get_config() == {"stations": [], "eventBlock": {}, "hideCodeOnPosters": False}
+    assert repo.get_config() == {
+        "stations": [], "eventBlock": {}, "hideCodeOnPosters": False, "taskCard": default_task_card(),
+    }
 
 
 def test_a_saved_hide_setting_is_kept(monkeypatch):

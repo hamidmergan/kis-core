@@ -2102,7 +2102,8 @@
         "tabs": {
           "stations": "Stände",
           "block": "Event-Block",
-          "stats": "Auswertung"
+          "stats": "Auswertung",
+          "tasks": "Aufgabenkarte"
         }
       },
       "campus": {
@@ -5316,6 +5317,54 @@
     "loadFailed": "Die Einstellungen konnten nicht geladen werden.",
     "saving": "Speichert …",
     "saved": "Gespeichert",
-    "saveFailed": "Speichern fehlgeschlagen."
+    "saveFailed": "Speichern fehlgeschlagen.",
+    "tasks": {
+      "title": "Aufgabenkarte auf der Dienste-Seite",
+      "active": "Aktiv. Konten aus dem Zugangscode sehen die Karte, solange der Zeitraum läuft.",
+      "disabled": "Deaktiviert. Niemand sieht die Karte.",
+      "toggleAria": "Aufgabenkarte umschalten",
+      "from": "Von",
+      "until": "Bis",
+      "ignoreWindow": "Zeitraum ignorieren, etwa zum Testen vorab",
+      "accessCode": "Zugangscode",
+      "accessCodeHint": "Nur Konten, die mit diesem Code angelegt wurden, sehen die Karte.",
+      "workspace": "Workspace für die Frage",
+      "workspaceNone": "Kein Workspace",
+      "workspaceUnknown": "Gespeicherter Workspace, nicht mehr am Zugangscode",
+      "workspaceHint": "Zur Auswahl stehen die Workspaces des Zugangscodes. Eine Frage dort setzt den ersten Haken.",
+      "workspaceEmpty": "Der Zugangscode hat keine Workspaces. Hinterlege den Workspace zuerst am Zugangscode.",
+      "statsTitle": "Auswertung",
+      "statsFailed": "Die Zahlen konnten nicht geladen werden.",
+      "accounts": "{n, plural, one {# Konto} other {# Konten}}",
+      "complete": "Alle drei erledigt"
+    }
+  },
+  "eventTasks": {
+    "title": "Deine Aufgaben am Tag der Lehre",
+    "progress": "{n} von {total} erledigt",
+    "minimize": "Minimieren",
+    "intro": "Schaffst du alle drei, wartet am Stand ein Geschenk auf dich.",
+    "demo": "Demo",
+    "doneAria": "Erledigt",
+    "openAria": "Offen",
+    "tasks": {
+      "question": {
+        "title": "Stell der KI eine Frage",
+        "body": "Im Workspace {title}",
+        "bodyNoTitle": "Im Lernassistenten"
+      },
+      "praesentation": {
+        "title": "Erstell eine Präsentation",
+        "body": "Ein vorbereiteter Durchlauf zeigt dir jeden Schritt. Du lädst nichts hoch."
+      },
+      "screencast": {
+        "title": "Erstell einen Screencast",
+        "body": "Ein vorbereiteter Durchlauf zeigt dir jeden Schritt. Du lädst nichts hoch."
+      }
+    },
+    "finishTitle": "Fertig!",
+    "finishText": "Hol dir dein Geschenk am Stand ab.",
+    "button": "Deine Aufgaben",
+    "buttonDone": "Geschenk abholen"
   }
 }

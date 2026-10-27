@@ -46,12 +46,24 @@ export interface EventBlock {
   tiles: EventTile[];
 }
 
+/** The task card of the services page, shown only to accounts made from its access code. */
+export interface TaskCardConfig {
+  enabled: boolean;
+  ignoreWindow: boolean;
+  from: string;
+  until: string;
+  accessCode: string;
+  /** The uuid of the workspace where the question task is asked. */
+  workspace: string;
+}
+
 /** What the admin edits and the server stores, the codes only travel to the admin. */
 export interface EventConfig {
   stations: Station[];
   eventBlock: EventBlock;
   /** Leaves the code off every poster so a visitor has to scan, the admin still sees it. */
   hideCodeOnPosters: boolean;
+  taskCard: TaskCardConfig;
 }
 
 /** What every visitor may read, no codes, the block is null while it is off or outside its period. */
@@ -75,6 +87,7 @@ export interface Card {
 export interface EventStats {
   visitsByStation: Record<string, number>;
   completeCards: number;
+  tasks: { byTask: Record<string, number>; complete: number };
 }
 
 export const EMPTY_CARD: Card = { stamped: {}, completedAt: null, lockedUntil: null, attemptsLeft: 5, code: "" };
