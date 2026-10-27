@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import EventBlock from "@/components/event/EventBlock";
+import DemoBand from "@/components/event/DemoBand";
 import { usePublicEvent } from "@/lib/event/usePublicEvent";
 import HeroTabs from "./_components/landing/HeroTabs";
 import InfoHero from "./_components/landing/InfoHero";
@@ -49,6 +50,7 @@ export default function InfoPage() {
   return (
     // Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width.
     <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
+      <DemoBand block={data?.eventBlock ?? null} />
       <Suspense fallback={<HeroTabs />}>
         <CodeForward />
         <Hero />

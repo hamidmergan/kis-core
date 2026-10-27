@@ -4948,7 +4948,11 @@
       "directLogin": "Direkt-Login mit Zugangscode"
     },
     "lockedFrom": "Freischaltung am {date}",
-    "lockedSoon": "Bald verfügbar"
+    "lockedSoon": "Bald verfügbar",
+    "demoBand": {
+      "text": "Probiere die KIS-Plattform ohne eigenes Konto aus.",
+      "button": "Demo starten"
+    }
   },
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
