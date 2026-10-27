@@ -42,6 +42,7 @@ SONDERFALL = {
     "praesentation_vorlagen": "haengt per Fremdschluessel an users(id)",
     "page_shares": "haengt per Fremdschluessel an jobs, geht mit den Auftraegen",
     "page_collections": "haengt per Fremdschluessel an users(id)",
+    "event_tasks": "haengt per Fremdschluessel an users(id)",
     "aia_grammar_topics": "gehoert dem Arbeitsbereich, verliert nur den Urheber",
     "invites": "gehoert der eingeladenen Person, verliert nur den Urheber",
     "access_codes": "gehoert der Testrunde, verliert nur den Urheber",
