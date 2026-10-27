@@ -200,3 +200,16 @@ AIA_DATENTABELLE_PROMPT = (
     "- Do NOT add a column for sources/citations/filenames in 'columns'.\n"
     "- Respond ONLY with the JSON object, no other text."
 )
+
+
+# The name rides along in the answer, a finished map or table costs no title call of its own.
+AIA_STUDIO_TITLE_RULE = (
+    "\n\nTITLE: add a top-level field \"title\": a short title (max 6 words, in {language}) "
+    "naming the concrete matter the entries have in common. NEVER the document, the lecture, "
+    "the course or the field as a whole, and never a filename. No quotation marks."
+)
+
+# Appended when the workspace already has results of this tool.
+AIA_STUDIO_TITLES_TAKEN = (
+    "\nTITLES ALREADY IN USE, the new title MUST differ from every one of them:\n{titles}"
+)

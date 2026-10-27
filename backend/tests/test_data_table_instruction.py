@@ -1,4 +1,4 @@
-"""Die Datentabelle mit Anweisung: Block im Prompt, Treffer statt Pakete, Marke bei daneben."""
+"""Die Datentabelle mit Anweisung: Block im Prompt, Treffer statt Sweep, Marke bei daneben."""
 
 import json
 import types
@@ -24,7 +24,7 @@ def stack(monkeypatch):
     """Hooks the table up to stubs and records what the model was asked."""
     import src.features.ai_assistant.tasks.studio.data_table as mod
 
-    seen = {"messages": [], "condensed": 0, "unmatched": [], "saved": []}
+    seen = {"messages": [], "unmatched": [], "saved": []}
     row = {"id": 1, "workspace_id": 7, "user_instruction": ""}
 
     class _DB:
@@ -32,7 +32,7 @@ def stack(monkeypatch):
             return dict(row)
 
         def update_aia_data_table(self, did, status, **kwargs):
-            seen["saved"].append((status, kwargs.get("error")))
+            seen["saved"].append((status, kwargs.get("error"), kwargs.get("title")))
 
         def get_chunks_by_source(self, sid):
             return list(CHUNKS.get(sid, []))
@@ -46,7 +46,7 @@ def stack(monkeypatch):
             seen["unmatched"].append((table, row_id, unmatched))
 
     monkeypatch.setattr(mod, "db", _DB())
-    monkeypatch.setattr(mod, "tool_context_budget", lambda: 10_000)
+    monkeypatch.setattr(mod, "overview_context_budget", lambda: 10_000)
     monkeypatch.setattr(mod, "_get_llm_client", lambda: (object(), "m", "p"))
 
     def _create(client, *, model, messages, endpoint="tool", **kwargs):
@@ -55,25 +55,12 @@ def stack(monkeypatch):
         return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
 
     monkeypatch.setattr(mod, "create_logged", _create)
-
-    def _condensed_build(**kwargs):
-        seen["condensed"] += 1
-        return json.loads(ANTWORT)
-
-    monkeypatch.setattr(mod._condensed, "should_condense", lambda *a: False)
-    monkeypatch.setattr(mod._condensed, "build", _condensed_build)
-    # The condensed way fetches an embedding provider before it ever calls build(), even
-    # when build() itself is stubbed below, so a real provider is never actually needed.
-    monkeypatch.setattr("src.services.aia_embeddings.get_embedding_provider_with_fallback",
-                        lambda: types.SimpleNamespace(embed_one=lambda text: [0.0]))
     monkeypatch.setattr("src.features.ai_assistant.tasks._helpers.learning_tools_language",
                         lambda: ("de", "German"))
     monkeypatch.setattr("src.services.aia_adaptive_tools.build_adaptive_tool_suffix",
                         lambda uid: "")
     monkeypatch.setattr("src.features.ai_assistant.tasks.studio._attribution.attribute_studio_claims",
                         lambda claims, **k: [[] for _ in claims])
-    monkeypatch.setattr("src.features.ai_assistant.tasks._titles.resolve_title",
-                        lambda *a, **k: "Titel")
     monkeypatch.setattr("src.features.ai_assistant.tasks.studio._result_title.recent_titles",
                         lambda *a, **k: [])
 
@@ -98,13 +85,14 @@ def test_without_an_instruction_the_prompt_is_as_before(stack):
     assert seen["saved"][-1][0] == "success"
 
 
-def test_a_style_instruction_lands_in_every_packet_prompt(stack):
+def test_a_style_instruction_lands_in_the_one_prompt(stack):
     mod, seen, row, mit = stack
     row["user_instruction"] = "Spalten: Begriff, Frist"
     mit(anweisung.Resolution("Spalten: Begriff, Frist", None, False, anweisung.STYLE))
     _run()
     block = anweisung.prompt_block("Spalten: Begriff, Frist")
-    assert all(block in nachricht[0]["content"] for nachricht in seen["messages"])
+    assert len(seen["messages"]) == 1
+    assert block in seen["messages"][0][0]["content"]
     assert "Alles aus B." in seen["messages"][0][1]["content"]
     # Every run writes the flag anew, so a retry that hits the material clears an old miss.
     assert seen["unmatched"] == [("aia_data_tables", 1, False)]
@@ -114,31 +102,34 @@ def test_a_topic_instruction_narrows_the_material_to_the_found_spots(stack):
     mod, seen, row, mit = stack
     row["user_instruction"] = "nur A"
     mit(anweisung.Resolution("nur A", [STELLE_A], False, anweisung.SEARCH))
-    mod._condensed.should_condense = lambda *a: True
     _run()
     system, user = seen["messages"][0][0]["content"], seen["messages"][0][1]["content"]
     assert "Aus A." in user
     assert "Alles aus A." not in user and "b.pdf" not in user
     assert "nur A" in system
     assert "must be about what the instruction names" in system
-    assert seen["condensed"] == 0
     assert len(seen["messages"]) == 1
 
 
-def test_the_condensed_way_carries_the_block_too(stack):
+def test_oversized_material_still_takes_a_single_call(stack, monkeypatch):
+    """What does not fit the one packet is left out, a second call is never made."""
     mod, seen, row, mit = stack
-    row["user_instruction"] = "kurze Zellen"
-    mit(anweisung.Resolution("kurze Zellen", None, False, anweisung.STYLE))
-    mod._condensed.should_condense = lambda *a: True
-    gesehen = {}
-
-    def _build(**kwargs):
-        gesehen.update(kwargs)
-        return json.loads(ANTWORT)
-
-    mod._condensed.build = _build
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+    monkeypatch.setattr(mod, "overview_context_budget", lambda: 30)
     _run()
-    assert gesehen["adaptive_suffix"].endswith(anweisung.prompt_block("kurze Zellen"))
+    assert len(seen["messages"]) == 1
+    user = seen["messages"][0][1]["content"]
+    assert "Alles aus A." in user and "Alles aus B." not in user
+    assert seen["saved"][-1][0] == "success"
+
+
+def test_the_title_comes_out_of_the_same_answer(stack):
+    """No title call of its own, the system prompt asks the answer for the name."""
+    mod, seen, row, mit = stack
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+    _run()
+    assert "TITLE" in seen["messages"][0][0]["content"]
+    assert seen["saved"][-1] == ("success", None, "T")
 
 
 def test_an_unmatched_instruction_marks_the_row_and_stays_out_of_the_prompt(stack):

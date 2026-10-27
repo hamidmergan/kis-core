@@ -325,17 +325,17 @@ services:
     image: kis-backend
     container_name: kis-celery-aia
     profiles: ["aia"]
-    # One process per slot of the Francis pool (AIA_PARALLEL_SLOTS = 6), the pool
+    # One process per slot of the Francis pool (AIA_PARALLEL_SLOTS = 12), the pool
     # decides what runs, so no job waits here behind another. Tools mostly wait on
     # the language model, sources are capped at 3 (AIA_AREA_CAPS) because a
     # 155-page PDF takes a process to 365 MB.
     command: >
-      sh -c 'echo "kis-celery-aia: autoscale=6,1";
-      exec celery -A src.celery_app worker --queues=aia,aia_ingest --autoscale=6,1 --loglevel=info'
+      sh -c 'echo "kis-celery-aia: autoscale=12,1";
+      exec celery -A src.celery_app worker --queues=aia,aia_ingest --autoscale=12,1 --loglevel=info'
     # Cap against a single outlier so a large document does not push Postgres out of
-    # memory. 3 sources of up to 365 MB, 3 tools and the main process fit in 2g.
+    # memory. 3 sources of up to 365 MB, 9 tools and the main process fit in 3g.
     # Adjustable via the .env.
-    mem_limit: ${CELERY_AIA_MEM_LIMIT:-2g}
+    mem_limit: ${CELERY_AIA_MEM_LIMIT:-3g}
     environment:
       REMAP_SIGTERM: SIGQUIT
     stop_grace_period: 60s

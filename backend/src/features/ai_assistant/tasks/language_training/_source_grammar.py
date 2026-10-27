@@ -21,6 +21,7 @@ from src.features.ai_assistant.tasks.language_training._plan import (
 )
 from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_formats import KINDS
+from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
 from src.services.llm_call import create_logged
 
 
@@ -123,8 +124,8 @@ def task_line(kind: str, locale: str, target_form: str) -> str:
 # Below this rate a run counts as failed.
 _MIN_USABLE_RATIO = 0.5
 
-# Up to three attempts so the ordered number comes together.
-_MAX_ATTEMPTS = 3
+# One generation call per set, the verdict call after it stays.
+_MAX_ATTEMPTS = 1
 
 # This is how a gap is written, three underscores are recognisable in the text.
 GAP = "___"
@@ -187,7 +188,8 @@ def generate_grammar_from_source(
             # In the last attempt the count matters more than the mix, but only within the selection.
             wanted = _fallback_kinds(items, wanted, kinds)
         # The same temperature as the other tools, still JSON safe.
-        response = create_logged(client, endpoint="grammatik", model=model, messages=messages_for(wanted), temperature=0.6)
+        response = create_logged(client, endpoint="grammatik", model=model, messages=messages_for(wanted),
+                                 temperature=0.6, max_tokens=exercise_max_tokens(count))
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         exercises = list(data.get("exercises") or [])[:count]
         seen_exercises += len(exercises)

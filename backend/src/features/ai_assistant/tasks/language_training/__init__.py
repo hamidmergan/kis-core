@@ -32,12 +32,7 @@ from src.features.ai_assistant.tasks.language_training._context import (
     build_context_from_chunks,
     build_source_context,
     label_for_sources,
-    quota_fits,
     coverage_rule,
-    missing_section_uuids,
-    per_section_quota,
-    rebalance_to_count,
-    remap_sections,
 )
 from src.features.ai_assistant.tasks.language_training._dedup import (
     drop_repeats,
@@ -67,9 +62,6 @@ from src.features.ai_assistant.tasks.language_training._variation import (
     resolve_set_title,
 )
 
-
-# This many top-up rounds, at most two.
-_NACHSCHLAG_RUNDEN = 2
 
 # Stands in the title column until the generation call or the pool names the set.
 _PLATZHALTER = "Wird generiert…"
@@ -127,8 +119,6 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         header: dict | None = None
         # Stays None in glossary mode, which has no sources and therefore no sections.
         ctx = None
-        # Only set in source mode, glossary mode has nothing to top up.
-        refill = None
         # The person's instruction, empty when there is none or it missed the material.
         anweisung = ""
         # True when the material is the found spots instead of the sweep.
@@ -242,36 +232,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     instruction=prompt_block(anweisung), **shared)
                 return got, name, None
 
-            refill = generate
-            # Only the shortfall is generated, the pool is already in items.
+            # One call per set, a shortfall is filled from the pool or the model's repeats.
             neu, title, header = generate(ctx, zu_erzeugen)
-
-            # Sections left empty get a run of their own, and only those.
-            if neu and not gezielt and quota_fits(ctx, zu_erzeugen):
-                gap_uuids = missing_section_uuids(neu, ctx)
-                if gap_uuids:
-                    logger.info(
-                        "KI Tutor: set {} skipped {} of {} sections, topping up",
-                        set_id, len(gap_uuids), len(ctx.sections),
-                    )
-                    need = per_section_quota(len(ctx.sections), zu_erzeugen) * len(gap_uuids)
-                    # The top-up is an improvement, whatever is finished gets saved.
-                    try:
-                        gap_ctx = build_source_context(gap_uuids, tool, count=need)
-                        if gap_ctx is not None:
-                            extra, _, _ = generate(gap_ctx, need)
-                            if extra:
-                                # The top-up numbers its own sections, that has to be undone before merging.
-                                remap_sections(extra, gap_ctx, ctx)
-                                # Across the run boundary no run sorts out its own duplicates.
-                                extra, _ = drop_repeats(
-                                    extra, [i.get("front", "") for i in neu])
-                                neu = rebalance_to_count(neu + extra, zu_erzeugen)
-                    except Exception as e:
-                        logger.warning(
-                            "KI Tutor: set {} top-up failed, keeping the {} items already "
-                            "generated: {}", set_id, len(neu), e,
-                        )
 
             # Whatever this person already had is dropped.
             gehabt = seen_by_user(user_id, tool)
@@ -284,32 +246,6 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 if wiederholt:
                     logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
                                 set_id, wiederholt)
-
-            # Top up until the requested number is reached.
-            for _ in range(_NACHSCHLAG_RUNDEN):
-                fehlt = zu_erzeugen - len(neu)
-                if fehlt <= 0:
-                    break
-                logger.info("KI Tutor: set {} hat {} von {} Aufgaben, bestellt {} nach",
-                            set_id, len(neu), zu_erzeugen, fehlt)
-                try:
-                    mehr, _, _ = generate(ctx, fehlt)
-                except Exception as e:
-                    # The top-up is an improvement, whatever is finished gets saved.
-                    logger.warning(
-                        "KI Tutor: set {} behaelt seine {} eigenen Aufgaben, "
-                        "Nachschlag fehlgeschlagen: {}", set_id, len(neu), e,
-                    )
-                    break
-                if mehr:
-                    vorher = mehr
-                    mehr, _ = drop_repeats(
-                        mehr, gehabt + [i.get("front", "") for i in items + neu])
-                    schon_gehabt += [i for i in vorher if all(i is not k for k in mehr)]
-                if not mehr:
-                    # Not a single new exercise, asking further only costs requests.
-                    break
-                neu = rebalance_to_count(neu + mehr, zu_erzeugen)
 
             # Truly nothing new left in the pool or from the model: a repeat still
             # beats a set that stays short.

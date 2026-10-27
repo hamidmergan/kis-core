@@ -11,6 +11,7 @@ from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERN
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._wortteile import clean_word_parts
+from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
 from src.services.llm_call import create_logged
 
 
@@ -69,7 +70,8 @@ def generate_flashcards_from_source(
         )},
     ])
     # 0.6 for some word variety, the real variation comes from the context.
-    response = create_logged(client, endpoint="lernkarten", model=model, messages=messages, temperature=0.6)
+    response = create_logged(client, endpoint="lernkarten", model=model, messages=messages, temperature=0.6,
+                             max_tokens=exercise_max_tokens(count))
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = tags.decode(json.loads(answer))
 

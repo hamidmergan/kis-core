@@ -20,8 +20,8 @@ def _db(monkeypatch):
     monkeypatch.setattr(mm.db, "get_aia_source", lambda u: _QUELLEN.get(u))
     monkeypatch.setattr(mm.db, "get_chunks_by_source", lambda i: _CHUNKS.get(i, []))
     monkeypatch.setattr(
-        "src.features.ai_assistant.tasks._context_budget.fill_sources_with_outline",
-        lambda vorhanden: [(sid, label, chunks) for sid, label, chunks in vorhanden])
+        "src.features.ai_assistant.tasks._context_budget.fill_sources_evenly",
+        lambda vorhanden, budget=None: [(sid, label, chunks) for sid, label, chunks in vorhanden])
 
 
 def _labels_to_text(gesammelt):

@@ -34,8 +34,6 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
     monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Endgültig")
     monkeypatch.setattr(mod, "coverage_rule", lambda *a, **k: "")
-    monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: ["u-2"])
-    monkeypatch.setattr(mod, "per_section_quota", lambda *a, **k: 2)
 
     class _Ctx:
         sections = {1: "A.pdf", 2: "B.pdf"}
@@ -51,8 +49,8 @@ def _run():
     run_generate_exercise_set(1, 7, "quiz", "source", 2, source_uuids=["u-1"])
 
 
-def test_a_failing_top_up_keeps_the_items_that_are_already_finished(stack, monkeypatch):
-    """The top-up fails, the finished exercises are saved anyway."""
+def test_a_skipped_section_orders_no_second_call(stack, monkeypatch):
+    """One of two sections comes back empty, the set is saved after its single call."""
     mod, seen = stack
     calls = {"n": 0}
 
@@ -60,12 +58,13 @@ def test_a_failing_top_up_keeps_the_items_that_are_already_finished(stack, monke
         calls["n"] += 1
         if calls["n"] > 1:
             raise RuntimeError("Connection error.")
-        return list(_ITEMS), "Vorläufig"
+        return [dict(i, _section=1) for i in _ITEMS], "Vorläufig"
 
     monkeypatch.setattr(mod, "generate_mc_from_source", _generate)
 
     _run()
 
+    assert calls["n"] == 1
     assert seen["failed"] is False
     assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b"]
 
@@ -73,7 +72,6 @@ def test_a_failing_top_up_keeps_the_items_that_are_already_finished(stack, monke
 def test_a_failing_title_call_keeps_the_provisional_name(stack, monkeypatch):
     # The title is cosmetics, a lost set is not.
     mod, seen = stack
-    monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
 
     def _boom(*a, **k):
         raise RuntimeError("Connection error.")

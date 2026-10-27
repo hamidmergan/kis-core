@@ -57,7 +57,8 @@ def _fenster(monkeypatch, fenster, quelle):
 @pytest.mark.parametrize("quelle", ["gesetzt", "gemessen"])
 def test_ein_kleines_bekanntes_fenster_ist_ein_kleines_modell(monkeypatch, quelle):
     monkeypatch.setattr("src.database.get_setting", lambda key, default: default)
-    _fenster(monkeypatch, 32768, quelle)
+    # 16k tokens cannot hold the overview budget, 32k already can.
+    _fenster(monkeypatch, 16384, quelle)
     assert cb.small_model() is True
 
 

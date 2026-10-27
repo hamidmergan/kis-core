@@ -25,9 +25,9 @@ def hohe_decke(monkeypatch):
 
 
 def test_the_budget_follows_the_number_of_exercises(hohe_decke):
-    # The old fixed 100k was sized for a set of 15, that value has to survive.
-    assert cb.exercise_context_budget(15) == 15 * 6700
-    assert cb.exercise_context_budget(5) == 5 * 6700
+    # A set of 15 reads 30k in its one call, a third of that for five.
+    assert cb.exercise_context_budget(15) == 15 * 2000
+    assert cb.exercise_context_budget(5) == 5 * 2000
 
 
 def test_a_smaller_set_asks_for_less_material(hohe_decke):
@@ -55,7 +55,8 @@ def test_the_exercise_tools_have_no_setting_of_their_own(monkeypatch):
 def test_the_greedy_filler_asks_for_what_the_set_needs(hohe_decke):
     # A source far bigger than any budget, so the number of exercises alone decides.
     quellen = [(1, "q1.pdf", _chunks(1, 400, 500))]
-    for count in (2, 15):
+    # The sweep takes one chunk per block whatever the budget, so five is the smallest set here.
+    for count in (5, 15):
         budget = cb.exercise_context_budget(count)
         picked = _picked_chars(cb.fill_sources_greedy(quellen, 7, "quiz", count))
         assert budget * 0.9 <= picked <= budget, count
@@ -67,3 +68,24 @@ def test_the_even_filler_of_the_overview_tools_keeps_the_whole_field(monkeypatch
     picked = cb.fill_sources_evenly(quellen)
     # One separator per chunk is part of the budget, so the last chunk stays out.
     assert 45000 <= _picked_chars(picked) <= 50000
+
+
+def test_the_even_filler_takes_a_budget_of_its_own(monkeypatch):
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: 50000)
+    quellen = [(1, "q1.pdf", _chunks(1, 100, 500))]
+    picked = cb.fill_sources_evenly(quellen, 10000)
+    assert 9000 <= _picked_chars(picked) <= 10000
+
+
+def test_the_overview_budget_is_capped_below_the_field(monkeypatch):
+    # A mind map or a table reads at most 60k in its one call, the field only lowers that.
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: 500000)
+    assert cb.overview_context_budget() == 60000
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: 20000)
+    assert cb.overview_context_budget() == 20000
+
+
+def test_the_answer_budget_grows_with_the_count():
+    assert cb.exercise_max_tokens(1) == 600 + 400
+    assert cb.exercise_max_tokens(15) == 600 + 15 * 400
+    assert cb.exercise_max_tokens(0) == cb.exercise_max_tokens(1)

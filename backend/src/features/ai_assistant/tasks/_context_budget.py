@@ -9,6 +9,9 @@ from src.limits import (
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_EXERCISE_CHARS_PER_ITEM,
+    AIA_EXERCISE_TOKENS_BASE,
+    AIA_EXERCISE_TOKENS_PER_ITEM,
+    AIA_OVERVIEW_TOOL_MAX_CHARS,
 )
 
 # An oversized document is split into this many blocks, one window per block per run.
@@ -45,8 +48,8 @@ def _tool_field() -> int:
 
 
 def small_model() -> bool:
-    """True when a known small window shrinks the tools' budget, the tools then work in smaller steps."""
-    return tool_context_budget() < _tool_field()
+    """True when the window cannot hold the overview budget, the tools then work in smaller steps."""
+    return tool_context_budget() < min(AIA_OVERVIEW_TOOL_MAX_CHARS, _tool_field())
 
 
 def exercise_context_budget(count: int) -> int:
@@ -57,6 +60,16 @@ def exercise_context_budget(count: int) -> int:
     """
     wanted = max(1, int(count)) * AIA_EXERCISE_CHARS_PER_ITEM
     return max(1000, min(wanted, tool_context_budget()))
+
+
+def exercise_max_tokens(count: int) -> int:
+    """Answer budget of one exercise call, a model that loops is cut off here."""
+    return AIA_EXERCISE_TOKENS_BASE + max(1, int(count)) * AIA_EXERCISE_TOKENS_PER_ITEM
+
+
+def overview_context_budget() -> int:
+    """Material of a mind map or a data table, read in one call."""
+    return min(AIA_OVERVIEW_TOOL_MAX_CHARS, tool_context_budget())
 
 
 def specific_context_budget() -> int:
@@ -83,7 +96,8 @@ def select_chunks_for_budget(
         return chunks, []
 
     n = len(chunks)
-    blocks = max(1, min(_COVERAGE_BLOCKS, n))
+    # Every block takes at least one chunk, so a small budget gets fewer blocks.
+    blocks = max(1, min(_COVERAGE_BLOCKS, n, int(budget * n / total)))
     per_block = max(1, budget // blocks)
     previous = list(cursors or [])
     # A list with a different block count is adjusted instead of thrown away.
@@ -178,10 +192,10 @@ def fill_sources_greedy(
 
 
 def fill_sources_evenly(
-    sources: list[tuple[int, str, list[dict]]],
+    sources: list[tuple[int, str, list[dict]]], budget: int | None = None,
 ) -> list[tuple[int, str, list[dict]]]:
     """Every source gets its share of the budget, whoever needs less passes the rest on."""
-    budget = tool_context_budget()
+    budget = budget or tool_context_budget()
     with_content = [(sid, label, chunks) for sid, label, chunks in sources if chunks]
     taken: dict[int, list[dict]] = {}
     left = budget
@@ -266,10 +280,10 @@ def _cut_to(chunks: list[dict], budget: int) -> list[dict]:
 
 
 def fill_sources_with_outline(
-    sources: list[tuple[int, str, list[dict]]],
+    sources: list[tuple[int, str, list[dict]]], budget: int | None = None,
 ) -> list[tuple[int, str, list[dict]]]:
     """Every source contributes its outline, the rest of the budget goes into depth."""
-    budget = tool_context_budget()
+    budget = budget or tool_context_budget()
     with_content = [(sid, label, chunks) for sid, label, chunks in sources if chunks]
     if not with_content:
         return []

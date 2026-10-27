@@ -7,7 +7,6 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src.limits import (
-    AIA_TABLE_MAX_PACKETS,
     AIA_TABLE_SOFT_TIME_LIMIT,
     AIA_TABLE_TIME_LIMIT,
 )
@@ -17,7 +16,10 @@ from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
     _clean_llm_json,
 )
-from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks._context_budget import (
+    fill_sources_evenly,
+    overview_context_budget,
+)
 from src.features.ai_assistant.tasks._instruction import (
     NONE,
     Resolution,
@@ -25,7 +27,6 @@ from src.features.ai_assistant.tasks._instruction import (
     spots_by_source,
 )
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
-from src.features.ai_assistant.tasks.studio import _table_condensed as _condensed
 from src.features.ai_assistant.tasks.studio import _table_packets
 from src.services import aia_chunker
 from src.services.llm_call import create_logged
@@ -79,7 +80,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         zeile = db.get_aia_data_table(data_table_id) or {}
         gewuenscht = zeile.get("user_instruction") or ""
         wahl = (resolve_instruction(zeile.get("workspace_id"), source_ids, gewuenscht,
-                                    tool_context_budget())
+                                    overview_context_budget())
                 if gewuenscht.strip() else Resolution("", None, False, NONE))
         # Written anew on every run, so a retry that hits the material clears an old miss.
         if gewuenscht.strip():
@@ -89,6 +90,9 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             treffer = spots_by_source(wahl.chunks)
             vorhanden = [(sid, label, treffer[sid])
                          for sid, label, _chunks in vorhanden if sid in treffer]
+        else:
+            # Every source gets its share of one call, swept across the whole document.
+            vorhanden = fill_sources_evenly(vorhanden, overview_context_budget())
 
         context_parts: list[str] = []
         # Which pages the model saw, the chips are limited to them.
@@ -113,26 +117,20 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             return
 
         client, model, _ = _get_llm_client()
-        def _ask_json(messages) -> dict | None:
-            """One request that must answer JSON, with a second try on a broken answer."""
-            for attempt in range(2):
-                response = create_logged(client, endpoint="datentabelle", model=model,
-                                         messages=messages, temperature=0.2)
-                raw = response.choices[0].message.content
-                if not raw:
-                    continue
-                try:
-                    return _json.loads(_clean_llm_json(raw))
-                except _json.JSONDecodeError as e:
-                    logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
-                                   data_table_id, attempt + 1, e)
-            return None
-
         # The level block hangs on the person, not on the course room. The instruction
-        # travels with it so every packet and both condensed calls carry it.
+        # travels with it into the one call.
         adaptive_suffix = (build_adaptive_tool_suffix(user_id)
                            + prompt_block(wahl.text, narrowed=wahl.chunks is not None))
-        system = AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix
+        from src.features.ai_assistant.tasks.studio._result_title import (
+            free_title, recent_titles, title_rule,
+        )
+        workspace_id = None
+        if source_uuids:
+            first = db.get_aia_source(source_uuids[0])
+            workspace_id = first.get("workspace_id") if first else None
+        vergeben = recent_titles("aia_data_tables", workspace_id)
+        system = (AIA_DATENTABELLE_PROMPT.replace("{language}", language)
+                  + title_rule(language, vergeben) + adaptive_suffix)
 
         def _ask(context: str, columns) -> dict | None:
             """One packet: the first names the columns, every further one joins them."""
@@ -165,41 +163,11 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                                    data_table_id, attempt + 1, e)
             return None
 
-        # Whoever fits is read in full, only the rest goes through the summaries.
-        gesamt = sum(len(p) for p in context_parts)
-        quellen = [{"id": sid, "label": source_id_to_label[sid],
-                    "summary": (db.get_aia_source(u) or {}).get("summary")}
-                   for sid, u in zip(source_ids, source_uuids)
-                   if sid in source_id_to_label]
-        # Found spots always fit, they take one packet.
-        verdichtet = wahl.chunks is None and _condensed.should_condense(
-            gesamt, tool_context_budget(), quellen)
-        logger.info("data_table {}: {} Zeichen Material, Weg {}", data_table_id, gesamt,
-                    "verdichtet" if verdichtet else "Pakete")
-
-        if verdichtet:
-            from src.services.aia_embeddings import get_embedding_provider_with_fallback
-            _emb = get_embedding_provider_with_fallback()
-            _ws = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id")
-
-            def _suche(frage: str, vektor, limit: int) -> list[dict]:
-                """The passages for one row, each tagged with the file it stands in."""
-                treffer = db.hybrid_search_chunks(
-                    _ws, frage, vektor, source_ids=source_ids, limit=limit) or []
-                for c in treffer:
-                    c["source_label"] = source_id_to_label.get(c.get("source_id"), "")
-                return treffer
-
-            table_data = _condensed.build(
-                sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
-                ask=lambda n: _ask_json(n), embed=_emb.embed_one, search=_suche,
-            )
-        else:
-            pakete = _table_packets.packets(context_parts, tool_context_budget(),
-                                            AIA_TABLE_MAX_PACKETS)
-            logger.info("data_table {}: {} Teile in {} Paketen", data_table_id,
-                        len(context_parts), len(pakete))
-            table_data = _table_packets.run_packets(pakete, _ask)
+        # One packet, the material already fits the overview budget.
+        pakete = _table_packets.packets(context_parts, overview_context_budget(), 1)
+        logger.info("data_table {}: {} Zeichen in einem Aufruf", data_table_id,
+                    sum(len(t) for p in pakete for t in p))
+        table_data = _table_packets.run_packets(pakete, _ask)
 
         if table_data is None:
             db.update_aia_data_table(data_table_id, "failed", error="LLM returned unparseable JSON")
@@ -213,10 +181,6 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             attribute_studio_claims, nav_page_value,
         )
         rows = table_data.get("rows") or []
-        workspace_id = None
-        if source_uuids:
-            first = db.get_aia_source(source_uuids[0])
-            workspace_id = first.get("workspace_id") if first else None
         claims = [" ".join(str(c) for c in (r.get("cells") or []) if c).strip() for r in rows]
         chip_lists = attribute_studio_claims(
             claims, workspace_id=workspace_id, source_ids=source_ids,
@@ -231,22 +195,8 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             {"number": info["number"], "filename": info["filename"]}
             for info in sorted(source_map.values(), key=lambda x: x["number"])
         ]
-        # The title comes from the column headers and the first column.
-        from src.features.ai_assistant.tasks._titles import resolve_title
-        from src.features.ai_assistant.tasks.studio._result_title import (
-            recent_titles, table_entries,
-        )
-
-        title = table_data.get("title", "DataTable")
-        try:
-            title = resolve_title(
-                client, model,
-                recent_titles("aia_data_tables", workspace_id),
-                title,
-                table_entries(table_data),
-            ) or title
-        except Exception as e:  # noqa: BLE001
-            logger.warning("KI Tutor: data_table {} behaelt ihren vorlaeufigen Namen: {}", data_table_id, e)
+        # The name comes out of the same answer.
+        title = free_title(table_data.get("title"), "DataTable", vergeben)
 
         db.update_aia_data_table(data_table_id, "success",
                                         title=title, table_data=table_data, sources=sources_list)

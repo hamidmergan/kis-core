@@ -79,11 +79,11 @@ def test_the_mindmap_remembers_nothing(welt):
     assert welt["cursors"] == {}
 
 
-def test_the_mindmap_spends_its_depth_from_the_front(welt):
-    # Every source keeps its base, the room that is left is not smeared evenly.
+def test_the_mindmap_gives_every_source_the_same_share(welt):
+    # One call reads all sources, so none may eat the budget of the others.
     welt["budget"] = 32000
     mengen = [len(picked) for _sid, _label, _alle, picked in mindmap._collect_sources(_IDS, _UUIDS)]
-    assert mengen[0] > mengen[-1]
+    assert mengen[0] == mengen[-1]
 
 
 # --- data table --------------------------------------------------------------

@@ -20,17 +20,19 @@ def stack(monkeypatch):
 
     seen = {"messages": [], "condensed": 0, "unmatched": [], "saved": []}
     row = {"id": 1, "workspace_id": 7, "user_instruction": ""}
+    quelle = {"summary": None}
 
     class _DB:
         def get_aia_mindmap(self, _id):
             return dict(row)
 
         def update_aia_mindmap(self, mid, status, mindmap=None, error=None, title=None):
-            seen["saved"].append((status, error))
+            seen["saved"].append((status, error, title, mindmap))
 
         def get_aia_source(self, uuid):
             nummer = 1 if uuid == "u1" else 2
-            return {"id": nummer, "filename": f"{uuid}.pdf", "workspace_id": 7, "summary": None}
+            return {"id": nummer, "filename": f"{uuid}.pdf", "workspace_id": 7,
+                    "summary": quelle["summary"]}
 
         def set_instruction_unmatched(self, table, row_id, unmatched):
             seen["unmatched"].append((table, row_id, unmatched))
@@ -52,10 +54,9 @@ def stack(monkeypatch):
         seen["condensed"] += 1
         return {"topic": "T", "children": []}
 
-    monkeypatch.setattr(mod._condensed, "should_condense", lambda *a: False)
-    monkeypatch.setattr(mod._condensed, "build", _condensed_build)
-    # The condensed way fetches an embedding provider before it ever calls build(), even
-    # when build() itself is stubbed below, so a real provider is never actually needed.
+    monkeypatch.setattr(mod._condensed, "build_small", _condensed_build)
+    # The stepwise way fetches an embedding provider before it ever calls build_small(), even
+    # when build_small() itself is stubbed, so a real provider is never actually needed.
     monkeypatch.setattr("src.services.aia_embeddings.get_embedding_provider_with_fallback",
                         lambda: types.SimpleNamespace(embed_one=lambda text: [0.0]))
     from src.services.feature_router import FeatureBinding
@@ -64,15 +65,13 @@ def stack(monkeypatch):
                                                provider={"base_url": "http://modell", "name": "p", "api_key": "k"}))
     monkeypatch.setattr("src.features.ai_assistant.tasks._helpers.learning_tools_language",
                         lambda: ("de", "German"))
-    monkeypatch.setattr("src.features.ai_assistant.tasks._titles.resolve_title",
-                        lambda *a, **k: "Titel")
     monkeypatch.setattr("src.features.ai_assistant.tasks.studio._result_title.recent_titles",
                         lambda *a, **k: [])
 
     def _mit(wahl):
         monkeypatch.setattr(mod, "resolve_instruction", lambda *a, **k: wahl)
 
-    return mod, seen, row, _mit
+    return mod, seen, row, _mit, quelle
 
 
 def _run():
@@ -80,7 +79,7 @@ def _run():
 
 
 def test_without_an_instruction_the_prompt_is_as_before(stack):
-    mod, seen, row, mit = stack
+    mod, seen, row, mit, _q = stack
     mit(anweisung.Resolution("", None, False, anweisung.NONE))
     _run()
     system, user = seen["messages"][0][0]["content"], seen["messages"][0][1]["content"]
@@ -91,7 +90,7 @@ def test_without_an_instruction_the_prompt_is_as_before(stack):
 
 
 def test_a_style_instruction_lands_in_the_system_prompt_with_all_material(stack):
-    mod, seen, row, mit = stack
+    mod, seen, row, mit, _q = stack
     row["user_instruction"] = "nur drei Ebenen"
     mit(anweisung.Resolution("nur drei Ebenen", None, False, anweisung.STYLE))
     _run()
@@ -103,11 +102,9 @@ def test_a_style_instruction_lands_in_the_system_prompt_with_all_material(stack)
 
 
 def test_a_topic_instruction_narrows_the_material_to_the_found_spots(stack):
-    mod, seen, row, mit = stack
+    mod, seen, row, mit, _q = stack
     row["user_instruction"] = "nur A"
     mit(anweisung.Resolution("nur A", [STELLE_A], False, anweisung.SEARCH))
-    # Even oversized material takes the single call, the spots already fit.
-    mod._condensed.should_condense = lambda *a: True
     _run()
     system, user = seen["messages"][0][0]["content"], seen["messages"][0][1]["content"]
     assert "Aus A." in user
@@ -118,24 +115,61 @@ def test_a_topic_instruction_narrows_the_material_to_the_found_spots(stack):
     assert seen["condensed"] == 0
 
 
-def test_the_condensed_way_carries_the_block_too(stack):
-    mod, seen, row, mit = stack
+def test_summaries_alone_do_not_send_a_big_model_the_stepwise_way(stack):
+    """Every source has a summary, the model is not small: still the single call."""
+    mod, seen, row, mit, quelle = stack
+    quelle["summary"] = "Worum es geht."
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+    _run()
+    assert seen["condensed"] == 0
+    assert len(seen["messages"]) == 1
+
+
+def test_a_small_model_goes_the_stepwise_way_with_the_block(stack, monkeypatch):
+    """The one remaining stepwise way, and the instruction travels into it."""
+    mod, seen, row, mit, quelle = stack
+    quelle["summary"] = "Worum es geht."
+    monkeypatch.setattr("src.features.ai_assistant.tasks._context_budget.small_model", lambda: True)
     row["user_instruction"] = "kurze Labels"
     mit(anweisung.Resolution("kurze Labels", None, False, anweisung.STYLE))
-    mod._condensed.should_condense = lambda *a: True
     gesehen = {}
 
     def _build(**kwargs):
         gesehen.update(kwargs)
         return {"topic": "T", "children": []}
 
-    mod._condensed.build = _build
+    monkeypatch.setattr(mod._condensed, "build_small", _build)
     _run()
+    assert seen["messages"] == []
     assert gesehen["adaptive_suffix"].endswith(anweisung.prompt_block("kurze Labels"))
 
 
+def test_the_title_comes_out_of_the_same_answer(stack, monkeypatch):
+    """No title call of its own, the name leaves the map before it is saved."""
+    mod, seen, row, mit, _q = stack
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+
+    def _ask(client, model, messages, mid, **_kw):
+        seen["messages"].append(messages)
+        return {"topic": "Wurzel", "title": "Fristen im Verfahren", "children": []}
+
+    monkeypatch.setattr(mod, "_ask_json", _ask)
+    _run()
+    assert "TITLE" in seen["messages"][0][0]["content"]
+    status, _error, title, mindmap = seen["saved"][-1]
+    assert (status, title) == ("success", "Fristen im Verfahren")
+    assert "title" not in mindmap
+
+
+def test_without_a_title_the_root_node_names_the_map(stack):
+    mod, seen, row, mit, _q = stack
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+    _run()
+    assert seen["saved"][-1][2] == "T"
+
+
 def test_an_unmatched_instruction_marks_the_row_and_stays_out_of_the_prompt(stack):
-    mod, seen, row, mit = stack
+    mod, seen, row, mit, _q = stack
     row["user_instruction"] = "Quantenphysik"
     mit(anweisung.Resolution("", None, True, anweisung.UNMATCHED))
     _run()

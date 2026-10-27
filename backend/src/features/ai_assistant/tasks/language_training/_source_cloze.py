@@ -13,6 +13,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
     attach_chips_cited,
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
 from src.services.llm_call import create_logged
 from src.services.upstream_errors import is_provider_refusal
 
@@ -248,17 +249,22 @@ def _generate_once(
     language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
+    avoid: list[str] | None = None,
 ):
     """One call, one text, one exercise, or None when nothing usable came back."""
     prompt = _build_prompt(count, language, words) + adaptive_suffix + title_avoidance
+    # A rewrite learns what the proofreader rejected, otherwise it writes the same text again.
+    nachtrag = ("\n\nAn earlier passage from this material was rejected for these sentences. "
+                "Write a new passage and do not reuse them:\n" + "\n".join(f"- {e}" for e in avoid)
+                if avoid else "")
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": f"Write the output in {language}.\n\n"
-                                    f"Sources:\n\n{ctx.context}"},
+                                    f"Sources:\n\n{ctx.context}{nachtrag}"},
     ]
     try:
         response = create_logged(client, endpoint="wortschatz", model=model, messages=messages,
-                                      temperature=0.3)
+                                 temperature=0.3, max_tokens=exercise_max_tokens(count))
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:  # noqa: BLE001
         if is_provider_refusal(e):
@@ -338,7 +344,8 @@ def _proofread(client, model, passage: str, language: str) -> list[str]:
     return [str(x) for x in errors if x] if isinstance(errors, list) else []
 
 
-_MAX_ATTEMPTS = 5
+# One rewrite after a failed proofread, every attempt costs a full passage.
+_MAX_ATTEMPTS = 2
 
 
 def generate_cloze_from_source(
@@ -351,9 +358,10 @@ def generate_cloze_from_source(
     title_avoidance: str = "",
 ):
     """Write the cloze, let a second call proofread the solved text, retry on errors."""
+    errors: list[str] = []
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         result = _generate_once(client, model, ctx, count, words, language,
-                                adaptive_suffix, title_avoidance)
+                                adaptive_suffix, title_avoidance, avoid=errors)
         if result is None:
             continue
         errors = _proofread(client, model, result[0][0]["back"], language)

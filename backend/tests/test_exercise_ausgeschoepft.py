@@ -41,7 +41,6 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
     monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Titel")
     monkeypatch.setattr(mod, "coverage_rule", lambda *a, **k: "")
-    monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
     monkeypatch.setattr(mod, "uses_pool", lambda *a, **k: False)
     monkeypatch.setattr(mod, "build_source_context", lambda *a, **k: _Ctx())
     monkeypatch.setattr(mod, "generate_mc_from_source", lambda *a, **k: ([dict(i) for i in _ITEMS], "Titel"))

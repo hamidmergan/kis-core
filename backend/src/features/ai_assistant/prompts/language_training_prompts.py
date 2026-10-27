@@ -31,9 +31,7 @@ AIA_LERNKARTEN_PROMPT = (
     '      "verb_perfect": "perfect form WITH its auxiliary (verbs only)",\n'
     '      "verb_preposition": "fixed preposition the verb requires, with its case (verbs only, else empty)",\n'
     '      "word_class": "part of speech, in {language}, written AFTER the verb forms and read off them",\n'
-    '      "begriff_en": "English translation",\n'
-    '      "source_label": "Filename.pdf",\n'
-    '      "page_number": 5\n'
+    '      "begriff_en": "English translation"\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -144,7 +142,6 @@ AIA_LERNKARTEN_PROMPT = (
     "Leave BOTH empty for multi-word terms, verbs, adjectives, and languages that do not mark number this way. "
     "Never fill the plural without the singular, and never invent a form that does not really exist.\n"
     "- begriff_en: English translation of the term\n"
-    "- source_label and page_number: the primary source from the [SourceName, S. X] tags\n"
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
     "- REMINDER: title, definition, word_parts_explained, example_sentence and word_class MUST be written in {language} "

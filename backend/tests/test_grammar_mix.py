@@ -270,8 +270,8 @@ def test_the_same_sentence_never_appears_twice(attributed):
     assert len(items) == 2
 
 
-def test_a_short_draw_is_topped_up_to_the_requested_count(attributed):
-    """A second attempt fetches the missing exercises."""
+def test_a_short_draw_is_not_topped_up(attributed):
+    """Four usable of eight ordered: the set stays at four, only the verdict call follows."""
     thin = json.dumps({"title": "T", "exercises": _GOOD_FOUR + _BAD_FOUR})
     full = json.dumps({"title": "T", "exercises": [
         {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
@@ -280,28 +280,12 @@ def test_a_short_draw_is_topped_up_to_the_requested_count(attributed):
     client, calls = _client_queue(thin, full)
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 8, locale="de")
-    assert len(items) == 8
-    assert len(calls) >= 2
+    assert len(items) == 4
+    assert len(calls) == 2
 
 
-def test_the_top_up_asks_only_for_the_formats_that_are_missing(attributed):
-    """The top-up has to ask specifically, otherwise the mix tips over."""
-    only_transforms = json.dumps({"title": "T", "exercises": [
-        {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
-         "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(4)
-    ]})
-    client, calls = _client_queue(only_transforms)
-    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 8, locale="de")
-
-    zweiter = calls[1][0]["content"]
-    # Reshapings are full, they must not be asked for again.
-    assert 'of kind "transform"' not in zweiter
-    for kind in ("cloze", "statement", "choice"):
-        assert f'of kind "{kind}"' in zweiter
-
-
-def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
-    """Without a per-format cap the mix tips over on the first attempt already."""
+def test_a_surplus_of_one_format_fills_the_set_without_a_second_draw(attributed):
+    """The one draw is the last draw, so the count beats the mix and the rest is never ordered."""
     many = json.dumps({"title": "T", "exercises": [
         {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
          "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(8)
@@ -318,12 +302,12 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
          "wrong": [f"Die Akte {i} wurde vom Team geprüft.",
                    f"Die Akte {i} ist vom Team geprüft."]} for i in range(2)
     ]})
-    client, _ = _client_queue(many, rest)
+    client, calls = _client_queue(many, rest)
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 8, locale="de")
     umformungen = [i for i in items if i.get("_kind") == "transform"]
-    assert len(umformungen) == 2
-    assert len(items) == 8
+    assert len(umformungen) == 8
+    assert len(calls) == 2
 
 
 def test_the_last_draw_fills_up_with_whatever_it_gets(attributed):
@@ -345,30 +329,20 @@ _BAD_CHOICE = {
 }
 
 
-def test_the_last_draw_stops_asking_for_the_format_that_keeps_failing(attributed):
-    """In the last attempt a kind is asked for that has already delivered."""
-    dauerhaft_schlecht = json.dumps({"title": "T", "exercises": _GOOD_FOUR[:3] + [_BAD_CHOICE]})
-    client, calls = _client_queue(dauerhaft_schlecht)
-    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4, locale="de")
-
-    # Three generation attempts plus the one verdict call at the end.
-    assert len(calls) == 4
-    dritter = calls[2][0]["content"]
-    assert 'of kind "choice"' not in dritter, "diese Art scheitert, sie noch einmal zu bestellen bringt nichts"
-    assert 'of kind "transform"' in dritter, "die Umformung hat geliefert, sie fuellt auf"
-
-
-def test_the_count_stands_even_when_one_format_never_works(attributed):
+def test_a_failing_format_leaves_the_set_short(attributed):
+    """One of four formats is unusable: three are saved, no replacement draw is ordered."""
     dauerhaft_schlecht = json.dumps({"title": "T", "exercises": _GOOD_FOUR[:3] + [_BAD_CHOICE]})
     ersatz = json.dumps({"title": "T", "exercises": [
         {"kind": "transform", "before": "Das Labor erhebt die Daten.",
          "after": "Die Daten werden vom Labor erhoben."},
     ]})
-    client, _ = _client_queue(dauerhaft_schlecht, dauerhaft_schlecht, ersatz)
+    client, calls = _client_queue(dauerhaft_schlecht, ersatz)
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 4, locale="de")
 
-    assert len(items) == 4
+    assert len(items) == 3
+    # One generation call plus the one verdict call at the end.
+    assert len(calls) == 2
 
 
 def test_a_full_draw_costs_no_second_generation_call(attributed):
@@ -395,15 +369,6 @@ def test_an_item_the_verifier_rejects_is_dropped(attributed):
         client, "m", _ctx(), _TOPIC, 2, locale="de", kinds=["transform"])
     assert len(items) == 1
     assert items[0]["front"].endswith("Das Team prüft die Akte.")
-
-
-def test_the_top_up_never_repeats_a_sentence(attributed):
-    same = json.dumps({"title": "T", "exercises": _GOOD_FOUR})
-    client, _ = _client_queue(same, same)
-    items, _, _ = generate_grammar_from_source(
-        client, "m", _ctx(), _TOPIC, 8, locale="de")
-    fronts = [i["front"] for i in items]
-    assert len(fronts) == len(set(fronts))
 
 
 def test_an_exercise_that_repeats_the_worked_example_is_dropped(attributed):

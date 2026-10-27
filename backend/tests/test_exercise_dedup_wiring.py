@@ -38,8 +38,6 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
     monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Endgueltig")
     monkeypatch.setattr(mod, "coverage_rule", lambda *a, **k: "")
-    # No section top-up, this is about pool and duplicates.
-    monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
     # Pool and history empty by default, every test sets what it needs.
     monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: [])
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: [])
@@ -205,20 +203,21 @@ def test_what_this_person_already_had_does_not_come_back(stack, monkeypatch):
     assert [i["front"] for i in seen["finalized"]["items"]] == ["Abstract", "Peer Review", "Exposé"]
 
 
-def test_the_filter_orders_one_refill_and_filters_that_too(stack, monkeypatch):
+def test_a_dropped_repeat_orders_no_refill(stack, monkeypatch):
+    """The gap a repeat leaves is filled with that repeat, never with a second call."""
     mod, seen = stack
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["Abstract"])
     lauf = _generator(
         mod, monkeypatch, seen,
-        _cards("Abstract", "Peer Review", "Exposé"),   # Lauf 1
-        _cards("Abstract", "Gliederung"),              # Nachschlag, ein alter Doppler
+        _cards("Abstract", "Peer Review", "Exposé"),   # der eine Lauf
+        _cards("Gliederung"),                          # darf nie bestellt werden
     )
 
     _run(count=3)
 
-    assert lauf["n"] == 2, "genau ein Nachschlag"
+    assert lauf["n"] == 1, "genau ein Erzeugungs-Aufruf"
     assert [i["front"] for i in seen["finalized"]["items"]] == [
-        "Peer Review", "Exposé", "Gliederung"]
+        "Abstract", "Peer Review", "Exposé"]
 
 
 def test_no_refill_when_nothing_was_dropped(stack, monkeypatch):
@@ -231,31 +230,11 @@ def test_no_refill_when_nothing_was_dropped(stack, monkeypatch):
     assert len(seen["finalized"]["items"]) == 3
 
 
-def test_a_failing_refill_keeps_the_unique_items(stack, monkeypatch):
-    # Same rule as for the section top-up: whatever is finished gets saved.
-    mod, seen = stack
-    monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["Abstract"])
-    lauf = {"n": 0}
-
-    def _gen(*a, **k):
-        lauf["n"] += 1
-        if lauf["n"] == 1:
-            return _cards("Abstract", "Peer Review"), "T"
-        raise RuntimeError("Connection error.")
-
-    monkeypatch.setattr(mod, "generate_mc_from_source", _gen)
-
-    _run(count=2)
-
-    assert seen["failed"] is False
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["Abstract", "Peer Review"]
-
-
 def test_a_set_of_nothing_but_repeats_is_saved_once_the_material_is_used_up(stack, monkeypatch):
     # Decided 26.09.2026: a used-up source gives known cards again instead of a failed set.
     mod, seen = stack
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["a", "b"])
-    _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("a", "b"))
+    _generator(mod, monkeypatch, seen, _cards("a", "b"))
 
     _run(count=2)
 
@@ -265,62 +244,64 @@ def test_a_set_of_nothing_but_repeats_is_saved_once_the_material_is_used_up(stac
 
 # --- The ordered count --------------------------------------------------------
 
-def test_a_short_run_is_topped_up_to_the_ordered_count(stack, monkeypatch):
-    """Even without duplicates a top-up is needed, otherwise the set stays too short."""
+def test_a_short_run_is_not_topped_up(stack, monkeypatch):
+    """Two of three is saved as it is, the one call is the only call."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("c"))
 
     _run(count=3)
 
-    assert lauf["n"] == 2, "zwei von drei ist zu wenig, das muss nachbestellt werden"
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
+    assert lauf["n"] == 1, "kein Nachschlag, der eine Aufruf ist der einzige"
+    assert seen["failed"] is False
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b"]
 
 
-def test_the_top_up_keeps_going_until_the_count_stands(stack, monkeypatch):
-    """More than one top-up when the second attempt also delivers too little."""
-    mod, seen = stack
-    lauf = _generator(mod, monkeypatch, seen,
-                      _cards("a"), _cards("b"), _cards("c"))
-
-    _run(count=3)
-
-    assert lauf["n"] == 3
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
-
-
-def test_the_top_up_stops_when_a_round_brings_nothing_new(stack, monkeypatch):
-    """A round without a new exercise ends the top-up right away."""
-    mod, seen = stack
-    lauf = _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"), _cards("b"))
-
-    _run(count=3)
-
-    assert lauf["n"] == 2
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["a"]
-
-
-def test_the_top_up_has_an_upper_bound(stack, monkeypatch):
-    """If every attempt returns only one exercise, the top-up is not endless."""
+def test_one_call_however_far_the_answer_falls_short(stack, monkeypatch):
+    """Ten ordered, one delivered: still no second call, the set stays at one."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen,
                       _cards("a"), _cards("b"), _cards("c"), _cards("d"))
 
     _run(count=10)
 
-    assert lauf["n"] == 3, "ein Wurf und hoechstens zwei Nachschlaege"
-    assert len(seen["finalized"]["items"]) == 3
+    assert lauf["n"] == 1
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a"]
 
 
-def test_the_pool_counts_towards_the_ordered_number(stack, monkeypatch):
-    """The top-up aims at the ordered count, not at the model's share."""
+def test_a_skipped_section_orders_no_top_up(stack, monkeypatch):
+    """Three sections with a quota, the model used one: no call for the other two."""
     mod, seen = stack
-    monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: _pool_cards("a", "b"))
+
+    class _Ctx:
+        sections = {1: "A.pdf", 2: "B.pdf", 3: "C.pdf"}
+        source_by_name = {f"{n}.pdf": {"id": i, "uuid": f"u{i}"}
+                          for i, n in enumerate("ABC", start=1)}
+
+    monkeypatch.setattr(mod, "build_source_context", lambda *a, **k: _Ctx())
+    lauf = _generator(mod, monkeypatch, seen,
+                      [dict(c, _section=1) for c in _cards("a", "b", "c")])
+
+    _run(count=9)
+
+    assert lauf["n"] == 1
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
+
+
+def test_the_pool_share_stays_when_the_one_call_falls_short(stack, monkeypatch):
+    """Two from the pool, one of two ordered from the model: three saved, no top-up."""
+    mod, seen = stack
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None,
+              exclude_ids=None, ignore_seen=False):
+        return [] if ignore_seen else _pool_cards("a", "b")
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
     lauf = _generator(mod, monkeypatch, seen, _cards("c"), _cards("d"))
 
     _run(count=4)
 
-    assert lauf["n"] == 2
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c", "d"]
+    assert lauf["n"] == 1
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
 
 
 def test_a_pool_item_is_not_dropped_as_a_repeat(stack, monkeypatch):
@@ -430,14 +411,14 @@ def test_when_nothing_new_is_left_seen_exercises_fill_the_gap(stack, monkeypatch
         return []
 
     monkeypatch.setattr(mod, "take_from_pool", _take)
-    _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"))  # top-up brings nothing new
+    _generator(mod, monkeypatch, seen, _cards("a"))
 
     _run(count=3)
 
     assert {i["front"] for i in seen["finalized"]["items"]} == {"a", "Abstract"}
 
 
-def test_a_fully_satisfied_top_up_never_asks_for_repeats(stack, monkeypatch):
+def test_a_full_answer_never_asks_for_repeats(stack, monkeypatch):
     mod, seen = stack
     gefragt = {"ignore_seen": "nie gerufen"}
 
@@ -483,7 +464,7 @@ def test_the_repeat_fallback_does_not_duplicate_what_the_model_just_generated(
         return []
 
     monkeypatch.setattr(mod, "take_from_pool", _take)
-    _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"))  # top-up brings nothing new
+    _generator(mod, monkeypatch, seen, _cards("a"))
 
     _run(count=2)
 

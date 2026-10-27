@@ -268,8 +268,13 @@ AIA_SPECIFIC_MAX_CHARS                  = 60000
 AIA_TOOL_CONTEXT_MAX_CHARS             = 500_000
 # Hard ceiling for both tool budgets, higher than the chat's.
 AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
-# Material an exercise tool gets per requested item, a set of 15 lands on the measured 100k.
-AIA_EXERCISE_CHARS_PER_ITEM            = 6_700
+# Material an exercise tool gets per requested item, a set of 15 reads 30k.
+AIA_EXERCISE_CHARS_PER_ITEM            = 2_000
+# Answer budget of an exercise call per requested item, a runaway answer stops here.
+AIA_EXERCISE_TOKENS_PER_ITEM           = 400
+AIA_EXERCISE_TOKENS_BASE               = 600
+# Material of a mind map or a data table, one call reads at most this much.
+AIA_OVERVIEW_TOOL_MAX_CHARS            = 60_000
 # Characters per batch for the summary during ingest, a ceiling and not a target.
 # Measured on the model: 600k pass, 700k are refused, so 500k keeps a margin. It lets
 # a document of up to ~150 pages be summarised in one call instead of two plus a
@@ -436,7 +441,7 @@ LONG_QUEUE_TRANSLATE_CHARS             = 20_000
 LONG_QUEUE_MEDIA_SECONDS               = 20 * 60
 
 # Shared slot pool for all Francis background work, as many as the aia worker has processes.
-AIA_PARALLEL_SLOTS                     = 6
+AIA_PARALLEL_SLOTS                     = 12
 # Sources first because every tool waits for them, simulated on the load test of 26.09.2026 as 5 instead of 16 minutes.
 AIA_AREA_WEIGHTS                       = {"studio": 1, "ingest": 2}
 # A 155-page PDF holds a process at 365 MB, tools mostly wait on the model, so sources take at most half.

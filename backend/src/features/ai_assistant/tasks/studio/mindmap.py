@@ -11,7 +11,10 @@ from src import database as db
 from src.features.ai_assistant.prompts.studio_prompts import AIA_MINDMAP_PROMPT
 from src.services import aia_chunker
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
-from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks._context_budget import (
+    overview_context_budget,
+    tool_context_budget,
+)
 from src.features.ai_assistant.tasks._instruction import (
     NONE,
     Resolution,
@@ -102,7 +105,9 @@ class _Zwischenstand:
 def _collect_sources(source_ids: list[int], source_uuids: list[str]
                      ) -> list[tuple[int, str, list[dict], list[dict]]]:
     """Per source: id, label, all its chunks and the window that fits the budget."""
-    from src.features.ai_assistant.tasks._context_budget import fill_sources_with_outline
+    from src.features.ai_assistant.tasks._context_budget import (
+        fill_sources_evenly, overview_context_budget,
+    )
 
     # The id comes from the source itself, pairing by position silently swaps file names.
     vorhanden: list[tuple[int, str, list[dict]]] = []
@@ -116,7 +121,7 @@ def _collect_sources(source_ids: list[int], source_uuids: list[str]
 
     alle = {sid: chunks for sid, _label, chunks in vorhanden}
     return [(sid, label, alle[sid], picked)
-            for sid, label, picked in fill_sources_with_outline(vorhanden)]
+            for sid, label, picked in fill_sources_evenly(vorhanden, overview_context_budget())]
 
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
@@ -151,7 +156,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         zeile = db.get_aia_mindmap(mindmap_id) or {}
         gewuenscht = zeile.get("user_instruction") or ""
         wahl = (resolve_instruction(zeile.get("workspace_id"), source_ids, gewuenscht,
-                                    tool_context_budget())
+                                    overview_context_budget())
                 if gewuenscht.strip() else Resolution("", None, False, NONE))
         # Written anew on every run, so a retry that hits the material clears an old miss.
         if gewuenscht.strip():
@@ -164,16 +169,13 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             treffer = spots_by_source(wahl.chunks)
             gesammelt = [(sid, label, alle, treffer[sid])
                          for sid, label, alle, _p in gesammelt if sid in treffer]
-        # Whoever fits gets read in full, only the rest goes through the summaries.
         gesamt = sum(len(c.get("content") or "")
                      for _s, _l, alle, _p in gesammelt for c in alle)
         # A small model always goes the stepwise way, its single call would write too long.
         from src.features.ai_assistant.tasks._context_budget import small_model
         klein = small_model()
-        # Found spots always fit, they take the single call.
-        verdichtet = wahl.chunks is None and (
-            _condensed.should_condense(gesamt, tool_context_budget(), quellen)
-            or (klein and _condensed.usable(quellen)))
+        # Everybody else gets one call, outline plus depth within the overview budget.
+        verdichtet = wahl.chunks is None and klein and _condensed.usable(quellen)
         logger.info("mindmap {}: {} Zeichen Material, Weg {}", mindmap_id, gesamt,
                     "verdichtet" if verdichtet else "Volltext")
 
@@ -209,8 +211,13 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                            + prompt_block(wahl.text, narrowed=wahl.chunks is not None))
         # Still needed below for the title's within-workspace deduplication.
         _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
+        from src.features.ai_assistant.tasks.studio._result_title import (
+            free_title, recent_titles, title_rule,
+        )
+        vergeben = recent_titles("aia_mindmaps", (_first_source or {}).get("workspace_id"))
         messages = [
-            {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language) + adaptive_suffix},
+            {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language)
+             + title_rule(language, vergeben) + adaptive_suffix},
             {"role": "user", "content": f"/no_think\nCreate a mind map from the following sources. Write topic and labels in {language}:\n\n{context}"},
         ]
 
@@ -306,23 +313,9 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         _fix_media_nodes(mindmap)
 
-        # The name comes from the first level nodes, not from the root node.
-        from src.features.ai_assistant.tasks._titles import resolve_title
-        from src.features.ai_assistant.tasks.studio._result_title import (
-            mindmap_entries, recent_titles,
-        )
-
-        titel = None
-        try:
-            _ws = (_first_source or {}).get("workspace_id")
-            titel = resolve_title(
-                client, model,
-                recent_titles("aia_mindmaps", _ws),
-                (mindmap.get("topic") or "").strip(),
-                mindmap_entries(mindmap),
-            ) or None
-        except Exception as e:  # noqa: BLE001
-            logger.warning("KI Tutor: mindmap {} behaelt ihren Wurzelknoten als Namen: {}", mindmap_id, e)
+        # The name comes out of the same answer, the root node stands in when it is missing.
+        titel = free_title(mindmap.pop("title", ""), (mindmap.get("topic") or "").strip(),
+                           vergeben) or None
 
         db.update_aia_mindmap(mindmap_id, "success", mindmap=mindmap, title=titel)
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)

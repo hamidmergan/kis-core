@@ -189,7 +189,6 @@ def stack(monkeypatch):
 
     monkeypatch.setattr(mod, "build_source_context", _sweep)
     monkeypatch.setattr(mod, "build_context_from_chunks", _spots)
-    monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
 
     def _gen(client, model, ctx, count, **kwargs):
         seen["gen"].append(kwargs)
