@@ -16,7 +16,7 @@ export default function DemoBand({ block }: { block: EventBlock | null }) {
   useEffect(() => {
     checkAuthStatus().then((s) => setSignedIn(s.authenticated));
   }, []);
-  const demo = block?.tiles.find((tile) => tile.target.kind === "directLogin" && tile.active);
+  const demo = block?.tiles.find((tile) => tile.target.kind === "directLogin" && tile.active && !tile.hidden);
   if (!block || !demo) return null;
 
   return (

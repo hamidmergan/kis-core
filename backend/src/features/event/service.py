@@ -111,6 +111,7 @@ def default_config() -> dict:
                     "target": {"kind": "directLogin", "accessCode": "KIS-DEMO-0000"},
                     "active": False,
                     "availableFrom": "2026-11-13",
+                    "hidden": False,
                 },
                 {
                     "id": "stamp",
@@ -124,6 +125,7 @@ def default_config() -> dict:
                     "target": {"kind": "stamp"},
                     "active": False,
                     "availableFrom": "2026-11-13",
+                    "hidden": False,
                 },
             ],
         },
@@ -206,7 +208,10 @@ def event_window(config: dict, today: date) -> dict | None:
     heute = today.isoformat()
     if not block.get("ignoreWindow") and (block.get("until") or "") and heute > block["until"]:
         return None
-    kachel = next((t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp"), None)
+    kachel = next(
+        (t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp" and not t.get("hidden")),
+        None,
+    )
     if kachel is None:
         return None
     return {
@@ -217,6 +222,11 @@ def event_window(config: dict, today: date) -> dict | None:
     }
 
 
+def _without_hidden_tiles(block: dict) -> dict:
+    """The block as visitors get it, hidden tiles never leave the server."""
+    return {**block, "tiles": [t for t in block.get("tiles", []) if not t.get("hidden")]}
+
+
 def public_view(config: dict, today: date) -> dict:
     """What a visitor may see: the stands without their codes, the block only inside its window."""
     block = config["eventBlock"]
@@ -224,7 +234,7 @@ def public_view(config: dict, today: date) -> dict:
         "stations": [
             {feld: stand[feld] for feld in _PUBLIC_STATION_FIELDS} for stand in config["stations"]
         ],
-        "eventBlock": block if event_block_visible(block, today) else None,
+        "eventBlock": _without_hidden_tiles(block) if event_block_visible(block, today) else None,
         "stamp": event_window(config, today),
     }
 
@@ -327,7 +337,7 @@ def validate_config(config: dict) -> dict:
         ab = tile.get("availableFrom") or ""
         if not is_valid_date_or_empty(ab):
             raise EventValidationError("event.config.dateInvalid", value=ab)
-        geprueft.append({**tile, "id": tile_id, "availableFrom": ab})
+        geprueft.append({**tile, "id": tile_id, "availableFrom": ab, "hidden": bool(tile.get("hidden"))})
     block["tiles"] = geprueft
 
     karte = {**default_task_card(), **(config.get("taskCard") or {})}

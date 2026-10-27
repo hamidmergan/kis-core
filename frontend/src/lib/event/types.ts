@@ -34,6 +34,8 @@ export interface EventTile {
   active: boolean;
   /** Shown as a note while the button is locked, YYYY-MM-DD, empty for no date. */
   availableFrom: string;
+  /** Kept in the form but shown nowhere, the admin can switch it back on. */
+  hidden?: boolean;
 }
 
 export interface EventBlock {

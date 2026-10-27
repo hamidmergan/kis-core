@@ -48,7 +48,7 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
               {text(tile.title) || t("tileUntitled")}
             </span>
           }
-          description={tt(target.kind)}
+          description={tile.hidden ? `${tt(target.kind)}, ${t("tileHiddenBadge")}` : tt(target.kind)}
         >
           <div className="flex flex-col gap-3" data-testid="tile-editor">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -72,6 +72,10 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
                 <input type="text" value={target.accessCode} onChange={(e) => onChange({ ...tile, target: { kind: "directLogin", accessCode: e.target.value } })} className={`${INPUT} font-mono`} />
               </Labeled>
             )}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
+              <span className="text-sm text-foreground-soft">{tile.hidden ? t("tileHidden") : t("tileShown")}</span>
+              <Switch checked={Boolean(tile.hidden)} onChange={(hidden) => onChange({ ...tile, hidden })} label={t("tileHiddenAria")} />
+            </div>
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
               <span className="text-sm text-foreground-soft">{tile.active ? t("tileActive") : t("tileLocked")}</span>
               <Switch checked={tile.active} onChange={(active) => onChange({ ...tile, active })} label={t("tileActiveAria")} />
@@ -117,7 +121,7 @@ export default function EventTileEditor() {
   const add = () => {
     const id = nextId("kachel", tiles);
     setFreshId(id);
-    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" }, active: false, availableFrom: "" }]);
+    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" }, active: false, availableFrom: "", hidden: false }]);
   };
 
   return (

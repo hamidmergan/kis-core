@@ -24,7 +24,7 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
     checkAuthStatus().then((s) => setSignedIn(s.authenticated));
   }, []);
   if (!block) return bleed ? null : <p className="text-sm text-foreground-soft">{t("hidden")}</p>;
-  const tiles = block.tiles.slice(0, 4);
+  const tiles = block.tiles.filter((tile) => !tile.hidden).slice(0, 4);
   const content = (
     <div className="flex flex-col items-center gap-8" data-testid="event-block">
       <div className="max-w-3xl mx-auto text-center">

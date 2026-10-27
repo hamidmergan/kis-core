@@ -5315,7 +5315,11 @@
       "tileActive": "Aktiv. Besucher können die Kachel nutzen.",
       "tileLocked": "Gesperrt. Der Button ist deaktiviert und zeigt einen Hinweis.",
       "tileActiveAria": "Kachel aktivieren",
-      "tileAvailableFrom": "Freischaltung am, steht als Hinweis unter dem Button"
+      "tileAvailableFrom": "Freischaltung am, steht als Hinweis unter dem Button",
+      "tileHidden": "Ausgeblendet. Die Kachel erscheint nirgends, bleibt hier aber gespeichert.",
+      "tileShown": "Sichtbar. Die Kachel steht im Event-Block.",
+      "tileHiddenAria": "Kachel ausblenden",
+      "tileHiddenBadge": "ausgeblendet"
     },
     "loading": "Lädt …",
     "loadFailed": "Die Einstellungen konnten nicht geladen werden.",

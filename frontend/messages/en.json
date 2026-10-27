@@ -5315,7 +5315,11 @@
       "tileActive": "Active. Visitors can use the tile.",
       "tileLocked": "Locked. The button is disabled and shows a note.",
       "tileActiveAria": "Activate tile",
-      "tileAvailableFrom": "Available from, shown as a note under the button"
+      "tileAvailableFrom": "Available from, shown as a note under the button",
+      "tileHidden": "Hidden. The tile shows nowhere but stays saved here.",
+      "tileShown": "Visible. The tile stands in the event block.",
+      "tileHiddenAria": "Hide tile",
+      "tileHiddenBadge": "hidden"
     },
     "loading": "Loading …",
     "loadFailed": "The settings could not be loaded.",

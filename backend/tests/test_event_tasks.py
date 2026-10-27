@@ -278,3 +278,24 @@ def test_haken_einzeln_loeschen(konto_am_code):
     tasks.add_done(user_id, "question")
     tasks.delete_for(user_id)
     assert tasks.done_for(user_id) == {}
+
+
+# --- hidden tiles ---------------------------------------------------------------
+
+def test_ausgeblendete_kachel_verlaesst_den_server_nicht():
+    from src.features.event.service import public_view
+
+    config = validate_config(default_config())
+    config["eventBlock"] = {**config["eventBlock"], "enabled": True, "ignoreWindow": True}
+    config["eventBlock"]["tiles"][1]["hidden"] = True
+    sicht = public_view(config, TAG)
+    assert [t["id"] for t in sicht["eventBlock"]["tiles"]] == ["demo"]
+    assert sicht["stamp"] is None
+
+
+def test_ausblenden_bleibt_beim_speichern_erhalten():
+    config = default_config()
+    config["eventBlock"]["tiles"][0]["hidden"] = True
+    gespeichert = validate_config(config)
+    assert gespeichert["eventBlock"]["tiles"][0]["hidden"] is True
+    assert gespeichert["eventBlock"]["tiles"][1]["hidden"] is False
