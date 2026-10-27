@@ -441,7 +441,7 @@ LONG_QUEUE_TRANSLATE_CHARS             = 20_000
 LONG_QUEUE_MEDIA_SECONDS               = 20 * 60
 
 # Shared slot pool for all Francis background work, as many as the aia worker has processes.
-AIA_PARALLEL_SLOTS                     = 18
+AIA_PARALLEL_SLOTS                     = 28
 # Sources first because every tool waits for them, simulated on the load test of 26.09.2026 as 5 instead of 16 minutes.
 AIA_AREA_WEIGHTS                       = {"studio": 1, "ingest": 2}
 # A 155-page PDF holds a process at 365 MB, tools mostly wait on the model, so sources take at most half.
