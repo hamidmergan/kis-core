@@ -5347,7 +5347,6 @@
     "progress": "{n} of {total} done",
     "minimize": "Minimise",
     "intro": "Finish all three and a gift is waiting for you at the stand.",
-    "demo": "Demo",
     "doneAria": "Done",
     "openAria": "Open",
     "tasks": {
@@ -5357,11 +5356,11 @@
         "bodyNoTitle": "In the learning assistant"
       },
       "praesentation": {
-        "title": "Create a presentation",
+        "title": "Go through the presentation demo",
         "body": "A prepared run shows you every step. You upload nothing."
       },
       "screencast": {
-        "title": "Create a screencast",
+        "title": "Go through the screencast demo",
         "body": "A prepared run shows you every step. You upload nothing."
       }
     },

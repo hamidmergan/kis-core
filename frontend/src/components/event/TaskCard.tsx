@@ -5,8 +5,6 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { TASK_IDS, type TaskId } from "@/lib/event/tasks";
 
-const DEMO_TASKS: ReadonlySet<TaskId> = new Set(["praesentation", "screencast"]);
-
 function taskHref(id: TaskId, workspace: string): string {
   if (id === "question") return workspace ? `/workspace/${encodeURIComponent(workspace)}` : "/workspace";
   return id === "praesentation" ? "/tools/praesentation-demo" : "/tools/screencast-demo";
@@ -71,11 +69,6 @@ export function TaskCard({
               <span className="flex-1 min-w-0">
                 <span className={`block text-base font-semibold ${ticked ? "text-foreground-soft" : ""}`}>
                   {t(`tasks.${id}.title`)}
-                  {DEMO_TASKS.has(id) && (
-                    <span className="ml-1.5 align-[2px] text-xs font-semibold text-kb-dark border-2 border-kb-dark rounded-md px-1.5">
-                      {t("demo")}
-                    </span>
-                  )}
                 </span>
                 <span className="block text-sm text-foreground-soft mt-0.5">
                   {id !== "question"
