@@ -220,8 +220,10 @@ const DEFINITIONS: Look<"definitions">[] = [
   {
     name: "Glossar",
     View: function Glossary({ b, p, limits }) {
-      // Sorted for reading only, every entry keeps its own path.
-      const sorted = b.items.map((d, i) => ({ d, i })).sort((x, y) => x.d.term.localeCompare(y.d.term, undefined, { sensitivity: "base" }));
+      const { editing } = useContext(EditCtx);
+      // Sorted for reading only, while editing the stored order stays so entries do not jump.
+      const all = b.items.map((d, i) => ({ d, i }));
+      const sorted = editing ? all : all.sort((x, y) => x.d.term.localeCompare(y.d.term, undefined, { sensitivity: "base" }));
       const groups: { letter: string; list: typeof sorted }[] = [];
       for (const e of sorted) {
         const letter = e.d.term.charAt(0).toUpperCase();
@@ -229,20 +231,22 @@ const DEFINITIONS: Look<"definitions">[] = [
         if (g && g.letter === letter) g.list.push(e); else groups.push({ letter, list: [e] });
       }
       return (
-        <Root cls="v-df-gloss">
-          {groups.map((g) => (
-            <div key={g.letter}>
-              <span className="v-df-letter" aria-hidden="true">{g.letter}</span>
-              <div>
-                {g.list.map(({ d, i }) => (
-                  <div className="v-df-e" key={i} data-d={`${p}.items.${i}`}>
-                    <Txt path={`${p}.items.${i}.term`} value={d.term} as="b" max={limits.short} />
-                    <Txt path={`${p}.items.${i}.text`} value={d.text} as="span" max={limits.item} />
-                  </div>
-                ))}
+        <Root>
+          <div className="v-df-gloss">
+            {groups.map((g) => (
+              <div key={g.list[0].i}>
+                <span className="v-df-letter" aria-hidden="true">{g.letter}</span>
+                <div>
+                  {g.list.map(({ d, i }) => (
+                    <div className="v-df-e" key={i} data-d={`${p}.items.${i}`}>
+                      <Txt path={`${p}.items.${i}.term`} value={d.term} as="b" max={limits.short} />
+                      <Txt path={`${p}.items.${i}.text`} value={d.text} as="span" max={limits.item} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
           <AddItem p={p} n={b.items.length} limits={limits} />
         </Root>
       );
