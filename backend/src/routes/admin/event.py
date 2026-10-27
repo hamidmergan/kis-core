@@ -57,12 +57,12 @@ class EventBlockPayload(BaseModel):
 
 class TaskCardPayload(BaseModel):
     enabled: bool = False
-    ignoreWindow: bool = False
+    ignoreWindow: bool = True
     from_: str = Field("", alias="from")
     until: str = ""
     accessCode: str = Field("", max_length=64)
     workspace: str = Field("", max_length=64)
-    forEveryone: bool = False
+    forEveryone: bool = True
 
 
 class EventConfigPayload(BaseModel):

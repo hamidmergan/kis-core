@@ -139,12 +139,12 @@ def default_task_card() -> dict:
     """The task card stays off until the admin switches it on and names its code and workspace."""
     return {
         "enabled": False,
-        "ignoreWindow": False,
+        "ignoreWindow": True,
         "from": "2026-11-13",
         "until": "2026-11-13",
         "accessCode": "KIS-DEMO-0000",
         "workspace": "",
-        "forEveryone": False,
+        "forEveryone": True,
     }
 
 
