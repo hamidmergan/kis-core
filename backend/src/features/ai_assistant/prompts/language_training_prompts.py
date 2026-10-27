@@ -225,3 +225,10 @@ AIA_KARTEIKARTEN_GLOSSAR_PROMPT = (
     "- Do NOT cite sources or page numbers; the clickable source links are attached afterwards\n"
     "- Respond ONLY with the JSON object, no other text."
 )
+
+
+# Indentation costs output tokens and carries nothing, a broken entry is rescued by loads_entries.
+COMPACT_JSON_RULE = (
+    "\n\nOUTPUT FORMAT: write the whole JSON on ONE single line, no indentation, no line breaks, "
+    "no spaces after colons or commas."
+)

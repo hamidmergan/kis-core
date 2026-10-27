@@ -85,7 +85,8 @@ def test_the_prompt_only_names_the_chosen_kinds():
                                  locale="de", kinds=["transform"])
 
     prompt = calls[0][0]["content"]
-    assert '4 of kind "transform"' in prompt
+    # 4 ordered plus one spare.
+    assert '5 of kind "transform"' in prompt
     assert 'of kind "cloze"' not in prompt
     assert 'of kind "statement"' not in prompt
     assert 'of kind "choice"' not in prompt

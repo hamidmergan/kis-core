@@ -12,6 +12,8 @@ from src.features.ai_assistant.tasks.language_training._attribution import attac
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._wortteile import clean_word_parts
 from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.tasks._json_commas import loads_entries
 from src.services.llm_call import create_logged
 
 
@@ -57,7 +59,7 @@ def generate_flashcards_from_source(
     # Explanations follow the language, the term stays in the source language.
     prompt = (
         AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
-        + adaptive_suffix + title_avoidance + coverage
+        + adaptive_suffix + title_avoidance + coverage + COMPACT_JSON_RULE
     )
     # Every card names its file, a short tag instead of the name saves writing.
     tags = SourceTags(getattr(ctx, "source_by_name", None) or {})
@@ -73,7 +75,7 @@ def generate_flashcards_from_source(
     response = create_logged(client, endpoint="lernkarten", model=model, messages=messages, temperature=0.6,
                              max_tokens=exercise_max_tokens(count))
     answer = _clean_llm_json(response.choices[0].message.content or "")
-    data = tags.decode(json.loads(answer))
+    data = tags.decode(loads_entries(answer, "cards"))
 
     cards = (data.get("cards") or [])[:count]
     items = [_format_lernkarte(c) for c in cards]

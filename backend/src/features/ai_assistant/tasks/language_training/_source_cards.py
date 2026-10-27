@@ -13,6 +13,8 @@ from src.features.ai_assistant.tasks.language_training._attribution import attac
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
 from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.tasks._json_commas import loads_entries
 from src.services.llm_call import create_logged
 
 
@@ -32,7 +34,7 @@ def generate_cards_from_source(
         AIA_KARTEIKARTEN_QA_PROMPT
         .replace("{count}", str(count))
         .replace("{language}", language)
-    ) + adaptive_suffix + title_avoidance + coverage + instruction
+    ) + adaptive_suffix + title_avoidance + coverage + COMPACT_JSON_RULE + instruction
     # No block with existing cards, the model would just copy them.
     messages = [
         {"role": "system", "content": prompt},
@@ -45,7 +47,7 @@ def generate_cards_from_source(
     response = create_logged(client, endpoint="karteikarten", model=model, messages=messages, temperature=0.6,
                              max_tokens=exercise_max_tokens(count))
     try:
-        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+        data = loads_entries(_clean_llm_json(response.choices[0].message.content or ""), "cards")
     except json.JSONDecodeError as e:
         logger.error("Karteikarten QA JSON parse failed: {}", e)
         return [], ctx.multi_label

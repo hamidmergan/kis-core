@@ -96,8 +96,8 @@ def _generate(response=_MIXED, count=4):
 # ─── One set, four formats ───────────────────────────────────────────────────
 
 def test_the_prompt_orders_the_formats_by_number(attributed):
-    # A statement of intent has no effect, a number does.
-    _, _, _, calls = _generate(count=12)
+    # A statement of intent has no effect, a number does. 10 plus 2 spare make 3 per format.
+    _, _, _, calls = _generate(count=10)
     system = calls[0][0]["content"]
     for kind in KINDS:
         assert f'3 of kind "{kind}"' in system

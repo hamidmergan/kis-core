@@ -14,11 +14,15 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
 from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.tasks._json_commas import loads_entries
 from src.services.llm_call import create_logged
 
 
+# Only the true/false chip reads the model's citation, the other kinds are found by search.
 _SOURCE_RULE = (
-    "- For every question, include source_label and page_number, the source/page the content came from.\n"
+    "- Only a true/false item includes source_label and page_number, the source/page its "
+    "statement came from. The other two kinds carry neither.\n"
 )
 _PERSONAL_RULE = (
     "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Material' (German) or 'according to the source' (English), matching the output language.\n"
@@ -103,7 +107,8 @@ def generate_mc_from_source(
 ) -> tuple[list[dict], str]:
     # The level block tunes the questions without changing count or solution.
     tool_prompt = (_build_prompt(count, language, yielding=bool(instruction))
-                   + adaptive_suffix + title_avoidance + coverage + instruction)
+                   + adaptive_suffix + title_avoidance + coverage + COMPACT_JSON_RULE
+                   + instruction)
     # Every exercise names its file, a short tag instead of the name saves writing.
     tags = SourceTags(getattr(ctx, "source_by_name", None) or {})
     # No block with existing questions, the model would just copy them.
@@ -115,7 +120,7 @@ def generate_mc_from_source(
     response = create_logged(client, endpoint="quiz", model=model, messages=messages, temperature=0.6,
                              max_tokens=exercise_max_tokens(count))
     answer = _clean_llm_json(response.choices[0].message.content or "")
-    data = tags.decode(json.loads(answer))
+    data = tags.decode(loads_entries(answer, "exercises"))
     # Preferably the title comes along, a bare list works too.
     if isinstance(data, dict):
         exercises = data.get("exercises") or []
@@ -183,11 +188,9 @@ def _build_prompt(count: int, language: str, yielding: bool = False) -> str:
         "else, and it never carries options. EVERY item carries a \"tip\":\n"
         '{"title": "Short topic title", "exercises": ['
         '{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
-        '"correct_idx": 0, "tip": "A nudge that does not give it away.", '
-        '"source_label": "Filename.pdf", "page_number": 5}, '
+        '"correct_idx": 0, "tip": "A nudge that does not give it away."}, '
         '{"sentence": "Statement with ___ as a gap.", "options": ["A", "B", "C", "D"], '
-        '"correct_idx": 2, "tip": "A nudge that does not give it away.", '
-        '"source_label": "Filename.pdf", "page_number": 7}, '
+        '"correct_idx": 2, "tip": "A nudge that does not give it away."}, '
         '{"statement": "A claim about the content.", "answer": false, '
         '"tip": "A nudge that does not give it away.", '
         '"source_label": "Filename.pdf", "page_number": 9}]}\n'

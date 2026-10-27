@@ -22,6 +22,8 @@ from src.features.ai_assistant.tasks.language_training._plan import (
 from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_formats import KINDS
 from src.features.ai_assistant.tasks._context_budget import exercise_max_tokens
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.tasks._json_commas import loads_entries
 from src.services.llm_call import create_logged
 
 
@@ -127,6 +129,9 @@ _MIN_USABLE_RATIO = 0.5
 # One generation call per set, the verdict call after it stays.
 _MAX_ATTEMPTS = 1
 
+# Share of extra exercises ordered on top, at least one.
+_SPARE_SHARE = 0.2
+
 # This is how a gap is written, three underscores are recognisable in the text.
 GAP = "___"
 
@@ -161,14 +166,16 @@ def generate_grammar_from_source(
     target_form = grammar_type["label"]
     # Every stored musterweg, not only the one the learner sees.
     shipped_examples = grammar_type.get("examples") or [grammar_type["example"]]
-    plan = item_plan(count, kinds)
+    # A few spare exercises in the same call make up for what the verdict throws out.
+    bestellt = count + max(1, round(count * _SPARE_SHARE))
+    plan = item_plan(bestellt, kinds)
     # No target language, the exercise sentences stay in the source language.
     user_msg = f"Sources:\n\n{ctx.context}"
 
     def messages_for(wanted: list[str]) -> list[dict]:
         prompt = (
             _build_prompt(grammar_type, target_form, shipped_examples, wanted)
-            + adaptive_suffix + title_avoidance + coverage
+            + adaptive_suffix + title_avoidance + coverage + COMPACT_JSON_RULE
         )
         return [{"role": "system", "content": prompt},
                 {"role": "user", "content": user_msg}]
@@ -189,9 +196,9 @@ def generate_grammar_from_source(
             wanted = _fallback_kinds(items, wanted, kinds)
         # The same temperature as the other tools, still JSON safe.
         response = create_logged(client, endpoint="grammatik", model=model, messages=messages_for(wanted),
-                                 temperature=0.6, max_tokens=exercise_max_tokens(count))
-        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
-        exercises = list(data.get("exercises") or [])[:count]
+                                 temperature=0.6, max_tokens=exercise_max_tokens(bestellt))
+        data = loads_entries(_clean_llm_json(response.choices[0].message.content or ""), "exercises")
+        exercises = list(data.get("exercises") or [])[:bestellt]
         seen_exercises += len(exercises)
         fresh, fresh_claims = _build_items(exercises, locale, shipped_examples, target_form)
         # Until the last attempt the per-format cap applies, after that the count counts.
@@ -217,11 +224,11 @@ def generate_grammar_from_source(
                              else f"**{anweisung}**")
             items.append(item)
             claims.append(claim)
-        if len(items) >= count:
+        if len(items) >= bestellt:
             break
         logger.info("KI Tutor: Grammatik-Wurf {} ergab {}/{} Aufgaben",
                     attempt + 1, len(items), count)
-    items, claims = items[:count], claims[:count]
+    items, claims = items[:bestellt], claims[:bestellt]
 
     # One verdict call for the whole throw, catches what no code filter can: a
     # sentence that only reads wrong once the answer sits in it.
@@ -233,8 +240,8 @@ def generate_grammar_from_source(
             if item.get("_kind") == "cloze" else None for item in items]
     ok = verdicts(client, model, claims, target_form, grammar_type["rule"],
                   wrong_on_purpose, gaps)
-    items = [item for item, usable in zip(items, ok) if usable]
-    claims = [claim for claim, usable in zip(claims, ok) if usable]
+    items = [item for item, usable in zip(items, ok) if usable][:count]
+    claims = [claim for claim, usable in zip(claims, ok) if usable][:count]
 
     # Too many comprehension questions and the whole run is thrown away.
     wanted = min(count, seen_exercises) or count

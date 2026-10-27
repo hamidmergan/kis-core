@@ -29,6 +29,8 @@ from src.features.ai_assistant.tasks._instruction import (
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
 from src.features.ai_assistant.tasks.studio import _table_packets
 from src.services import aia_chunker
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.tasks._json_commas import loads_entries
 from src.services.llm_call import create_logged
 
 
@@ -130,7 +132,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             workspace_id = first.get("workspace_id") if first else None
         vergeben = recent_titles("aia_data_tables", workspace_id)
         system = (AIA_DATENTABELLE_PROMPT.replace("{language}", language)
-                  + title_rule(language, vergeben) + adaptive_suffix)
+                  + title_rule(language, vergeben) + COMPACT_JSON_RULE + adaptive_suffix)
 
         def _ask(context: str, columns) -> dict | None:
             """One packet: the first names the columns, every further one joins them."""
@@ -157,7 +159,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                 if not raw:
                     continue
                 try:
-                    return _json.loads(_clean_llm_json(raw))
+                    return loads_entries(_clean_llm_json(raw), "rows")
                 except _json.JSONDecodeError as e:
                     logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
                                    data_table_id, attempt + 1, e)

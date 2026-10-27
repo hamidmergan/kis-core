@@ -145,7 +145,7 @@ def test_flashcards_system_prompt_carries_suffix(monkeypatch):
 def test_flashcards_empty_suffix_is_noop(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as mod
     from src.features.ai_assistant.prompts.language_training_prompts import (
-        AIA_LERNKARTEN_PROMPT,
+        AIA_LERNKARTEN_PROMPT, COMPACT_JSON_RULE,
     )
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     content = json.dumps({"title": "T", "cards": [{"begriff": "X", "definition": "Y"}]})
@@ -154,7 +154,8 @@ def test_flashcards_empty_suffix_is_noop(monkeypatch):
     # The language now comes in with the job, not from a constant in the generator.
     mod.generate_flashcards_from_source(client, "m", ctx, 1, locale="de",
                                         language="German", adaptive_suffix="")
-    expected = AIA_LERNKARTEN_PROMPT.replace("{count}", "1").replace("{language}", "German")
+    expected = (AIA_LERNKARTEN_PROMPT.replace("{count}", "1").replace("{language}", "German")
+                + COMPACT_JSON_RULE)
     assert _system_of(calls) == expected
     assert "ADAPT-MARKER" not in _system_of(calls)
 
