@@ -106,8 +106,8 @@ def default_config() -> dict:
                     "icon": "francis",
                     "title": _text("Demozugang", "Demo access"),
                     "body": _text(
-                        "Mit einem Klick in KIS und selbst ausprobieren.",
-                        "One click into KIS to try it yourself.",
+                        "Teste die KIS-Plattform mit einem Demo-Konto.",
+                        "Try the KIS platform with a demo account.",
                     ),
                     "button": _text("Ausprobieren", "Try it"),
                     "target": {"kind": "directLogin", "accessCode": "KIS-DEMO-0000"},
