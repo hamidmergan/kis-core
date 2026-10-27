@@ -50,6 +50,9 @@ def patch_env(monkeypatch):
     update = MagicMock(side_effect=lambda pid, **kw: {**_provider(1), **kw})
     monkeypatch.setattr(admin.db, "update_provider", update)
     monkeypatch.setattr(admin, "probe_provider", lambda *a, **kw: None)
+    # Switching a provider off re-derives every route, the real ones must stay out of it.
+    monkeypatch.setattr(admin.db, "list_routes", lambda: [])
+    monkeypatch.setattr(admin.db, "set_route", MagicMock())
     return update
 
 
