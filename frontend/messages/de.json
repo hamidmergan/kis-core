@@ -4948,11 +4948,7 @@
       "directLogin": "Direkt-Login mit Zugangscode"
     },
     "lockedFrom": "Freischaltung am {date}",
-    "lockedSoon": "Bald verfügbar",
-    "demoBand": {
-      "text": "Probiere die KIS-Plattform ohne eigenes Konto aus.",
-      "button": "Demo starten"
-    }
+    "lockedSoon": "Bald verfügbar"
   },
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
@@ -5316,10 +5312,19 @@
       "tileLocked": "Gesperrt. Der Button ist deaktiviert und zeigt einen Hinweis.",
       "tileActiveAria": "Kachel aktivieren",
       "tileAvailableFrom": "Freischaltung am, steht als Hinweis unter dem Button",
-      "tileHidden": "Ausgeblendet. Die Kachel erscheint nirgends, bleibt hier aber gespeichert.",
-      "tileShown": "Sichtbar. Die Kachel steht im Event-Block.",
-      "tileHiddenAria": "Kachel ausblenden",
-      "tileHiddenBadge": "ausgeblendet"
+      "placementLabel": "Wo erscheint die Kachel?",
+      "placement": {
+        "block": "Im Event-Block",
+        "banner": "Als Banner oben",
+        "both": "Im Event-Block und als Banner oben",
+        "none": "Nirgends (ausgeblendet)"
+      },
+      "placementHint": {
+        "block": "Die Kachel steht im Event-Block unter dem Startbild.",
+        "banner": "Statt der Kachel erscheint ein Streifen direkt unter der Kopfzeile: fett die Überschrift des Event-Blocks, daneben die Beschreibung und der Button dieser Kachel. Nur solange der Button freigeschaltet ist.",
+        "both": "Die Kachel steht im Event-Block, zusätzlich erscheint sie als Banner direkt unter der Kopfzeile.",
+        "none": "Die Kachel erscheint nirgends, bleibt hier aber mit allen Texten gespeichert."
+      }
     },
     "loading": "Lädt …",
     "loadFailed": "Die Einstellungen konnten nicht geladen werden.",

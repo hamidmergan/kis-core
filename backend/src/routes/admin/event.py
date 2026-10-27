@@ -41,8 +41,7 @@ class EventTilePayload(BaseModel):
     target: dict[str, Any]
     active: bool = False
     availableFrom: str = ""
-    # Kept in the form but shown nowhere, to switch back on in case it is needed.
-    hidden: bool = False
+    placement: str = "block"
 
 
 class EventBlockPayload(BaseModel):

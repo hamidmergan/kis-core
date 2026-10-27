@@ -34,9 +34,14 @@ export interface EventTile {
   active: boolean;
   /** Shown as a note while the button is locked, YYYY-MM-DD, empty for no date. */
   availableFrom: string;
-  /** Kept in the form but shown nowhere, the admin can switch it back on. */
-  hidden?: boolean;
+  /** In the event block, as the banner under the header, both, or nowhere, missing counts as block. */
+  placement?: TilePlacement;
 }
+
+export type TilePlacement = "block" | "banner" | "both" | "none";
+
+export const inBlock = (tile: EventTile) => (tile.placement ?? "block") === "block" || tile.placement === "both";
+export const inBanner = (tile: EventTile) => tile.placement === "banner" || tile.placement === "both";
 
 export interface EventBlock {
   enabled: boolean;

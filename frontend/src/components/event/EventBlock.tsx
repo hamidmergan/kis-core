@@ -6,7 +6,7 @@ import Band from "@/app/[locale]/_components/landing/Band";
 import { useText2 } from "@/lib/event/useText2";
 import EventTile from "@/components/event/EventTile";
 import { checkAuthStatus } from "@/lib/auth";
-import type { EventBlock as EventBlockData } from "@/lib/event/types";
+import { inBlock, type EventBlock as EventBlockData } from "@/lib/event/types";
 
 const GRID: Record<number, string> = {
   1: "@min-[40rem]:grid-cols-1 @min-[64rem]:max-w-md",
@@ -24,7 +24,7 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
     checkAuthStatus().then((s) => setSignedIn(s.authenticated));
   }, []);
   if (!block) return bleed ? null : <p className="text-sm text-foreground-soft">{t("hidden")}</p>;
-  const tiles = block.tiles.filter((tile) => !tile.hidden).slice(0, 4);
+  const tiles = block.tiles.filter(inBlock).slice(0, 4);
   const content = (
     <div className="flex flex-col items-center gap-8" data-testid="event-block">
       <div className="max-w-3xl mx-auto text-center">

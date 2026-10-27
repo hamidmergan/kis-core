@@ -41,6 +41,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Jede Kachel braucht eine Kennung",
         "en": "Every tile needs an id",
     },
+    "event.config.oneBanner": {
+        "de": "Nur eine Kachel kann als Banner oben stehen",
+        "en": "Only one tile can be the banner at the top",
+    },
     "event.config.tileIdDuplicate": {
         "de": "Die Kachel-Kennung „{id}“ kommt doppelt vor",
         "en": "The tile id “{id}” appears twice",

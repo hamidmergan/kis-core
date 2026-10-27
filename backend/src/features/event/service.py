@@ -10,6 +10,8 @@ CODE_LENGTH = 4
 # A visitor's own code, longer than a stand's so the two are never confused.
 VISITOR_CODE_LENGTH = 6
 MAX_TILES = 4
+# Where a tile shows: in the event block, as the banner under the header, both, or nowhere.
+TILE_PLACEMENTS = ("block", "banner", "both", "none")
 TILE_TARGET_KINDS = ("stamp", "info", "internal", "directLogin")
 # The task card's three tasks, the first is ticked by the chat, the other two by opening their demo.
 TASK_IDS = ("question", "praesentation", "screencast")
@@ -111,7 +113,7 @@ def default_config() -> dict:
                     "target": {"kind": "directLogin", "accessCode": "KIS-DEMO-0000"},
                     "active": False,
                     "availableFrom": "2026-11-13",
-                    "hidden": False,
+                    "placement": "block",
                 },
                 {
                     "id": "stamp",
@@ -125,7 +127,7 @@ def default_config() -> dict:
                     "target": {"kind": "stamp"},
                     "active": False,
                     "availableFrom": "2026-11-13",
-                    "hidden": False,
+                    "placement": "block",
                 },
             ],
         },
@@ -209,7 +211,7 @@ def event_window(config: dict, today: date) -> dict | None:
     if not block.get("ignoreWindow") and (block.get("until") or "") and heute > block["until"]:
         return None
     kachel = next(
-        (t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp" and not t.get("hidden")),
+        (t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp" and placement_of(t) != "none"),
         None,
     )
     if kachel is None:
@@ -222,9 +224,17 @@ def event_window(config: dict, today: date) -> dict | None:
     }
 
 
+def placement_of(tile: dict) -> str:
+    """The tile's placement, a tile saved before the field existed counts as hidden or in the block."""
+    wert = tile.get("placement")
+    if wert in TILE_PLACEMENTS:
+        return wert
+    return "none" if tile.get("hidden") else "block"
+
+
 def _without_hidden_tiles(block: dict) -> dict:
-    """The block as visitors get it, hidden tiles never leave the server."""
-    return {**block, "tiles": [t for t in block.get("tiles", []) if not t.get("hidden")]}
+    """The block as visitors get it, tiles placed nowhere never leave the server."""
+    return {**block, "tiles": [t for t in block.get("tiles", []) if placement_of(t) != "none"]}
 
 
 def public_view(config: dict, today: date) -> dict:
@@ -337,7 +347,11 @@ def validate_config(config: dict) -> dict:
         ab = tile.get("availableFrom") or ""
         if not is_valid_date_or_empty(ab):
             raise EventValidationError("event.config.dateInvalid", value=ab)
-        geprueft.append({**tile, "id": tile_id, "availableFrom": ab, "hidden": bool(tile.get("hidden"))})
+        eintrag = {**tile, "id": tile_id, "availableFrom": ab, "placement": placement_of(tile)}
+        eintrag.pop("hidden", None)
+        geprueft.append(eintrag)
+    if sum(1 for tile in geprueft if tile["placement"] in ("banner", "both")) > 1:
+        raise EventValidationError("event.config.oneBanner")
     block["tiles"] = geprueft
 
     karte = {**default_task_card(), **(config.get("taskCard") or {})}

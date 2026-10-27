@@ -4948,11 +4948,7 @@
       "directLogin": "Direct login with access code"
     },
     "lockedFrom": "Available from {date}",
-    "lockedSoon": "Available soon",
-    "demoBand": {
-      "text": "Try the KIS platform without an account of your own.",
-      "button": "Start demo"
-    }
+    "lockedSoon": "Available soon"
   },
   "eventInfo": {
     "eyebrow": "Pilot project at THL",
@@ -5316,10 +5312,19 @@
       "tileLocked": "Locked. The button is disabled and shows a note.",
       "tileActiveAria": "Activate tile",
       "tileAvailableFrom": "Available from, shown as a note under the button",
-      "tileHidden": "Hidden. The tile shows nowhere but stays saved here.",
-      "tileShown": "Visible. The tile stands in the event block.",
-      "tileHiddenAria": "Hide tile",
-      "tileHiddenBadge": "hidden"
+      "placementLabel": "Where does the tile show?",
+      "placement": {
+        "block": "In the event block",
+        "banner": "As the banner at the top",
+        "both": "In the event block and as the banner at the top",
+        "none": "Nowhere (hidden)"
+      },
+      "placementHint": {
+        "block": "The tile stands in the event block below the hero.",
+        "banner": "Instead of the tile a strip shows right under the header: the event block heading in bold, next to it this tile's description and button. Only while the button is unlocked.",
+        "both": "The tile stands in the event block and also shows as the banner right under the header.",
+        "none": "The tile shows nowhere but stays saved here with all its texts."
+      }
     },
     "loading": "Loading …",
     "loadFailed": "The settings could not be loaded.",

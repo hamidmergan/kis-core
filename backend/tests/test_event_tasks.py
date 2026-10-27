@@ -280,22 +280,32 @@ def test_haken_einzeln_loeschen(konto_am_code):
     assert tasks.done_for(user_id) == {}
 
 
-# --- hidden tiles ---------------------------------------------------------------
+# --- tile placement -------------------------------------------------------------
 
-def test_ausgeblendete_kachel_verlaesst_den_server_nicht():
+def test_nirgends_platzierte_kachel_verlaesst_den_server_nicht():
     from src.features.event.service import public_view
 
     config = validate_config(default_config())
     config["eventBlock"] = {**config["eventBlock"], "enabled": True, "ignoreWindow": True}
-    config["eventBlock"]["tiles"][1]["hidden"] = True
+    config["eventBlock"]["tiles"][1]["placement"] = "none"
     sicht = public_view(config, TAG)
     assert [t["id"] for t in sicht["eventBlock"]["tiles"]] == ["demo"]
     assert sicht["stamp"] is None
 
 
-def test_ausblenden_bleibt_beim_speichern_erhalten():
+def test_alte_ausgeblendete_kachel_wird_zu_nirgends():
     config = default_config()
-    config["eventBlock"]["tiles"][0]["hidden"] = True
-    gespeichert = validate_config(config)
-    assert gespeichert["eventBlock"]["tiles"][0]["hidden"] is True
-    assert gespeichert["eventBlock"]["tiles"][1]["hidden"] is False
+    tile = config["eventBlock"]["tiles"][0]
+    tile.pop("placement")
+    tile["hidden"] = True
+    gespeichert = validate_config(config)["eventBlock"]["tiles"][0]
+    assert gespeichert["placement"] == "none"
+    assert "hidden" not in gespeichert
+
+
+def test_nur_ein_banner():
+    config = default_config()
+    for tile in config["eventBlock"]["tiles"]:
+        tile["placement"] = "banner"
+    with pytest.raises(EventValidationError):
+        validate_config(config)

@@ -11,12 +11,13 @@ import ConfirmDialog from "@/components/event/ConfirmDialog";
 import { EVENT_ICONS } from "@/lib/event/icons";
 import { useEventConfig } from "@/lib/event/adminStore";
 import { useText2 } from "@/lib/event/useText2";
-import { MAX_TILES, type EventTile, type TileTarget } from "@/lib/event/types";
+import { MAX_TILES, type EventTile, type TilePlacement, type TileTarget } from "@/lib/event/types";
 import { nextId } from "./StationsCard";
 import { BTN_PRIMARY, INPUT, IconSelect, Labeled, TextPair } from "./fields";
 
 type Kind = TileTarget["kind"];
 const KINDS: Kind[] = ["stamp", "info", "internal", "directLogin"];
+const PLACEMENTS: TilePlacement[] = ["block", "banner", "both", "none"];
 const EMPTY = { de: "", en: "" };
 
 function targetFor(kind: Kind): TileTarget {
@@ -48,7 +49,7 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
               {text(tile.title) || t("tileUntitled")}
             </span>
           }
-          description={tile.hidden ? `${tt(target.kind)}, ${t("tileHiddenBadge")}` : tt(target.kind)}
+          description={`${tt(target.kind)}, ${t(`placement.${tile.placement ?? "block"}`)}`}
         >
           <div className="flex flex-col gap-3" data-testid="tile-editor">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -72,10 +73,15 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
                 <input type="text" value={target.accessCode} onChange={(e) => onChange({ ...tile, target: { kind: "directLogin", accessCode: e.target.value } })} className={`${INPUT} font-mono`} />
               </Labeled>
             )}
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
-              <span className="text-sm text-foreground-soft">{tile.hidden ? t("tileHidden") : t("tileShown")}</span>
-              <Switch checked={Boolean(tile.hidden)} onChange={(hidden) => onChange({ ...tile, hidden })} label={t("tileHiddenAria")} />
-            </div>
+            <Labeled label={t("placementLabel")}>
+              <Select<TilePlacement>
+                value={tile.placement ?? "block"}
+                onChange={(placement) => onChange({ ...tile, placement })}
+                options={PLACEMENTS.map((p) => ({ value: p, label: t(`placement.${p}`) }))}
+                ariaLabel={t("placementLabel")}
+              />
+            </Labeled>
+            <p className="text-xs text-muted -mt-1">{t(`placementHint.${tile.placement ?? "block"}`)}</p>
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
               <span className="text-sm text-foreground-soft">{tile.active ? t("tileActive") : t("tileLocked")}</span>
               <Switch checked={tile.active} onChange={(active) => onChange({ ...tile, active })} label={t("tileActiveAria")} />
@@ -121,7 +127,7 @@ export default function EventTileEditor() {
   const add = () => {
     const id = nextId("kachel", tiles);
     setFreshId(id);
-    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" }, active: false, availableFrom: "", hidden: false }]);
+    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" }, active: false, availableFrom: "", placement: "block" }]);
   };
 
   return (
