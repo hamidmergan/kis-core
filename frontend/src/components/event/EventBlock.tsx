@@ -25,6 +25,8 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
   }, []);
   if (!block) return bleed ? null : <p className="text-sm text-foreground-soft">{t("hidden")}</p>;
   const tiles = block.tiles.filter(inBlock).slice(0, 4);
+  // Heading and text alone say nothing to do, so without a tile the block stays away.
+  if (tiles.length === 0) return bleed ? null : <p className="text-sm text-foreground-soft">{t("noTiles")}</p>;
   const content = (
     <div className="flex flex-col items-center gap-8" data-testid="event-block">
       <div className="max-w-3xl mx-auto text-center">
@@ -35,13 +37,11 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
           <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-on-accent/85 mt-3 text-balance">{text(block.text)}</p>
         ) : null}
       </div>
-      {tiles.length > 0 && (
-        <div className={`grid grid-cols-1 gap-4 @min-[64rem]:gap-6 w-full mx-auto ${GRID[tiles.length]}`}>
-          {tiles.map((tile) => (
-            <EventTile key={tile.id} tile={tile} signedIn={signedIn} />
-          ))}
-        </div>
-      )}
+      <div className={`grid grid-cols-1 gap-4 @min-[64rem]:gap-6 w-full mx-auto ${GRID[tiles.length]}`}>
+        {tiles.map((tile) => (
+          <EventTile key={tile.id} tile={tile} signedIn={signedIn} />
+        ))}
+      </div>
     </div>
   );
   if (bleed) return <Band tone="accent">{content}</Band>;

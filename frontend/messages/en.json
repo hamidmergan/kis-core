@@ -4948,7 +4948,8 @@
       "directLogin": "Direct login with access code"
     },
     "lockedFrom": "Available from {date}",
-    "lockedSoon": "Available soon"
+    "lockedSoon": "Available soon",
+    "noTiles": "No tile stands in the event block, so it does not show. A banner at the top is not affected."
   },
   "eventInfo": {
     "eyebrow": "Pilot project at THL",

@@ -4948,7 +4948,8 @@
       "directLogin": "Direkt-Login mit Zugangscode"
     },
     "lockedFrom": "Freischaltung am {date}",
-    "lockedSoon": "Bald verfügbar"
+    "lockedSoon": "Bald verfügbar",
+    "noTiles": "Keine Kachel steht im Event-Block, darum erscheint er nicht. Ein Banner oben bleibt davon unberührt."
   },
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
