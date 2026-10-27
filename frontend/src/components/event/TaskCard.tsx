@@ -28,7 +28,7 @@ export function TaskCard({
   const count = TASK_IDS.filter((id) => done[id]).length;
 
   return (
-    <section className="w-full rounded-2xl border-2 border-kb-dark bg-background p-5" data-testid="event-task-card">
+    <section className="w-full rounded-2xl border-2 border-kb-dark bg-background p-5 mb-6 lg:mb-10" data-testid="event-task-card">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mb-1">
         <Gift size={26} weight="regular" className="text-kb-dark shrink-0" aria-hidden />
         <h2 className="text-lg font-semibold flex-1 min-w-0">{t("title")}</h2>
