@@ -186,3 +186,66 @@ def test_workspaces_des_codes_zur_auswahl(konto_am_code):
     assert tasks.workspace_title(konto_am_code["workspace"]) == "Aufgaben-Test"
     auswahl = tasks.workspaces_for_code(konto_am_code["code"].lower())
     assert auswahl == [{"uuid": konto_am_code["workspace"], "title": "Aufgaben-Test"}]
+
+
+# --- chat and admin -------------------------------------------------------------
+
+def test_frage_zaehlt_auch_ohne_anbieter(monkeypatch):
+    """The chat's provider lookup fails with 503, the question task is ticked anyway."""
+    from fastapi import HTTPException
+    from src.app import app
+    from src.dependencies import get_current_user, get_llm_client, get_settings
+    from src.security.auth import verify_auth
+
+    gesehen = []
+    monkeypatch.setattr(tasks, "mark_question", lambda user_id, ws: gesehen.append((user_id, ws)))
+
+    def kein_anbieter():
+        raise HTTPException(status_code=503, detail="kein Anbieter")
+
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": 7, "email": "demo@kis.local", "role": "staff"}
+    app.dependency_overrides[get_llm_client] = kein_anbieter
+    try:
+        antwort = TestClient(app).post("/ai-assistant/workspaces/ws-uuid/chat", json={"message": "Was ist ein Meilenstein?"})
+    finally:
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+    assert antwort.status_code == 503
+    assert gesehen == [(7, "ws-uuid")]
+
+
+@pytest.fixture
+def admin_client(monkeypatch):
+    from src.app import app
+    from src.dependencies import get_current_user, get_settings
+    from src.features.event import repository as repo
+    from src.security.auth import verify_auth
+
+    gespeichert = {}
+    monkeypatch.setattr(repo, "get_config", lambda: {**default_config(), "taskCard": KARTE})
+    monkeypatch.setattr(repo, "save_config", lambda config: gespeichert.update(config))
+    monkeypatch.setattr(tasks, "workspaces_for_code", lambda code: [{"uuid": "ws-uuid", "title": f"von {code}"}])
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": 1, "email": "admin@th-luebeck.de", "role": "admin"}
+    yield TestClient(app), gespeichert
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+def test_auswahl_nur_fuer_den_gespeicherten_code(admin_client):
+    http, _ = admin_client
+    antwort = http.get("/admin/event/task-workspaces", params={"code": "KIS-FREMD-9999"})
+    assert antwort.json() == {"workspaces": [{"uuid": "ws-uuid", "title": "von KIS-DEMO-0000"}]}
+
+
+def test_fremder_workspace_wird_beim_speichern_geleert(admin_client):
+    http, gespeichert = admin_client
+    config = {**default_config(), "taskCard": {**KARTE, "workspace": "fremd"}}
+    assert http.put("/admin/event", json=config).status_code == 200
+    assert gespeichert["taskCard"]["workspace"] == ""
+    config["taskCard"]["workspace"] = "ws-uuid"
+    http.put("/admin/event", json=config)
+    assert gespeichert["taskCard"]["workspace"] == "ws-uuid"

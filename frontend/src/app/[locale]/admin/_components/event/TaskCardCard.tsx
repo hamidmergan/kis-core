@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { SettingCard, Switch } from "@/app/[locale]/admin/_settings/fields";
 import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
-import { useEventConfig } from "@/lib/event/adminStore";
+import { useEventAdminState, useEventConfig } from "@/lib/event/adminStore";
 import { eventApi } from "@/lib/event/api";
 import type { TaskCardConfig } from "@/lib/event/types";
 import { INPUT, Labeled } from "./fields";
@@ -18,24 +18,19 @@ export default function TaskCardCard() {
   const set = (patch: Partial<TaskCardConfig>) => update((c) => ({ ...c, taskCard: { ...c.taskCard, ...patch } }));
   const [workspaces, setWorkspaces] = useState<{ uuid: string; title: string }[]>([]);
 
+  // The server only lists the saved code's workspaces, so the list follows each finished save.
+  const { status } = useEventAdminState();
   useEffect(() => {
-    const code = card.accessCode.trim();
-    if (!code) {
-      setWorkspaces([]);
-      return;
-    }
+    if (status === "saving") return;
     let alive = true;
-    const timer = setTimeout(() => {
-      eventApi
-        .adminTaskWorkspaces(code)
-        .then((r) => alive && setWorkspaces(r.workspaces))
-        .catch(() => alive && setWorkspaces([]));
-    }, 400);
+    eventApi
+      .adminTaskWorkspaces()
+      .then((r) => alive && setWorkspaces(r.workspaces))
+      .catch(() => alive && setWorkspaces([]));
     return () => {
       alive = false;
-      clearTimeout(timer);
     };
-  }, [card.accessCode]);
+  }, [status]);
 
   const known = workspaces.some((w) => w.uuid === card.workspace);
   const options = [

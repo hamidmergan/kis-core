@@ -90,6 +90,12 @@ def save_event(
         config = validate_config(roh)
     except EventValidationError as fehler:
         raise HTTPException(status_code=422, detail=t(fehler.key, locale, **fehler.params))
+    karte = config["taskCard"]
+    # Only a workspace of the card's own code may carry the question task.
+    if karte["workspace"] and karte["workspace"] not in {
+        w["uuid"] for w in tasks.workspaces_for_code(karte["accessCode"])
+    }:
+        karte["workspace"] = ""
     repo.save_config(config)
     return config
 
@@ -106,9 +112,10 @@ def event_stats(admin: dict = Depends(_require)):
 
 
 @router.get("/task-workspaces")
-def task_workspaces(code: str = "", admin: dict = Depends(_require)):
-    """The workspaces of the card's access code, to pick the one for the question task."""
-    return {"workspaces": tasks.workspaces_for_code(code) if code.strip() else []}
+def task_workspaces(admin: dict = Depends(_require)):
+    """The workspaces of the saved card's access code, no other code can be looked up here."""
+    code = repo.get_config()["taskCard"]["accessCode"]
+    return {"workspaces": tasks.workspaces_for_code(code) if code else []}
 
 
 @router.delete("/card")

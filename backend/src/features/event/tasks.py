@@ -2,9 +2,11 @@
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
+from fastapi import Depends
 from loguru import logger
 
 from src.core.db.pool import get_connection
+from src.dependencies import get_current_user
 from src.features.event import repository as repo
 from src.features.event.service import TASK_IDS, task_card_for, tasks_view
 
@@ -132,3 +134,8 @@ def mark_question(user_id: int, workspace_uuid: str) -> None:
             add_done(user_id, "question")
     except Exception as fehler:
         logger.warning("Event task tick failed user={}: {}", user_id, fehler)
+
+
+def question_sent(workspace_uuid: str, current_user: dict = Depends(get_current_user)) -> None:
+    """Chat dependency that ticks the question task as soon as the request arrives."""
+    mark_question(current_user["user_id"], workspace_uuid)

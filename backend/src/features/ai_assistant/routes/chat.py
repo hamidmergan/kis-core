@@ -94,6 +94,8 @@ async def chat(
     body: schemas.ChatBody,
     request: Request,
     current_user: dict = Depends(get_current_user),
+    # Before the provider lookup, sending is enough for the event task even if no provider answers.
+    _event_task: None = Depends(event_tasks.question_sent),
     llm=Depends(get_llm_client),
     locale: str = Depends(get_locale),
 ):
@@ -122,8 +124,6 @@ async def chat(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-    # Sending is enough for the event task, the answer may still fail.
-    event_tasks.mark_question(user_id, workspace_uuid)
 
     # The tutor language per course room and person drives the refusal sentence.
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
