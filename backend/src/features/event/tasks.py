@@ -104,6 +104,14 @@ def counts() -> dict:
     return {"byTask": {task_id: je_aufgabe.get(task_id, 0) for task_id in TASK_IDS}, "complete": voll}
 
 
+def delete_for(user_id: int) -> None:
+    """Takes every tick off one account, it starts over."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_tasks WHERE user_id = %s", (user_id,))
+        conn.commit()
+
+
 def delete_all() -> None:
     """Empties every task card at once."""
     with get_connection() as conn:
@@ -127,10 +135,9 @@ def view_for(user_id: int) -> dict:
 
 
 def mark_question(user_id: int, workspace_uuid: str) -> None:
-    """Ticks the question task once a question is sent in the card's workspace, never breaks the chat."""
+    """Ticks the question task once a question is sent in any workspace, never breaks the chat."""
     try:
-        karte = card_for(user_id)
-        if karte is not None and karte["workspace"] and karte["workspace"] == workspace_uuid:
+        if card_for(user_id) is not None:
             add_done(user_id, "question")
     except Exception as fehler:
         logger.warning("Event task tick failed user={}: {}", user_id, fehler)

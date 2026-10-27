@@ -119,6 +119,13 @@ def task_workspaces(admin: dict = Depends(_require)):
     return {"workspaces": tasks.workspaces_for_code(code) if code else []}
 
 
+@router.delete("/tasks/me")
+def reset_own_tasks(admin: dict = Depends(_require)):
+    """Empties the task card of the signed-in account so it can walk the tasks again."""
+    tasks.delete_for(admin["user_id"])
+    return {"ok": True}
+
+
 @router.delete("/card")
 def reset_own_card(admin: dict = Depends(_require), besucher: str = Depends(_visitor)):
     """Empties the card of this browser so the holder of the right can walk the stands again."""

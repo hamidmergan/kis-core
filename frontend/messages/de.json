@@ -5331,7 +5331,7 @@
       "workspace": "Workspace für die Frage",
       "workspaceNone": "Kein Workspace",
       "workspaceUnknown": "Gespeicherter Workspace, nicht mehr am Zugangscode",
-      "workspaceHint": "Zur Auswahl stehen die Workspaces des Zugangscodes. Eine Frage dort setzt den ersten Haken.",
+      "workspaceHint": "Zur Auswahl stehen die Workspaces des Zugangscodes. Der Link der ersten Aufgabe führt dorthin, eine Frage in jedem Workspace setzt den Haken.",
       "workspaceEmpty": "Der Zugangscode hat keine Workspaces. Hinterlege den Workspace zuerst am Zugangscode.",
       "statsTitle": "Auswertung",
       "statsFailed": "Die Zahlen konnten nicht geladen werden.",
@@ -5339,7 +5339,11 @@
       "complete": "Alle drei erledigt",
       "forEveryone": "Für alle sichtbar, unabhängig vom Zugangscode",
       "accessCodeHintAll": "Alle Konten sehen die Karte. Der Zugangscode legt nur fest, welche Workspaces zur Auswahl stehen.",
-      "activeAll": "Aktiv. Alle Konten sehen die Karte, solange der Zeitraum läuft."
+      "activeAll": "Aktiv. Alle Konten sehen die Karte, solange der Zeitraum läuft.",
+      "resetOwn": "Meine Haken zurücksetzen",
+      "resetOwnDone": "Deine Haken sind zurückgesetzt.",
+      "resetOwnFailed": "Zurücksetzen hat nicht geklappt.",
+      "resetOwnHint": "Leert nur die Karte deines eigenen Kontos, alle anderen bleiben, wie sie sind."
     }
   },
   "eventTasks": {

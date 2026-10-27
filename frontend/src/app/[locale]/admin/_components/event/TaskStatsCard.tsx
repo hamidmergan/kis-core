@@ -6,6 +6,7 @@ import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { eventApi } from "@/lib/event/api";
 import { TASK_IDS } from "@/lib/event/tasks";
 import type { EventStats } from "@/lib/event/types";
+import { BTN_SECONDARY } from "./fields";
 
 /** Accounts per ticked task and how many finished the card. */
 export default function TaskStatsCard() {
@@ -13,9 +14,22 @@ export default function TaskStatsCard() {
   const tt = useTranslations("eventTasks.tasks");
   const [stats, setStats] = useState<EventStats["tasks"] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [version, setVersion] = useState(0);
+  const [reset, setReset] = useState<"idle" | "busy" | "done" | "failed">("idle");
   useEffect(() => {
     eventApi.adminStats().then((s) => setStats(s.tasks)).catch(() => setFailed(true));
-  }, []);
+  }, [version]);
+
+  const resetOwn = () => {
+    setReset("busy");
+    eventApi
+      .adminResetOwnTasks()
+      .then(() => {
+        setReset("done");
+        setVersion((v) => v + 1);
+      })
+      .catch(() => setReset("failed"));
+  };
 
   return (
     <SettingCard title={t("statsTitle")}>
@@ -34,6 +48,14 @@ export default function TaskStatsCard() {
           </li>
         </ul>
       )}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={resetOwn} disabled={reset === "busy"} className={BTN_SECONDARY} data-testid="task-reset-own">
+          {t("resetOwn")}
+        </button>
+        {reset === "done" && <span className="text-sm text-foreground-soft">{t("resetOwnDone")}</span>}
+        {reset === "failed" && <span className="text-sm text-error">{t("resetOwnFailed")}</span>}
+      </div>
+      <p className="mt-2 text-xs text-muted">{t("resetOwnHint")}</p>
     </SettingCard>
   );
 }

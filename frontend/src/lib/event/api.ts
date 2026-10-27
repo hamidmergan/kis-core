@@ -54,6 +54,7 @@ export const eventApi = {
       body: JSON.stringify(config),
     }),
   adminStats: () => request<EventStats>("/admin/event/stats"),
+  adminResetOwnTasks: () => request<{ ok: boolean }>("/admin/event/tasks/me", { method: "DELETE" }),
   adminTaskWorkspaces: () => request<{ workspaces: { uuid: string; title: string }[] }>("/admin/event/task-workspaces"),
   adminResetMyCard: () => request<Card>("/admin/event/card", { method: "DELETE", headers: visitor() }),
   adminResetOneCard: (code: string) =>

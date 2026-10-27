@@ -5331,7 +5331,7 @@
       "workspace": "Workspace for the question",
       "workspaceNone": "No workspace",
       "workspaceUnknown": "Saved workspace, no longer on the access code",
-      "workspaceHint": "The choice lists the workspaces of the access code. A question there sets the first tick.",
+      "workspaceHint": "The choice lists the workspaces of the access code. The first task links there, a question in any workspace sets the tick.",
       "workspaceEmpty": "The access code has no workspaces. Add the workspace to the access code first.",
       "statsTitle": "Statistics",
       "statsFailed": "The numbers could not be loaded.",
@@ -5339,7 +5339,11 @@
       "complete": "All three done",
       "forEveryone": "Visible to everyone, whatever the access code",
       "accessCodeHintAll": "Every account sees the card. The access code only sets which workspaces can be chosen.",
-      "activeAll": "Active. Every account sees the card while the period runs."
+      "activeAll": "Active. Every account sees the card while the period runs.",
+      "resetOwn": "Reset my ticks",
+      "resetOwnDone": "Your ticks are reset.",
+      "resetOwnFailed": "The reset did not work.",
+      "resetOwnHint": "Empties only the card of your own account, everyone else's stays as it is."
     }
   },
   "eventTasks": {

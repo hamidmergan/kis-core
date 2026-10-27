@@ -122,13 +122,20 @@ def test_ohne_sitzung_gesperrt():
     assert TestClient(app).get("/event-tasks").status_code == 401
 
 
-def test_frage_nur_im_workspace_der_karte(monkeypatch):
+def test_frage_zaehlt_in_jedem_workspace(monkeypatch):
     gesetzt = []
     monkeypatch.setattr(tasks, "card_for", lambda user_id: KARTE)
     monkeypatch.setattr(tasks, "add_done", lambda user_id, task_id: gesetzt.append(task_id))
-    tasks.mark_question(7, "anderer-workspace")
-    tasks.mark_question(7, "ws-uuid")
+    tasks.mark_question(7, "eigener-workspace")
     assert gesetzt == ["question"]
+
+
+def test_frage_ohne_karte_zaehlt_nicht(monkeypatch):
+    gesetzt = []
+    monkeypatch.setattr(tasks, "card_for", lambda user_id: None)
+    monkeypatch.setattr(tasks, "add_done", lambda user_id, task_id: gesetzt.append(task_id))
+    tasks.mark_question(7, "ws-uuid")
+    assert gesetzt == []
 
 
 def test_fehler_beim_haken_bricht_den_chat_nicht(monkeypatch):
@@ -256,3 +263,18 @@ def test_fremder_workspace_wird_beim_speichern_geleert(admin_client):
     config["taskCard"]["workspace"] = "ws-uuid"
     http.put("/admin/event", json=config)
     assert gespeichert["taskCard"]["workspace"] == "ws-uuid"
+
+
+def test_eigene_haken_zuruecksetzen(admin_client, monkeypatch):
+    http, _ = admin_client
+    geleert = []
+    monkeypatch.setattr(tasks, "delete_for", lambda user_id: geleert.append(user_id))
+    assert http.delete("/admin/event/tasks/me").status_code == 200
+    assert geleert == [1]
+
+
+def test_haken_einzeln_loeschen(konto_am_code):
+    user_id = konto_am_code["user_id"]
+    tasks.add_done(user_id, "question")
+    tasks.delete_for(user_id)
+    assert tasks.done_for(user_id) == {}
