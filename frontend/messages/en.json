@@ -5336,7 +5336,10 @@
       "statsTitle": "Statistics",
       "statsFailed": "The numbers could not be loaded.",
       "accounts": "{n, plural, one {# account} other {# accounts}}",
-      "complete": "All three done"
+      "complete": "All three done",
+      "forEveryone": "Visible to everyone, whatever the access code",
+      "accessCodeHintAll": "Every account sees the card. The access code only sets which workspaces can be chosen.",
+      "activeAll": "Active. Every account sees the card while the period runs."
     }
   },
   "eventTasks": {

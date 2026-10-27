@@ -61,6 +61,7 @@ class TaskCardPayload(BaseModel):
     until: str = ""
     accessCode: str = Field("", max_length=64)
     workspace: str = Field("", max_length=64)
+    forEveryone: bool = False
 
 
 class EventConfigPayload(BaseModel):

@@ -5336,7 +5336,10 @@
       "statsTitle": "Auswertung",
       "statsFailed": "Die Zahlen konnten nicht geladen werden.",
       "accounts": "{n, plural, one {# Konto} other {# Konten}}",
-      "complete": "Alle drei erledigt"
+      "complete": "Alle drei erledigt",
+      "forEveryone": "Für alle sichtbar, unabhängig vom Zugangscode",
+      "accessCodeHintAll": "Alle Konten sehen die Karte. Der Zugangscode legt nur fest, welche Workspaces zur Auswahl stehen.",
+      "activeAll": "Aktiv. Alle Konten sehen die Karte, solange der Zeitraum läuft."
     }
   },
   "eventTasks": {

@@ -55,6 +55,8 @@ export interface TaskCardConfig {
   accessCode: string;
   /** The uuid of the workspace where the question task is asked. */
   workspace: string;
+  /** Every account sees the card, the access code then only offers the workspaces. */
+  forEveryone: boolean;
 }
 
 /** What the admin edits and the server stores, the codes only travel to the admin. */

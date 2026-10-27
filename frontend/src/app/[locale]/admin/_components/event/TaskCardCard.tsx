@@ -42,7 +42,7 @@ export default function TaskCardCard() {
   return (
     <SettingCard
       title={t("title")}
-      description={card.enabled ? t("active") : t("disabled")}
+      description={card.enabled ? (card.forEveryone ? t("activeAll") : t("active")) : t("disabled")}
       control={<Switch checked={card.enabled} onChange={(enabled) => set({ enabled })} label={t("toggleAria")} />}
     >
       <div className="mt-4 flex flex-col gap-3" data-testid="task-card-admin">
@@ -60,6 +60,12 @@ export default function TaskCardCard() {
           label={t("ignoreWindow")}
           labelClassName="text-sm"
         />
+        <Checkbox
+          checked={card.forEveryone}
+          onChange={(forEveryone) => set({ forEveryone })}
+          label={t("forEveryone")}
+          labelClassName="text-sm"
+        />
         <Labeled label={t("accessCode")}>
           <input
             type="text"
@@ -68,7 +74,7 @@ export default function TaskCardCard() {
             className={`${INPUT} font-mono`}
           />
         </Labeled>
-        <p className="text-xs text-muted -mt-1">{t("accessCodeHint")}</p>
+        <p className="text-xs text-muted -mt-1">{card.forEveryone ? t("accessCodeHintAll") : t("accessCodeHint")}</p>
         <Labeled label={t("workspace")}>
           <Select value={card.workspace} onChange={(workspace) => set({ workspace })} options={options} ariaLabel={t("workspace")} />
         </Labeled>

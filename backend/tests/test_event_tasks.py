@@ -37,6 +37,13 @@ def test_karte_nur_im_zeitfenster_und_eingeschaltet():
     assert task_card_for({**KARTE, "ignoreWindow": True}, date(2026, 10, 1), "KIS-DEMO-0000")
 
 
+def test_fuer_alle_unabhaengig_vom_code():
+    alle = {**KARTE, "forEveryone": True}
+    assert task_card_for(alle, TAG, None)
+    assert task_card_for(alle, TAG, "KIS-ANDERS-1111")
+    assert not task_card_for(alle, date(2026, 11, 12), None)
+
+
 def test_leerer_code_zeigt_niemandem_die_karte():
     assert not task_card_for({**KARTE, "accessCode": ""}, TAG, "")
 

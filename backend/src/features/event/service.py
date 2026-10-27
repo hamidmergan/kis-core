@@ -140,6 +140,7 @@ def default_task_card() -> dict:
         "until": "2026-11-13",
         "accessCode": "KIS-DEMO-0000",
         "workspace": "",
+        "forEveryone": False,
     }
 
 
@@ -259,8 +260,10 @@ def same_access_code(a: str | None, b: str | None) -> bool:
 
 
 def task_card_for(card: dict, today: date, user_code: str | None) -> bool:
-    """Whether this account sees the task card today, only accounts from the card's code do."""
-    return event_block_visible(card, today) and same_access_code(user_code, card.get("accessCode"))
+    """Whether this account sees the task card today, every account or only those from the card's code."""
+    if not event_block_visible(card, today):
+        return False
+    return bool(card.get("forEveryone")) or same_access_code(user_code, card.get("accessCode"))
 
 
 def tasks_view(done: dict[str, int], workspace: str, workspace_title: str = "") -> dict:
@@ -338,6 +341,7 @@ def validate_config(config: dict) -> dict:
         "until": karte["until"] or "",
         "accessCode": str(karte["accessCode"] or "").strip(),
         "workspace": str(karte["workspace"] or "").strip(),
+        "forEveryone": bool(karte["forEveryone"]),
     }
 
     return {
