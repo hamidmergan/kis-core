@@ -446,11 +446,26 @@ class _Door:
         cap = target.caps.get(self.bucket)
         if not cap or _exempt.get():
             return []
+        cap = self._shared_cap(target, int(cap))
         wanted = []
         if self.bucket == "llm" and _text_chars(body) >= LLM_LARGE_INPUT_CHARS:
             wanted.append((f"{target.provider_id}:llm:large", max(1, int(cap) // LLM_LARGE_INPUT_SHARE)))
         wanted.append((f"{target.provider_id}:{self.bucket}", int(cap)))
         return wanted
+
+    def _shared_cap(self, target: Target, cap: int) -> int:
+        """A provider that is down hands its LLM seats to the ones still answering, each at most doubles."""
+        if self.bucket != "llm" or not self.backups:
+            return cap
+        caps = [(t, int(t.caps.get(self.bucket) or 0)) for t in (self.primary, *self.backups)]
+        # An uncapped provider in the line takes any overflow anyway.
+        if any(c <= 0 for _t, c in caps):
+            return cap
+        alle = sum(c for _t, c in caps)
+        da = sum(c for t, c in caps if not _is_down(t, self.bucket))
+        if not da or da >= alle:
+            return cap
+        return min(cap * 2, max(cap, round(cap * alle / da)))
 
     def served(self, target: Target) -> None:
         """Names the provider that really answered, the SDK's own log line only knows the first choice."""
