@@ -23,7 +23,7 @@ export function tileHref(target: EventTileData["target"], signedIn = false): str
   }
 }
 
-function lockedNote(availableFrom: string, locale: string, t: (k: string, v?: Record<string, string>) => string): string {
+export function lockedNote(availableFrom: string, locale: string, t: (k: string, v?: Record<string, string>) => string): string {
   const day = availableFrom ? new Date(`${availableFrom}T12:00:00`) : null;
   if (!day || Number.isNaN(day.getTime())) return t("lockedSoon");
   const date = day.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "numeric", month: "long", year: "numeric" });

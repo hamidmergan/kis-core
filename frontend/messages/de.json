@@ -5322,7 +5322,7 @@
       },
       "placementHint": {
         "block": "Die Kachel steht im Event-Block unter dem Startbild.",
-        "banner": "Statt der Kachel erscheint ein Streifen direkt unter der Kopfzeile: fett die Überschrift des Event-Blocks, daneben die Beschreibung und der Button dieser Kachel. Nur solange der Button freigeschaltet ist.",
+        "banner": "Statt der Kachel erscheint ein Streifen direkt unter der Kopfzeile: fett die Überschrift des Event-Blocks, daneben die Beschreibung und der Button dieser Kachel. Ist die Kachel gesperrt, steht der Button ausgegraut mit dem Datum der Freischaltung darunter.",
         "both": "Die Kachel steht im Event-Block, zusätzlich erscheint sie als Banner direkt unter der Kopfzeile.",
         "none": "Die Kachel erscheint nirgends, bleibt hier aber mit allen Texten gespeichert."
       }

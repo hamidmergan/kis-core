@@ -5322,7 +5322,7 @@
       },
       "placementHint": {
         "block": "The tile stands in the event block below the hero.",
-        "banner": "Instead of the tile a strip shows right under the header: the event block heading in bold, next to it this tile's description and button. Only while the button is unlocked.",
+        "banner": "Instead of the tile a strip shows right under the header: the event block heading in bold, next to it this tile's description and button. While the tile is locked, the button is greyed out with the unlock date below it.",
         "both": "The tile stands in the event block and also shows as the banner right under the header.",
         "none": "The tile shows nowhere but stays saved here with all its texts."
       }
