@@ -665,11 +665,11 @@ me-tpc:hover .mm-src-chip {
     align-items: center;
     background: #ffffff;
     border-radius: 0.5rem;
-    padding: 0.3125rem 0.5rem 0.3125rem 0.625rem;
+    padding: 0.375rem 0.75rem 0.375rem 0.875rem;
   }
   .logo-plate--sm {
     border-radius: 0.4375rem;
-    padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+    padding: 0.3125rem 0.625rem 0.3125rem 0.75rem;
   }
 
   /* Expand mark: no border, the hint is the mark itself, which gets stronger on
