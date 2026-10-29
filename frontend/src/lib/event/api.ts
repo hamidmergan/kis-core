@@ -1,4 +1,4 @@
-import type { Card, EventConfig, EventStats, PublicEvent } from "@/lib/event/types";
+import type { Card, EventConfig, EventStats, PublicEvent, RaffleEntry } from "@/lib/event/types";
 
 const VISITOR_KEY = "kis.event.visitor";
 
@@ -46,6 +46,14 @@ export const eventApi = {
       headers: visitor(),
       body: JSON.stringify({ code }),
     }),
+  raffleEnter: (email: string) =>
+    request<Card>("/event/raffle", { method: "PUT", headers: visitor(), body: JSON.stringify({ email }) }),
+  raffleWithdraw: (email: string) =>
+    request<{ ok: boolean }>("/event/raffle/withdraw", {
+      method: "POST",
+      headers: visitor(),
+      body: JSON.stringify({ email }),
+    }),
   adminGet: () => request<EventConfig>("/admin/event"),
   adminPut: (config: EventConfig) =>
     request<EventConfig>("/admin/event", {
@@ -60,4 +68,7 @@ export const eventApi = {
   adminResetOneCard: (code: string) =>
     request<{ ok: boolean }>(`/admin/event/card/${encodeURIComponent(code)}`, { method: "DELETE" }),
   adminResetAllStamps: () => request<{ ok: boolean }>("/admin/event/stamps", { method: "DELETE" }),
+  adminRaffleEntries: () => request<{ entries: RaffleEntry[] }>("/admin/event/raffle"),
+  adminDeleteRaffleEntry: (id: number) => request<{ ok: boolean }>(`/admin/event/raffle/${id}`, { method: "DELETE" }),
+  adminDeleteAllRaffleEntries: () => request<{ ok: boolean }>("/admin/event/raffle", { method: "DELETE" }),
 };

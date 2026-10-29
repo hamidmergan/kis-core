@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field
 from src.features.event import repository as repo
 from src.features.event.service import (
     build_card,
+    is_valid_email,
     is_valid_visitor_id,
+    normalize_email,
     public_view,
     station_by_code,
     visitor_hash,
@@ -45,6 +47,7 @@ def _card(besucher: str, stations: list[dict], jetzt: int) -> dict:
         attempts_left=versuche,
     )
     karte["code"] = repo.peek_visitor_code(besucher)
+    karte["raffleEmail"] = repo.raffle_email_for(besucher)
     return karte
 
 
@@ -107,4 +110,38 @@ def stamp_by_code(payload: CodePayload, besucher: str = Depends(_visitor)):
         attempts_left=versuche,
     )
     karte["code"] = repo.peek_visitor_code(besucher)
+    karte["raffleEmail"] = repo.raffle_email_for(besucher)
     return {"result": ergebnis, "stationId": stand_id, "card": karte}
+
+
+class RafflePayload(BaseModel):
+    email: str = Field(..., max_length=320)
+
+
+@router.put("/raffle")
+def enter_raffle(payload: RafflePayload, besucher: str = Depends(_visitor), locale: str = Depends(get_locale)):
+    """Puts a full card into the raffle, the address replaces an earlier one of this card."""
+    config = repo.get_config()
+    if not config["raffle"]["enabled"]:
+        raise HTTPException(status_code=404, detail=t("event.raffleOff", locale))
+    karte = _card(besucher, config["stations"], _now_ms())
+    if karte["completedAt"] is None:
+        raise HTTPException(status_code=409, detail=t("event.raffleCardIncomplete", locale))
+    email = normalize_email(payload.email)
+    if not is_valid_email(email):
+        raise HTTPException(status_code=422, detail=t("event.raffleEmailInvalid", locale))
+    repo.save_raffle_entry(besucher, email)
+    karte["raffleEmail"] = email
+    return karte
+
+
+@router.post("/raffle/withdraw")
+def withdraw_from_raffle(payload: RafflePayload, besucher: str = Depends(_visitor), locale: str = Depends(get_locale)):
+    """Takes an address out of the raffle, the answer never tells whether it was in."""
+    if not repo.withdraw_allowed(besucher):
+        raise HTTPException(status_code=429, detail=t("event.raffleTooMany", locale))
+    email = normalize_email(payload.email)
+    if not is_valid_email(email):
+        raise HTTPException(status_code=422, detail=t("event.raffleEmailInvalid", locale))
+    repo.delete_raffle_entry_by_email(email)
+    return {"ok": True}

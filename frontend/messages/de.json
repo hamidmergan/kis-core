@@ -2103,7 +2103,8 @@
           "stations": "Stände",
           "block": "Event-Block",
           "stats": "Auswertung",
-          "tasks": "Aufgabenkarte"
+          "tasks": "Aufgabenkarte",
+          "raffle": "Verlosung"
         }
       },
       "campus": {
@@ -3541,6 +3542,7 @@
       "item2": "Inhalte, die Sie hochladen oder eingeben, und die daraus erzeugten Ergebnisse",
       "item3": "Nutzungsdaten wie genutzte Dienste und Anwesenheitszeiten",
       "item4": "Server-Logs mit IP-Adresse, Zeitpunkt und aufgerufener Seite",
+      "item5": "Bei einer Verlosung die E-Mail-Adresse, wenn Sie sie dort freiwillig angeben",
       "outro": "Personen mit einer entsprechenden Berechtigung können diese Daten zur technischen Betreuung einsehen."
     },
     "cookies": {
@@ -3557,7 +3559,7 @@
     },
     "legalBasis": {
       "heading": "6. Rechtsgrundlage",
-      "body": "Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung der Plattform), für Server-Logs Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am sicheren Betrieb). Eingebettete YouTube-Videos laden nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Die Übermittlung in die USA stützt sich auf den Angemessenheitsbeschluss der EU-Kommission (Art. 45 DSGVO, EU-US Data Privacy Framework)."
+      "body": "Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung der Plattform), für Server-Logs Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am sicheren Betrieb). Eingebettete YouTube-Videos laden nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Die Übermittlung in die USA stützt sich auf den Angemessenheitsbeschluss der EU-Kommission (Art. 45 DSGVO, EU-US Data Privacy Framework). Die Teilnahme an einer Verlosung beruht auf Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)."
     },
     "rights": {
       "heading": "7. Ihre Rechte",
@@ -5193,6 +5195,22 @@
       "reward": "Hol dir dein Geschenk am Info-Stand ab.",
       "since": "Abgeschlossen um {time} Uhr"
     },
+    "raffle": {
+      "email": "E-Mail-Adresse",
+      "submit": "An der Verlosung teilnehmen",
+      "failed": "Das hat nicht geklappt. Bitte versuche es gleich noch einmal.",
+      "entered": "Eingetragen mit {email}.",
+      "withdrawHint": "Du kannst deine Adresse jederzeit wieder austragen:",
+      "withdrawLink": "Austragen"
+    },
+    "withdraw": {
+      "title": "Aus der Verlosung austragen",
+      "intro": "Gib die E-Mail-Adresse ein, mit der du dich eingetragen hast. Sie wird aus der Verlosung entfernt.",
+      "email": "E-Mail-Adresse",
+      "submit": "Austragen",
+      "done": "Falls die Adresse eingetragen war, ist sie jetzt entfernt.",
+      "failed": "Das hat nicht geklappt. Bitte versuche es gleich noch einmal."
+    },
     "myCode": {
       "reveal": "Meine Kartennummer",
       "hint": "Zeig diese Nummer am Stand, falls deine Stempelkarte zurückgesetzt werden soll."
@@ -5332,6 +5350,35 @@
     "saving": "Speichert …",
     "saved": "Gespeichert",
     "saveFailed": "Speichern fehlgeschlagen.",
+    "raffle": {
+      "title": "Verlosung unter der vollen Stempelkarte",
+      "active": "Aktiv. Wer alle Stempel hat, kann sich mit einer E-Mail-Adresse eintragen.",
+      "disabled": "Deaktiviert. Der Kasten erscheint nicht.",
+      "toggleAria": "Verlosung umschalten",
+      "heading": "Titel",
+      "text": "Text zum Gewinn",
+      "consent": "Text am Pflicht-Häkchen",
+      "consentHint": "Die Adressen dürfen nur für die Zwecke genutzt werden, die hier stehen.",
+      "done": "Text nach dem Eintragen",
+      "entriesTitle": "Einträge",
+      "count": "{n, plural, =0 {Noch keine Einträge} one {# Eintrag} other {# Einträge}}",
+      "loading": "Lädt …",
+      "loadFailed": "Die Einträge konnten nicht geladen werden.",
+      "linkTitle": "Austragen-Link",
+      "linkHint": "Wer angeschrieben wird, bekommt diesen Link mit. Darüber kann jede Person ihre Adresse selbst entfernen.",
+      "snippetTitle": "Textbaustein für die E-Mail",
+      "snippet": "Du hast dich bei unserer Verlosung eingetragen. Wenn du deine E-Mail-Adresse wieder austragen möchtest, geh auf diesen Link: {url}",
+      "copyLink": "Link kopieren",
+      "copyText": "Text kopieren",
+      "copied": "Kopiert",
+      "delete": "Löschen",
+      "deleteAria": "Eintrag {email} löschen",
+      "csv": "Als CSV herunterladen",
+      "all": "Alle Einträge löschen",
+      "allConfirmTitle": "Alle Einträge löschen?",
+      "allConfirmText": "Alle E-Mail-Adressen der Verlosung werden entfernt. Das lässt sich nicht rückgängig machen.",
+      "failed": "Das hat nicht geklappt."
+    },
     "tasks": {
       "title": "Aufgabenkarte auf der Dienste-Seite",
       "active": "Aktiv. Konten aus dem Zugangscode sehen die Karte, solange der Zeitraum läuft.",

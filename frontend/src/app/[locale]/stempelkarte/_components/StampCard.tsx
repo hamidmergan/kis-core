@@ -11,6 +11,7 @@ import { usePublicEvent } from "@/lib/event/usePublicEvent";
 import { useStampCard } from "@/lib/event/useStampCard";
 import CodeEntry from "./CodeEntry";
 import CompletionScreen from "./CompletionScreen";
+import RaffleEntry from "./RaffleEntry";
 import StampGrid from "./StampGrid";
 import StampNotice, { type HintMood } from "./StampNotice";
 import VisitorCodeAccordion from "./VisitorCodeAccordion";
@@ -21,7 +22,7 @@ export default function StampCard() {
   const searchParams = useSearchParams();
   const { variant } = useMascotPref();
   const { data, failed } = usePublicEvent();
-  const { card, ready, failed: cardFailed, stamp, submitCode } = useStampCard();
+  const { card, ready, failed: cardFailed, stamp, submitCode, enterRaffle } = useStampCard();
   const stations = data?.stations ?? [];
   const [mood, setMood] = useState<HintMood>({ kind: "welcome" });
   const [pulseId, setPulseId] = useState<string | null>(null);
@@ -65,7 +66,10 @@ export default function StampCard() {
       ) : loading ? (
         <p className="text-sm text-foreground-soft">{t("loading")}</p>
       ) : showComplete ? (
-        <CompletionScreen variant={variant} completedAt={card.completedAt} />
+        <>
+          <CompletionScreen variant={variant} completedAt={card.completedAt} />
+          {data?.raffle && <RaffleEntry raffle={data.raffle} email={card.raffleEmail} enter={enterRaffle} />}
+        </>
       ) : (
         <>
           <StampNotice mood={mood} next={suggestNext(card, stations, lastId)} />

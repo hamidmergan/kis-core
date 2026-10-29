@@ -65,6 +65,14 @@ class TaskCardPayload(BaseModel):
     forEveryone: bool = True
 
 
+class RafflePayload(BaseModel):
+    enabled: bool = False
+    title: Text2Payload
+    text: Text2Payload
+    consent: Text2Payload
+    done: Text2Payload
+
+
 class EventConfigPayload(BaseModel):
     stations: list[StationPayload]
     eventBlock: EventBlockPayload
@@ -72,6 +80,7 @@ class EventConfigPayload(BaseModel):
     hideCodeOnPosters: bool = False
     # Missing in an older form, the saved card is then kept instead of reset.
     taskCard: TaskCardPayload | None = None
+    raffle: RafflePayload | None = None
 
 
 @router.get("")
@@ -88,6 +97,8 @@ def save_event(
     roh = payload.model_dump(by_alias=True)
     if roh.get("taskCard") is None:
         roh["taskCard"] = repo.get_config()["taskCard"]
+    if roh.get("raffle") is None:
+        roh["raffle"] = repo.get_config()["raffle"]
     try:
         config = validate_config(roh)
     except EventValidationError as fehler:
@@ -151,4 +162,23 @@ def reset_all_stamps(admin: dict = Depends(require_full_admin)):
     repo.delete_all_stamps()
     repo.delete_all_visitor_codes()
     tasks.delete_all()
+    return {"ok": True}
+
+
+@router.get("/raffle")
+def raffle_entries(admin: dict = Depends(_require)):
+    """Every address in the raffle, the holder of the event right draws and writes to them by hand."""
+    return {"entries": repo.raffle_entries()}
+
+
+@router.delete("/raffle/{entry_id}")
+def delete_raffle_entry(entry_id: int, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    if not repo.delete_raffle_entry(entry_id):
+        raise HTTPException(status_code=404, detail=t("event.raffleEntryNotFound", locale))
+    return {"ok": True}
+
+
+@router.delete("/raffle")
+def delete_all_raffle_entries(admin: dict = Depends(require_full_admin)):
+    repo.delete_all_raffle_entries()
     return {"ok": True}

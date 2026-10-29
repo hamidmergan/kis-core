@@ -2103,7 +2103,8 @@
           "stations": "Stands",
           "block": "Event block",
           "stats": "Results",
-          "tasks": "Task card"
+          "tasks": "Task card",
+          "raffle": "Raffle"
         }
       },
       "campus": {
@@ -3541,6 +3542,7 @@
       "item2": "Content you upload or enter, and the results created from it",
       "item3": "Usage data such as services used and presence times",
       "item4": "Server logs with IP address, time and page requested",
+      "item5": "For a raffle, the email address if you enter it there voluntarily",
       "outro": "People with the relevant permission can view this data for technical support."
     },
     "cookies": {
@@ -3557,7 +3559,7 @@
     },
     "legalBasis": {
       "heading": "6. Legal basis",
-      "body": "Art. 6(1)(b) GDPR (provision of the platform), for server logs Art. 6(1)(f) GDPR (legitimate interest in secure operation). Embedded YouTube videos load only with your consent (Art. 6(1)(a) GDPR). The transfer to the USA is based on the adequacy decision of the EU Commission (Art. 45 GDPR, EU-US Data Privacy Framework)."
+      "body": "Art. 6(1)(b) GDPR (provision of the platform), for server logs Art. 6(1)(f) GDPR (legitimate interest in secure operation). Embedded YouTube videos load only with your consent (Art. 6(1)(a) GDPR). The transfer to the USA is based on the adequacy decision of the EU Commission (Art. 45 GDPR, EU-US Data Privacy Framework). Taking part in a raffle rests on your consent (Art. 6(1)(a) GDPR)."
     },
     "rights": {
       "heading": "7. Your rights",
@@ -5193,6 +5195,22 @@
       "reward": "Pick up your gift at the info stand.",
       "since": "Completed at {time}"
     },
+    "raffle": {
+      "email": "Email address",
+      "submit": "Enter the raffle",
+      "failed": "That did not work. Please try again in a moment.",
+      "entered": "Entered with {email}.",
+      "withdrawHint": "You can remove your address at any time:",
+      "withdrawLink": "Withdraw"
+    },
+    "withdraw": {
+      "title": "Withdraw from the raffle",
+      "intro": "Enter the email address you used. It is removed from the raffle.",
+      "email": "Email address",
+      "submit": "Withdraw",
+      "done": "If the address was in the raffle, it has now been removed.",
+      "failed": "That did not work. Please try again in a moment."
+    },
     "myCode": {
       "reveal": "My card number",
       "hint": "Show this number at a stand if your stamp card should be reset."
@@ -5332,6 +5350,35 @@
     "saving": "Saving …",
     "saved": "Saved",
     "saveFailed": "Saving failed.",
+    "raffle": {
+      "title": "Raffle under the full stamp card",
+      "active": "Active. Anyone with every stamp can enter an email address.",
+      "disabled": "Disabled. The box does not appear.",
+      "toggleAria": "Toggle raffle",
+      "heading": "Title",
+      "text": "Text about the prize",
+      "consent": "Text at the required checkbox",
+      "consentHint": "The addresses may only be used for the purposes named here.",
+      "done": "Text after entering",
+      "entriesTitle": "Entries",
+      "count": "{n, plural, =0 {No entries yet} one {# entry} other {# entries}}",
+      "loading": "Loading …",
+      "loadFailed": "The entries could not be loaded.",
+      "linkTitle": "Withdraw link",
+      "linkHint": "Anyone you write to gets this link. It lets each person remove their own address.",
+      "snippetTitle": "Text snippet for the email",
+      "snippet": "You entered our raffle. If you want to remove your email address, open this link: {url}",
+      "copyLink": "Copy link",
+      "copyText": "Copy text",
+      "copied": "Copied",
+      "delete": "Delete",
+      "deleteAria": "Delete entry {email}",
+      "csv": "Download as CSV",
+      "all": "Delete all entries",
+      "allConfirmTitle": "Delete all entries?",
+      "allConfirmText": "Every email address of the raffle is removed. This cannot be undone.",
+      "failed": "That did not work."
+    },
     "tasks": {
       "title": "Task card on the services page",
       "active": "Active. Accounts from the access code see the card while the period runs.",

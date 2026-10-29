@@ -12,6 +12,7 @@ from src.limits import (
     EVENT_CODE_ATTEMPT_TTL_SECONDS,
     EVENT_CODE_LOCK_SECONDS,
     EVENT_CODE_MAX_ATTEMPTS,
+    EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR,
 )
 from src.security.rate_limit import _redis
 
@@ -163,6 +164,88 @@ def complete_cards(station_ids) -> int:
                 (ids, len(ids)),
             )
             return int(cur.fetchone()[0])
+
+
+# --- raffle -------------------------------------------------------------------
+
+def raffle_email_for(visitor_hash: str) -> str | None:
+    """The address this visitor entered, None while the visitor is not in the raffle."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT email FROM event_raffle_entries WHERE visitor_hash = %s", (visitor_hash,))
+            row = cur.fetchone()
+            return row[0] if row else None
+
+
+def save_raffle_entry(visitor_hash: str, email: str) -> None:
+    """One entry per card and per address, a new entry replaces whatever either of them had."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM event_raffle_entries WHERE visitor_hash = %s OR email = %s",
+                (visitor_hash, email),
+            )
+            cur.execute(
+                "INSERT INTO event_raffle_entries (visitor_hash, email) VALUES (%s, %s)",
+                (visitor_hash, email),
+            )
+        conn.commit()
+
+
+def delete_raffle_entry_by_email(email: str) -> bool:
+    """Takes an address out of the raffle, True when it was in."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_raffle_entries WHERE email = %s RETURNING id", (email,))
+            weg = cur.fetchone() is not None
+        conn.commit()
+    return weg
+
+
+def delete_raffle_entry(entry_id: int) -> bool:
+    """Removes one entry from the admin list, True when it existed."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_raffle_entries WHERE id = %s RETURNING id", (entry_id,))
+            weg = cur.fetchone() is not None
+        conn.commit()
+    return weg
+
+
+def delete_all_raffle_entries() -> None:
+    """Empties the raffle, done once the winners are told."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_raffle_entries")
+        conn.commit()
+
+
+def raffle_entries() -> list[dict]:
+    """Every entry for the admin, newest first, times in epoch milliseconds."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, email, entered_at FROM event_raffle_entries ORDER BY entered_at DESC, id DESC")
+            return [
+                {"id": int(entry_id), "email": email, "enteredAt": _epoch_ms(entered_at)}
+                for entry_id, email, entered_at in cur.fetchall()
+            ]
+
+
+def _withdraw_key(visitor_hash: str) -> str:
+    return f"event:raffle:withdraw:{visitor_hash}"
+
+
+def withdraw_allowed(visitor_hash: str) -> bool:
+    """Counts a withdraw request of this browser, too many within the hour and it waits, Redis trouble lets it through."""
+    try:
+        r = _redis()
+        zaehler = int(r.incr(_withdraw_key(visitor_hash)))
+        r.expire(_withdraw_key(visitor_hash), 3600, nx=True)
+        r.close()
+    except Exception as fehler:
+        logger.warning("Event raffle withdraw Redis error: {}", fehler)
+        return True
+    return zaehler <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR
 
 
 # --- wrong codes --------------------------------------------------------------

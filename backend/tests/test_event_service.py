@@ -10,6 +10,9 @@ from src.features.event.service import (
     build_card,
     completed_at,
     default_config,
+    default_raffle,
+    is_valid_email,
+    normalize_email,
     event_block_visible,
     is_valid_visitor_id,
     normalize_code,
@@ -24,7 +27,7 @@ from src.features.event.service import (
 
 def test_the_seed_carries_neither_master_code_nor_statistics():
     config = default_config()
-    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters", "taskCard"}
+    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters", "taskCard", "raffle"}
     assert config["hideCodeOnPosters"] is False
     assert "masterCode" not in config
     assert len(config["stations"]) == 5
@@ -252,3 +255,53 @@ def test_event_window_follows_the_stamp_tile():
     assert event_window(config, date(2026, 11, 14)) is None
     assert event_window({"eventBlock": {**BLOCK, "tiles": []}}, date(2026, 11, 9)) is None
     assert event_window({"eventBlock": {**BLOCK, "enabled": False, "tiles": [tile]}}, date(2026, 11, 9)) is None
+
+
+# --- the raffle -----------------------------------------------------------------
+
+def test_the_seed_keeps_the_raffle_off_with_texts_in_both_languages():
+    raffle = default_config()["raffle"]
+    assert raffle["enabled"] is False
+    for feld in ("title", "text", "consent", "done"):
+        assert raffle[feld]["de"] and raffle[feld]["en"]
+
+
+def test_the_public_view_hides_the_raffle_while_it_is_off():
+    assert public_view(default_config(), date(2026, 11, 13))["raffle"] is None
+
+
+def test_the_public_view_shows_the_raffle_texts_without_the_switch():
+    config = default_config()
+    config["raffle"]["enabled"] = True
+    raffle = public_view(config, date(2026, 11, 13))["raffle"]
+    assert set(raffle) == {"title", "text", "consent", "done"}
+    assert raffle["title"]["de"] == "Verlosung"
+
+
+def test_the_admin_form_keeps_the_raffle_and_fills_missing_texts():
+    config = default_config()
+    config["raffle"] = {"enabled": True, "title": {"de": "Gewinnspiel"}}
+    raffle = validate_config(config)["raffle"]
+    assert raffle["enabled"] is True
+    assert raffle["title"] == {"de": "Gewinnspiel", "en": ""}
+    assert raffle["consent"] == default_raffle()["consent"]
+
+
+def test_an_older_form_without_a_raffle_gets_the_seed():
+    config = default_config()
+    del config["raffle"]
+    assert validate_config(config)["raffle"] == default_raffle()
+
+
+@pytest.mark.parametrize("email", ["a@b.de", "First.Last+tag@sub.example.org"])
+def test_plain_addresses_are_valid(email):
+    assert is_valid_email(normalize_email(email))
+
+
+@pytest.mark.parametrize("email", ["", "ohne-at.de", "zwei@@x.de", "a@b", "a b@c.de", "x@" + "y" * 260 + ".de"])
+def test_broken_addresses_are_rejected(email):
+    assert not is_valid_email(normalize_email(email))
+
+
+def test_normalising_lowers_and_trims():
+    assert normalize_email("  Max@TH-Luebeck.DE ") == "max@th-luebeck.de"

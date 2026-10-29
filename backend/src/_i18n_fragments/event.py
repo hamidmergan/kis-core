@@ -17,6 +17,26 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diese Kartennummer gibt es nicht",
         "en": "This card number does not exist",
     },
+    "event.raffleOff": {
+        "de": "Die Verlosung ist nicht aktiv",
+        "en": "The raffle is not active",
+    },
+    "event.raffleCardIncomplete": {
+        "de": "Die Stempelkarte ist noch nicht vollständig",
+        "en": "The stamp card is not complete yet",
+    },
+    "event.raffleEmailInvalid": {
+        "de": "Bitte gib eine gültige E-Mail-Adresse ein",
+        "en": "Please enter a valid email address",
+    },
+    "event.raffleTooMany": {
+        "de": "Zu viele Anfragen. Bitte versuche es später noch einmal",
+        "en": "Too many requests. Please try again later",
+    },
+    "event.raffleEntryNotFound": {
+        "de": "Diesen Eintrag gibt es nicht",
+        "en": "This entry does not exist",
+    },
     "event.config.stationIdEmpty": {
         "de": "Jeder Stand braucht eine Kennung",
         "en": "Every stand needs an id",

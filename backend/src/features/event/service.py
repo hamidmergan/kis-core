@@ -20,6 +20,11 @@ CLIENT_TASK_IDS = ("praesentation", "screencast")
 # The browser makes the id up, anything else is a stray request.
 _VISITOR_ID = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# One at sign with something on both sides and a dot in the domain, mail servers judge the rest.
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_MAX_LENGTH = 254
+# The texts of the raffle the admin writes in both languages.
+RAFFLE_TEXT_FIELDS = ("title", "text", "consent", "done")
 
 # The fields a visitor may see of a stand, the code is deliberately missing.
 _PUBLIC_STATION_FIELDS = ("id", "icon", "name", "blurb", "francis")
@@ -32,6 +37,12 @@ class EventValidationError(ValueError):
         super().__init__(key)
         self.key = key
         self.params = params
+
+
+def _text2(value) -> dict:
+    """A text pair as stored, anything that is not one becomes two empty strings."""
+    wert = value if isinstance(value, dict) else {}
+    return {"de": str(wert.get("de") or ""), "en": str(wert.get("en") or "")}
 
 
 def _text(de: str, en: str) -> dict:
@@ -132,6 +143,7 @@ def default_config() -> dict:
             ],
         },
         "taskCard": default_task_card(),
+        "raffle": default_raffle(),
     }
 
 
@@ -146,6 +158,43 @@ def default_task_card() -> dict:
         "workspace": "",
         "forEveryone": True,
     }
+
+
+def default_raffle() -> dict:
+    """The raffle under a full card stays off until the admin switches it on, its texts are a first draft."""
+    return {
+        "enabled": False,
+        "title": _text("Verlosung", "Raffle"),
+        "text": _text(
+            "Unter allen vollständigen Stempelkarten verlosen wir drei XXL-Tafeln Ritter Sport.",
+            "Among all complete stamp cards we are giving away three XXL bars of Ritter Sport.",
+        ),
+        "consent": _text(
+            "Ich willige ein, dass meine E-Mail-Adresse für die Verlosung und für eine Anfrage zum Testen "
+            "von askFrancis genutzt wird. Sie wird nach dem Pilotprojekt gelöscht.",
+            "I agree that my email address is used for the raffle and for a request to test askFrancis. "
+            "It is deleted after the pilot project.",
+        ),
+        "done": _text(
+            "Teilnahme bestätigt. Gewinner werden per E-Mail benachrichtigt.",
+            "Entry confirmed. Winners are notified by email.",
+        ),
+    }
+
+
+def public_raffle(raffle: dict) -> dict | None:
+    """The raffle texts a visitor sees, None while the admin keeps it off."""
+    if not raffle.get("enabled"):
+        return None
+    return {feld: raffle[feld] for feld in RAFFLE_TEXT_FIELDS}
+
+
+def normalize_email(text: str) -> str:
+    return text.strip().lower()
+
+
+def is_valid_email(email: str) -> bool:
+    return 0 < len(email) <= EMAIL_MAX_LENGTH and _EMAIL.match(email) is not None
 
 
 # --- visitors -----------------------------------------------------------------
@@ -246,6 +295,7 @@ def public_view(config: dict, today: date) -> dict:
         ],
         "eventBlock": _without_hidden_tiles(block) if event_block_visible(block, today) else None,
         "stamp": event_window(config, today),
+        "raffle": public_raffle(config["raffle"]),
     }
 
 
@@ -368,9 +418,16 @@ def validate_config(config: dict) -> dict:
         "forEveryone": bool(karte["forEveryone"]),
     }
 
+    verlosung = {**default_raffle(), **(config.get("raffle") or {})}
+    verlosung = {
+        "enabled": bool(verlosung["enabled"]),
+        **{feld: _text2(verlosung.get(feld)) for feld in RAFFLE_TEXT_FIELDS},
+    }
+
     return {
         "stations": stations,
         "eventBlock": block,
         "hideCodeOnPosters": bool(config.get("hideCodeOnPosters")),
         "taskCard": karte,
+        "raffle": verlosung,
     }

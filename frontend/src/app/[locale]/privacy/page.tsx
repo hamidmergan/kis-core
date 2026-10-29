@@ -41,6 +41,7 @@ export default function DatenschutzPage() {
               <li>{t("data.item2")}</li>
               <li>{t("data.item3")}</li>
               <li>{t("data.item4")}</li>
+              <li>{t("data.item5")}</li>
             </ul>
             <p className="text-foreground-soft mt-2">
               {t("data.outro")}

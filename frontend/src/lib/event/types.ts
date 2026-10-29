@@ -66,6 +66,27 @@ export interface TaskCardConfig {
   forEveryone: boolean;
 }
 
+/** The raffle under a full card, off until the admin switches it on, every text is the admin's. */
+export interface RaffleConfig {
+  enabled: boolean;
+  title: Text2;
+  text: Text2;
+  /** Stands at the required checkbox and names every purpose the addresses are used for. */
+  consent: Text2;
+  /** Shown once the visitor is in. */
+  done: Text2;
+}
+
+/** The raffle as a visitor sees it, without the switch. */
+export type PublicRaffle = Omit<RaffleConfig, "enabled">;
+
+/** One address in the raffle, the time is epoch milliseconds. */
+export interface RaffleEntry {
+  id: number;
+  email: string;
+  enteredAt: number;
+}
+
 /** What the admin edits and the server stores, the codes only travel to the admin. */
 export interface EventConfig {
   stations: Station[];
@@ -73,6 +94,7 @@ export interface EventConfig {
   /** Leaves the code off every poster so a visitor has to scan, the admin still sees it. */
   hideCodeOnPosters: boolean;
   taskCard: TaskCardConfig;
+  raffle: RaffleConfig;
 }
 
 /** What every visitor may read, no codes, the block is null while it is off or outside its period. */
@@ -81,6 +103,8 @@ export interface PublicEvent {
   eventBlock: EventBlock | null;
   /** The stamp tile's own switch, date (YYYY-MM-DD, empty for none) and text, null while off, over or without such a tile. */
   stamp: { active: boolean; availableFrom: string; title: Text2; body: Text2 } | null;
+  /** The raffle texts, null while the admin keeps it off. */
+  raffle: PublicRaffle | null;
 }
 
 /** One visitor's card as the server keeps it, times are epoch milliseconds. */
@@ -91,6 +115,8 @@ export interface Card {
   attemptsLeft: number;
   /** This visitor's own short code, told to staff at a stand for a targeted reset. */
   code: string;
+  /** The address this card entered into the raffle, null while it did not. */
+  raffleEmail: string | null;
 }
 
 export interface EventStats {
@@ -99,6 +125,6 @@ export interface EventStats {
   tasks: { byTask: Record<string, number>; complete: number };
 }
 
-export const EMPTY_CARD: Card = { stamped: {}, completedAt: null, lockedUntil: null, attemptsLeft: 5, code: "" };
+export const EMPTY_CARD: Card = { stamped: {}, completedAt: null, lockedUntil: null, attemptsLeft: 5, code: "", raffleEmail: null };
 
 export const MAX_TILES = 4;

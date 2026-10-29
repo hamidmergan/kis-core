@@ -45,5 +45,15 @@ export function useStampCard() {
     }
   }, []);
 
-  return { card, ready, failed, stamp, submitCode };
+  /** Puts the card into the raffle, null on success, otherwise the server's message or an empty string. */
+  const enterRaffle = useCallback(async (email: string): Promise<string | null> => {
+    try {
+      setCard(await eventApi.raffleEnter(email));
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "";
+    }
+  }, []);
+
+  return { card, ready, failed, stamp, submitCode, enterRaffle };
 }

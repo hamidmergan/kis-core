@@ -109,7 +109,10 @@ class FakeRedis:
 @pytest.fixture
 def speicher(monkeypatch):
     """Stamps in a dict, the counter in a fake Redis, the seed as configuration."""
-    zustand = {"config": default_config(), "stamps": {}, "redis": {}, "uhr": [1_700_000_000_000], "codes": {}}
+    zustand = {
+        "config": default_config(), "stamps": {}, "redis": {}, "uhr": [1_700_000_000_000], "codes": {},
+        "raffle": {}, "withdraws": [0],
+    }
 
     def add_stamp(visitor_hash, station_id):
         karte = zustand["stamps"].setdefault(visitor_hash, {})
@@ -142,6 +145,40 @@ def speicher(monkeypatch):
     monkeypatch.setattr(repo, "visitor_hash_for_code", visitor_hash_for_code)
     monkeypatch.setattr(repo, "delete_all_visitor_codes", lambda: zustand["codes"].clear())
     monkeypatch.setattr(repo, "_redis", lambda: FakeRedis(zustand["redis"]))
+
+    def save_raffle_entry(visitor_hash, email):
+        verlosung = zustand["raffle"]
+        for h in [h for h, e in verlosung.items() if e == email]:
+            del verlosung[h]
+        verlosung[visitor_hash] = email
+
+    def delete_by_email(email):
+        treffer = [h for h, e in zustand["raffle"].items() if e == email]
+        for h in treffer:
+            del zustand["raffle"][h]
+        return bool(treffer)
+
+    def delete_entry(entry_id):
+        eintraege = list(zustand["raffle"])
+        if entry_id < 1 or entry_id > len(eintraege):
+            return False
+        del zustand["raffle"][eintraege[entry_id - 1]]
+        return True
+
+    def withdraw_allowed(visitor_hash):
+        zustand["withdraws"][0] += 1
+        return zustand["withdraws"][0] <= 10
+
+    monkeypatch.setattr(repo, "raffle_email_for", lambda h: zustand["raffle"].get(h))
+    monkeypatch.setattr(repo, "save_raffle_entry", save_raffle_entry)
+    monkeypatch.setattr(repo, "delete_raffle_entry_by_email", delete_by_email)
+    monkeypatch.setattr(repo, "delete_raffle_entry", delete_entry)
+    monkeypatch.setattr(repo, "delete_all_raffle_entries", lambda: zustand["raffle"].clear())
+    monkeypatch.setattr(
+        repo, "raffle_entries",
+        lambda: [{"id": i + 1, "email": e, "enteredAt": 1} for i, e in enumerate(zustand["raffle"].values())],
+    )
+    monkeypatch.setattr(repo, "withdraw_allowed", withdraw_allowed)
     return zustand
 
 
@@ -176,7 +213,7 @@ def test_a_fresh_card_is_empty_with_every_try_left(client, speicher):
     assert r.status_code == 200
     assert r.json() == {
         "stamped": {}, "completedAt": None, "lockedUntil": None,
-        "attemptsLeft": EVENT_CODE_MAX_ATTEMPTS, "code": "",
+        "attemptsLeft": EVENT_CODE_MAX_ATTEMPTS, "code": "", "raffleEmail": None,
     }
 
 
@@ -429,3 +466,107 @@ def test_the_event_right_alone_can_reset_one_visitors_card(client_mit_event_rech
 
 def test_a_user_without_the_right_cannot_reset_one_visitors_card(client_ohne_recht, speicher):
     assert client_ohne_recht.delete("/admin/event/card/ABCDEF").status_code == 403
+
+
+# --- raffle ---------------------------------------------------------------------
+
+def _voll(client, speicher, kopf=BESUCHER):
+    for stand in speicher["config"]["stations"]:
+        client.post("/event/stamp", json={"stationId": stand["id"]}, headers=kopf)
+    speicher["config"]["raffle"]["enabled"] = True
+
+
+def test_the_public_view_carries_the_raffle_only_while_it_is_on(client, speicher):
+    assert client.get("/event/public").json()["raffle"] is None
+    speicher["config"]["raffle"]["enabled"] = True
+    assert client.get("/event/public").json()["raffle"]["title"]["de"] == "Verlosung"
+
+
+def test_a_card_without_entry_shows_no_raffle_address(client, speicher):
+    assert client.get("/event/card", headers=BESUCHER).json()["raffleEmail"] is None
+
+
+def test_the_raffle_is_closed_while_the_admin_keeps_it_off(client, speicher):
+    r = client.put("/event/raffle", json={"email": "max@example.org"}, headers=BESUCHER)
+    assert r.status_code == 404
+
+
+def test_an_incomplete_card_cannot_enter_the_raffle(client, speicher):
+    speicher["config"]["raffle"]["enabled"] = True
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    r = client.put("/event/raffle", json={"email": "max@example.org"}, headers=BESUCHER)
+    assert r.status_code == 409
+    assert speicher["raffle"] == {}
+
+
+def test_a_full_card_enters_the_raffle_and_the_card_shows_the_address(client, speicher):
+    _voll(client, speicher)
+    r = client.put("/event/raffle", json={"email": " Max@Example.org "}, headers=BESUCHER)
+    assert r.status_code == 200
+    assert r.json()["raffleEmail"] == "max@example.org"
+    assert client.get("/event/card", headers=BESUCHER).json()["raffleEmail"] == "max@example.org"
+    assert list(speicher["raffle"].values()) == ["max@example.org"]
+
+
+def test_a_broken_address_is_refused_with_a_message(client, speicher):
+    _voll(client, speicher)
+    r = client.put("/event/raffle", json={"email": "ohne-at"}, headers=BESUCHER)
+    assert r.status_code == 422
+    assert "E-Mail" in r.json()["detail"]
+
+
+def test_withdrawing_removes_the_address_and_answers_the_same_either_way(client, speicher):
+    _voll(client, speicher)
+    client.put("/event/raffle", json={"email": "max@example.org"}, headers=BESUCHER)
+    erster = client.post("/event/raffle/withdraw", json={"email": "MAX@example.org"}, headers=ANDERER)
+    zweiter = client.post("/event/raffle/withdraw", json={"email": "max@example.org"}, headers=ANDERER)
+    assert erster.status_code == zweiter.status_code == 200
+    assert erster.json() == zweiter.json() == {"ok": True}
+    assert speicher["raffle"] == {}
+    assert client.get("/event/card", headers=BESUCHER).json()["raffleEmail"] is None
+
+
+def test_too_many_withdraw_requests_are_turned_away(client, speicher):
+    speicher["withdraws"][0] = 10
+    r = client.post("/event/raffle/withdraw", json={"email": "max@example.org"}, headers=ANDERER)
+    assert r.status_code == 429
+
+
+def test_the_admin_lists_and_deletes_raffle_entries(client, speicher):
+    _voll(client, speicher)
+    client.put("/event/raffle", json={"email": "max@example.org"}, headers=BESUCHER)
+    r = client.get("/admin/event/raffle")
+    assert r.status_code == 200
+    assert r.json()["entries"][0]["email"] == "max@example.org"
+    assert client.delete("/admin/event/raffle/1").status_code == 200
+    assert client.delete("/admin/event/raffle/1").status_code == 404
+    assert client.get("/admin/event/raffle").json()["entries"] == []
+
+
+def test_the_event_right_alone_reads_the_list_but_cannot_empty_it(client_mit_event_recht, speicher):
+    assert client_mit_event_recht.get("/admin/event/raffle").status_code == 200
+    assert client_mit_event_recht.delete("/admin/event/raffle").status_code == 403
+
+
+def test_the_full_admin_empties_the_raffle(client, speicher):
+    _voll(client, speicher)
+    client.put("/event/raffle", json={"email": "max@example.org"}, headers=BESUCHER)
+    assert client.delete("/admin/event/raffle").status_code == 200
+    assert speicher["raffle"] == {}
+
+
+def test_a_user_without_the_right_sees_no_raffle_list(client_ohne_recht, speicher):
+    assert client_ohne_recht.get("/admin/event/raffle").status_code == 403
+
+
+def test_the_admin_form_saves_the_raffle_and_keeps_it_when_the_form_lacks_it(client, speicher, monkeypatch):
+    # Saving lands in the fixture, never in the real settings table.
+    monkeypatch.setattr(repo, "save_config", lambda config: speicher.__setitem__("config", config))
+    config = client.get("/admin/event").json()
+    config["raffle"]["enabled"] = True
+    config["raffle"]["title"]["de"] = "Gewinnspiel"
+    saved = client.put("/admin/event", json=config).json()
+    assert saved["raffle"]["enabled"] is True and saved["raffle"]["title"]["de"] == "Gewinnspiel"
+    assert speicher["config"]["raffle"]["title"]["de"] == "Gewinnspiel"
+    del config["raffle"]
+    assert client.put("/admin/event", json=config).json()["raffle"]["title"]["de"] == "Gewinnspiel"

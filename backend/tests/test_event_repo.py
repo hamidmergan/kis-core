@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 
 from src.features.event import repository as repo
-from src.features.event.service import default_task_card
+from src.features.event.service import default_raffle, default_task_card
 from src.limits import EVENT_CODE_LOCK_SECONDS, EVENT_CODE_MAX_ATTEMPTS
 
 HASH = "a" * 64
@@ -112,6 +112,7 @@ def test_a_saved_configuration_wins_over_the_seed(monkeypatch):
     monkeypatch.setattr(repo, "get_setting", lambda key, default="": '{"stations": [], "eventBlock": {}}')
     assert repo.get_config() == {
         "stations": [], "eventBlock": {}, "hideCodeOnPosters": False, "taskCard": default_task_card(),
+        "raffle": default_raffle(),
     }
 
 
@@ -225,3 +226,45 @@ def test_clearing_the_failures_drops_counter_and_lock(fake_redis):
 
 def test_clearing_the_failures_without_redis_is_quiet(broken_redis):
     repo.clear_failures(HASH)
+
+
+# --- raffle ---------------------------------------------------------------------
+
+def test_an_entry_replaces_what_card_or_address_had_before_and_commits(fake_db):
+    calls = fake_db()
+    repo.save_raffle_entry(HASH, "max@example.org")
+    sql = [c[1] for c in calls if c[0] == "execute"]
+    assert "DELETE FROM event_raffle_entries WHERE visitor_hash = %s OR email = %s" in sql[0]
+    assert "INSERT INTO event_raffle_entries" in sql[1]
+    assert calls[-1][0] == "commit"
+
+
+def test_the_address_of_a_visitor_comes_back_or_none(fake_db):
+    fake_db(rows=[("max@example.org",)])
+    assert repo.raffle_email_for(HASH) == "max@example.org"
+    fake_db(rows=[])
+    assert repo.raffle_email_for(HASH) is None
+
+
+def test_withdrawing_tells_whether_the_address_was_in(fake_db):
+    fake_db(rows=[(7,)])
+    assert repo.delete_raffle_entry_by_email("max@example.org") is True
+    fake_db(rows=[])
+    assert repo.delete_raffle_entry_by_email("niemand@example.org") is False
+
+
+def test_the_admin_list_carries_id_address_and_milliseconds(fake_db):
+    fake_db(rows=[(3, "a@example.org", datetime(2026, 11, 13, 10, 0, 0))])
+    eintraege = repo.raffle_entries()
+    assert eintraege == [{"id": 3, "email": "a@example.org", "enteredAt": 1_794_564_000_000}]
+
+
+def test_withdraw_requests_are_counted_per_browser(fake_redis):
+    from src.limits import EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR
+    for _ in range(EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR):
+        assert repo.withdraw_allowed(HASH) is True
+    assert repo.withdraw_allowed(HASH) is False
+
+
+def test_withdrawing_passes_when_redis_is_down(broken_redis):
+    assert repo.withdraw_allowed(HASH) is True

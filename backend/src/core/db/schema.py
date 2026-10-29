@@ -615,6 +615,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     PRIMARY KEY (user_id, task_id)
                 )
             """)
+            # Raffle entries of visitors with a full card, the address is the only personal datum kept.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS event_raffle_entries (
+                    id           SERIAL PRIMARY KEY,
+                    visitor_hash TEXT NOT NULL UNIQUE,
+                    email        TEXT NOT NULL UNIQUE,
+                    entered_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,
