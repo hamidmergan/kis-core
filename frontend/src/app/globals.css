@@ -66,6 +66,8 @@
   /* Cross-mode utilities (mode-stable for header/accent text) */
   --color-header-bg: var(--header-bg);
   --color-header-fg: var(--header-fg);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-header: var(--brand-green-header);
   --color-on-accent: var(--on-accent);
   --color-tooltip-bg: var(--tooltip-bg);
   --color-tooltip-fg: var(--tooltip-fg);
@@ -117,6 +119,8 @@
   --kb-rgb:       0, 66, 97;
   --kb-dark:      #003350;
   --kb-darker:    #00293d;
+  --brand-green:  #1f7a5c;   /* Bird green darkened for light ground, 5.3:1 on white */
+  --brand-green-header: #7dc5ac; /* Bird green as in the logo, 5.4:1 on the blue header */
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
   /* Ball in front of the chat waiting line. */
@@ -213,6 +217,8 @@
   --kb-rgb:       0, 66, 97;
   --kb-dark:      #7BBDE5;
   --kb-darker:    #9BD2F0;
+  --brand-green:  #7dc5ac;   /* Dark mode: the logo shade reads fine on dark ground */
+  --brand-green-header: #7dc5ac;
   --kb60:         #4F7A91;
   --kb20:         #1C2A33;
   --glanz:        #ffffff;
