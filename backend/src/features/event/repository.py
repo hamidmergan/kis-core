@@ -13,6 +13,7 @@ from src.limits import (
     EVENT_CODE_LOCK_SECONDS,
     EVENT_CODE_MAX_ATTEMPTS,
     EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR,
+    EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL,
 )
 from src.security.rate_limit import _redis
 
@@ -236,16 +237,18 @@ def _withdraw_key(visitor_hash: str) -> str:
 
 
 def withdraw_allowed(visitor_hash: str) -> bool:
-    """Counts a withdraw request of this browser, too many within the hour and it waits, Redis trouble lets it through."""
+    """Counts a withdraw request for this browser and for everyone, over either limit it waits, Redis trouble lets it through."""
     try:
         r = _redis()
-        zaehler = int(r.incr(_withdraw_key(visitor_hash)))
+        eigener = int(r.incr(_withdraw_key(visitor_hash)))
         r.expire(_withdraw_key(visitor_hash), 3600, nx=True)
+        alle = int(r.incr(_withdraw_key("all")))
+        r.expire(_withdraw_key("all"), 3600, nx=True)
         r.close()
     except Exception as fehler:
         logger.warning("Event raffle withdraw Redis error: {}", fehler)
         return True
-    return zaehler <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR
+    return eigener <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR and alle <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL
 
 
 # --- wrong codes --------------------------------------------------------------

@@ -266,5 +266,11 @@ def test_withdraw_requests_are_counted_per_browser(fake_redis):
     assert repo.withdraw_allowed(HASH) is False
 
 
+def test_withdraw_requests_are_also_capped_for_everyone_together(fake_redis):
+    from src.limits import EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL
+    fake_redis[repo._withdraw_key("all")] = EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL
+    assert repo.withdraw_allowed("fresh-browser") is False
+
+
 def test_withdrawing_passes_when_redis_is_down(broken_redis):
     assert repo.withdraw_allowed(HASH) is True

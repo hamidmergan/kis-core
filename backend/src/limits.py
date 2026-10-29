@@ -21,8 +21,10 @@ UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 EVENT_CODE_MAX_ATTEMPTS         = 5
 EVENT_CODE_LOCK_SECONDS         = 30
 EVENT_CODE_ATTEMPT_TTL_SECONDS  = 3600
-# Raffle of the stamp card: withdraw requests one browser may send within an hour.
+# Raffle of the stamp card: withdraw requests one browser may send within an hour, and all browsers
+# together, since the browser's id is its own choice and could be rotated.
 EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR = 10
+EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL = 100
 
 # Quota per user and tool: count, window length and display name.
 QUOTA_DEFAULTS: dict[str, dict] = {
