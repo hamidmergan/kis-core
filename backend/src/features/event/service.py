@@ -25,6 +25,8 @@ _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 EMAIL_MAX_LENGTH = 254
 # The texts of the raffle the admin writes in both languages.
 RAFFLE_TEXT_FIELDS = ("title", "text", "consent", "done")
+# The texts of the stamp card page itself, its name and what a full card says.
+CARD_TEXT_FIELDS = ("title", "intro", "completeTitle", "completeText")
 
 # The fields a visitor may see of a stand, the code is deliberately missing.
 _PUBLIC_STATION_FIELDS = ("id", "icon", "name", "blurb", "francis")
@@ -129,7 +131,7 @@ def default_config() -> dict:
                 {
                     "id": "stamp",
                     "icon": "star",
-                    "title": _text("Stempelkarte", "Stamp card"),
+                    "title": _text("Catch Francis", "Catch Francis"),
                     "body": _text(
                         "Besuche alle Stände, sammle Stempel und hol dir am Ende dein Geschenk ab.",
                         "Visit all stands, collect stamps and pick up your gift at the end.",
@@ -144,6 +146,20 @@ def default_config() -> dict:
         },
         "taskCard": default_task_card(),
         "raffle": default_raffle(),
+        "cardTexts": default_card_texts(),
+    }
+
+
+def default_card_texts() -> dict:
+    """Name and closing words of the stamp card page, a first draft the admin rewrites at will."""
+    return {
+        "title": _text("Catch Francis", "Catch Francis"),
+        "intro": _text(
+            "Francis hat sich an allen Ständen versteckt. Finde ihn überall und sammle an jedem Stand einen Stempel.",
+            "Francis is hiding at every stand. Find him everywhere and collect a stamp at each one.",
+        ),
+        "completeTitle": _text("Gefangen! Du hast Francis an jedem Stand gefunden", "Caught! You found Francis at every stand"),
+        "completeText": _text("Hol dir dein Geschenk am Info-Stand ab.", "Pick up your gift at the info stand."),
     }
 
 
@@ -166,8 +182,8 @@ def default_raffle() -> dict:
         "enabled": False,
         "title": _text("Verlosung", "Raffle"),
         "text": _text(
-            "Unter allen vollständigen Stempelkarten verlosen wir drei XXL-Tafeln Ritter Sport.",
-            "Among all complete stamp cards we are giving away three XXL bars of Ritter Sport.",
+            "Unter allen, die Francis an jedem Stand gefunden haben, verlosen wir drei XXL-Tafeln Ritter Sport.",
+            "Among everyone who found Francis at every stand we are giving away three XXL bars of Ritter Sport.",
         ),
         "consent": _text(
             "Ich willige ein, dass meine E-Mail-Adresse für die Verlosung und für eine Anfrage zum Testen "
@@ -296,6 +312,7 @@ def public_view(config: dict, today: date) -> dict:
         "eventBlock": _without_hidden_tiles(block) if event_block_visible(block, today) else None,
         "stamp": event_window(config, today),
         "raffle": public_raffle(config["raffle"]),
+        "cardTexts": config["cardTexts"],
     }
 
 
@@ -424,10 +441,13 @@ def validate_config(config: dict) -> dict:
         **{feld: _text2(verlosung.get(feld)) for feld in RAFFLE_TEXT_FIELDS},
     }
 
+    texte = {**default_card_texts(), **(config.get("cardTexts") or {})}
+
     return {
         "stations": stations,
         "eventBlock": block,
         "hideCodeOnPosters": bool(config.get("hideCodeOnPosters")),
         "taskCard": karte,
         "raffle": verlosung,
+        "cardTexts": {feld: _text2(texte.get(feld)) for feld in CARD_TEXT_FIELDS},
     }

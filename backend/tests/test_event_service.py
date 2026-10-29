@@ -10,6 +10,7 @@ from src.features.event.service import (
     build_card,
     completed_at,
     default_config,
+    default_card_texts,
     default_raffle,
     is_valid_email,
     normalize_email,
@@ -27,7 +28,7 @@ from src.features.event.service import (
 
 def test_the_seed_carries_neither_master_code_nor_statistics():
     config = default_config()
-    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters", "taskCard", "raffle"}
+    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters", "taskCard", "raffle", "cardTexts"}
     assert config["hideCodeOnPosters"] is False
     assert "masterCode" not in config
     assert len(config["stations"]) == 5
@@ -305,3 +306,24 @@ def test_broken_addresses_are_rejected(email):
 
 def test_normalising_lowers_and_trims():
     assert normalize_email("  Max@TH-Luebeck.DE ") == "max@th-luebeck.de"
+
+
+# --- texts of the card ------------------------------------------------------------
+
+def test_the_seed_calls_the_card_catch_francis_in_both_languages():
+    texte = default_config()["cardTexts"]
+    assert texte["title"] == {"de": "Catch Francis", "en": "Catch Francis"}
+    for feld in ("intro", "completeTitle", "completeText"):
+        assert texte[feld]["de"] and texte[feld]["en"]
+
+
+def test_the_public_view_carries_the_card_texts():
+    assert public_view(default_config(), date(2026, 11, 13))["cardTexts"]["title"]["de"] == "Catch Francis"
+
+
+def test_the_admin_form_keeps_edited_card_texts_and_fills_the_rest():
+    config = default_config()
+    config["cardTexts"] = {"title": {"de": "Francis-Jagd", "en": "Francis hunt"}}
+    texte = validate_config(config)["cardTexts"]
+    assert texte["title"] == {"de": "Francis-Jagd", "en": "Francis hunt"}
+    assert texte["completeText"] == default_card_texts()["completeText"]

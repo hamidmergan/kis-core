@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 
 from src.features.event import repository as repo
-from src.features.event.service import default_raffle, default_task_card
+from src.features.event.service import default_card_texts, default_raffle, default_task_card
 from src.limits import EVENT_CODE_LOCK_SECONDS, EVENT_CODE_MAX_ATTEMPTS
 
 HASH = "a" * 64
@@ -113,6 +113,7 @@ def test_a_saved_configuration_wins_over_the_seed(monkeypatch):
     assert repo.get_config() == {
         "stations": [], "eventBlock": {}, "hideCodeOnPosters": False, "taskCard": default_task_card(),
         "raffle": default_raffle(),
+        "cardTexts": default_card_texts(),
     }
 
 

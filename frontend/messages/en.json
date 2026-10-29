@@ -5170,8 +5170,7 @@
     "toTop": "Back to top"
   },
   "eventStamp": {
-    "title": "Stamp card",
-    "intro": "Visit the stands in any order. Every stand gives you a stamp.",
+    "title": "Catch Francis",
     "progress": "{done} of {total} stamps",
     "open": "Still open",
     "done": "Stamped",
@@ -5191,8 +5190,6 @@
       "welcome": "Scan the QR code at the stand or enter the code from the poster."
     },
     "complete": {
-      "title": "Done, your stamp card is complete",
-      "reward": "Pick up your gift at the info stand.",
       "since": "Completed at {time}"
     },
     "raffle": {
@@ -5213,10 +5210,10 @@
     },
     "myCode": {
       "reveal": "My card number",
-      "hint": "Show this number at a stand if your stamp card should be reset."
+      "hint": "Show this number at a stand if your card should be reset."
     },
     "loading": "Loading …",
-    "loadFailed": "The stamp card could not be loaded. Please try again in a moment."
+    "loadFailed": "The card could not be loaded. Please try again in a moment."
   },
   "eventIcons": {
     "francis": "Francis",
@@ -5350,6 +5347,14 @@
     "saving": "Saving …",
     "saved": "Saved",
     "saveFailed": "Saving failed.",
+    "cardTexts": {
+      "title": "Card texts",
+      "description": "Name of the page and what appears at the end once every stamp is collected.",
+      "name": "Name",
+      "intro": "Intro",
+      "completeTitle": "Title on a full card",
+      "completeText": "Text on a full card"
+    },
     "raffle": {
       "title": "Raffle under the full stamp card",
       "active": "Active. Anyone with every stamp can enter an email address.",

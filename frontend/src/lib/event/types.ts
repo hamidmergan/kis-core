@@ -87,6 +87,14 @@ export interface RaffleEntry {
   enteredAt: number;
 }
 
+/** Name, intro and closing words of the stamp card page, all the admin's. */
+export interface CardTexts {
+  title: Text2;
+  intro: Text2;
+  completeTitle: Text2;
+  completeText: Text2;
+}
+
 /** What the admin edits and the server stores, the codes only travel to the admin. */
 export interface EventConfig {
   stations: Station[];
@@ -95,6 +103,7 @@ export interface EventConfig {
   hideCodeOnPosters: boolean;
   taskCard: TaskCardConfig;
   raffle: RaffleConfig;
+  cardTexts: CardTexts;
 }
 
 /** What every visitor may read, no codes, the block is null while it is off or outside its period. */
@@ -105,6 +114,7 @@ export interface PublicEvent {
   stamp: { active: boolean; availableFrom: string; title: Text2; body: Text2 } | null;
   /** The raffle texts, null while the admin keeps it off. */
   raffle: PublicRaffle | null;
+  cardTexts: CardTexts;
 }
 
 /** One visitor's card as the server keeps it, times are epoch milliseconds. */

@@ -7,7 +7,17 @@ import Mascot, { type MascotVariant } from "@/components/ui/Mascot";
 const ZONE = "Europe/Berlin";
 
 /** Full card, the visitor shows it at the info stand. */
-export default function CompletionScreen({ variant, completedAt }: { variant: MascotVariant; completedAt: number | null }) {
+export default function CompletionScreen({
+  variant,
+  completedAt,
+  title,
+  reward,
+}: {
+  variant: MascotVariant;
+  completedAt: number | null;
+  title: string;
+  reward: string;
+}) {
   const t = useTranslations("eventStamp.complete");
   const locale = useLocale();
   const since = new Intl.DateTimeFormat(locale, { timeZone: ZONE, hour: "2-digit", minute: "2-digit" });
@@ -18,14 +28,14 @@ export default function CompletionScreen({ variant, completedAt }: { variant: Ma
       data-testid="completion"
     >
       <Mascot variant={variant} size={120} state="wave" />
-      <h2 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">{t("title")}</h2>
+      <h2 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
       {completedAt !== null && (
         <p className="text-sm text-foreground-soft tabular-nums">{t("since", { time: since.format(new Date(completedAt)) })}</p>
       )}
       {/* Inline, so the icon stands right before the first line even when the text wraps. */}
       <p className="text-base font-medium text-foreground">
         <Gift size={22} weight="bold" aria-hidden="true" className="text-kb inline-block align-text-bottom mr-2" />
-        {t("reward")}
+        {reward}
       </p>
     </section>
   );

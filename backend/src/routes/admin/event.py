@@ -73,6 +73,13 @@ class RafflePayload(BaseModel):
     done: Text2Payload
 
 
+class CardTextsPayload(BaseModel):
+    title: Text2Payload
+    intro: Text2Payload
+    completeTitle: Text2Payload
+    completeText: Text2Payload
+
+
 class EventConfigPayload(BaseModel):
     stations: list[StationPayload]
     eventBlock: EventBlockPayload
@@ -81,6 +88,7 @@ class EventConfigPayload(BaseModel):
     # Missing in an older form, the saved card is then kept instead of reset.
     taskCard: TaskCardPayload | None = None
     raffle: RafflePayload | None = None
+    cardTexts: CardTextsPayload | None = None
 
 
 @router.get("")
@@ -99,6 +107,8 @@ def save_event(
         roh["taskCard"] = repo.get_config()["taskCard"]
     if roh.get("raffle") is None:
         roh["raffle"] = repo.get_config()["raffle"]
+    if roh.get("cardTexts") is None:
+        roh["cardTexts"] = repo.get_config()["cardTexts"]
     try:
         config = validate_config(roh)
     except EventValidationError as fehler:

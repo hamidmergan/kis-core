@@ -9,6 +9,7 @@ import { ROUTES } from "@/lib/event/routes";
 import { isComplete, stampedIds, suggestNext } from "@/lib/event/stampLogic";
 import { usePublicEvent } from "@/lib/event/usePublicEvent";
 import { useStampCard } from "@/lib/event/useStampCard";
+import { useText2 } from "@/lib/event/useText2";
 import CodeEntry from "./CodeEntry";
 import CompletionScreen from "./CompletionScreen";
 import RaffleEntry from "./RaffleEntry";
@@ -21,6 +22,7 @@ export default function StampCard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { variant } = useMascotPref();
+  const text = useText2();
   const { data, failed } = usePublicEvent();
   const { card, ready, failed: cardFailed, stamp, submitCode, enterRaffle } = useStampCard();
   const stations = data?.stations ?? [];
@@ -56,8 +58,10 @@ export default function StampCard() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-6 sm:py-8 flex flex-col gap-6" data-testid="stamp-card">
       <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">{t("title")}</h1>
-        {!showComplete && <p className="text-base text-foreground-soft mt-1">{t("intro")}</p>}
+        <h1 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">
+          {data ? text(data.cardTexts.title) : t("title")}
+        </h1>
+        {!showComplete && data && <p className="text-base text-foreground-soft mt-1">{text(data.cardTexts.intro)}</p>}
       </div>
       {failed || cardFailed ? (
         <p className="text-sm text-error" role="alert">
@@ -67,7 +71,12 @@ export default function StampCard() {
         <p className="text-sm text-foreground-soft">{t("loading")}</p>
       ) : showComplete ? (
         <>
-          <CompletionScreen variant={variant} completedAt={card.completedAt} />
+          <CompletionScreen
+            variant={variant}
+            completedAt={card.completedAt}
+            title={text(data.cardTexts.completeTitle)}
+            reward={text(data.cardTexts.completeText)}
+          />
           {data?.raffle && <RaffleEntry raffle={data.raffle} email={card.raffleEmail} enter={enterRaffle} />}
         </>
       ) : (
