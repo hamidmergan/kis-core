@@ -13,10 +13,10 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkForm } from "../redeem/checkForm";
 import { isReturnPath } from "@/components/auth/ProtectedRoute";
 
-/** Where the login leads: back to a shared page the person came from, else the tiles. */
+/** Where the login leads: back to a shared page the person came from, else the workspaces. */
 function afterLogin(): string {
   const next = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("next");
-  return isReturnPath(next) ? next : "/services";
+  return isReturnPath(next) ? next : "/workspace";
 }
 
 const FIELD =
@@ -91,7 +91,7 @@ export default function LoginPage() {
       autoDone.current = true;
       setTab("code");
       setCode(fromLink);
-      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/services") : redeem(fromLink)));
+      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/workspace") : redeem(fromLink)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -125,7 +125,7 @@ export default function LoginPage() {
       const d = await r.json();
       // The session cookie already arrived with this answer, an event code without credentials goes straight in.
       if (d.show_credentials === false) {
-        window.location.assign("/services");
+        window.location.assign("/workspace");
         return;
       }
       setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
@@ -345,7 +345,7 @@ export default function LoginPage() {
           <button
             type="button"
             data-testid="access-code-continue"
-            onClick={() => window.location.assign("/services")}
+            onClick={() => window.location.assign("/workspace")}
             className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
           >
             {tc("doneGo")}

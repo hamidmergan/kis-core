@@ -10,7 +10,7 @@ setup("authenticate", async ({ page }) => {
   await page.fill("#password", process.env.E2E_PASS ?? "a");
   await page.locator('button[type="submit"]').click();
 
-  // Login does a hard nav to "/services"; we're authenticated once the form is gone.
+  // Login does a hard nav to "/workspace"; we're authenticated once the form is gone.
   await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
   await expect(page.locator("#username")).toHaveCount(0);
 

@@ -62,7 +62,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
         const modRes = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
         if (cancelled) return;
         if (modRes.status === 423) { setLocked(true); return; }
-        if (!modRes.ok) { router.push("/services"); return; }
+        if (!modRes.ok) { router.push("/workspace"); return; }
         const mod: WorkspaceDetail = await modRes.json();
         setWorkspaceDetail(mod);
 
@@ -87,7 +87,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
         if (!cancelled) setInitialized(true);
       } catch {
-        if (!cancelled) router.push("/services");
+        if (!cancelled) router.push("/workspace");
       }
     }
 

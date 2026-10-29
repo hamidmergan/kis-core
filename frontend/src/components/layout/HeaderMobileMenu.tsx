@@ -105,7 +105,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
-  // The button points at the start page, so standing there counts as being on Dienste.
+  // The services page and every tool below it count as being on Dienste.
   const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";

@@ -31,7 +31,7 @@ export default function HomePage() {
   );
 }
 
-/** One place to go means a straight redirect, more than one means the tiles. */
+/** With the learning assistant this is the services page, without it the home page, a single place to go is a straight redirect. */
 function HomeRouter() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,15 +56,18 @@ function HomeRouter() {
 
   const code = searchParams.get("code");
   const hasAia = state?.targets.some((z) => z.kind === "aia") ?? false;
-  // Old invitation links still point here, the enrolment card lives on the module list now.
+  const tools = state?.targets.filter((z) => z.kind === "tool") ?? [];
+  // Old invitation links still point here, the enrolment card lives on the module list, which is also home for everyone without a service.
   const weiter =
     state === null
       ? null
-      : code && hasAia
+      : hasAia && code
         ? `/workspace?code=${encodeURIComponent(code)}`
-        : state.targets.length === 1 && !state.stamp
-          ? state.targets[0].href
-          : null;
+        : hasAia && tools.length === 0
+          ? "/workspace"
+          : !hasAia && tools.length === 1 && !state.stamp
+            ? tools[0].href
+            : null;
 
   useEffect(() => {
     if (weiter) router.replace(weiter);
@@ -74,11 +77,11 @@ function HomeRouter() {
 
   return (
     <>
-      {/* Impersonation shows the target account's own view, not an onboarding dialog for the admin's session. */}
-      {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
+      {/* The module list greets everyone with the assistant, impersonation shows the target account's own view. */}
+      {!hasAia && !auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
         <WelcomeModal userId={auth?.user_id} />
       )}
-      {state.targets.length === 0 && !state.stamp ? (
+      {tools.length === 0 && !state.stamp ? (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
           <div className="max-w-2xl mx-auto">
             <LockedNotice variant="aia" />
@@ -87,8 +90,9 @@ function HomeRouter() {
       ) : (
         <StartOverview
           firstName={state.firstName}
-          targets={state.targets}
-          stamp={state.stamp}
+          targets={tools}
+          home={!hasAia}
+          stamp={hasAia ? null : state.stamp}
           stampFrom={event?.stamp?.availableFrom ?? ""}
           stampTitle={event?.stamp?.title}
           stampBody={event?.stamp?.body}

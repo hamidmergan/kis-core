@@ -21,11 +21,11 @@ export default function ConsentPage() {
   const [step, setStep] = useState<"loading" | "consent">("loading");
   const [read, setRead] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [nextPath, setNextPath] = useState("/services");
+  const [nextPath, setNextPath] = useState("/workspace");
 
   useEffect(() => {
     const raw = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("next");
-    const target = isSamePath(raw) ? raw : "/services";
+    const target = isSamePath(raw) ? raw : "/workspace";
     setNextPath(target);
 
     checkAuthStatus().then((status) => {

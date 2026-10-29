@@ -15,13 +15,13 @@ import InfoFaq from "./_components/landing/InfoFaq";
 import ScrollTopButton from "./_components/landing/ScrollTopButton";
 import { useFitZoom } from "./_components/landing/useFitZoom";
 
-/** Old invitation links still point at "/?code=", the enrolment is handled on the tiles page. */
+/** Old invitation links still point at "/?code=", the enrolment is handled on the workspace list. */
 function CodeForward() {
   const params = useSearchParams();
   const router = useRouter();
   const code = params.get("code");
   useEffect(() => {
-    if (code) router.replace(`/services?code=${encodeURIComponent(code)}`);
+    if (code) router.replace(`/workspace?code=${encodeURIComponent(code)}`);
   }, [code, router]);
   return null;
 }

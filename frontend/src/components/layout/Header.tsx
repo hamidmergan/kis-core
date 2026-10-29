@@ -29,7 +29,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
-  // The button points at the start page, so standing there counts as being on Dienste.
+  // The services page and every tool below it count as being on Dienste.
   const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewManual, setCanViewManual] = useState(false);
@@ -116,9 +116,9 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
       <div className="px-4 sm:px-6 flex items-center justify-between">
         {/* The page title is the h1, the wordmark is only a link. */}
         <div className="flex items-center gap-2">
-          {/* Signed in, the wordmark leads to the tiles, the landing page is for visitors. */}
+          {/* Signed in, the wordmark leads to the workspaces, the landing page is for visitors. */}
           <Link
-            href={hasSession ? "/services" : "/"}
+            href={hasSession ? "/workspace" : "/"}
             aria-label={t("homeAria")}
             className="logo-link flex items-center"
           >

@@ -75,7 +75,7 @@ function AccessCodePageInner() {
       // The session cookie already arrived with this answer, no extra login needed.
       if (d.show_credentials === false) {
         // An event code with credentials switched off: straight into the app, nothing to note down.
-        window.location.assign("/services");
+        window.location.assign("/workspace");
         return;
       }
       setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
@@ -97,7 +97,7 @@ function AccessCodePageInner() {
     if (codeAusLink && !bereitsAusgeloest.current) {
       // React Strict Mode runs effects twice in dev, this must still redeem only once.
       bereitsAusgeloest.current = true;
-      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/services") : redeem(codeAusLink)));
+      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/workspace") : redeem(codeAusLink)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +152,7 @@ function AccessCodePageInner() {
           <button
             type="button"
             data-testid="access-code-continue"
-            onClick={() => window.location.assign("/services")}
+            onClick={() => window.location.assign("/workspace")}
             className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
           >
             {t("doneGo")}

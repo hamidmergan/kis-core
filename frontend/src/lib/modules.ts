@@ -26,9 +26,6 @@ export type Audience = "lehrende" | "studierende";
 /** The tools group addresses teaching staff only for now. */
 export const TOOLS_AUDIENCE: readonly Audience[] = ["lehrende"];
 
-/** The assistant is the only group reaching teaching staff and students alike. */
-export const AIA_AUDIENCE: readonly Audience[] = ["lehrende", "studierende"];
-
 export type HomeTarget =
   | { kind: "aia"; href: "/workspace" }
   | { kind: "tool"; key: ToolKey; href: string };

@@ -104,7 +104,7 @@ export default function InvitePage() {
         return;
       }
       // A hard jump so the server layout reads the fresh session.
-      window.location.assign("/services");
+      window.location.assign("/workspace");
     } catch {
       setError(t("errorGeneric"));
     } finally {

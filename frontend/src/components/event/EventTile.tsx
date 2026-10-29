@@ -19,7 +19,7 @@ export function tileHref(target: EventTileData["target"], signedIn = false): str
       return target.path || "/";
     case "directLogin":
       // Whoever is signed in already must not get a second account from the code.
-      return signedIn ? ROUTES.services : ROUTES.redeem(target.accessCode);
+      return signedIn ? ROUTES.home : ROUTES.redeem(target.accessCode);
   }
 }
 

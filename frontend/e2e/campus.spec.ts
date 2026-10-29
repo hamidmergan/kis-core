@@ -22,14 +22,14 @@ test.describe("Infoassistent", () => {
     await expect(page.locator('[data-testid="assistant-message"]')).toHaveCount(0);
   });
 
-  test("Logo fuehrt zu den Kacheln, die Leiste klappt ein", async ({ page }) => {
+  test("Logo fuehrt zu den Workspaces, die Leiste klappt ein", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/tools/info", { waitUntil: "domcontentloaded" });
     const leiste = page.locator('[data-testid="campus-history"]');
     await expect(leiste).toBeVisible({ timeout: 30_000 });
 
-    await expect(leiste.locator('[data-testid="campus-home"]')).toHaveAttribute("href", /\/services$/);
-    await expect(page.locator('a[href$="/services"]:visible')).toHaveCount(1);
+    await expect(leiste.locator('[data-testid="campus-home"]')).toHaveAttribute("href", /\/workspace$/);
+    await expect(page.locator('a[href$="/workspace"]:visible')).toHaveCount(1);
 
     await page.locator('[data-testid="campus-sidebar-toggle"]').click();
     const streifen = page.locator('[data-testid="campus-history-collapsed"]');

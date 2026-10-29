@@ -77,11 +77,11 @@ def test_only_admin_holds_the_language_level():
 
 def test_user_has_only_aia_workspace_access_no_create():
     perms = permissions_for_system_role("user")
-    assert set(perms.keys) == {PERM_AIA_USE, "tools.campus"}
+    assert set(perms.keys) == {PERM_AIA_USE}
     assert perms.allow_admin_panel is False
     assert perms.allow_aia is True   # can OPEN assigned workspaces
     assert perms.allow_workspace_create is False
-    assert perms.tools == ("campus",)
+    assert perms.tools == ()
 
 
 def test_unknown_role_raises():
@@ -99,12 +99,12 @@ def test_env_admin_overrides_any_role():
 def test_unknown_role_falls_back_to_user():
     perms = resolve_user_permissions(role="banana", custom_role_id=None, is_env_admin=False)
     assert perms.allow_admin_panel is False
-    assert perms.tools == ("campus",)
+    assert perms.tools == ()
 
 
 def test_custom_role_without_id_falls_back_to_user():
     perms = resolve_user_permissions(role="custom", custom_role_id=None, is_env_admin=False)
-    assert perms.tools == ("campus",)
+    assert perms.tools == ()
 
 
 # ── LDAP-Schalter ─────────────────────────────────────────────────────────────

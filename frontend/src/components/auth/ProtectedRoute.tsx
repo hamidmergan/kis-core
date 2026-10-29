@@ -61,36 +61,38 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       const isCalendarPath = pathname === "/calendar" || pathname?.startsWith("/calendar/");
 
       // The calendar is pure assistant, a missing modules field means an older server.
-      if (isCalendarPath && !(status.modules ?? ["aia", "tools"]).includes("aia")) {
+      const hasAiaModule = (status.modules ?? ["aia", "tools"]).includes("aia");
+      if (isCalendarPath && !hasAiaModule) {
         router.replace("/services");
         setLoading(false);
         return;
       }
       if (isAdminPath && !perms.allow_admin_panel) {
-        router.replace("/services");
+        router.replace("/workspace");
         setLoading(false);
         return;
       }
       if (isManualPath && !hasPerm(perms, PERM.manual)) {
-        router.replace("/services");
+        router.replace("/workspace");
         setLoading(false);
         return;
       }
       if (isToolPath) {
         const key = toolKeyFromPath(pathname);
         if (key && !perms.tools.includes(key)) {
-          router.replace("/services");
+          router.replace("/workspace");
           setLoading(false);
           return;
         }
       }
       // Jobs only come from tools, without a tool permission there is nothing to see.
       if (isJobsPath && perms.tools.length === 0) {
-        router.replace("/services");
+        router.replace("/workspace");
         setLoading(false);
         return;
       }
-      if (isWorkspacePath && !perms.allow_aia) {
+      // Home is the module list, whoever cannot use it falls back to the services.
+      if (isWorkspacePath && (!perms.allow_aia || !hasAiaModule)) {
         router.replace("/services");
         setLoading(false);
         return;

@@ -359,9 +359,7 @@
   },
   "startOverview": {
     "groups": {
-      "aia": "Learning assistant",
       "tools": "Services",
-      "campus": "Info assistant",
       "event": "Tag der Lehre"
     },
     "audience": {
@@ -371,10 +369,6 @@
     "audienceHint": {
       "lehrende": "Available to teachers.",
       "studierende": "Students work in the workspaces their teachers have invited them to."
-    },
-    "aia": {
-      "title": "Learning assistant",
-      "body": "Your workspaces with materials, chat and tools. The learning assistant answers from each workspace's own documents only."
     },
     "stamp": {
       "title": "Catch Francis",
@@ -3912,7 +3906,6 @@
         }
       },
       "topbar": {
-        "toList": "{label}",
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",

@@ -2,10 +2,9 @@
 
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { GearSix, Eye, ShareNetwork, CaretLeft } from "@phosphor-icons/react";
+import { GearSix, Eye, ShareNetwork } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import Wordmark from "@/components/layout/Wordmark";
-import { useHasStartTiles } from "@/hooks/useHasStartTiles";
 import { SettingsMenu } from "./SettingsMenu";
 import { ShareModal } from "./ShareModal";
 import { StaffNoteControl } from "./StaffNoteControl";
@@ -63,8 +62,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const tPanels = useTranslations("workspace.detail.panels");
   const tHeader = useTranslations("header");
   const tShare = useTranslations("workspace.detail.share");
-  // Without the tiles the logo already leads to the module list, so a second way there would be noise.
-  const hasStartTiles = useHasStartTiles();
 
   const settingsModal = (
     <SettingsMenu
@@ -162,10 +159,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </div>
   ) : null;
 
-  // A module has no blue bar any more, so the way back home hangs on the wordmark here.
+  // A module has no blue bar any more, so the way back to the module list hangs on the wordmark here.
   const logo = (
     <Link
-      href="/services"
+      href="/workspace"
       aria-label={tHeader("homeAria")}
       title={tHeader("homeAria")}
       className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
@@ -174,36 +171,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </Link>
   );
 
-  // The wordmark leads home to the tiles, so the module list needs a link of its own.
-  const toListLabel = t("toList", { label: "Workspaces" });
-  const backToListWide = !hasStartTiles ? null : (
-    <Link
-      href="/workspace"
-      title={toListLabel}
-      className="inline-flex items-center gap-1 mr-4 text-sm font-medium no-underline flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
-      style={{ color: "var(--muted)" }}
-    >
-      <CaretLeft size={13} weight="bold" />
-      <span className="truncate" style={{ maxWidth: "6rem" }}>{toListLabel}</span>
-    </Link>
-  );
-  const backToListIcon = !hasStartTiles ? null : (
-    <Link
-      href="/workspace"
-      aria-label={toListLabel}
-      title={toListLabel}
-      className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0 no-underline"
-      style={{ backgroundColor: "var(--surface-dim)" }}
-    >
-      <CaretLeft size={15} weight="bold" />
-    </Link>
-  );
-
   if (!isMobile) {
     return (
       <>
         <div className="flex items-center px-5 flex-shrink-0 relative" style={{ height: 48 }}>
-          {backToListWide}
           {logo}
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
             {/* The centred title lies above the buttons, so it is capped short of them and no longer swallows their taps. */}
@@ -227,7 +198,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   return (
     <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
       <div className="hide-on-short flex items-center gap-2 px-3 pt-2 pb-1 relative">
-        {backToListIcon}
         {logo}
         <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {/* On a phone the title keeps a fixed band between logo and buttons and scrolls sideways instead of being cut off. */}

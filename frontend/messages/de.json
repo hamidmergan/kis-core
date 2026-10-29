@@ -359,9 +359,7 @@
   },
   "startOverview": {
     "groups": {
-      "aia": "Lernassistent",
       "tools": "Dienste",
-      "campus": "Infoassistent",
       "event": "Tag der Lehre"
     },
     "audience": {
@@ -371,10 +369,6 @@
     "audienceHint": {
       "lehrende": "Steht Lehrenden zur Verfügung.",
       "studierende": "Studierende arbeiten in den Workspaces, zu denen ihre Lehrenden sie eingeladen haben."
-    },
-    "aia": {
-      "title": "Lernassistent",
-      "body": "Deine Workspaces mit Materialien, Chat und Tools. Der Lernassistent antwortet nur aus den Unterlagen des jeweiligen Workspaces."
     },
     "stamp": {
       "title": "Catch Francis",
@@ -3912,7 +3906,6 @@
         }
       },
       "topbar": {
-        "toList": "{label}",
         "backToOverview": "Zurück zur Übersicht",
         "back": "Zurück",
         "settings": "Einstellungen",

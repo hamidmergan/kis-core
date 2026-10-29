@@ -119,7 +119,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
     }
     clearAuthCache();
     // Hard nav so the server layout re-reads the swapped session cookie.
-    window.location.assign("/services");
+    window.location.assign("/workspace");
   }
 
   /** Asks when an account loses the flag, otherwise it switches directly. */

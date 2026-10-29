@@ -19,8 +19,8 @@ def test_campus_ist_ein_werkzeug():
     assert any(t["key"] == "campus" for t in TOOLS_CONFIG)
 
 
-def test_nutzer_rolle_darf_den_campus_assistenten_benutzen():
-    assert "tools.campus" in SYSTEM_ROLE_PERMISSIONS["user"]
+def test_only_staff_may_use_the_info_assistant():
+    assert "tools.campus" not in SYSTEM_ROLE_PERMISSIONS["user"]
     assert "tools.campus" in SYSTEM_ROLE_PERMISSIONS["staff"]
 
 

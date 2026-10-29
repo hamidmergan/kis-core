@@ -11,6 +11,10 @@ import { TourInvite } from "./TourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import { EvaluationInvite } from "./EvaluationInvite";
 import WorkspaceList from "./WorkspaceList";
+import { StampTile } from "../../_components/StampTile";
+import { TaskCard, TaskGiftButton } from "@/components/event/TaskCard";
+import { useEventTasks, useTaskCardMinimized } from "@/lib/event/tasks";
+import { stampCardState, usePublicEvent } from "@/lib/event/usePublicEvent";
 
 interface LinkPreview {
   workspace_uuid: string;
@@ -38,16 +42,18 @@ interface Props {
   firstName: string;
   /** Everyone holding the language level right gets the trainer offer. */
   languageInvite: boolean;
-  /** Only who lands here directly gets greeted, the tile page already did it for everyone else. */
-  showGreeting: boolean;
 }
 
 /** One start page for all roles, ownership decides the view. */
-export default function WorkspaceHome({ canCreate, firstName, languageInvite, showGreeting }: Props) {
+export default function WorkspaceHome({ canCreate, firstName, languageInvite }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tasks = useEventTasks();
+  const [tasksMin, setTasksMin] = useTaskCardMinimized();
+  const { data: event } = usePublicEvent();
+  const stamp = stampCardState(event);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
@@ -232,13 +238,37 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite, sh
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-7xl mx-auto">
-        {showGreeting && <Greeting firstName={firstName} as="h2" />}
+        {/* The folded task card waits at the right end of the greeting row. */}
+        <div className="flex items-start justify-between gap-4">
+          <Greeting firstName={firstName} as="h2" />
+          {tasks.visible && tasksMin && <TaskGiftButton done={tasks.done} onOpen={() => setTasksMin(false)} />}
+        </div>
 
         <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
+          {tasks.visible && !tasksMin && (
+            <TaskCard
+              done={tasks.done}
+              workspace={tasks.workspace}
+              workspaceTitle={tasks.workspaceTitle}
+              onMinimize={() => setTasksMin(true)}
+            />
+          )}
           <TourInvite />
           {languageInvite && <LanguageTrainerInvite />}
           <EvaluationInvite />
         </div>
+
+        {/* The task card replaces the stamp card for the accounts that see it. */}
+        {stamp && !tasks.visible && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+            <StampTile
+              stamp={stamp}
+              from={event?.stamp?.availableFrom ?? ""}
+              title={event?.stamp?.title}
+              body={event?.stamp?.body}
+            />
+          </div>
+        )}
 
         {previewInvalid && (
           <div

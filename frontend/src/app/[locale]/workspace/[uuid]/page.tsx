@@ -649,7 +649,7 @@ export default function KiTutorWorkspacePage() {
               <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
                 {tClosed("text")}
               </p>
-              <Link href="/services" className="btn-primary inline-block px-6 py-2.5 rounded-lg text-sm font-medium">
+              <Link href="/workspace" className="btn-primary inline-block px-6 py-2.5 rounded-lg text-sm font-medium">
                 {tClosed("back")}
               </Link>
             </div>

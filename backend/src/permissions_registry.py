@@ -206,11 +206,11 @@ ROLE_ONLY_KEYS: tuple[str, ...] = (PERM_AIA_LANGUAGE_LEVEL,)
 
 STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k not in ROLE_ONLY_KEYS)
 
-# Teachers read their modules' numbers on the module itself, not in the settings.
+# Teachers read their modules' numbers on the module itself, students only get the learning assistant.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
     "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,
-    "user": (PERM_AIA_USE, f"{TOOL_PERM_PREFIX}campus"),
+    "user": (PERM_AIA_USE,),
 }
 
 # Which settings field belongs to which right, unknown ones count as admin business.
