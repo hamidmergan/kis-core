@@ -11,7 +11,7 @@ import { TourInvite } from "./TourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import { EvaluationInvite } from "./EvaluationInvite";
 import WorkspaceList from "./WorkspaceList";
-import { StampTile } from "../../_components/StampTile";
+import { StampButton } from "../../_components/StampButton";
 import { TaskCard, TaskGiftButton } from "@/components/event/TaskCard";
 import { useEventTasks, useTaskCardMinimized } from "@/lib/event/tasks";
 import { stampCardState, usePublicEvent } from "@/lib/event/usePublicEvent";
@@ -238,10 +238,11 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-7xl mx-auto">
-        {/* The folded task card waits at the right end of the greeting row. */}
+        {/* The folded task card, or else the stamp card, waits at the right end of the greeting row. */}
         <div className="flex items-start justify-between gap-4">
           <Greeting firstName={firstName} as="h2" />
           {tasks.visible && tasksMin && <TaskGiftButton done={tasks.done} onOpen={() => setTasksMin(false)} />}
+          {stamp && !tasks.visible && <StampButton stamp={stamp} from={event?.stamp?.availableFrom ?? ""} title={event?.stamp?.title} body={event?.stamp?.body} />}
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
@@ -257,18 +258,6 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
           {languageInvite && <LanguageTrainerInvite />}
           <EvaluationInvite />
         </div>
-
-        {/* The task card replaces the stamp card for the accounts that see it. */}
-        {stamp && !tasks.visible && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-            <StampTile
-              stamp={stamp}
-              from={event?.stamp?.availableFrom ?? ""}
-              title={event?.stamp?.title}
-              body={event?.stamp?.body}
-            />
-          </div>
-        )}
 
         {previewInvalid && (
           <div

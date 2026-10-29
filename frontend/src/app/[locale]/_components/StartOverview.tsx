@@ -10,7 +10,7 @@ import { useEventTasks, useTaskCardMinimized } from "@/lib/event/tasks";
 import { TaskCard, TaskGiftButton } from "@/components/event/TaskCard";
 import type { Text2 } from "@/lib/event/types";
 import { StartTile } from "./StartTile";
-import { StampTile } from "./StampTile";
+import { StampButton } from "./StampButton";
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
 
@@ -69,10 +69,11 @@ export default function StartOverview({
         <div className="flex flex-col gap-8" data-testid="start-overview">
           {home && (
             <div className={gridClass}>
-              {/* With the task card the greeting row spans the page so the folded card sits at its right end. */}
-              <div className={showTasks ? "sm:col-span-2 lg:col-span-3 flex items-start justify-between gap-4" : "sm:col-span-2"}>
+              {/* The greeting row spans the page so the folded task card, or else the stamp card, sits at its right end. */}
+              <div className="sm:col-span-2 lg:col-span-3 flex items-start justify-between gap-4">
                 <Greeting firstName={firstName} />
                 {showTasks && tasksMin && <TaskGiftButton done={tasks.done} onOpen={() => setTasksMin(false)} />}
+                {stamp && !showTasks && <StampButton stamp={stamp} from={stampFrom} title={stampTitle} body={stampBody} />}
               </div>
               <div className="flex flex-col md:flex-row gap-4 empty:hidden sm:col-span-2 lg:col-span-3">
                 {showTasks && !tasksMin && (
@@ -85,8 +86,6 @@ export default function StartOverview({
                 )}
                 <EvaluationInvite />
               </div>
-              {/* The task card replaces the stamp card for the accounts that see it. */}
-              {stamp && !showTasks && <StampTile stamp={stamp} from={stampFrom} title={stampTitle} body={stampBody} />}
             </div>
           )}
 
