@@ -176,6 +176,19 @@ def default_task_card() -> dict:
     }
 
 
+# Names every purpose the addresses serve and the right to withdraw, as consent needs before it is given.
+CONSENT_DE = (
+    "Ich willige ein, dass meine E-Mail-Adresse für die Verlosung genutzt wird und dass ich zur Mitwirkung "
+    "an der Weiterentwicklung von askFrancis kontaktiert werde, etwa für Tests oder Befragungen. Die Adresse "
+    "wird nach dem Pilotprojekt gelöscht. Ich kann die Einwilligung jederzeit widerrufen."
+)
+CONSENT_EN = (
+    "I agree that my email address is used for the raffle and that I may be contacted to take part in the "
+    "further development of askFrancis, for example for tests or surveys. The address is deleted after the "
+    "pilot project. I can withdraw my consent at any time."
+)
+
+
 def default_raffle() -> dict:
     """The raffle under a full card stays off until the admin switches it on, its texts are a first draft."""
     return {
@@ -185,12 +198,7 @@ def default_raffle() -> dict:
             "Unter allen, die Francis an jedem Stand gefunden haben, verlosen wir drei XXL-Tafeln Ritter Sport.",
             "Among everyone who found Francis at every stand we are giving away three XXL bars of Ritter Sport.",
         ),
-        "consent": _text(
-            "Ich willige ein, dass meine E-Mail-Adresse für die Verlosung und für eine Anfrage zum Testen "
-            "von askFrancis genutzt wird. Sie wird nach dem Pilotprojekt gelöscht.",
-            "I agree that my email address is used for the raffle and for a request to test askFrancis. "
-            "It is deleted after the pilot project.",
-        ),
+        "consent": _text(CONSENT_DE, CONSENT_EN),
         "done": _text(
             "Teilnahme bestätigt. Gewinner werden per E-Mail benachrichtigt.",
             "Entry confirmed. Winners are notified by email.",
