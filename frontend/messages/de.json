@@ -5008,7 +5008,7 @@
         },
         "how": {
           "q": "Wie läuft die Arbeit mit askFrancis ab?",
-          "a": "askFrancis ist ein Lernassistent. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie ihre Studierenden ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Francis antwortet nur auf Grundlage der Materialien im Workspace."
+          "a": "Im Kern ist askFrancis ein Lernassistent. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie ihre Studierenden ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Francis antwortet nur auf Grundlage der Materialien im Workspace."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
@@ -5053,7 +5053,7 @@
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "hero": {
-      "title": "<ask>ask</ask><francis>Francis</francis> ist eine KI-Lernplattform für Lehre und Studium",
+      "title": "<ask>ask</ask><francis>Francis</francis><br></br>KI-Plattform für Lehre und Studium",
       "lead": "Das Material einer Lehrveranstaltung steht im Mittelpunkt. Der Lernassistent Francis antwortet ausschließlich daraus.",
       "alt": "Workspace mit Materialien, Chat und Studio",
       "teachers": {

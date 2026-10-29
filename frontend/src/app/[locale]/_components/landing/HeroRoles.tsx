@@ -25,6 +25,7 @@ export default function HeroRoles() {
             {t.rich("title", {
               ask: (chunks) => <span className="text-brand-mint">{chunks}</span>,
               francis: (chunks) => <span className="text-foreground">{chunks}</span>,
+              br: () => <br />,
             })}
           </h1>
           <p className="text-lg @min-[40rem]:text-xl @min-[80rem]:text-2xl leading-relaxed text-foreground-soft max-w-2xl text-balance">{t("lead")}</p>

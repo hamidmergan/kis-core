@@ -5008,7 +5008,7 @@
         },
         "how": {
           "q": "What does working with askFrancis look like?",
-          "a": "askFrancis is a learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite their students. The students work with the material in the workspace and ask Francis their questions about it. Francis answers only on the basis of the materials in the workspace."
+          "a": "At its core, askFrancis is a learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite their students. The students work with the material in the workspace and ask Francis their questions about it. Francis answers only on the basis of the materials in the workspace."
         },
         "state": {
           "q": "What is the current status?",
@@ -5053,7 +5053,7 @@
     },
     "heroAlt": "Workspace with materials, chat and studio",
     "hero": {
-      "title": "<ask>ask</ask><francis>Francis</francis> is an AI learning platform for teaching and studying",
+      "title": "<ask>ask</ask><francis>Francis</francis><br></br>AI platform for teaching and studying",
       "lead": "The material of a course is at the centre. The learning assistant Francis answers from it alone.",
       "alt": "Workspace with materials, chat and studio",
       "teachers": {
