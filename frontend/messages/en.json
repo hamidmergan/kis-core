@@ -5008,7 +5008,7 @@
         },
         "how": {
           "q": "What does working with askFrancis look like?",
-          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
+          "a": "askFrancis is a learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite their students. The students work with the material in the workspace and ask Francis their questions about it. Francis answers only on the basis of the materials in the workspace."
         },
         "state": {
           "q": "What is the current status?",
