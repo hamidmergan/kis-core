@@ -122,7 +122,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
             aria-label={t("homeAria")}
             className="logo-link flex items-center"
           >
-            <Wordmark />
+            <Wordmark className="logo-plate--fit" />
           </Link>
         </div>
 

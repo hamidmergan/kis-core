@@ -4504,11 +4504,11 @@
           },
           "statistik": {
             "title": "Statistik",
-            "text": "Hier siehst du deine eigenen Übungen und wie gut sie sitzen, ein paar sind beispielhaft hinterlegt. Jede Person sieht nur die eigene Statistik, du siehst hier also nichts von deinen Studierenden. Die Zahlen zum ganzen Workspace findest du auf der Startseite."
+            "text": "Hier siehst du deine eigenen Übungen und wie gut sie sitzen. Jede Person sieht nur die eigene Statistik, du siehst hier also nichts von deinen Studierenden. Die Zahlen zum ganzen Workspace findest du auf der Startseite."
           },
           "statistikStudi": {
             "title": "Statistik",
-            "text": "Hier siehst du, was du geübt hast und wie gut es sitzt, ein paar Übungen sind beispielhaft hinterlegt. Die Statistik ist nur deine, jede Person sieht allein die eigene."
+            "text": "Hier siehst du, was du geübt hast und wie gut es sitzt. Die Statistik ist nur deine, jede Person sieht allein die eigene."
           },
           "zeitplan": {
             "title": "Zeitplan",

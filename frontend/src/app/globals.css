@@ -676,6 +676,16 @@ me-tpc:hover .mm-src-chip {
     border-radius: 0.4375rem;
     padding: 0.5rem 0.875rem 0.5rem 1rem;
   }
+  /* Header wordmark on a phone: same size as the small plate so it does not dominate the bar. */
+  @media (max-width: 639px) {
+    .logo-plate--fit {
+      border-radius: 0.4375rem;
+      padding: 0.5rem 0.875rem 0.5rem 1rem;
+    }
+    .logo-plate--fit img {
+      height: 1.25rem;
+    }
+  }
 
   /* Expand mark: no border, the hint is the mark itself, which gets stronger on
      hover. Opacity sits on the svg so ring and dot lighten together. */

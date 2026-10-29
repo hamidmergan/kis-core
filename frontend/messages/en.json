@@ -4504,11 +4504,11 @@
           },
           "statistik": {
             "title": "Statistics",
-            "text": "This shows your own practice and how well it sticks, a few exercises are already in place for you. Everyone only ever sees their own statistics, so nothing your students do shows up here. The numbers for a whole workspace are on the start page."
+            "text": "This shows your own practice and how well it sticks. Everyone only ever sees their own statistics, so nothing your students do shows up here. The numbers for a whole workspace are on the start page."
           },
           "statistikStudi": {
             "title": "Statistics",
-            "text": "This shows what you practised and how well it sticks, a few exercises are already in place for you. The statistics are yours alone, everyone only sees their own."
+            "text": "This shows what you practised and how well it sticks. The statistics are yours alone, everyone only sees their own."
           },
           "zeitplan": {
             "title": "Schedule",
