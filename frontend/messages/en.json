@@ -4948,8 +4948,8 @@
   },
   "eventInfo": {
     "eyebrow": "Pilot project at THL",
-    "title": "Learn with your own materials",
-    "lead": "Learning assistant Francis answers from your scripts, slides and lectures and names the source.",
+    "title": "Learning with the course's own materials",
+    "lead": "Learning assistant Francis answers from the scripts, slides and lectures of a course and names the source.",
     "purpose": {
       "heading": "Project and platform",
       "project": {
@@ -4982,7 +4982,7 @@
         "rows": {
           "students": {
             "label": "For students",
-            "value": "The learning assistant answers questions about your materials and helps you practise"
+            "value": "The learning assistant answers questions about the materials and helps with practice"
           },
           "teachers": {
             "label": "For teachers",
@@ -5004,10 +5004,10 @@
         },
         "platform": {
           "q": "What is askFrancis?",
-          "a": "askFrancis is the platform built in the KIS project. The name comes from the learning assistant Francis, who answers your questions about your materials. Teachers also have services such as translation, podcast or screencast."
+          "a": "askFrancis is the platform built in the KIS project. The name comes from the learning assistant Francis, who answers questions about the materials of a course. Teachers also have services such as document translation, podcast or screencast."
         },
         "how": {
-          "q": "How do you work with askFrancis?",
+          "q": "What does working with askFrancis look like?",
           "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
@@ -5016,15 +5016,15 @@
         },
         "who": {
           "q": "Who can use the platform, and can I try it?",
-          "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
+          "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. Anyone who would like to try it can write to us via the contact at the end of the page. We will then look together at whether and how a test is possible."
         },
         "sources": {
           "q": "Where does Francis get its answers?",
-          "a": "Francis answers from the sources in your workspace."
+          "a": "Francis answers from the sources in the workspace of the course."
         },
         "names": {
           "q": "How do I know what an answer is based on?",
-          "a": "Francis names the source for every answer so you can read up on it."
+          "a": "Francis names the source for every answer so the statement can be checked in the material."
         },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
@@ -5052,6 +5052,22 @@
       }
     },
     "heroAlt": "Workspace with materials, chat and studio",
+    "hero": {
+      "title": "<ask>ask</ask><francis>Francis</francis> is an AI learning platform for teaching and studying",
+      "lead": "The material of a course is at the centre. The learning assistant Francis answers from it alone.",
+      "alt": "Workspace with materials, chat and studio",
+      "teachers": {
+        "label": "Teachers",
+        "services": "prepare their materials with AI-supported services such as document translation, podcast, presentation or screencast",
+        "workspace": "create a workspace for their course and provide scripts, slides and lectures there for their students"
+      },
+      "students": {
+        "label": "Students",
+        "workspace": "work in the workspace with the material of their course",
+        "practice": "practise with flashcards, quiz, data table and mind map",
+        "answers": "receive answers with source references"
+      }
+    },
     "learn": {
       "heading": "Learning with Francis",
       "rows": {
@@ -5062,12 +5078,12 @@
         },
         "sources": {
           "title": "Answers with sources",
-          "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
+          "body": "Francis answers only from the materials of the course and adds the source to every statement. One click opens the passage in the document.",
           "alt": "Answer in the chat, next to it the highlighted passage in the script"
         },
         "practice": {
           "title": "Practise with quizzes and flashcards",
-          "body": "Your materials turn into quiz questions, flashcards and data tables for practice. Every task points to the passage it comes from.",
+          "body": "The materials turn into quiz questions, flashcards and data tables for practice. Every task points to the passage it comes from.",
           "alt": "Quiz question with four answers next to the chat"
         },
         "overview": {
@@ -5086,7 +5102,7 @@
           "lead": "Translates texts and documents between German and English. A presentation stays a presentation, layout and formatting are kept.",
           "p1": "Type text directly or upload a file, such as Word, PowerPoint or Markdown",
           "p2": "The source language is detected automatically",
-          "p3": "Glossaries let you decide how technical terms are translated",
+          "p3": "Glossaries define how technical terms are translated",
           "alt": "Translation with text input, target language and glossary selection"
         },
         "tts": {
@@ -5100,7 +5116,7 @@
           "lead": "Transcribes audio and video, either as plain text or as subtitles with timestamps.",
           "p1": "Common audio and video formats are supported",
           "p2": "Output as text, SRT or VTT",
-          "p3": "The transcript can be edited before you download it",
+          "p3": "The transcript can be edited before download",
           "alt": "Audio to text with file selection and output format"
         },
         "summary": {
@@ -5111,24 +5127,24 @@
           "alt": "Report with sources, template and instruction"
         },
         "podcast": {
-          "lead": "Your material becomes a conversation to listen to. You choose content and cast, check the script and have it voiced.",
+          "lead": "The material becomes a conversation to listen to. Content and cast can be chosen, the script can be checked before it is voiced.",
           "p1": "One to four speakers, each with a role and a voice",
           "p2": "Length of about 5 to 20 minutes, style explanatory, casual or as an interview",
           "p3": "The result is an MP3 file, the transcript comes with it",
           "alt": "Podcast with source selection, language and instruction"
         },
         "praesentation": {
-          "lead": "Your material becomes slides in the university design, with images, tables and charts where the template provides for them.",
-          "p1": "The outline comes first for you to rearrange, then the slides",
-          "p2": "The THL template is preset, your own template can be uploaded",
-          "p3": "The result is a PowerPoint file, with speaker notes if you like",
+          "lead": "The material becomes slides in the university design, with images, tables and charts where the template provides for them.",
+          "p1": "The outline comes first and can be rearranged, then the slides",
+          "p2": "The THL template is preset, another template can be uploaded",
+          "p3": "The result is a PowerPoint file, with speaker notes if wanted",
           "alt": "Presentation with source selection and slide master"
         },
         "screencast": {
-          "lead": "Turns a PowerPoint file into a narrated video, in another language if you like.",
+          "lead": "Turns a PowerPoint file into a narrated video, in another language if wanted.",
           "p1": "The narration comes from the slides, from an import or from the notes of the file",
-          "p2": "You can check and edit every narration text or have a new one suggested",
-          "p3": "The video is available as MP4, with subtitles if you like",
+          "p2": "Every narration text can be checked, edited or replaced by a new suggestion",
+          "p3": "The video is available as MP4, with subtitles if wanted",
           "alt": "Screencast with file upload and target language"
         },
         "image": {
@@ -5139,14 +5155,14 @@
           "alt": "Image generation with prompt, style and format"
         },
         "glossary": {
-          "lead": "Here you keep your own term lists so that technical terms are translated the same way everywhere.",
+          "lead": "Own term lists make sure that technical terms are translated the same way everywhere.",
           "p1": "An entry consists of the German and the English term",
           "p2": "The glossary takes effect in translation and screencast",
           "p3": "Glossaries can be exported and passed on to colleagues",
-          "alt": "Glossary with the list of your own term lists"
+          "alt": "Glossary with the list of own term lists"
         },
         "pages": {
-          "lead": "Your material becomes a learning page with pictures, tables and charts that you can share and add to a workspace.",
+          "lead": "The material becomes a learning page with pictures, tables and charts that can be shared and added to a workspace.",
           "p1": "The AI itself picks which forms fit the material, such as pictures, tables or a mind map",
           "p2": "Every text, picture and label can be edited afterwards",
           "p3": "Share by link, with or without an askFrancis account",
@@ -5156,13 +5172,13 @@
     },
     "tabAia": "Learning assistant",
     "tabServices": "Services",
-    "servicesTitle": "Services for your material",
-    "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from your material.",
+    "servicesTitle": "Services for teaching material",
+    "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from the material.",
     "servicesAlt": "Screencast service in the rendering step, listen to every slide, here slide 8 with script and player",
     "servicesLabel": "Screencast",
     "contact": {
       "heading": "Contact",
-      "body": "Would you like to know more about the project, do you have questions or would you like to try the platform? Send us an email and we will get back to you."
+      "body": "Questions about the project, interest in a test or in an exchange? An email is enough, we will get back."
     },
     "toTop": "Back to top"
   },

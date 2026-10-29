@@ -24,6 +24,7 @@
   --color-kb-darker:  var(--kb-darker);
   --color-kb60:       var(--kb60);
   --color-kb20:       var(--kb20);
+  --color-brand-mint: var(--brand-mint);
 
   /* Foreground / muted text */
   --color-foreground:      var(--foreground);
@@ -119,6 +120,8 @@
   --kb-darker:    #00293d;
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
+  /* Mint of the askFrancis logo, the "ask" in the wordmark. */
+  --brand-mint:   #7dc5ac;
   /* Ball in front of the chat waiting line. */
   --warte-kugel:  var(--kb);
   /* Light band that sweeps across a waiting text. */

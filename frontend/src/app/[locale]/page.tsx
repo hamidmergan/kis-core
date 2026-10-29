@@ -6,7 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import EventBlock from "@/components/event/EventBlock";
 import EventBanner from "@/components/event/EventBanner";
 import { usePublicEvent } from "@/lib/event/usePublicEvent";
-import HeroTabs from "./_components/landing/HeroTabs";
+import HeroRoles from "./_components/landing/HeroRoles";
 import InfoHero from "./_components/landing/InfoHero";
 import { ContactSection, PurposeSection } from "./_components/landing/InfoSections";
 import LearnRows from "./_components/landing/LearnRows";
@@ -30,7 +30,7 @@ function Hero() {
   const params = useSearchParams();
   if (params.get("hero") === "center") return <InfoHero layout="center" />;
   if (params.get("hero") === "plain") return <InfoHero layout="split" />;
-  return <HeroTabs />;
+  return <HeroRoles />;
 }
 
 // Zoom steps by window size, the ranges do not overlap so exactly one wins.
@@ -53,7 +53,7 @@ export default function InfoPage() {
       <EventBanner block={data?.eventBlock ?? null} />
       {/* Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width. */}
       <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
-        <Suspense fallback={<HeroTabs />}>
+        <Suspense fallback={<HeroRoles />}>
           <CodeForward />
           <Hero />
         </Suspense>

@@ -4948,8 +4948,8 @@
   },
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
-    "title": "Lernen mit deinen eigenen Unterlagen",
-    "lead": "Lernassistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
+    "title": "Lernen mit den eigenen Unterlagen",
+    "lead": "Lernassistent Francis antwortet aus den Skripten, Folien und Vorlesungen einer Lehrveranstaltung und nennt die Quelle dazu.",
     "purpose": {
       "heading": "Projekt und Plattform",
       "project": {
@@ -4982,7 +4982,7 @@
         "rows": {
           "students": {
             "label": "Für Studierende",
-            "value": "Der Lernassistent beantwortet Fragen zu deinen Unterlagen und hilft beim Üben"
+            "value": "Der Lernassistent beantwortet Fragen zu den Unterlagen und hilft beim Üben"
           },
           "teachers": {
             "label": "Für Lehrende",
@@ -5004,7 +5004,7 @@
         },
         "platform": {
           "q": "Was ist askFrancis?",
-          "a": "askFrancis ist die Plattform, die im Projekt KIS entsteht. Der Name kommt vom Lernassistenten Francis, dem du Fragen zu deinen Unterlagen stellst. Für Lehrende gibt es daneben Dienste wie Übersetzung, Podcast oder Screencast."
+          "a": "askFrancis ist die Plattform, die im Projekt KIS entsteht. Der Name kommt vom Lernassistenten Francis, der Fragen zu den Unterlagen einer Lehrveranstaltung beantwortet. Für Lehrende gibt es daneben Dienste wie Dokumentenübersetzung, Podcast oder Screencast."
         },
         "how": {
           "q": "Wie läuft die Arbeit mit askFrancis ab?",
@@ -5016,15 +5016,15 @@
         },
         "who": {
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
-          "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
+          "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wer sie ausprobieren möchte, schreibt uns über den Kontakt am Ende der Seite. Wir schauen dann gemeinsam, ob und wie ein Test möglich ist."
         },
         "sources": {
           "q": "Woher nimmt Francis seine Antworten?",
-          "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
+          "a": "Francis antwortet aus den Quellen, die im Workspace der Lehrveranstaltung liegen."
         },
         "names": {
           "q": "Woher weiß ich, worauf eine Antwort beruht?",
-          "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
+          "a": "Zu jeder Antwort nennt Francis die Quelle, damit sich die Aussage nachlesen lässt."
         },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
@@ -5052,6 +5052,22 @@
       }
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
+    "hero": {
+      "title": "<ask>ask</ask><francis>Francis</francis> ist eine KI-Lernplattform für Lehre und Studium",
+      "lead": "Das Material einer Lehrveranstaltung steht im Mittelpunkt. Der Lernassistent Francis antwortet ausschließlich daraus.",
+      "alt": "Workspace mit Materialien, Chat und Studio",
+      "teachers": {
+        "label": "Lehrende",
+        "services": "bereiten ihre Materialien mit KI-gestützten Diensten auf, etwa Dokumentenübersetzung, Podcast, Präsentation oder Screencast",
+        "workspace": "legen für ihre Lehrveranstaltung einen Workspace an und stellen dort Skripte, Folien und Vorlesungen für ihre Studierenden bereit"
+      },
+      "students": {
+        "label": "Studierende",
+        "workspace": "arbeiten im Workspace mit dem Material ihrer Lehrveranstaltung",
+        "practice": "üben mit Karteikarten, Quiz, Datentabelle und Mindmap",
+        "answers": "erhalten Antworten mit Quellenverweisen"
+      }
+    },
     "learn": {
       "heading": "Lernen mit Francis",
       "rows": {
@@ -5062,12 +5078,12 @@
         },
         "sources": {
           "title": "Antworten mit Quelle",
-          "body": "Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
+          "body": "Francis antwortet nur aus den Unterlagen der Lehrveranstaltung und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
           "alt": "Antwort im Chat, daneben die markierte Stelle im Skript"
         },
         "practice": {
           "title": "Üben mit Quiz und Karteikarten",
-          "body": "Aus deinen Unterlagen entstehen Quizfragen, Karteikarten und Datentabellen zum Üben. Jede Aufgabe verweist auf die Stelle, aus der sie stammt.",
+          "body": "Aus den Unterlagen entstehen Quizfragen, Karteikarten und Datentabellen zum Üben. Jede Aufgabe verweist auf die Stelle, aus der sie stammt.",
           "alt": "Quizfrage mit vier Antworten neben dem Chat"
         },
         "overview": {
@@ -5086,7 +5102,7 @@
           "lead": "Übersetzt Texte und Dokumente zwischen Deutsch und Englisch. Aus einer Präsentation wird wieder eine Präsentation, Layout und Formatierung bleiben erhalten.",
           "p1": "Text direkt eingeben oder eine Datei hochladen, etwa Word, PowerPoint oder Markdown",
           "p2": "Die Ausgangssprache wird automatisch erkannt",
-          "p3": "Mit Glossaren legst du fest, wie Fachbegriffe übersetzt werden",
+          "p3": "Glossare legen fest, wie Fachbegriffe übersetzt werden",
           "alt": "Übersetzung mit Texteingabe, Zielsprache und Glossarauswahl"
         },
         "tts": {
@@ -5111,14 +5127,14 @@
           "alt": "Report mit Quellen, Vorlage und Anweisung"
         },
         "podcast": {
-          "lead": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen.",
+          "lead": "Aus dem Material wird ein Gespräch zum Anhören. Inhalt und Besetzung sind wählbar, das Skript lässt sich vor der Vertonung prüfen.",
           "p1": "Ein bis vier Sprechende mit eigener Rolle und Stimme",
           "p2": "Länge von etwa 5 bis 20 Minuten, Stil erklärend, locker oder als Interview",
           "p3": "Das Ergebnis ist eine MP3-Datei, das Transkript gibt es dazu",
           "alt": "Podcast mit Quellenauswahl, Sprache und Anweisung"
         },
         "praesentation": {
-          "lead": "Aus deinem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht.",
+          "lead": "Aus dem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht.",
           "p1": "Erst entsteht die Gliederung zum Umstellen, dann die Folien",
           "p2": "Die THL-Vorlage ist voreingestellt, eine eigene Vorlage lässt sich hochladen",
           "p3": "Fertig ist eine PowerPoint-Datei, auf Wunsch mit Sprechernotizen",
@@ -5127,7 +5143,7 @@
         "screencast": {
           "lead": "Macht aus einer PowerPoint-Datei ein vertontes Video, wahlweise in einer anderen Sprache.",
           "p1": "Die Sprechtexte entstehen aus den Folien, aus einem Import oder aus den Notizen der Datei",
-          "p2": "Jeden Sprechtext kannst du prüfen, ändern oder neu vorschlagen lassen",
+          "p2": "Jeder Sprechtext lässt sich prüfen, ändern oder neu vorschlagen",
           "p3": "Das Video gibt es als MP4, auf Wunsch mit Untertiteln",
           "alt": "Screencast mit Dateiupload und Zielsprache"
         },
@@ -5139,14 +5155,14 @@
           "alt": "Bildgenerierung mit Prompt, Stil und Format"
         },
         "glossary": {
-          "lead": "Hier pflegst du eigene Begriffslisten, damit Fachbegriffe überall gleich übersetzt werden.",
+          "lead": "Eigene Begriffslisten sorgen dafür, dass Fachbegriffe überall gleich übersetzt werden.",
           "p1": "Ein Eintrag besteht aus dem deutschen und dem englischen Begriff",
           "p2": "Das Glossar wirkt in Übersetzung und Screencast",
           "p3": "Glossare lassen sich exportieren und an Kolleginnen und Kollegen weitergeben",
           "alt": "Glossar mit Liste der eigenen Begriffslisten"
         },
         "pages": {
-          "lead": "Aus deinem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen, die sich teilen und im Workspace einbinden lässt.",
+          "lead": "Aus dem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen, die sich teilen und im Workspace einbinden lässt.",
           "p1": "Die KI wählt selbst, welche Darstellungen zum Stoff passen, etwa Bilder, Tabellen oder eine Mindmap",
           "p2": "Jeder Text, jedes Bild und jede Beschriftung lässt sich danach ändern",
           "p3": "Teilen per Link, mit oder ohne askFrancis-Konto",
@@ -5156,13 +5172,13 @@
     },
     "tabAia": "Lernassistent",
     "tabServices": "Dienste",
-    "servicesTitle": "Dienste für dein Material",
-    "servicesLead": "Texte übersetzen, vorlesen lassen, Aufnahmen transkribieren oder Podcast, Präsentation und Screencast aus deinem Material erstellen.",
+    "servicesTitle": "Dienste für das Lehrmaterial",
+    "servicesLead": "Texte übersetzen, vorlesen lassen, Aufnahmen transkribieren oder Podcast, Präsentation und Screencast aus dem Material erstellen.",
     "servicesAlt": "Screencast-Dienst im Schritt Rendern, alle Folien einzeln anhören, hier Folie 8 mit Sprechtext und Player",
     "servicesLabel": "Screencast",
     "contact": {
       "heading": "Kontakt",
-      "body": "Du möchtest mehr über das Projekt erfahren, hast Fragen oder möchtest die Plattform ausprobieren? Dann schreib uns gern eine E-Mail, wir melden uns bei dir."
+      "body": "Fragen zum Projekt, Interesse an einem Test oder an einem Austausch? Eine E-Mail genügt, wir melden uns."
     },
     "toTop": "Nach oben"
   },
