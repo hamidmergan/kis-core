@@ -8,17 +8,28 @@ export async function fireworks(durationMs = 2500): Promise<void> {
     .map((name) => css.getPropertyValue(name).trim())
     .filter(Boolean)
     .concat("#ffffff");
+  const shared = { zIndex: 50, colors, disableForReducedMotion: true };
+
+  // Three bursts out of the completion panel, one after the other, like party poppers.
+  const panel = document.querySelector('[data-testid="completion"]')?.getBoundingClientRect();
+  const origin = panel
+    ? { x: (panel.left + panel.width / 2) / window.innerWidth, y: Math.min(0.9, Math.max(0.1, (panel.top + panel.height / 3) / window.innerHeight)) }
+    : { x: 0.5, y: 0.35 };
+  for (const delay of [0, 450, 900]) {
+    window.setTimeout(() => void confetti({ ...shared, particleCount: 110, spread: 80, startVelocity: 35, origin }), delay);
+  }
+
+  // Fireworks at both sides for the whole duration, fewer particles towards the end so they fade out.
   const end = Date.now() + durationMs;
-  const defaults = { startVelocity: 28, spread: 360, ticks: 55, zIndex: 50, colors, disableForReducedMotion: true };
+  const sides = { ...shared, startVelocity: 28, spread: 360, ticks: 55 };
   const timer = window.setInterval(() => {
     const left = end - Date.now();
     if (left <= 0) {
       window.clearInterval(timer);
       return;
     }
-    // Fewer particles towards the end, so the fireworks fade out instead of stopping.
     const particleCount = Math.round(45 * (left / durationMs));
-    void confetti({ ...defaults, particleCount, origin: { x: 0.15 + Math.random() * 0.2, y: Math.random() * 0.4 } });
-    void confetti({ ...defaults, particleCount, origin: { x: 0.65 + Math.random() * 0.2, y: Math.random() * 0.4 } });
+    void confetti({ ...sides, particleCount, origin: { x: 0.15 + Math.random() * 0.2, y: Math.random() * 0.4 } });
+    void confetti({ ...sides, particleCount, origin: { x: 0.65 + Math.random() * 0.2, y: Math.random() * 0.4 } });
   }, 250);
 }
