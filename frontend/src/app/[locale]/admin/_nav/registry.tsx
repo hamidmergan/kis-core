@@ -232,9 +232,9 @@ export const SECTIONS: AdminSection[] = [
     perm: PERM.event,
     tabs: [
       { slug: "stations", labelKey: "stations", Component: EventStationsPage },
+      { slug: "raffle", labelKey: "raffle", Component: EventRafflePage },
       { slug: "block", labelKey: "block", Component: EventBlockPage },
       { slug: "tasks", labelKey: "tasks", Component: EventTasksPage },
-      { slug: "raffle", labelKey: "raffle", Component: EventRafflePage },
       { slug: "stats", labelKey: "stats", Component: EventStatsPage },
     ],
   },
