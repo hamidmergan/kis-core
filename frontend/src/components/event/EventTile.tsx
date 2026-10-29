@@ -52,7 +52,7 @@ export default function EventTile({ tile, signedIn = false }: { tile: EventTileD
         </span>
         <span className="text-base font-semibold tracking-[-0.01em]">{text(tile.title)}</span>
       </div>
-      <p className="text-sm leading-[21px] text-foreground-soft flex-1">{text(tile.body)}</p>
+      <p className="text-base leading-snug text-foreground-soft flex-1">{text(tile.body)}</p>
       {tile.active ? (
         <>
           <Link
