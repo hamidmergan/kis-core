@@ -53,13 +53,13 @@ export default function StampCard() {
   const loading = !ready || !data;
   const complete = isComplete(card, stations);
   const showComplete = !failed && !cardFailed && !loading && complete;
-  // Fireworks once, only when the last stamp was set on this page, not when a finished card is opened again.
+  // Fireworks once per page load whenever the full card shows, so a reload celebrates again.
   const celebrated = useRef(false);
   useEffect(() => {
-    if (!showComplete || mood.kind !== "stamped" || celebrated.current) return;
+    if (!showComplete || celebrated.current) return;
     celebrated.current = true;
     void fireworks();
-  }, [showComplete, mood]);
+  }, [showComplete]);
   const doneCount = stampedIds(card, stations).length;
   const lastId = mood.kind === "stamped" ? mood.station.id : null;
 
