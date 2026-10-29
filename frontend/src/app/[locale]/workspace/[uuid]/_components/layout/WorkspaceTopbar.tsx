@@ -171,11 +171,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
     >
       <Wordmark size="sm" />
-      {process.env.NODE_ENV === "development" && (
-        <span className="text-2xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
-          DEV
-        </span>
-      )}
     </Link>
   );
 

@@ -124,11 +124,6 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
           >
             <Wordmark />
           </Link>
-          {process.env.NODE_ENV === "development" && (
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
-              DEV
-            </span>
-          )}
         </div>
 
         {showLogout && (
