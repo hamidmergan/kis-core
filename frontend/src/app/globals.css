@@ -122,6 +122,8 @@
   --kb20:         #EBEDF0;
   /* Mint of the askFrancis logo, the "ask" in the wordmark. */
   --brand-mint:   #7dc5ac;
+  /* Red of the beak in the askFrancis logo. */
+  --brand-red:    #e4003a;
   /* Ball in front of the chat waiting line. */
   --warte-kugel:  var(--kb);
   /* Light band that sweeps across a waiting text. */

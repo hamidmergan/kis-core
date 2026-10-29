@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { ROUTES } from "@/lib/event/routes";
+import { fireworks } from "@/lib/event/fireworks";
 import { isComplete, stampedIds, suggestNext } from "@/lib/event/stampLogic";
 import { usePublicEvent } from "@/lib/event/usePublicEvent";
 import { useStampCard } from "@/lib/event/useStampCard";
@@ -52,6 +53,13 @@ export default function StampCard() {
   const loading = !ready || !data;
   const complete = isComplete(card, stations);
   const showComplete = !failed && !cardFailed && !loading && complete;
+  // Fireworks once, only when the last stamp was set on this page, not when a finished card is opened again.
+  const celebrated = useRef(false);
+  useEffect(() => {
+    if (!showComplete || mood.kind !== "stamped" || celebrated.current) return;
+    celebrated.current = true;
+    void fireworks();
+  }, [showComplete, mood]);
   const doneCount = stampedIds(card, stations).length;
   const lastId = mood.kind === "stamped" ? mood.station.id : null;
 
