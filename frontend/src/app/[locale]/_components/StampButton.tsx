@@ -34,7 +34,7 @@ export function StampButton({ stamp, from = "", title, body }: { stamp: "open" |
       href={ROUTES.stamp}
       aria-label={label}
       title={hint}
-      className={`${shell} bg-background border-kb-dark text-kb-dark hover:border-kb transition-colors no-underline`}
+      className={`${shell} bg-background border-kb-dark text-kb-dark hover:bg-kb hover:border-kb hover:text-on-accent transition-colors no-underline`}
       data-testid="start-tile-stamp"
     >
       <Icon size={22} weight="regular" aria-hidden />
