@@ -5361,6 +5361,7 @@
       "consentHint": "Die Adressen dürfen nur für die Zwecke genutzt werden, die hier stehen.",
       "done": "Text nach dem Eintragen",
       "entriesTitle": "Einträge",
+      "listToggle": "E-Mail-Adressen",
       "count": "{n, plural, =0 {Noch keine Einträge} one {# Eintrag} other {# Einträge}}",
       "loading": "Lädt …",
       "loadFailed": "Die Einträge konnten nicht geladen werden.",

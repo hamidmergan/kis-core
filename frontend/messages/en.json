@@ -5361,6 +5361,7 @@
       "consentHint": "The addresses may only be used for the purposes named here.",
       "done": "Text after entering",
       "entriesTitle": "Entries",
+      "listToggle": "Email addresses",
       "count": "{n, plural, =0 {No entries yet} one {# entry} other {# entries}}",
       "loading": "Loading …",
       "loadFailed": "The entries could not be loaded.",
