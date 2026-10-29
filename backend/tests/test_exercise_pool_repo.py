@@ -62,7 +62,7 @@ def _art(*fingerprints):
     return [{"front": f, "back": f.upper()} for f in fingerprints], list(fingerprints)
 
 
-# --- schreiben committen -------------------------------------------------------
+# --- writes commit -------------------------------------------------------------
 
 def test_storing_items_commits(fake_db):
     calls = fake_db(rows=[(1,), (2,)])
@@ -83,7 +83,7 @@ def test_writing_back_the_content_commits(fake_db):
     assert ("commit", None, None) in calls
 
 
-# --- einlagern -----------------------------------------------------------------
+# --- storing -------------------------------------------------------------------
 
 def test_an_item_without_a_fingerprint_is_skipped(fake_db):
     fake_db(rows=[(1,)])
@@ -107,7 +107,7 @@ def test_json_fields_are_serialised(fake_db):
     items = [{"front": "a", "back": "A", "options": ["x", "y"], "sources": [{"p": 1}]}]
     repo.add_pool_items(9, "quiz", "B1", items, ["a"])
     params = next(c[2] for c in calls if c[0] == "execute")
-    assert params[:5] == (9, "quiz", "B1", None, None)  # ohne Thema, kind ist auch None
+    assert params[:5] == (9, "quiz", "B1", None, None)  # no topic, kind is also None
     assert params[5] == "a"                              # fingerprint
     assert json.loads(params[10]) == ["x", "y"]          # options
 
@@ -130,7 +130,7 @@ def test_storing_nothing_touches_no_connection(monkeypatch):
     assert repo.add_pool_items(9, "quiz", None, [], []) == []
 
 
-# --- lesen ---------------------------------------------------------------------
+# --- reading -------------------------------------------------------------------
 
 def test_taking_nothing_touches_no_connection(monkeypatch):
     def boom():
@@ -183,7 +183,7 @@ def test_seen_fingerprints_reads_by_user_and_tool(fake_db):
     assert params[0] == 3 and params[1] == "quiz"
 
 
-# --- schon gesehen, dauerhaft ---------------------------------------------------
+# --- already seen, permanently --------------------------------------------------
 
 def test_the_take_excludes_via_the_permanent_seen_table(fake_db):
     """A deleted set must not free the exercise up again, so the live join is gone."""
@@ -213,7 +213,7 @@ def test_seen_fingerprints_reads_from_the_permanent_table(fake_db):
     assert "aia_exercise_sets" not in sql
 
 
-# --- aufraeumen ----------------------------------------------------------------
+# --- cleanup -------------------------------------------------------------------
 
 def test_clearing_writes_the_content_back_before_deleting(fake_db):
     """Otherwise a finished set goes empty because someone swapped the source."""
@@ -275,7 +275,7 @@ def test_the_exclusion_and_the_format_choice_keep_their_order(fake_db):
     assert list(params).index([11]) < list(params).index(["cloze"])
 
 
-# --- Aufwaermen: Erzeugungen je Vorrat zaehlen -----------------------------------
+# --- warm-up: count generations per pool -----------------------------------------
 
 def test_counting_a_generation_adds_one_and_commits(fake_db):
     calls = fake_db()

@@ -1,8 +1,4 @@
-"""Das Podcast-Skript wartet, wenn die KI überlastet ist, statt endgültig zu scheitern.
-
-Lasttest mit großen Dateien am 26.09.: Planungsaufrufe über 200 Seiten dauerten länger, als KIS
-wartete, und der Auftrag endete sofort auf failed.
-"""
+"""The podcast script waits when the model is overloaded instead of failing for good. Load test 26.09.: planning calls over 200 pages outlasted the KIS timeout and the job failed at once."""
 
 import pytest
 
@@ -39,7 +35,7 @@ def test_ein_echter_fehler_bleibt_ein_fehler(monkeypatch, gemeldet):
 
 
 def test_beim_warten_steht_kein_rat_zu_weniger_material(monkeypatch):
-    """Lauf 14: wartende Skripte zeigten "Versuch es mit weniger Material", dabei lief alles von selbst weiter."""
+    """Run 14: waiting scripts showed "Versuch es mit weniger Material" although everything continued by itself."""
     from src.i18n import t
 
     texte = []

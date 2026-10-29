@@ -20,7 +20,7 @@ type Props = {
   onMove: (feature: Feature, providerId: number, step: -1 | 1) => Promise<void>;
 };
 
-// Nur diese Funktionen laufen ueber chat/completions, nur dort wirken die Werte.
+// Only these features run via chat/completions, only there do the values apply.
 const CHAT_LIKE: ReadonlySet<string> = new Set([
   "chat", "vision", "ocr", "doc_translate", "transcript_translate",
 ]);
@@ -429,10 +429,7 @@ function FeatureRow({
           })
         )}
       </div>
-      {/* Die Standardstimme haengt an den Anbietern und gehoert deshalb hierher,
-          nicht in eine eigene Karte anderswo. Sie waehlt Anbieter und Stimme in
-          EINEM Feld, weil es bei einem Nutzer-waehlt-Feature keinen einen
-          gerouteten Anbieter gibt, an den sie sich haengen koennte. */}
+      {/* The default voice depends on the providers and belongs here, not in a separate card. It picks provider and voice in ONE field because a user-selects feature has no single routed provider to attach to. */}
       {feature === "tts" && <DefaultVoiceRow eligible={eligible} starId={providerId} />}
     </div>
   );

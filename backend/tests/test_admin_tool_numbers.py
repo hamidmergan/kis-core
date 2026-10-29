@@ -1,8 +1,4 @@
-"""Die einstellbaren Zahlen der Werkzeuge im Adminbereich: lesen, pruefen, speichern.
-
-Laeuft ueber den ganzen Vorrat. Traegt ein weiteres Werkzeug eine Zahl ein, ist sie
-damit mitgeprueft, ohne dass hier etwas dazukommt.
-"""
+"""The adjustable tool numbers in the admin area: read, validate, save. Runs over the whole catalogue, so a new tool's number is covered without changes here."""
 
 import pytest
 from fastapi import HTTPException
@@ -44,7 +40,7 @@ class TestLesen:
             assert antwort[zahl.key] == zahl.default
 
     async def test_die_spannen_kommen_mit(self, store):
-        """Damit die Oberflaeche keine Grenze noch einmal aufschreiben muss."""
+        """So the UI never has to restate a limit."""
         antwort = admin_settings.get_settings()
         gemeldet = {e["key"]: e for e in antwort["tool_numbers"]}
         for zahl in tn.NUMBERS:
@@ -55,12 +51,12 @@ class TestLesen:
 
 class TestFeldUndRecht:
     def test_jede_zahl_hat_ein_feld_am_formular(self):
-        """Ohne Feld kaeme der Wert nie am Backend an."""
+        """Without the field the value would never reach the backend."""
         for zahl in tn.NUMBERS:
             assert zahl.key in UpdateSettingsRequest.model_fields
 
     def test_jede_zahl_haengt_an_einem_recht(self):
-        """Ohne Recht duerfte jeder mit irgendeinem Einstellungsrecht daran drehen."""
+        """Without the permission anyone with any settings right could change it."""
         for zahl in tn.NUMBERS:
             assert admin_settings._permission_for(zahl.key) == zahl.permission
 
@@ -99,5 +95,5 @@ class TestSpeichern:
 
 
 async def test_die_zeitgrenze_bleibt_unter_der_mauer_des_anbieters():
-    """Gemessen 20.09.: myLab wirft einen Aufruf bei etwa 300 s mit einem nackten 500 weg."""
+    """Measured 20.09.: myLab drops a call at about 300 s with a bare 500."""
     assert tn.BY_KEY["summary_call_timeout_seconds"].largest <= 300

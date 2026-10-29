@@ -124,7 +124,7 @@ describe("Was in der Fortschrittsleiste anklickbar ist", () => {
 describe("Kleine Helfer", () => {
   it("kennt Inhalt je nach Quelle", () => {
     expect(hasContent({ mode: "files", files: [], moduleId: "", sourceIds: [] })).toBe(false);
-    // Der leere Weg braucht kein Material, das Skript entsteht von Hand.
+    // The empty path needs no material, the script is written by hand.
     expect(hasContent({ mode: "blank", files: [], moduleId: "", sourceIds: [] })).toBe(true);
     expect(hasContent({ mode: "module", files: [], moduleId: "m1", sourceIds: [] })).toBe(false);
     expect(hasContent({ mode: "module", files: [], moduleId: "m1", sourceIds: ["s1"] })).toBe(true);
@@ -133,7 +133,7 @@ describe("Kleine Helfer", () => {
   it("kennt den Weg ohne KI vor und nach dem Start", () => {
     expect(ohneKi(state({}))).toBe(false);
     expect(ohneKi(state({ source: { mode: "blank", files: [], moduleId: "", sourceIds: [] } }))).toBe(true);
-    // Aus der Jobliste zurueck steht der Weg nur noch in den Einstellungen.
+    // Back from the job list the path only remains in the settings.
     expect(ohneKi(state({ selfWritten: true }))).toBe(true);
   });
 

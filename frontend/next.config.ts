@@ -7,17 +7,14 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Standalone traegt nur mit, was der Code importiert. Die Doku liest ihre
-  // Markdown-Dateien zur Laufzeit, ohne diese Zeile ist sie auf prod leer.
+  // Standalone only bundles what the code imports; the manual reads its Markdown at runtime and is empty on prod without this.
   outputFileTracingIncludes: {
     "/[locale]/manual": ["./src/content/docs/**/*"],
     "/[locale]/manual/[slug]": ["./src/content/docs/**/*"],
   },
-  // Ein Probe-Build darf den laufenden Dev-Server nicht abschiessen: beide
-  // schreiben sonst in dasselbe .next und :3000 ist danach kaputt. Mit
-  // NEXT_DIST_DIR=.next-verify baut die Probe daneben. Next schreibt dabei
-  // next-env.d.ts und tsconfig.json auf den Probe-Ordner um, die beiden also
-  // hinterher zuruecksetzen (git checkout).
+  // A verify build must not kill the running dev server by writing into the same .next;
+  // NEXT_DIST_DIR=.next-verify builds beside it. Next then rewrites next-env.d.ts and
+  // tsconfig.json to that folder, so reset both afterwards (git checkout).
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   webpack: (config) => {
@@ -27,13 +24,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     middlewareClientMaxBodySize: "500mb",
-    proxyTimeout: 600000, // 10 min – für lokale Ollama-Generierung
+    proxyTimeout: 600000, // 10 min for local Ollama generation
     optimizePackageImports: ["@phosphor-icons/react"],
   },
   async redirects() {
-    // Alte deutsche Adressen, damit gemerkte Links und schon verschickte Einladungen weiter ankommen.
+    // Old German paths, so bookmarked links and already sent invitations keep working.
     return [
-      // Aelteste Adresse der Kalender-Seite.
+      // Oldest path of the calendar page.
       { source: "/schedule", destination: "/calendar", permanent: false },
       { source: "/:locale(de|en)/schedule", destination: "/:locale/calendar", permanent: false },
       { source: "/kalender", destination: "/calendar", permanent: false },
@@ -44,7 +41,7 @@ const nextConfig: NextConfig = {
       { source: "/zugang/abgelaufen", destination: "/redeem/expired", permanent: false },
       { source: "/:locale(de|en)/zugang/abgelaufen", destination: "/:locale/redeem/expired", permanent: false },
 
-      // Traegt ein Token, das schon an echte Personen verschickt wurde, muss unbedingt weiter ankommen.
+      // Carries a token already sent to real people, must keep working.
       { source: "/einladung/:token", destination: "/invite/:token", permanent: false },
       { source: "/:locale(de|en)/einladung/:token", destination: "/:locale/invite/:token", permanent: false },
 
@@ -53,7 +50,7 @@ const nextConfig: NextConfig = {
       { source: "/wartung", destination: "/maintenance", permanent: false },
       { source: "/:locale(de|en)/wartung", destination: "/:locale/maintenance", permanent: false },
 
-      // Einzelne Unterseiten zuerst, sonst greift die Sammelregel darunter und der Slug bleibt deutsch.
+      // Single subpages first, otherwise the catch-all below matches and the slug stays German.
       { source: "/admin/nutzer/ausstehend", destination: "/admin/users/pending", permanent: false },
       { source: "/:locale(de|en)/admin/nutzer/ausstehend", destination: "/:locale/admin/users/pending", permanent: false },
       { source: "/admin/nutzer/einladungen", destination: "/admin/users/invites", permanent: false },
@@ -95,13 +92,13 @@ const nextConfig: NextConfig = {
       { source: "/admin/statistik/modelle", destination: "/admin/stats/models", permanent: false },
       { source: "/:locale(de|en)/admin/statistik/modelle", destination: "/:locale/admin/stats/models", permanent: false },
 
-      // Die Profilseite zeigt nur noch das Sprachlevel und heisst seit 04.09.2026 so.
+      // The profile page only shows the language level and has had this name since 04.09.2026.
       { source: "/profile", destination: "/language-level", permanent: false },
       { source: "/:locale(de|en)/profile", destination: "/:locale/language-level", permanent: false },
       { source: "/profile/language-test", destination: "/language-level/test", permanent: false },
       { source: "/:locale(de|en)/profile/language-test", destination: "/:locale/language-level/test", permanent: false },
 
-      // Admin-Unterseiten, nur die Slugs wurden englisch, key/labelKey blieben unangetastet.
+      // Admin subpages, only the slugs went English, key/labelKey untouched.
       { source: "/admin/nutzer/:path*", destination: "/admin/users/:path*", permanent: false },
       { source: "/:locale(de|en)/admin/nutzer/:path*", destination: "/:locale/admin/users/:path*", permanent: false },
       { source: "/admin/werkzeuge/:path*", destination: "/admin/tools/:path*", permanent: false },
@@ -386,7 +383,7 @@ const nextConfig: NextConfig = {
         source: "/openapi.json",
         destination: `${backendUrl}/openapi.json`,
       },
-      // Campusplan: statisches Verzeichnis unter public/, Next loest "/campus-map/" selbst nicht auf eine index.html auf.
+      // Campus map: static folder under public/, Next does not resolve "/campus-map/" to index.html itself.
       {
         source: "/campus-map",
         destination: "/campus-map/index.html",

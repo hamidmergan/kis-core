@@ -1,4 +1,4 @@
-"""Die Routen reichen die Anweisung gesaeubert an die Zeile durch und geben sie zurueck."""
+"""The routes pass the cleaned instruction through to the row and return it."""
 
 import types
 
@@ -84,7 +84,7 @@ async def test_the_mindmap_answer_carries_instruction_and_flag(monkeypatch):
         assert antwort["instruction_unmatched"] is True
 
 
-# --- Datentabelle ----------------------------------------------------------------
+# --- Data table ----------------------------------------------------------------
 
 @pytest.fixture
 def table(monkeypatch):
@@ -111,7 +111,7 @@ async def test_the_table_route_stores_nothing_without_an_instruction(table):
     assert table[0][1]["user_instruction"] is None
 
 
-# --- Karteikarten und Quiz -----------------------------------------------------
+# --- Flashcards and quiz -----------------------------------------------------
 
 @pytest.fixture
 def sets(monkeypatch):

@@ -152,7 +152,7 @@ class TestGemischtesDokument:
 
 
 class TestDeckblattUndVerzeichnis:
-    """Mit Titel bekommt die Datei ein Deckblatt und ein Inhaltsverzeichnis."""
+    """With a title the file gets a cover page and a table of contents."""
 
     def test_ohne_titel_beginnt_die_datei_beim_text(self):
         doc = _open(markdown_to_docx("Ein Satz."))
@@ -203,7 +203,7 @@ class TestDeckblattUndVerzeichnis:
 
 
 class TestHinweisUndVerzeichnisUeberschrift:
-    """Deckblatt und Verzeichnis sprechen die Sprache des Dokuments, nicht die der Oberflaeche."""
+    """Cover page and TOC speak the document's language, not the UI's."""
 
     def test_der_hinweis_steht_direkt_unter_titel_und_datum(self):
         doc = _open(markdown_to_docx("## Kapitel", title="AMG74", today="19.09.2026"))
@@ -221,7 +221,7 @@ class TestHinweisUndVerzeichnisUeberschrift:
         assert "Inhaltsverzeichnis" in texte
 
     def test_die_ueberschrift_landet_nicht_im_verzeichnis(self):
-        """Outline-Ebene 9 haelt sie aus dem TOC-Feld heraus, sonst listet es sich selbst."""
+        """Outline level 9 keeps them out of the TOC field, otherwise it lists itself."""
         doc = _open(markdown_to_docx(_FUENF, title="AMG74"))
         absatz = next(p for p in doc.paragraphs if p.text == "Inhaltsverzeichnis")
         assert absatz.style.name == "TOC Heading"

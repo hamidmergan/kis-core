@@ -1,8 +1,4 @@
-"""Ein überzähliges Komma des LLM vor ] oder } kostet keine Übung mehr.
-
-Lauf 15, 27.09.: zweimal scheiterte ein Quiz an "Expecting value: line 11 column 7", gemma4-31b
-hatte nach der letzten Antwortmöglichkeit ein Komma stehen lassen.
-"""
+"""A trailing LLM comma before ] or } no longer costs an exercise. Run 15, 27.09.: two quizzes failed with "Expecting value: line 11 column 7" because gemma4-31b left a comma after the last option."""
 import json
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
@@ -38,7 +34,7 @@ def test_kommas_in_texten_bleiben_stehen():
 
 
 def test_notiz_nach_dem_codeblock_faellt_weg():
-    # Lokal 08.10.: gemma4:31b hängte an den Lückentext einen "Korrekturhinweis (intern)" an.
+    # Local 08.10.: gemma4:31b appended a "Korrekturhinweis (intern)" to the cloze text.
     roh = '```json\n{\n  "text": "Ein `Paper` schreiben",\n  "gaps": []\n}\n```\n\n**Korrekturhinweis:**\n1. `Paper`'
     assert json.loads(_clean_llm_json(roh)) == {"text": "Ein `Paper` schreiben", "gaps": []}
 

@@ -14,7 +14,7 @@ export type HighlightRefs = {
 type DrawOpts = { scroll?: boolean; append?: boolean };
 
 // A passive light blue mark, not a text selection.
-export const CITATION_HL_COLOR = "#9BD2F0";   // helles CD-Blau, dasselbe wie beim Markieren-Werkzeug
+export const CITATION_HL_COLOR = "#9BD2F0";   // light CD blue, same as the highlight tool
 // Matches the native highlighter's own default: the renderer only paints opacity 1 reliably,
 // the paleness of CITATION_HL_COLOR itself is what keeps the mark soft.
 const CITATION_HL_OPACITY = 1;

@@ -257,7 +257,7 @@ def _kenne_fenster(monkeypatch, fenster, quelle=None):
 
 
 def test_ein_gelerntes_fenster_aendert_die_admin_zahl_nicht(monkeypatch):
-    """Ein gelerntes Fenster kann aus einer Drosselung stammen, es kuerzt nie (2cf4b55f)."""
+    """A learned window may come from throttling, it never shortens (2cf4b55f)."""
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
     from src.services import model_limits
 
@@ -268,7 +268,7 @@ def test_ein_gelerntes_fenster_aendert_die_admin_zahl_nicht(monkeypatch):
 
 
 def test_ein_gemessenes_kleines_fenster_kuerzt_die_admin_zahl(monkeypatch):
-    """Seit 08.10.2026 kuerzt ein gemessenes Fenster wie ein von Hand eingetragenes."""
+    """Since 08.10.2026 a measured window shortens like one entered by hand."""
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
     from src.services import model_limits
 
@@ -296,7 +296,7 @@ def test_ohne_wissen_ueber_das_modell_gilt_die_admin_zahl(monkeypatch):
 
 
 def test_auch_ein_gelerntes_fenster_deckelt_nicht(monkeypatch):
-    """Gelernte Groessen kamen aus Fehlertexten, darauf verlassen wir uns nicht mehr."""
+    """Learned sizes came from error texts, we no longer rely on them."""
     from src.services import model_limits
 
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
@@ -338,7 +338,7 @@ def test_grosses_modell_behaelt_die_volle_obergrenze(monkeypatch):
 
 
 def test_ein_schmales_gemessenes_fenster_kuerzt_die_gezielte_frage(monkeypatch):
-    """Ollama mit 32k: die gezielte Frage bekommt, was ins Fenster passt."""
+    """Ollama with 32k: the specific question gets what fits in the window."""
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
     from src.limits import AIA_SPECIFIC_MAX_CHARS
     from src.services import model_limits

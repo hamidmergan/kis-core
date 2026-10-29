@@ -1,10 +1,8 @@
-// Englische Inhalte – werden bei Sprache "en" ueber config_v2.js gelegt.
+// English content, overlaid on config_v2.js when the language is "en".
 //
-// Enthaelt nur die Textfelder, in derselben Struktur wie config_v2.js.
-// Arrays werden elementweise (per Index) zusammengefuehrt: Reihenfolge und
-// Laenge muessen also zum deutschen Original passen. Wer in config_v2.js
-// Texte aendert oder Eintraege ergaenzt, sollte sie hier nachziehen –
-// fehlende Eintraege erscheinen einfach auf Deutsch.
+// Holds only the text fields, in the same structure as config_v2.js.
+// Arrays merge by index, so order and length must match the German original.
+// Changes in config_v2.js should be mirrored here; missing entries fall back to German.
 
 const CONTENT_EN_QUIZ = {
     Frage: {

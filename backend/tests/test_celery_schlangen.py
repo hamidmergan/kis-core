@@ -1,7 +1,6 @@
-"""Welche Arbeit in welcher Schlange landet, damit nichts anderes blockiert.
+"""Which work lands in which queue so nothing else blocks.
 
-Lasttest 26.09.: zehn Podcast-Vertonungen warteten auf myLab und belegten alle Plätze der
-allgemeinen Schlange. Zusammenfassungen standen still, und der Aufseher kam nicht dran.
+Load test 26.09.: ten podcast renders waited for myLab and took all seats of the general queue, summaries stalled and the watchdog never got a turn.
 """
 
 from src.celery_app import celery_app
@@ -23,7 +22,7 @@ def test_kurze_dienste_bleiben_in_der_allgemeinen_schlange():
 
 
 def test_die_zusammenfassung_laeuft_bei_den_langen_diensten():
-    """Lauf 15: sie belegt unter Last 6 bis 15 Minuten einen Prozess, in general hielt sie Transkripte auf."""
+    """Run 15: under load it holds a process for 6 to 15 minutes, in the general queue it held up transcripts."""
     from src.tasks.summary_tasks import run_summary
 
     assert _schlange("summary.run") == "long"
@@ -31,7 +30,7 @@ def test_die_zusammenfassung_laeuft_bei_den_langen_diensten():
 
 
 def test_lange_dienste_haben_eine_eigene_schlange():
-    """Lauf 7: ein Transkript lief 10 s, wartete aber 12 Minuten hinter Gliederungen und Podcast-Skripten."""
+    """Run 7: a transcript ran 10 s but waited 12 minutes behind outlines and podcast scripts."""
     from src.tasks.backup_tasks import run_database_backup
     from src.tasks.podcast_tasks._script import run_podcast_script
     from src.tasks.praesentation_tasks._build import run_praesentation_build
@@ -45,13 +44,13 @@ def test_lange_dienste_haben_eine_eigene_schlange():
 
 
 def test_ein_neustart_gibt_laufende_auftraege_sofort_zurueck():
-    """26.09.: nach einem Neustart lagen sechs Tools eine Stunde lang als übernommen beim Verteiler."""
+    """26.09.: after a restart six tools sat at the dispatcher as taken for an hour."""
     assert celery_app.conf.worker_soft_shutdown_timeout > 0
     assert celery_app.conf.worker_enable_soft_shutdown_on_idle is True
 
 
 def test_jeder_arbeiter_gibt_beim_stoppen_zurueck_bevor_docker_ihn_toetet():
-    """Docker schickt TERM, Celery wartet darauf sonst endlos und wird nach 10 s hart beendet."""
+    """Docker sends TERM, otherwise Celery waits for it forever and is killed hard after 10 s."""
     import pathlib
 
     import pytest
@@ -78,7 +77,7 @@ def test_der_aufseher_hat_eine_schlange_fuer_sich():
 
 
 def test_liegengebliebene_aufseher_takte_verfallen():
-    """Sonst stauen sich hunderte Takte und laufen später alle auf einmal."""
+    """Otherwise hundreds of ticks pile up and all run at once later."""
     eintrag = celery_app.conf.beat_schedule["watchdog-stuck-jobs"]
     assert 0 < eintrag["options"]["expires"] <= 30
 
@@ -90,13 +89,13 @@ def test_jede_schlange_wird_vom_broker_blick_erfasst():
 
 
 def test_ein_aufgeblaehter_arbeiterprozess_wird_nach_seinem_auftrag_ersetzt():
-    """Ein Prozess, der nach einem großen Dokument viel Speicher behält, drängt sonst andere hinaus."""
+    """A process that keeps a lot of memory after a large document otherwise pushes others out."""
     grenze_kib = celery_app.conf.worker_max_memory_per_child
     assert grenze_kib and grenze_kib <= 500_000
 
 
 def test_quellen_haben_eine_eigene_schlange():
-    """Lasttest 26.09., Lauf 6: Quellen standen in der Schlange hinter 14 Lerntools, Francis blieb stumm."""
+    """Load test 26.09., run 6: sources queued behind 14 learning tools, Francis stayed silent."""
     from src.features.ai_assistant.tasks.ingestion import run_index_source, run_translate_transcript
 
     for task in ("aia.index_source", "aia.translate_transcript", "aia.reindex_all_sources"):
@@ -127,14 +126,14 @@ def test_der_platzverteiler_schickt_quellen_in_ihre_schlange(monkeypatch):
 
 
 def test_ein_abgebrochener_auftrag_wird_nicht_als_erledigt_quittiert():
-    """billiard 4.3.0 meldet den eigenen Stopp als Ergebnis, der laufende Auftrag verschwand (celery/billiard#463)."""
+    """billiard 4.3.0 reports its own stop as a result, the running job vanished (celery/billiard#463)."""
     from importlib.metadata import version
 
     assert version("billiard") != "4.3.0"
 
 
 def test_der_francis_arbeiter_hat_so_viele_prozesse_wie_plaetze():
-    """Mehr Plätze als Prozesse lassen freigegebene Aufträge in der Celery-Schlange stehen."""
+    """More seats than processes leave released jobs standing in the Celery queue."""
     import pathlib
     import re
 
@@ -151,7 +150,7 @@ def test_der_francis_arbeiter_hat_so_viele_prozesse_wie_plaetze():
 
 
 def test_der_hauptprozess_friert_seine_objekte_vor_jedem_prozessstart_ein():
-    """Lauf 10: jeder benutzte Prozess kopierte rund 50 MB vom Hauptprozess, die er nur teilen müsste."""
+    """Run 10: every used process copied about 50 MB from the main process that it only needed to share."""
     import gc
 
     from celery.signals import worker_before_create_process
@@ -165,7 +164,7 @@ def test_der_hauptprozess_friert_seine_objekte_vor_jedem_prozessstart_ein():
 
 
 def test_gliederung_und_skript_ziehen_am_aufbau_vorbei():
-    """Der Aufbau läuft in Etappen von zehn Minuten, die Gliederung braucht 40 s und hält die Person auf."""
+    """The build runs in ten-minute stages, the outline takes 40 s and keeps the person waiting."""
     from kombu.transport.redis import Channel
 
     from src.tasks.podcast_tasks._script import run_podcast_script
@@ -187,7 +186,7 @@ def test_gliederung_und_skript_ziehen_am_aufbau_vorbei():
 
 
 def test_das_backend_haelt_nicht_je_thread_einen_eigenen_speicherbereich():
-    """Lauf 11: 63 bis 69 Thread-Bereiche hielten je Backend-Prozess 500 bis 600 MB, der Rechner lief voll."""
+    """Run 11: 63 to 69 thread arenas held 500 to 600 MB per backend process, the machine filled up."""
     import pathlib
 
     import pytest
@@ -201,7 +200,7 @@ def test_das_backend_haelt_nicht_je_thread_einen_eigenen_speicherbereich():
 
 
 def test_die_openai_bibliothek_springt_nicht_still_auf_eine_neue_version():
-    """27.09.: ein Neubau holte openai 3.19.2, Screencasts scheiterten 6-mal an einem Pydantic-Fehler, Prod mit 3.11.0 nie."""
+    """27.09.: a rebuild pulled openai 3.19.2, screencasts failed 6 times on a Pydantic error, prod with 3.11.0 never."""
     import pathlib
     import re
 

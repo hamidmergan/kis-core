@@ -1,4 +1,4 @@
-"""Verlauf: Chat, Werkzeuge, Uebungen und Beitritte gemischt, neueste zuerst, Onlinezeiten separat."""
+"""History: chat, tools, exercises and joins mixed, newest first, online times separate."""
 from datetime import date, datetime
 
 from src.features.stats import detail
@@ -26,7 +26,7 @@ REIHE = [
     },
 ]
 
-# 29.: zwei Sitzungen mit einer Luecke dazwischen. 28.: eine einzelne Stunde.
+# 29th: two sessions with a gap between. 28th: a single hour.
 PRAESENZ = [
     {"day": date(2026, 8, 29), "hour": 14},
     {"day": date(2026, 8, 29), "hour": 13},
@@ -116,7 +116,7 @@ def test_mit_vor_wird_die_zeit_mitgegeben(monkeypatch):
 
 
 def test_jede_abfrage_ist_auf_die_person_beschraenkt(monkeypatch):
-    """Vier UNION-Zweige, jeder mit der Nutzer-ID im WHERE."""
+    """Four UNION branches, each with the user id in the WHERE."""
     _, calls = lauf(monkeypatch)
 
     sql = [s for s, _ in calls if "UNION ALL" in s][0]

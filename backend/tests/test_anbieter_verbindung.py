@@ -1,4 +1,4 @@
-"""Jeder Aufruf an einen Anbieter nimmt einen Platz und geht an den Rückfall, wenn die Erste Wahl nicht antwortet."""
+"""Every provider call takes a seat and goes to the fallback when the first choice does not answer."""
 
 import asyncio
 import json
@@ -10,7 +10,7 @@ from src.services import provider_slots, provider_transport as pt
 
 
 class _Redis:
-    """Genug Redis für Plätze und Sperrvermerke, mit einer einstellbaren Uhr."""
+    """Enough Redis for seats and block marks, with an adjustable clock."""
 
     def __init__(self, uhr):
         self.uhr = uhr
@@ -200,7 +200,7 @@ def test_sind_beide_gesperrt_wird_trotzdem_zuerst_die_erste_wahl_gefragt(redis):
 
 
 def test_ein_gesperrter_rueckfall_bleibt_als_letzter_versuch_stehen(redis):
-    """Lauf 15 Teil 2: myLab lief einmal in eine Lesezeit, danach fragten Aufrufe nur noch die tote Erste Wahl."""
+    """Run 15 part 2: myLab hit one read timeout, afterwards calls only asked the dead first choice."""
     redis.set("kis:provider-down:2:llm", "ReadTimeout", ex=60)
     gesehen = []
 
@@ -215,7 +215,7 @@ def test_ein_gesperrter_rueckfall_bleibt_als_letzter_versuch_stehen(redis):
 
 
 def test_ist_auch_der_rueckfall_tot_fragt_die_tuer_den_naechsten_aus_der_liste(redis):
-    """Nutzerentscheid 29.09.2026: danach kommt jeder weitere Anbieter, dem der Admin ein Modell gegeben hat."""
+    """User decision 29.09.2026: then every further provider the admin gave a model to follows."""
     gesehen = []
 
     def handler(req):
@@ -245,7 +245,7 @@ def test_sind_erste_wahl_und_rueckfall_gesperrt_kommt_der_naechste_zuerst_dran(r
 
 
 def test_eine_zu_langsame_antwort_sperrt_einen_anbieter_der_noch_antwortet_nicht(redis, monkeypatch):
-    """Lauf 18: zwei langsame Antworten von gemma schickten je 60 s lang alle Aufrufe zu myLab, das dann überlief."""
+    """Run 18: two slow gemma answers sent all calls to myLab for 60 s each, which then overflowed."""
     monkeypatch.setattr(pt, "_answers", lambda target: True)
     gesehen = []
 
@@ -261,7 +261,7 @@ def test_eine_zu_langsame_antwort_sperrt_einen_anbieter_der_noch_antwortet_nicht
 
 
 def test_eine_abgerissene_verbindung_sperrt_einen_anbieter_der_noch_antwortet_nicht(redis, monkeypatch):
-    """Tag-Simulation 29.09.: eine alte Verbindung zu gemma riss ab, KIS schickte 60 s lang alles zu myLab."""
+    """Day simulation 29.09.: a stale gemma connection broke and KIS sent everything to myLab for 60 s."""
     monkeypatch.setattr(pt, "_answers", lambda target: True)
 
     def handler(req):
@@ -376,7 +376,7 @@ def test_die_obergrenze_haelt_und_gibt_den_platz_nach_dem_lesen_zurueck(redis, m
 
 
 def test_volle_bildplaetze_gehen_nicht_an_den_rueckfall(redis, monkeypatch):
-    """Bilder laufen nie über: klein ist nach Sekunden frei, der Rückfall braucht eine halbe Minute."""
+    """Images never overflow: small is free after seconds, the fallback needs half a minute."""
     monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
     redis.zadd("kis:provider-slots:1:image", {"besetzt": 1000.0})
     gesehen = []
@@ -397,7 +397,7 @@ def _eng(pid=1):
 
 
 def test_ist_die_erste_wahl_voll_geht_ein_llm_aufruf_sofort_an_den_rueckfall(redis, monkeypatch):
-    """Nutzerentscheid 29.09.2026: beim LLM teilen sich erste Wahl und Rückfall die Last, statt zu warten."""
+    """User decision 29.09.2026: for the LLM first choice and fallback share the load instead of waiting."""
     monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 60)
     redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
     gesehen = []
@@ -432,7 +432,7 @@ def test_sind_beide_voll_wartet_der_aufruf_bei_der_ersten_wahl(redis, monkeypatc
 
 
 def test_der_ueberlauf_reicht_bis_zu_weiteren_anbietern_aus_der_liste_durch(redis, monkeypatch):
-    """Nutzerentscheid 29.09.2026: sind erste Wahl und Rückfall voll, übernimmt der nächste freie aus der Liste."""
+    """User decision 29.09.2026: when first choice and fallback are full, the next free one in the list takes over."""
     monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 60)
     redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
     redis.zadd("kis:provider-slots:2:llm", {"besetzt": 1000.0})
@@ -525,7 +525,7 @@ def test_auch_der_asynchrone_weg_faellt_zurueck(redis):
 
 
 def test_die_verbindung_zur_ersten_wahl_gibt_nach_zehn_sekunden_auf(redis):
-    """Ein HPC-Job in der Warteschlange soll den Aufruf nicht zwei Minuten aufhalten."""
+    """A queued HPC job must not hold a call up for two minutes."""
     gesehen = []
 
     def handler(req):
@@ -537,7 +537,7 @@ def test_die_verbindung_zur_ersten_wahl_gibt_nach_zehn_sekunden_auf(redis):
     assert gesehen == [10.0]
 
 
-# ─── Welcher Rückfall gilt ─────────────────────────────────────────────────
+# ─── Which fallback applies ────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -617,7 +617,7 @@ def test_mit_rueckfall_stehen_die_weiteren_anbieter_hinter_ihm(anbieter):
 
 
 def test_ohne_rueckfall_fragt_die_tuer_die_anbieter_mit_modell_aus_der_liste(anbieter):
-    """Ein eingetragenes Modell reicht, damit ein Anbieter einspringt, auch ohne Rückfall."""
+    """A configured model is enough for a provider to step in, even without a fallback."""
     from src.services.feature_router import FeatureBinding
 
     anbieter["providers"][3] = dict(GWDG)
@@ -651,7 +651,7 @@ def test_stimmen_fallen_nie_zurueck(anbieter):
 
 
 def test_eine_formularwahl_bekommt_den_rueckfall_aus_dem_adminbereich(anbieter):
-    """Wählt jemand selbst einen Anbieter, kommt dieser zuerst und danach der Rückfall."""
+    """A provider chosen by the user comes first, then the fallback."""
     from src.services.feature_router import FeatureBinding
 
     gewaehlt = FeatureBinding(feature="chat", provider={**anbieter["providers"][1], "id": 3}, model="eigen")
@@ -661,7 +661,7 @@ def test_eine_formularwahl_bekommt_den_rueckfall_aus_dem_adminbereich(anbieter):
 
 
 def test_das_sdk_merkt_vom_rueckfall_nichts(redis):
-    """Der ganze Weg über den OpenAI-Client, wie ihn Dienste und Tools benutzen."""
+    """The whole path through the OpenAI client, as services and tools use it."""
     import httpx2
     from openai import DefaultHttpxClient, OpenAI
 
@@ -730,7 +730,7 @@ def test_die_spracherkennung_faellt_ueber_das_sdk_mit_dem_eigenen_modell_zurueck
 
 
 def test_volle_plaetze_meldet_das_sdk_nach_einmal_warten(redis, monkeypatch):
-    """Die Bibliothek fragt sonst zweimal nach, ein Aufruf wartete dann 6 statt 2 Minuten."""
+    """The library otherwise retries twice, one call then waited 6 instead of 2 minutes."""
     import httpx2
     from openai import DefaultHttpxClient, OpenAI
 
@@ -756,19 +756,19 @@ def test_volle_plaetze_meldet_das_sdk_nach_einmal_warten(redis, monkeypatch):
     assert is_upstream_busy(fehler.value)
 
 
-# ─── Reihenfolge nach Art des Auftrags ────────────────────────────────────
+# ─── Order by kind of job ─────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("queue, priority, rank", [
-    ("general", 0, 0),      # Übersetzung, Transkript, Bilder
+    ("general", 0, 0),      # translation, transcript, images
     ("general", None, 0),
-    ("general", 9, 2),      # Zusammenfassung, weitere Etappen, Wiederanläufe
-    ("long", 9, 2),         # Gliederung, Podcast-Skript, große Übersetzungen
+    ("general", 9, 2),      # summary, further stages, restarts
+    ("long", 9, 2),         # outline, podcast script, large translations
     ("aia", 0, 1),          # Tools
-    ("aia_ingest", 0, 1),   # Einlesen von Quellen
+    ("aia_ingest", 0, 1),   # ingesting sources
     ("tts", 0, 1),
     ("screencast", 0, 1),
-    (None, None, 0),        # der Webprozess, eine Person wartet im Browser
+    (None, None, 0),        # the web process, a person waits in the browser
 ])
 def test_die_stufe_folgt_der_schlange(queue, priority, rank):
     assert pt.seat_rank_for(queue, priority) == rank
@@ -803,7 +803,7 @@ def test_der_arbeiter_setzt_die_stufe_vor_jedem_auftrag(monkeypatch):
 
 
 @pytest.mark.parametrize("queue, wait", [
-    ("aia", 270),           # Tools warten so lange wie ein Aufruf darf
+    ("aia", 270),           # tools wait as long as one call may
     ("aia_ingest", None),
     ("general", None),
     ("long", None),
@@ -814,7 +814,7 @@ def test_nur_die_tools_warten_laenger_auf_einen_platz(queue, wait):
 
 
 def test_die_tuer_wartet_so_lange_wie_der_auftrag_es_setzt(redis, monkeypatch):
-    """Ein einziger Platz bei Ollama: ein Tool reihte sich nach 120 s neu ein, obwohl der Platz bald frei war."""
+    """A single seat at Ollama: a tool re-queued after 120 s although the seat was about to be free."""
     gesehen = []
 
     def claim_ranked(key, **k):
@@ -849,7 +849,7 @@ def test_der_arbeiter_setzt_die_wartezeit_vor_jedem_auftrag(monkeypatch):
 
 
 def test_ohne_rueckfall_wird_nichts_vermerkt(redis):
-    """Ohne zweite Wahl hilft ein Sperrvermerk niemandem und die Zeile im Protokoll führt in die Irre."""
+    """Without a second choice a block mark helps nobody and the log line misleads."""
     def handler(req):
         raise httpx.ConnectTimeout("langsam", request=req)
 
@@ -859,7 +859,7 @@ def test_ohne_rueckfall_wird_nichts_vermerkt(redis):
 
 
 def test_eine_ausgefallene_stimme_hinterlaesst_einen_vermerk_fuer_den_naechsten_auftrag(redis):
-    """Stimmen wechseln nie mitten im Auftrag, der nächste Auftrag soll aber gleich beim Rückfall starten."""
+    """Voices never switch mid-job, but the next job should start at the fallback right away."""
     def handler(req):
         raise httpx.ConnectError("refused", request=req)
 
@@ -871,7 +871,7 @@ def test_eine_ausgefallene_stimme_hinterlaesst_einen_vermerk_fuer_den_naechsten_
 
 
 def test_grosse_anfragen_gehen_in_kleinen_stuecken_hinaus(redis):
-    """Lauf 15: ein Audiostück ging am Stück hinaus, die Schreibgrenze von 10 s galt dann für alles."""
+    """Run 15: one audio chunk went out in one piece, so the 10 s write limit applied to all of it."""
     stuecke = []
 
     def handler(req):
@@ -898,7 +898,7 @@ def test_auch_der_rueckfall_geht_in_kleinen_stuecken_hinaus(redis):
     assert max(stuecke) <= 64 * 1024 and sum(stuecke) > 300_000
 
 
-# ─── Das Protokoll nennt, wer wirklich geantwortet hat ─────────────────────
+# ─── The log names who really answered ─────────────────────────────────────
 
 
 def _protokoll():
@@ -915,7 +915,7 @@ def _erste_wahl_tot(req):
 
 
 def test_das_protokoll_nennt_den_rueckfall_der_geantwortet_hat(redis):
-    """Lauf 15: die Zeile des SDK nannte die Adresse der Ersten Wahl, auch wenn myLab geantwortet hatte."""
+    """Run 15: the SDK log line named the first choice's address even when myLab had answered."""
     from loguru import logger
 
     zeilen, sink = _protokoll()

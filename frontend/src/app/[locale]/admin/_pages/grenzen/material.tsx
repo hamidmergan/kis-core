@@ -37,8 +37,7 @@ export default function GrenzenMaterialPage() {
           max={200}
           outOfRange={tTool("slides.outOfRange")}
         />
-        {/* min ist -1, nicht 1: die Prüfung im Baustein würde ein Unbegrenzt sonst
-            zurückweisen, bevor es das Backend überhaupt sieht. */}
+        {/* min is -1, not 1: otherwise the field's validation rejects "unlimited" before the backend sees it. */}
         <NumberSetting
           field={open}
           title={tTool("open.title")}

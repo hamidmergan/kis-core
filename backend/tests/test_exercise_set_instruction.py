@@ -1,4 +1,4 @@
-"""Karteikarten und Quiz mit Anweisung: kein Vorrat, gefundene Stellen statt Sweep, Block im Prompt."""
+"""Flashcards and quiz with an instruction: no pool, found spots instead of a sweep, block in the prompt."""
 
 import json
 import types

@@ -1,4 +1,4 @@
-"""Die Anweisung wird an der Zeile gespeichert, die Marke geschrieben, die Laenge geprueft."""
+"""The instruction is stored on the row, the marker written, the length checked."""
 
 import pytest
 from pydantic import ValidationError
@@ -54,7 +54,7 @@ def _sql(calls):
     return [c[1] for c in calls if c[0] == "execute"]
 
 
-# --- die Zeile traegt die Anweisung -------------------------------------------
+# --- the row carries the instruction -------------------------------------------
 
 def test_the_mindmap_row_stores_the_instruction(monkeypatch):
     calls = _fake(monkeypatch, mindmaps, rows=[(4,)])
@@ -85,7 +85,7 @@ def test_the_set_placeholder_stores_the_instruction(monkeypatch):
     assert "leichte Fragen" in calls[0][2]
 
 
-# --- die Marke ------------------------------------------------------------------
+# --- the marker ------------------------------------------------------------------
 
 @pytest.mark.parametrize("table", ["aia_mindmaps", "aia_data_tables", "aia_exercise_sets"])
 @pytest.mark.parametrize("unmatched", [True, False])
@@ -104,7 +104,7 @@ def test_an_unknown_table_is_refused(monkeypatch):
     assert calls == []
 
 
-# --- die Laenge im Schema --------------------------------------------------------
+# --- the length in the schema --------------------------------------------------------
 
 @pytest.mark.parametrize("body", [
     lambda text: schemas.MindmapGenerateBody(active_source_ids=["u1"], instruction=text),

@@ -79,7 +79,7 @@ def _min_inflected(count: int) -> int:
     if bestellt == 1:
         return 1
     ziel = max(1, round(bestellt / 3))
-    return min(ziel, bestellt - 1)  # nie alle, sonst bleibt keine unveraenderte Luecke
+    return min(ziel, bestellt - 1)  # never all, else no gap stays unchanged
 
 
 def _mix_rule(count: int) -> str:

@@ -20,7 +20,7 @@ describe("wer den Umschalter überhaupt bekommt", () => {
   });
 
   it("Studierende im Demo-Modul bekommen ihn nicht", () => {
-    // Die Lehrenden-Ansicht zeigt Knöpfe, die diese Person nie bekommt.
+    // The teacher view shows buttons this person never gets.
     expect(resolvePreview(studentInDemo).canPreview).toBe(false);
   });
 
@@ -56,7 +56,7 @@ describe("Umschalten", () => {
   it("Eigentümer in der Studierenden-Vorschau verlieren die Bedienelemente ganz", () => {
     const s = resolvePreview({ ...ownerOf, override: true });
     expect(s.isOwner).toBe(false);
-    // Nicht markiert, sondern weg: so sehen es Studierende wirklich.
+    // Not marked but gone: this is what students really see.
     expect(s.ownerPreview).toBe(false);
   });
 

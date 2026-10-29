@@ -39,7 +39,7 @@ function AddItem({ p, n, limits }: { p: string; n: number; limits: Limits }) {
 
 const two = (i: number) => String(i + 1).padStart(2, "0");
 
-/* ---------- Fließtext ---------- */
+/* ---------- Body text ---------- */
 
 function textLook(name: string, cls: string, fits?: (b: B<"text">) => boolean, textCls?: string): Look<"text"> {
   return {
@@ -54,7 +54,7 @@ const TEXT: Look<"text">[] = [
   textLook("Schlicht", "v-tx-plain"),
 ];
 
-/* ---------- Liste ---------- */
+/* ---------- List ---------- */
 
 function listLook(name: string, cls: string, opts: { fits?: (b: B<"bullets">) => boolean; lead?: (i: number) => React.ReactNode; ol?: boolean } = {}): Look<"bullets"> {
   return {
@@ -100,7 +100,7 @@ const BULLETS: Look<"bullets">[] = [
   },
 ];
 
-/* ---------- Kernsatz ---------- */
+/* ---------- Key sentence ---------- */
 
 function quoteLook(name: string, cls: string, fits?: (b: B<"quote">) => boolean, before?: React.ReactNode): Look<"quote"> {
   return {
@@ -140,7 +140,7 @@ const QUOTES: Look<"quote">[] = [
   },
 ];
 
-/* ---------- Checkliste ---------- */
+/* ---------- Checklist ---------- */
 
 function checkLook(name: string, cls: string, opts: { fits?: (b: B<"checklist">) => boolean; lead: (i: number) => React.ReactNode; tail?: boolean; ol?: boolean }): Look<"checklist"> {
   return {
@@ -171,7 +171,7 @@ const CHECKLIST: Look<"checklist">[] = [
   checkLook("Nummeriert mit Linie", "v-ck-num", { ol: true, tail: true, lead: (i) => <span className="v-ck-i" aria-hidden="true">{two(i)}</span> }),
 ];
 
-/* ---------- Begriffe ---------- */
+/* ---------- Terms ---------- */
 
 function pairsLook(name: string, cls: string, fits?: (b: B<"definitions">) => boolean): Look<"definitions"> {
   return {
@@ -258,7 +258,7 @@ const DEFINITIONS: Look<"definitions">[] = [
   inlineLook("Wörterbuch", "v-df-dict", "v-df-term", undefined, "i"),
 ];
 
-/* ---------- Karten ---------- */
+/* ---------- Cards ---------- */
 
 // Only signs that tell cards apart, "none" and the old "info" draw nothing.
 const ICONS: Partial<Record<CardIcon, typeof Check>> = { check: Check, x: X, warning: Warning, idea: Lightbulb };
@@ -330,7 +330,7 @@ const CARDS: Look<"cards">[] = [
   }),
 ];
 
-/* ---------- Akkordeon ---------- */
+/* ---------- Accordion ---------- */
 
 /** True while the page prints, so every fold is open on paper. */
 function usePrinting() {

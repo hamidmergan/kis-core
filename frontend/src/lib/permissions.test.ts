@@ -43,7 +43,7 @@ describe("isFullAdmin", () => {
   });
 });
 
-// Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
+// Teachers read their modules' numbers on the module itself, not in the settings.
 describe("Statistik einer Lehrperson", () => {
   it("kennt gar kein Recht mehr fuer eigene Module", () => {
     expect(Object.values(PERM)).not.toContain("settings.statistik.eigene");

@@ -7,20 +7,17 @@ import { test, expect, type Page } from "@playwright/test";
 const LOCALES = ["de", "en"] as const;
 const SIZE = { width: 1440, height: 900 };
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
-// Das Demo-Modul "Projektmanagement", damit in den Bildern keine echten Kursdaten stehen.
+// The demo module "Projektmanagement", so no real course data ends up in the pictures.
 const WORKSPACE = process.env.E2E_WORKSPACE ?? "6f2d916b-94a3-403a-ab4d-9000699e5ef0";
 /**
- * Das Demo-Modul gehoert dem Konto "demo", alle anderen sehen dort nur die Vorschau. Bilder, die
- * echtes Eigentum brauchen, weil das Backend sonst 403 liefert (Freigeben, Modul-Statistik),
- * nehmen darum ein eigenes Modul der angemeldeten Sitzung.
+ * The demo module is owned by "demo", everyone else only sees the preview. Shots that need
+ * ownership (share, module stats) use the logged-in session's own module, else the backend returns 403.
  */
 const OWNED = process.env.E2E_OWNED_WORKSPACE ?? "1ea7b2fa-b237-4bbd-801b-c9793d388984";
 const OWNED_TITLE = process.env.E2E_OWNED_TITLE ?? "Wiss. Seminar";
 /**
- * Die gespeicherte Sitzung gehoert einem Konto mit allen Rechten, das die beiden Einladungen auf
- * der Startseite laengst beantwortet hat. Das Bild dazu braucht ein Studierenden-Konto, das noch
- * nicht geantwortet hat, also meldet sich der eine Test selbst an. Sind die Karten weg, holt
- * dieses SQL sie zurueck, sonst faellt der Test durch:
+ * The stored session has all rights and answered both start page invitations long ago, so that
+ * shot logs in as a student who has not. If the cards are gone, this SQL brings them back:
  * UPDATE users SET tour_seen_at = NULL, language_training_asked_at = NULL WHERE ldap_username = 'b'
  */
 const STUDENT = {
@@ -92,7 +89,7 @@ const LABELS = {
   },
 } as const;
 
-/** Nur die unkritische Admin-Seite: Nutzerliste und Anbieter zeigen Personendaten und Endpunkte. */
+/** Only the harmless admin page: user list and providers show personal data and endpoints. */
 const ADMIN_PAGES: { name: string; path: string }[] = [
   { name: "admin-tool-release", path: "/admin/tools/release" },
 ];
@@ -158,7 +155,7 @@ test.describe("Handbuch-Bilder", () => {
     }
   });
 
-  // Die beiden Einladungen stehen nur bei einer Person, die noch nicht geantwortet hat.
+  // Both invitations only show for a person who has not answered yet.
   test.describe("als Studierende", () => {
     test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -178,7 +175,7 @@ test.describe("Handbuch-Bilder", () => {
         const karten = page.locator('[data-tour="tour-invite"]').locator("..");
         await expect(karten).toBeVisible();
         const box = (await karten.boundingBox())!;
-        // Kopf, Begruessung und die beiden Karten, die Modulliste darunter hat ihr eigenes Bild.
+        // Header, greeting and both cards; the module list below has its own picture.
         await page.screenshot({
           path: shot(locale, "first-login"),
           clip: { x: 0, y: 0, width: SIZE.width, height: Math.ceil(box.y + box.height + 24) },
@@ -201,7 +198,7 @@ test.describe("Handbuch-Bilder", () => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/kalender`, { waitUntil: "domcontentloaded" });
       await settle(page);
-      // Der laufende Monat ist leer, die Kurstermine liegen im Wintersemester.
+      // The current month is empty, the course dates are in the winter semester.
       for (let i = 0; i < 4; i++) {
         await page.getByRole("button", { name: LABELS[locale].nextMonth }).click();
         await page.waitForTimeout(400);
@@ -296,7 +293,7 @@ test.describe("Handbuch-Bilder", () => {
       await settle(page);
       await page.locator("tr", { hasText: OWNED_TITLE }).first()
         .getByTestId("workspace-stats").click();
-      // Die Zahlen kommen nach, sonst steht die Ladeanzeige im Bild.
+      // The numbers load late, otherwise the spinner ends up in the picture.
       await expect(page.getByText(/Teilnehmer|Participants/).first()).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(1500);
       await page.screenshot({ path: shot(locale, "module-stats") });
@@ -346,9 +343,9 @@ test.describe("Handbuch-Bilder", () => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(4000);
-      // Irgendein PDF, unabhaengig davon wie die Dateien im Modul heissen.
+      // Any PDF, whatever the files in the module are called.
       await page.locator('[title$=".pdf"]').first().click();
-      // Das PDF rendert erst nach dem Laden, sonst steht "Loading document" im Bild.
+      // The PDF renders only after loading, otherwise "Loading document" ends up in the picture.
       await expect(page.getByText(/Loading document/i)).toHaveCount(0, { timeout: 60_000 });
       await page.waitForTimeout(3000);
       await page.screenshot({ path: shot(locale, "viewer") });
@@ -417,7 +414,7 @@ test.describe("Handbuch-Bilder", () => {
       await page.goto(`${prefix(locale)}/workspace/${OWNED}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(4000);
       await page.locator('[data-tour="share"]').first().click();
-      // Die Links werden erst beim Oeffnen geholt.
+      // The links are fetched only on opening.
       await page.waitForTimeout(2500);
       await page.screenshot({ path: shot(locale, "share-module") });
     });
@@ -439,7 +436,7 @@ test.describe("Handbuch-Bilder", () => {
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(4000);
       await page.locator('[title$=".mp4"]').first().click();
-      // Das Transkript laedt nach, sonst steht nur der Abspieler im Bild.
+      // The transcript loads late, otherwise only the player is in the picture.
       await expect(page.getByText(/Transkript|Transcript/i).first()).toBeVisible({ timeout: 60_000 });
       await page.waitForTimeout(4000);
       await page.screenshot({ path: shot(locale, "video") });
@@ -474,9 +471,8 @@ test.describe("Handbuch-Bilder", () => {
       await page.screenshot({ path: shot(locale, "module-view") });
     });
 
-    // Die Auswahlleiste erscheint erst an einer echten Textauswahl. EmbedPDF malt die
-    // Seite auf ein Canvas, es gibt keine Textschicht zum Anklicken, also zieht der
-    // Zeiger ueber die Stelle im Demo-Foliensatz, an der die Aufzaehlung steht.
+    // The selection bar only appears on a real text selection. EmbedPDF draws onto a canvas
+    // with no text layer to click, so the pointer drags across the bullet list in the demo slides.
     test(`auswahlleiste ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
@@ -496,7 +492,7 @@ test.describe("Handbuch-Bilder", () => {
       });
     });
 
-    // Der Knopf steht nur beim Darueberfahren, eingeschaltet bleibt er sichtbar.
+    // The button shows only on hover, once toggled on it stays visible.
     test(`belege-knopf ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
@@ -505,13 +501,13 @@ test.describe("Handbuch-Bilder", () => {
       await answer.hover();
       await answer.getByTitle(LABELS[locale].showAllCitations).click();
       await page.waitForTimeout(800);
-      // Die Zeile unter der Antwort: links die Quellenzahl, rechts die Knoepfe.
+      // The row below the answer: source count left, buttons right.
       await answer.locator("div.justify-between").first().screenshot({
         path: shot(locale, "citations-toggle"),
       });
     });
 
-    // Beide Knoepfe an der Markierung, der Pfeil kommt erst nach dem Weiterblaettern.
+    // Both buttons at the highlight, the arrow only appears after scrolling on.
     test(`markierung-knoepfe ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
@@ -525,22 +521,22 @@ test.describe("Handbuch-Bilder", () => {
       const bar = page.locator("div.absolute.bottom-6.right-4").first();
       await expect(bar).toBeVisible();
       const panel = (await page.locator("[data-tour=\"pdf-viewer\"]").first().boundingBox())!;
-      // Weiterblaettern, sonst fehlt der Pfeil zurueck zur Stelle.
+      // Scroll on, otherwise the back-to-highlight arrow is missing.
       for (let i = 0; i < 6 && (await bar.locator("button").count()) < 2; i++) {
         await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2);
         await page.mouse.wheel(0, 1200);
         await page.waitForTimeout(1200);
       }
       const box = (await bar.boundingBox())!;
-      // Etwas Umgebung mit im Bild, sonst schweben zwei Knoepfe im Nichts.
+      // Some surroundings in the shot, otherwise two buttons float in nothing.
       await page.screenshot({
         path: shot(locale, "highlight-controls"),
         clip: { x: box.x - 200, y: box.y - 80, width: box.width + 220, height: box.height + 110 },
       });
     });
 
-    // Nur das Raster mit den fuenf Stimmungen, der Rest der Seite ist Werkstatt.
-    // Die Bilder gibt es nur auf Deutsch, der englische Artikel zeigt dieselben.
+    // Only the grid with the five moods, the rest of the page is workshop.
+    // Shot in German only, the English article shows the same pictures.
     for (const mascot of ["hilde", "francis"] as const) {
       test(`maskottchen-zustaende ${mascot} ${locale}`, async ({ page }) => {
         test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
@@ -549,13 +545,12 @@ test.describe("Handbuch-Bilder", () => {
         await page.goto(url, { waitUntil: "domcontentloaded" });
         await settle(page);
         const section = page.locator("section").filter({ hasText: LABELS[locale].allMoods }).last();
-        // Nur die Kaesten, die Ueberschrift darueber gehoert zur Verwaltung.
+        // Only the boxes, the heading above belongs to the admin page.
         const grid = section.locator("div.grid").first();
         await expect(grid).toBeVisible();
-        // Die Figuren laufen beim Erscheinen eine Animation.
+        // The figures animate on appearing.
         await page.waitForTimeout(3000);
-        // Der Rahmen um die Kaesten gehoert zur Werkstatt, im Handbuch stoert er. Transparent
-        // statt none, sonst schrumpfen die Kaesten um die Rahmenbreite.
+        // The box border is workshop noise in the manual; transparent, not none, or the boxes shrink by the border width.
         await page.addStyleTag({ content: ".grid > div { border-color: transparent }" });
         await grid.screenshot({ path: shot(locale, `mascot-states-${mascot}`) });
       });

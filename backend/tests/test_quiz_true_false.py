@@ -243,7 +243,7 @@ def test_ein_satz_ganz_ohne_richtig_falsch_ruft_nur_die_suche(monkeypatch):
 
 
 def test_das_modell_liest_kurzzeichen_und_die_aussage_behaelt_ihre_datei(monkeypatch):
-    """Ein Dateiname kostet bis zu 25 Token je Aufgabe, das Modell schreibt Q1 und die Belegprüfung sieht den Namen."""
+    """A file name costs up to 25 tokens per task; the model writes Q1 and the citation check sees the name."""
     gesehen = {}
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     monkeypatch.setattr(

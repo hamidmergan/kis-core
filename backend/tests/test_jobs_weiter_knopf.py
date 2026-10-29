@@ -1,4 +1,4 @@
-"""Der Weiter-Knopf rettet jeden angehaltenen Auftrag, dessen Angaben noch da sind."""
+"""The continue button rescues every paused job whose params are still there."""
 
 import json
 
@@ -55,7 +55,7 @@ def _job(tool, status="paused"):
 
 
 def test_ein_beim_uebersetzen_angehaltener_screencast_laeuft_weiter(umgebung, monkeypatch):
-    """Lasttest 26.09.: "Render-Parameter nicht mehr vorhanden", obwohl nie vertont wurde."""
+    """Load test 26.09.: "Render-Parameter nicht mehr vorhanden" although nothing was ever voiced."""
     dateien, abgelegt, gestartet = umgebung
     dateien["queue_params.json"] = json.dumps({"dispatch_as": "translate"}).encode()
     db = _Db(_job("screencast_translate"))
@@ -64,7 +64,7 @@ def test_ein_beim_uebersetzen_angehaltener_screencast_laeuft_weiter(umgebung, mo
     assert route.retry_job("j", current_user={"user_id": 1}, locale="de") == {"ok": True}
     assert db.eingereiht == ["j"]
     assert gestartet == [("sc", 1)]
-    # Die Übersetzungsangaben bleiben, wie sie waren.
+    # The translation params stay as they were.
     assert "queue_params.json" not in abgelegt
 
 
@@ -77,7 +77,7 @@ def test_ein_screencast_ganz_ohne_angaben_bleibt_ehrlich_abgelehnt(umgebung, mon
 
 
 def test_eine_angehaltene_zusammenfassung_laeuft_weiter(umgebung, monkeypatch):
-    """Bisher gab es für sie keinen Knopf, sie war eine Sackgasse."""
+    """There was no button for it before, it was a dead end."""
     dateien, _, gestartet = umgebung
     dateien["summary_params.json"] = json.dumps({"template_slug": "kurzbriefing", "provider_id": None}).encode()
     db = _Db(_job("summary"))
@@ -97,7 +97,7 @@ def test_eine_zusammenfassung_ohne_angaben_wird_abgelehnt(umgebung, monkeypatch)
 
 @pytest.mark.parametrize("tool", ["podcast", "praesentation"])
 def test_ein_gescheitertes_skript_laeuft_wieder_an(umgebung, monkeypatch, tool):
-    """09.10.: zwei Podcasts scheiterten am vollen Anbieter beim Skript, die Seite hatte keinen Knopf."""
+    """09.10.: two podcasts failed on a full provider at the script stage, the page had no button."""
     _, _, gestartet = umgebung
     db = _Db(_job(tool, status="failed"))
     monkeypatch.setattr(route, "db", db)

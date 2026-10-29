@@ -1,9 +1,4 @@
-"""Der Start baut den Vektor-Index von aia_chunks nicht mehr jedes Mal neu.
-
-Gefunden 28.09.2026: init_db stellte die Spalte embedding bei jedem Start auf vector um. Das baut den
-HNSW-Index neu, lokal mit 80.000 Abschnitten dauerte das Minuten und sperrte die Tabelle.
-Jetzt nur noch, wenn die Spalte noch eine feste Dimension hat.
-"""
+"""Startup no longer rebuilds the aia_chunks vector index every time. Found 28.09.2026: init_db recast the embedding column to vector on every start, rebuilding the HNSW index (minutes for 80,000 chunks locally, table locked); now only while the column still has a fixed dimension."""
 import os
 import uuid
 

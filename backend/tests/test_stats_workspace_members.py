@@ -21,14 +21,14 @@ LEUTE = [
     {"user_id": MIRA, "name": "Mira Kaltenbach", "rolle": "student", "uebungen": 218, "chat": 47},
 ]
 
-# Zwei Werkzeuge fuer Mira, eins fuer Jonas, keins fuer die Eignerin.
+# Two tools for Mira, one for Jonas, none for the owner.
 WERKZEUGE = [
     {"user_id": MIRA, "tool": "flashcards", "n": 12},
     {"user_id": MIRA, "tool": "karteikarten", "n": 4},
     {"user_id": JONAS, "tool": "quiz", "n": 3},
 ]
 
-# Mira: die Uebung ist neuer als ihr letzter Chat. Jonas: nur Chat. Die Eignerin: nichts.
+# Mira: the exercise is newer than her last chat. Jonas: chat only. The owner: nothing.
 AKTIVITAET = [
     {"user_id": MIRA, "zuletzt": datetime(2026, 8, 20, 9, 0)},
     {"user_id": JONAS, "zuletzt": datetime(2026, 8, 10, 14, 30)},
@@ -94,7 +94,7 @@ def test_jede_person_traegt_ihre_rolle(monkeypatch):
 
 
 def test_die_zahlen_je_person_bleiben_daneben_stehen(monkeypatch):
-    """Die Rolle kam schon dazu, jetzt kommen Aktivitaet und Werkzeuge dazu."""
+    """The role was added earlier, now activity and tools join it."""
     daten, _ = lauf(monkeypatch)
 
     assert daten["members"][2] == {
@@ -139,7 +139,7 @@ def test_mehrere_einschreibungen_blieben_eine_person(monkeypatch):
     assert "BOOL_OR(e.role = 'tutor')" in sql, "dann gewinnt die staerkere Rolle"
 
 
-# ── Zuletzt aktiv und genutzte Werkzeuge, beides nur in diesem Modul ────────
+# ── Last active and tools used, both only within this module ────────
 
 def test_zuletzt_aktiv_ist_das_neuere_von_chat_und_uebung(monkeypatch):
     daten, _ = lauf(monkeypatch)
@@ -156,7 +156,7 @@ def test_person_ohne_aktivitaet_hat_last_none(monkeypatch):
 
 
 def test_werkzeuge_je_person_zeigen_die_kachel_statt_des_rohen_namens(monkeypatch):
-    """flashcards in der DB, lernkarten auf der Kachel, das Frontend uebersetzt den Rest."""
+    """flashcards in the DB, lernkarten on the tile, the frontend translates the rest."""
     daten, _ = lauf(monkeypatch)
 
     jonas = daten["members"][1]
@@ -178,7 +178,7 @@ def test_werkzeugabfrage_ist_auf_das_modul_beschraenkt(monkeypatch):
 
 
 def test_aktivitaetsabfrage_verbindet_chat_und_uebungen(monkeypatch):
-    """Presence bleibt aussen vor, das waere plattformweit statt modulbezogen."""
+    """Presence stays out, it would be platform-wide instead of per module."""
     _, calls = lauf(monkeypatch)
     sql = [s for s, _ in calls if "GROUP BY user_id" in s][0]
 
@@ -187,7 +187,7 @@ def test_aktivitaetsabfrage_verbindet_chat_und_uebungen(monkeypatch):
     assert "user_presence" not in sql
 
 
-# ── Dieselbe Zahl an beiden Stellen ──────────────────────────────────────────
+# ── The same number in both places ──────────────────────────────────────────
 
 def test_die_modulliste_zaehlt_teilnehmer_wie_die_detailansicht():
     """List and the panel above it have to show the same number."""

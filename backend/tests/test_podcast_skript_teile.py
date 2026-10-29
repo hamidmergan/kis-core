@@ -1,4 +1,4 @@
-"""Prüft die Skriptaufgabe: erst ein Plan mit Stellen, dann jeder Teil aus seinem Original."""
+"""Checks the script task: first a plan with spots, then every part from its original."""
 
 import json
 
@@ -72,7 +72,7 @@ def test_jeder_teil_bekommt_seine_stellen_aus_dem_original(monkeypatch):
 
 
 def test_was_der_plan_nicht_nennt_geht_an_den_naechsten_teil(monkeypatch):
-    """Stelle 1 und 8 genannt, die sechs dazwischen verteilen sich auf beide Teile."""
+    """Spots 1 and 8 named, the six in between are split across both parts."""
     plan = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [1]},
                                  {"title": "B", "gist": "g", "refs": [8]}]})
     _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(10), _zeilen(10, 10)], _params("medium"))

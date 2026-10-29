@@ -574,8 +574,8 @@ async def chat(
                         raise
             except Exception as e:
                 logger.error("LLM stream error: {}", e)
-                # Ein Denk-Modell reisst den Strom mit, bevor ein Zeichen ankommt.
-                # Vor der Fehlermeldung deshalb einmal ohne Denken nachfassen.
+                # A thinking model can kill the stream before a character arrives, so retry once
+                # without thinking before the error.
                 _nachschlag = ""
                 if not aborted and not "".join(answer_parts).strip():
                     _nachschlag = await _antwort_ohne_denken(llm, _final_messages)
@@ -600,8 +600,8 @@ async def chat(
                     except Exception:
                         pass
 
-            # Netz gegen die leere Antwort: ein Denk-Modell verbraucht seine Ausgabe
-            # im Denken und liefert nichts. Dann einmal ohne Denken nachfassen.
+            # Safety net for an empty answer: a thinking model spends its output on thinking and
+            # delivers nothing, so retry once without thinking.
             if not aborted and not "".join(answer_parts).strip():
                 _nachschlag = await _antwort_ohne_denken(llm, _final_messages)
                 if _nachschlag:
@@ -610,7 +610,7 @@ async def chat(
                     answer_parts.append(_nachschlag)
                     yield f"data: {json.dumps({'token': _nachschlag})}\n\n"
                 else:
-                    # Lieber eine sichtbare Meldung als eine leere Blase.
+                    # Better a visible message than an empty bubble.
                     _log_status = "error"
                     logger.error("Modell {} liefert auch ohne Denken nichts", llm._model)
                     yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"

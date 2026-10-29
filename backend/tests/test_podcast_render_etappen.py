@@ -1,4 +1,4 @@
-"""Die Vertonung arbeitet in Etappen und reiht sich selbst wieder ein."""
+"""Rendering works in stages and re-queues itself."""
 
 from contextlib import contextmanager
 
@@ -13,7 +13,7 @@ JOB = "e" * 32
 
 
 class _Store:
-    """Auftragsordner im Speicher, merkt sich welche Beitraege vertont wurden."""
+    """In-memory job folder, remembers which lines were rendered."""
 
     def __init__(self, lines, params):
         self.lines = lines
@@ -83,7 +83,7 @@ class _Db:
 
 
 class _Task:
-    """Faengt auf, womit sich die Etappe selbst wieder einreiht."""
+    """Catches what the stage re-queues itself with."""
 
     def __init__(self):
         self.aufrufe = []
@@ -135,7 +135,7 @@ def test_eine_abgelaufene_uhr_reiht_den_rest_als_neue_etappe_ein(umgebung, monke
     db, task, _ = umgebung
     store = _Store(_lines(4), _params())
     monkeypatch.setattr(_render, "store", store)
-    # Nach zwei Beitraegen ist die Etappe vorbei.
+    # After two lines the stage is over.
     uhr = iter([False, False, True, True, True, True])
     monkeypatch.setattr(_render, "StageClock",
                         lambda *a, **k: type("C", (), {"over": staticmethod(lambda: next(uhr)),
@@ -192,7 +192,7 @@ def test_ein_anbieterfehler_zaehlt_als_anlauf_statt_fehlgeschlagen(umgebung, mon
 
 
 def test_ein_voller_anbieter_wird_als_voll_gemeldet(umgebung, monkeypatch):
-    """Lasttest 26.09.: myLab antwortete mit 500, der Podcast verbrauchte dafür seine Anläufe."""
+    """Load test 26.09.: myLab answered 500 and the podcast burned its attempts on it."""
     monkeypatch.setattr(_render, "store", _Store(_lines(2), _params()))
     gemeldet = []
     monkeypatch.setattr(_render, "attempt_failed",
@@ -229,7 +229,7 @@ def test_die_zweite_etappe_nimmt_das_behalten_aus_dem_fortschritt(umgebung, monk
     store.vertont = ["l0"]
     monkeypatch.setattr(_render, "store", store)
     monkeypatch.setattr(_render, "_mit_wiederholung", lambda *a, **k: b"ton")
-    # Die erste Etappe hatte nichts behalten, l0 kam erst in diesem Lauf dazu.
+    # The first stage kept nothing, l0 only arrived in this run.
     db.job = {"progress": '{"behalten": []}'}
 
     _render.run_podcast_render(JOB, UID, "de", 2, 0)
@@ -255,5 +255,5 @@ def test_die_wiederholungsleiter_haelt_an_wenn_die_etappe_vorbei_ist():
     finally:
         modul._sprich = echt
 
-    # Nur der erste Versuch, danach greift die Uhr vor der Pause.
+    # Only the first attempt, then the clock kicks in before the pause.
     assert len(versuche) == 1

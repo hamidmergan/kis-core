@@ -86,14 +86,14 @@ test("Zugangscode ohne Zugangsdaten: Link allein meldet an, ganz ohne Klick", as
   const code = await erstellt.json();
 
   try {
-    // Der Code kommt aus der URL, wie beim Scannen des QR-Codes, kein Klick noetig.
+    // The code comes from the URL as with a scanned QR code, no click needed.
     const [einloesung] = await Promise.all([
       page.waitForResponse((r) => r.url().includes("/access-codes/redeem") && r.request().method() === "POST"),
       page.goto(`/de/redeem?code=${code.code}`, { waitUntil: "load" }),
     ]);
     expect(einloesung.ok()).toBeTruthy();
 
-    // Kein Zwischenschritt mit Benutzername/Passwort, direkt auf die Startseite.
+    // No username/password step in between, straight to the start page.
     await expect(page).toHaveURL((url) => !url.pathname.includes("redeem"), { timeout: 10_000 });
     await expect(page.getByTestId("access-code-done")).toHaveCount(0);
   } finally {
@@ -144,7 +144,7 @@ test.describe("Zugangscode anlegen im Formular", () => {
     expect(code.show_evaluation).toBe(true);
     await page.getByRole("button", { name: "Schließen" }).click();
 
-    // Der Dialog stellt den Haken wieder her, sonst faellt er beim naechsten Speichern still um.
+    // The dialog must restore the checkbox, otherwise the next save silently flips it.
     const zeile = page.locator("tr", { hasText: code.code });
     await zeile.getByRole("button", { name: "Bearbeiten" }).click();
     const haken = page.getByRole("checkbox", { name: "Evaluation anzeigen" });

@@ -56,7 +56,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workspace_uuid: uuid }),
-          }).catch(() => { /* kein Demo-Kurs oder schon drin, die naechste Abfrage klaert es */ });
+          }).catch(() => { /* no demo course or already enrolled, the next request settles it */ });
         }
 
         const modRes = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });

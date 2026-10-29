@@ -27,7 +27,7 @@ async def _plane(caller, **kwargs):
 
 
 async def _schreibe(caller, **kwargs):
-    """Ein einzelner Abschnitt, also eine Gruppe von einem, wie der Aufrufer sie schickt."""
+    """A single section, a group of one, as the caller sends it."""
     abschnitt = kwargs.pop("section", Section(title="B", scope="b"))
     stoff = kwargs.pop("material", "Aussage 1")
     texte = await wr.write_sections(caller, **{
@@ -48,7 +48,7 @@ class TestRichtwert:
         assert wr.target_sections(10_000_000) == SUMMARY_MAX_SECTIONS
 
     def test_jede_quelle_bekommt_ihre_abschnitte(self):
-        """Sechs fremde Dateien brauchen mehr Ueberschriften als ihr Umfang allein hergibt."""
+        """Six unrelated files need more headings than their size alone would give."""
         assert wr.target_sections(8_000, 6) == 12
         assert wr.target_sections(8_000, 1) == SUMMARY_MIN_SECTIONS
 
@@ -90,7 +90,7 @@ class TestPlanen:
         assert len(plan.sections) == 3
 
     async def test_die_gliederung_hat_eine_laengengrenze(self):
-        """Lasttests 29.09.: 2 bis 3 von 20 Gliederungen liefen bis zur Zeitgrenze von 270 s, normale brauchen 12 bis 30 s."""
+        """Load test 29.09.: 2 to 3 of 20 outlines ran into the 270 s limit, normal ones take 12 to 30 s."""
         from src.limits import SUMMARY_OUTLINE_MAX_TOKENS
 
         caller = _caller([_PLAN])
@@ -171,7 +171,7 @@ class TestPlanen:
 
 
 class TestPlanOhneStellen:
-    """Ein Plan, der keine einzige Stelle nennt, liesse die Schreiber aus dem Nichts schreiben."""
+    """A plan naming no passage at all would make the writers write from nothing."""
 
     _OHNE = json.dumps({"title": "T", "intro": "I", "sections": [
         {"title": t, "description": "d", "refs": []} for t in "ABC"]})
@@ -201,7 +201,7 @@ class TestSchreiben:
         assert "YOUR HEADING: B" in user and "## A\nText A" in user and "- C: c" in user
 
     async def test_der_dateiname_kommt_im_text_nicht_vor(self):
-        """NotebookLM zeigt im Briefing keine Quellen, und je Zeile eine Datei liest schlechter."""
+        """NotebookLM shows no sources in the briefing, and one file per line reads worse."""
         caller = _caller(["Text B"])
         await _schreibe(caller, material="Aussage aus AMG74")
         system = caller.client.system_prompts()[0]
@@ -245,7 +245,7 @@ class TestSchreiben:
         assert await _schreibe(caller) == "Text B\n\n## Unterpunkt\n\nmehr Text"
 
     async def test_nur_eine_ueberschrift_gilt_als_leere_antwort(self):
-        """Nichts zurueck heisst None, die Pipeline macht daraus den Fehler."""
+        """Nothing back means None, the pipeline turns that into the error."""
         caller = _caller(["## B"])
         assert await wr.write_sections(
             caller, language="German", template_body="B", group=[Section(title="B", scope="b")],
@@ -259,7 +259,7 @@ class TestSchreiben:
         assert "ONE document covering all sources" in caller.client.system_prompts()[0]
 
     async def test_der_einzelaufruf_wird_nach_einem_fehlschlag_wiederholt(self, monkeypatch):
-        """Die Fakten stehen schon auf der Platte, ein einzelner Aussetzer darf sie nicht kosten."""
+        """The facts are already on disk, a single hiccup must not cost them."""
         monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
         caller = _caller([RuntimeError("Zeitgrenze"), "Alles."])
 
@@ -271,7 +271,7 @@ class TestSchreiben:
 
     async def test_der_einzelaufruf_gibt_den_fehler_weiter_wenn_auch_der_zweite_scheitert(
             self, monkeypatch):
-        """Nach dem letzten Versuch scheitert die Etappe sichtbar, der Wiederanlauf holt sie."""
+        """After the last attempt the stage fails visibly, the resume picks it up."""
         monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
         caller = _caller([RuntimeError("Zeitgrenze"), RuntimeError("Zeitgrenze")])
 
@@ -296,10 +296,10 @@ class TestSchreiben:
 
 
 class TestGruppieren:
-    """Kleine Abschnitte kosten je einen Aufruf und nutzen davon einen Bruchteil."""
+    """Small sections cost one call each and use only a fraction of it."""
 
     def _abschnitte(self, *groessen: int) -> tuple[list[Section], list[int]]:
-        """Abschnitte und was ihr Text kosten soll, so wie der Aufrufer es rechnet."""
+        """Sections and what their text should cost, as the caller computes it."""
         return ([Section(title=f"S{i}") for i, _ in enumerate(groessen)],
                 [600 + n * 160 for n in groessen])
 
@@ -322,7 +322,7 @@ class TestGruppieren:
 
 
 class TestGruppeTrennen:
-    """Ein falscher Schnitt wuerde Prosa unter die falsche Ueberschrift legen."""
+    """A wrong cut would put prose under the wrong heading."""
 
     def test_ein_einzelner_abschnitt_braucht_keinen_schnitt(self):
         assert wr.split_group("  Nur Text.  ", ["A"]) == ["Nur Text."]
@@ -397,7 +397,7 @@ class TestZusammensetzen:
             "# Mein Thema\n\nVorweg.\n\n## A\n\nta"
 
     def test_ein_durchlaufender_text_bekommt_keinen_titel(self):
-        """Verbietet ein Bauplan Ueberschriften, dann auch die erste Ebene."""
+        """If a build plan forbids headings, the first level is forbidden too."""
         assert wr.assemble("", ["A"], ["ta"], False, title="Mein Thema") == "ta"
 
 
@@ -417,7 +417,7 @@ class TestTitelAbtrennen:
 
 
 class TestKurznamen:
-    """Jedes Dokument bekommt einen Kurznamen, den alle Schreiber benutzen, nie den Dateinamen."""
+    """Every document gets a short name all writers use, never the file name."""
 
     def test_der_plan_liefert_die_kurznamen_der_dokumente(self):
         roh = json.dumps({"title": "T", "intro": "I", "documents": [

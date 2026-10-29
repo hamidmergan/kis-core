@@ -202,7 +202,7 @@ def test_verlassen_fasst_eine_echte_einschreibung_nicht_an(client):
     loeschen.assert_called_once_with(5, 1)
 
 
-# ─── Inhalte fuer den Rundgang ────────────────────────────────────────────────
+# ─── Tour content ────────────────────────────────────────────────
 
 _QUELLEN = [
     {"id": 41, "uuid": "u-pdf", "filename": "DEMO_Skript_Kapitel_1_Grundlagen.pdf"},
@@ -234,9 +234,9 @@ def test_rundgang_legt_eintrag_und_notiz_an(client):
 
     assert r.json() == {"glossary": 1, "notes": 1, "tools": 0}
     assert glossar.call_args[0][0] == 41
-    # Der Beleg zeigt auf das Video und traegt die Zeitmarke, sonst springt nichts zurueck.
+    # The citation points at the video and carries the timestamp, otherwise nothing jumps back.
     assert "[Q1:u-video, 01:04 |" in notiz.call_args[0][2]
-    # Alle drei Quellen, nicht nur Skript und Video.
+    # All three sources, not just script and video.
     assert job.call_args[0][2] == ["u-pdf", "u-video", "u-folien"]
     absetzen.assert_called_once_with(99, 5, 1, ["u-pdf", "u-video", "u-folien"])
 
@@ -252,7 +252,7 @@ def test_rundgang_legt_nichts_zweimal_an(client):
                return_value=[{"title": "Was ein Projekt ausmacht"}]), \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.create_aia_note") as notiz, \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.get_schedule_entries",
-               # Der Zeitplan steht schon, ein zweiter Lauf darf ihn nicht anfassen.
+               # The schedule already exists, a second run must not touch it.
                return_value=[{"id": 1, "title": "Vorlesung"}]), \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.create_schedule_job") as job, \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.demo_tools_already_seeded",
@@ -264,7 +264,7 @@ def test_rundgang_legt_nichts_zweimal_an(client):
     job.assert_not_called()
 
 
-# ─── Werkzeug-Beispiele kopieren ───────────────────────────────────────────────
+# ─── Copying tool examples ───────────────────────────────────────────────
 
 from src.features.ai_assistant.routes._demo_tour_content import _lege_werkzeug_beispiele_an
 
@@ -320,15 +320,15 @@ def test_werkzeuge_kopiert_bis_zu_zwei_je_tool(client):
          patch("src.features.ai_assistant.routes._demo_tour_content.db.mark_demo_tools_seeded") as markieren:
         anzahl = _lege_werkzeug_beispiele_an(5, 4)
 
-    # 2 Karteikarten + 1 Quiz (nur 1 Vorlage vorhanden) + 2 Mindmaps (Deckel bei 2, nicht 3) + 1 Datentabelle.
+    # 2 flashcards + 1 quiz (only 1 template exists) + 2 mind maps (capped at 2, not 3) + 1 data table.
     assert anzahl == 6
-    assert voll.call_count == 3  # 2 karteikarten + 1 quiz
+    assert voll.call_count == 3  # 2 flashcards + 1 quiz
     assert erstellen.call_count == 3
     assert mm_update.call_count == 2
     assert dt_update.call_count == 1
     markieren.assert_called_once_with(5, 4)
 
-    # Jede der 3 kopierten Karteikarten/Quiz-Sets steuert ihre 2 Karten bei.
+    # Each of the 3 copied flashcard/quiz sets contributes its 2 cards.
     verlauf.assert_called_once()
     zeilen = verlauf.call_args[0][0]
     assert len(zeilen) == 6
@@ -376,7 +376,7 @@ def test_uebungsverlauf_bleibt_pro_set_an_einem_tag(client):
 
     zeilen = verlauf.call_args[0][0]
     assert len(zeilen) == 5
-    # Jedes Set hat genau einen Tag, alle seine Karten teilen ihn.
+    # Each set has exactly one day, shared by all its cards.
     tage_je_set = {}
     for z in zeilen:
         tage_je_set.setdefault(z["set_id"], set()).add(z["answered_at"].date())
@@ -388,14 +388,12 @@ def test_uebungsverlauf_bleibt_pro_set_an_einem_tag(client):
 
 
 def test_uebungsverlauf_deckt_immer_heute_ab(client):
-    """Egal wie der Zufall die restlichen Tage verteilt, heute bekommt immer
-    ein Set, sonst zeigt Statistik direkt nach dem Rundgang eine leere Seite."""
+    """Today always gets a set however the other days are drawn, or stats is empty right after the tour."""
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
     heute = datetime.now(ZoneInfo("Europe/Berlin")).date()
-    # Nur ein einzelnes Set, genau der Fall in dem die alte Zip-Kuerzung
-    # den heutigen Tag durch puren Zufall haette auslassen koennen.
+    # A single set, exactly the case where the old zip truncation could skip today by chance.
     sets = [{"id": 1, "items": [{"id": 11}]}]
     with patch("src.features.ai_assistant.routes._demo_tour_content.db.seed_exercise_progress") as verlauf, \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.seed_streak"):
@@ -415,7 +413,7 @@ def test_uebungsverlauf_ohne_sets_saet_nichts(client):
 
 
 def test_werkzeuge_ohne_vorlage_markiert_nichts(client):
-    """Der Eigentuemer hat noch nichts vorbereitet, dann darf der Merker nicht stehen."""
+    """The owner has not prepared anything yet, so the mark must not be set."""
     with patch("src.features.ai_assistant.routes._demo_tour_content.db.demo_tools_already_seeded",
                return_value=False), \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.get_aia_workspace_by_id",
@@ -448,7 +446,7 @@ def test_rundgang_haelt_sich_aus_fremden_kursen_raus(client):
     notiz.assert_not_called()
 
 
-# ─── Chat-Beispiel: nur beim Chat-Schritt, nicht vorher sichtbar ──────────────
+# ─── Chat example: visible only at the chat step, not before ──────────────
 
 from src.features.ai_assistant.routes._demo_tour_content import lege_chat_beispiel_an
 
@@ -470,7 +468,7 @@ def test_chat_beispiel_legt_frage_und_antwort_an():
     frage, antwort = speichern.call_args_list
     assert frage.args[:3] == (5, 4, "user")
     assert antwort.args[2] == "assistant"
-    # Der Beleg zeigt auf die richtige Quelle, nicht auf eine erfundene UUID.
+    # The citation points at the real source, not an invented UUID.
     assert "u-folien" in antwort.args[3]
     assert antwort.kwargs["source_qmap"] == [
         {"qnum": 1, "uuid": "u-folien", "filename": "DEMO_Folien_01_Grundlagen.pdf", "is_media": False},
@@ -479,7 +477,7 @@ def test_chat_beispiel_legt_frage_und_antwort_an():
 
 
 def test_chat_beispiel_ueberschreibt_keine_bestehende_unterhaltung():
-    """Egal ob echt oder schon einmal angelegt, ein zweites Mal fasst es nichts an."""
+    """Whether real or already created, a second run touches nothing."""
     with patch("src.features.ai_assistant.routes._demo_tour_content.db.get_aia_messages",
                return_value=[{"role": "user", "content": "Irgendwas"}]), \
          patch("src.features.ai_assistant.routes._demo_tour_content.db.get_aia_sources_by_workspace") as quellen, \
@@ -523,7 +521,7 @@ def test_route_chat_beispiel_fremder_kurs_gibt_vierhundertvier(client):
     assert r.status_code == 404
 
 
-# ─── Erstzuweisung: das erste Mal in KIS ──────────────────────────────────────
+# ─── First assignment: the first time in KIS ──────────────────────────────────────
 
 from unittest.mock import MagicMock
 
@@ -546,7 +544,7 @@ def test_das_erste_mal_tritt_allen_offenen_demo_modulen_bei():
 
 
 def test_ein_neues_demo_modul_erreicht_auch_ein_altes_konto():
-    """Der eigentliche Fehler: frueher hielt eine Marke pro Konto das zweite Modul auf."""
+    """The actual bug: one mark per account used to block the second module."""
     kurse = [_kurs(5, "w5", joined=True, seeded=True), _kurs(9, "w9")]
     with patch(f"{_DB}.get_demo_workspaces", return_value=kurse), \
          patch(f"{_DB}.claim_demo_seeding", return_value=True) as merken, \
@@ -559,7 +557,7 @@ def test_ein_neues_demo_modul_erreicht_auch_ein_altes_konto():
 
 
 def test_ein_verlassenes_modul_kommt_nicht_zurueck():
-    """Die Marke bleibt stehen, auch wenn die Einschreibung geloescht wurde."""
+    """The mark stays even after the enrollment was deleted."""
     with patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5", seeded=True)]), \
          patch(f"{_DB}.claim_demo_seeding") as merken, \
          patch(f"{_DB}.enroll_student") as einschreiben:
@@ -571,7 +569,7 @@ def test_ein_verlassenes_modul_kommt_nicht_zurueck():
 
 
 def test_ohne_demo_modul_bleibt_die_marke_leer():
-    """Sonst geht die Zuweisung ins Leere und kommt nie wieder."""
+    """Otherwise the assignment goes nowhere and never returns."""
     with patch(f"{_DB}.get_demo_workspaces", return_value=[]), \
          patch(f"{_DB}.claim_demo_seeding") as merken, \
          patch(f"{_DB}.enroll_student") as einschreiben:
@@ -583,7 +581,7 @@ def test_ohne_demo_modul_bleibt_die_marke_leer():
 
 
 def test_wer_schon_drin_ist_bekommt_nur_die_marke():
-    """Von Hand beigetreten heisst erledigt, nicht ein zweites Mal anbieten."""
+    """Joined by hand means done, do not offer it again."""
     with patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5", joined=True)]), \
          patch(f"{_DB}.claim_demo_seeding", return_value=True) as merken, \
          patch(f"{_DB}.enroll_student") as einschreiben:
@@ -610,7 +608,7 @@ def test_ein_fehler_haelt_die_anmeldung_nicht_auf():
 
 
 def test_die_anmeldung_weist_das_demo_modul_zu(monkeypatch):
-    """Egal ueber welchen Weg das Konto entstand, die erste Anmeldung holt es nach."""
+    """However the account was created, the first login catches up."""
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
 

@@ -1,15 +1,15 @@
 #!/bin/bash
-# isy-kis-thl (THL-Server) — Basis + Frontend, ohne nginx (das macht der THL-nginx)
-# Aufruf vom Repo-Root: bash deploy/start-thl.sh [up|down|restart]
+# isy-kis-thl (THL server) — base + frontend, without nginx (the THL nginx handles that)
+# Run from the repo root: bash deploy/start-thl.sh [up|down|restart]
 cd "$(dirname "$0")/.." || exit 1
 
-# -f explizit, damit ein COMPOSE_FILE aus der .env nichts dazuladen kann.
+# -f explicit so a COMPOSE_FILE from the .env cannot add anything.
 COMPOSE_FILES="-f docker-compose.yml"
 
-# Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
+# Compose starts services with "profiles" only when their profile is named.
 MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | cut -d'#' -f1 | tr -d " \"'")
 export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools},app"
-# Der HPC-Tunnel startet nur, wenn der Schlüssel für die GWDG da ist.
+# The HPC tunnel starts only when the GWDG key is present.
 [ -f "${HPC_SSH_KEY:-$HOME/.ssh/kis-hpc}" ] && COMPOSE_PROFILES="$COMPOSE_PROFILES,hpc"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 

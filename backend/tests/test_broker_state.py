@@ -1,4 +1,4 @@
-"""Ob ein Auftrag noch beim Broker liegt: wartend in der Schlange oder abgeholt und unquittiert."""
+"""Whether a job is still at the broker: waiting in the queue or fetched and unacked."""
 
 import json
 
@@ -58,11 +58,11 @@ def test_ohne_broker_gibt_es_keine_antwort_statt_einer_leeren_menge():
         def lrange(self, *a):
             raise ConnectionError("weg")
 
-    # None heißt "weiß nicht", dann darf niemand einen Auftrag für verloren erklären.
+    # None means "unknown", then nobody may declare a job lost.
     assert broker_state.snapshot(_Kaputt()) is None
 
 
 def test_ein_auftrag_mit_niedrigem_vorrang_wartet_auch():
-    """Die Zusammenfassung liegt in einer Nebenliste ihrer Schlange, der Aufseher darf sie nicht für verloren halten."""
+    """The summary sits in a side list of its queue, the watchdog must not consider it lost."""
     r = _Redis(schlangen={"general\x06\x169": [_nachricht("t-7")]})
     assert "t-7" in broker_state.snapshot(r).waiting

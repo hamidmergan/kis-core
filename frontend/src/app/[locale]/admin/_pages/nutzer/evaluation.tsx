@@ -1,6 +1,6 @@
 "use client";
 
-/** Die Evaluation erstellen, bearbeiten und ein- oder ausschalten. */
+/** Create, edit and toggle the evaluation. */
 
 import EvaluationTab from "../../_components/EvaluationTab";
 

@@ -147,7 +147,7 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: flo
             time.sleep(pause)
         try:
             return _sprich(client, text, voice_id, sprache, tempo)
-        except Exception as e:  # noqa: BLE001 — jeder Anbieterfehler wird gleich behandelt
+        except Exception as e:  # noqa: BLE001 — every provider error is treated alike
             if getattr(e, "permanent", False):
                 # A wrong key or an empty balance stays so, asking again only costs time.
                 raise

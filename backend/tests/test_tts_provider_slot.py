@@ -1,4 +1,4 @@
-"""Jede Vertonung braucht einen Platz beim Anbieter, egal ob Podcast, Vorlesen oder Screencast."""
+"""Every render needs a seat at the provider, whether podcast, read-aloud or screencast."""
 
 from src.services import openai_compat_tts, provider_transport
 from src.services.feature_router import FeatureBinding

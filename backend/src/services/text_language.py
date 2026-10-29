@@ -22,7 +22,7 @@ def language_sample(text: str, sample_chars: int = _SAMPLE_CHARS) -> str:
     koerper = " ".join(text[max(0, mitte - sample_chars): mitte + sample_chars].split())
     if len(koerper) <= sample_chars:
         return koerper
-    # Aus der Mitte heraus gekuerzt, sonst faellt genau die Mitte wieder weg.
+    # Sampled from the middle, else exactly the middle would be lost.
     start = (len(koerper) - sample_chars) // 2
     return koerper[start:start + sample_chars]
 

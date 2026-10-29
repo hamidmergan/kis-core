@@ -192,7 +192,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
   const { y, m } = cursor;
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysInPrev = new Date(y, m, 0).getDate();
-  const startCol = (new Date(y, m, 1).getDay() + 6) % 7; // Montag = 0
+  const startCol = (new Date(y, m, 1).getDay() + 6) % 7; // Monday = 0
   const trailing = (7 - ((startCol + daysInMonth) % 7)) % 7;
   const weeks = (startCol + daysInMonth + trailing) / 7;
 
@@ -303,8 +303,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-5 xl:items-start">
-    {/* Auf breiten Schirmen wächst das Raster in die Höhe, sonst steht der halbe
-        Bildschirm leer. Darunter bestimmt der Inhalt die Höhe wie bisher. */}
+    {/* On wide screens the grid grows in height, otherwise half the screen stays empty; below that the content sets the height. */}
     <div className="min-w-0 xl:flex xl:flex-col xl:min-h-[68vh]">
       <div className="flex items-center gap-2.5 mb-3 flex-wrap">
         <span className="text-base font-bold" style={{ color: "var(--foreground)" }}>{monthLabel}</span>
@@ -322,7 +321,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         >
           {t("month.today")}
         </button>
-        {/* Gleicher Knopf wie "+ Workspace" auf der Startseite. */}
+        {/* Same button as "+ Workspace" on the start page. */}
         <button
           type="button"
           onClick={() => { setModalDate(""); setModalOpen(true); }}
@@ -334,8 +333,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         </button>
       </div>
 
-      {/* Auf dem Handy zieht das Raster ueber den Seitenrand hinaus, sonst
-          bleiben von 390 px nur 358 fuer sieben Spalten. */}
+      {/* On the phone the grid extends past the page margin, otherwise only 358 of 390 px remain for seven columns. */}
       <div className="-mx-4 sm:mx-0 grid grid-cols-7 gap-1 mb-1">
         {weekdays.map((w) => (
           <div
@@ -348,7 +346,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         ))}
       </div>
 
-      {/* Jede Woche ist ein eigener Block, damit die Balken darin liegen koennen. */}
+      {/* Each week is its own block so the bars can sit inside it. */}
       <div className="-mx-4 sm:mx-0 flex flex-col gap-1 xl:flex-1">
       {Array.from({ length: weeks }, (_, w) => {
         const weekStart = ymdShift(y, m, 1 - startCol + w * 7);
@@ -432,10 +430,10 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
                 {day}
               </span>
 
-              {/* Der Platz fuer die Balken sitzt unter der Zahl, nie darueber. */}
+              {/* The space for the bars sits below the number, never above. */}
               {platz > 0 && <span aria-hidden="true" style={{ height: platz }} />}
 
-              {/* Ueberall dieselben Kacheln, in schmalen Zellen kuerzt truncate den Titel. */}
+              {/* The same tiles everywhere, in narrow cells truncate shortens the title. */}
               <span className="flex flex-col gap-0.5 min-w-0">
                 {chips.map((e) => (
                   <span
@@ -457,7 +455,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
                     className="text-2xs font-bold px-1"
                     style={{ color: "var(--kb)" }}
                   >
-                    {/* Das Wort "weitere" passt erst ab Tablet neben die Zahl. */}
+                    {/* The word "more" fits beside the number only from tablet up. */}
                     <span className="md:hidden">+{restChips}</span>
                     <span className="hidden md:inline">{t("month.more", { count: restChips })}</span>
                   </span>
@@ -472,7 +470,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
       })}
       </div>
 
-      {/* Ab xl stehen diese Termine in der rechten Spalte, hier wären sie doppelt. */}
+      {/* From xl these entries sit in the right column, here they would be duplicates. */}
       {noDayGrid.length > 0 && (
         <div
           className="mt-3 rounded-lg px-3 py-2.5 flex items-center gap-2.5 flex-wrap xl:hidden"
@@ -497,7 +495,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         </div>
       )}
 
-      {/* Ab xl steht der Hinweis in der rechten Spalte, hier wäre er doppelt. */}
+      {/* From xl the hint sits in the right column, here it would be a duplicate. */}
       {isEmptyMonth && (
         <p className="text-center text-xs py-6 xl:hidden" style={{ color: "var(--muted)" }}>
           {t("month.empty")}
@@ -540,7 +538,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         </div>
       )}
 
-      {/* Schmale Schirme behalten die Tagesliste unter dem Raster. */}
+      {/* Narrow screens keep the day list below the grid. */}
       {selected && selectedEntries.length > 0 && (
         <div className="mt-4 pt-3.5 xl:hidden" style={{ borderTop: "1px solid var(--border-soft)" }}>
           <p className="text-2xs font-bold uppercase tracking-wide mb-2.5" style={{ color: "var(--muted)" }}>
@@ -559,7 +557,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
       <p className="text-2xs font-bold uppercase tracking-wide mb-3 shrink-0" style={{ color: "var(--muted)" }}>
         {sideHeading}
       </p>
-      {/* Bei vielen Terminen rollt die Liste, statt die Seite länger zu ziehen als das Raster links. */}
+      {/* With many entries the list scrolls instead of stretching the page beyond the grid on the left. */}
       <div className="xl:max-h-[68vh] overflow-y-auto">
         {sideEntries.length > 0 ? (
           rows(sideEntries)

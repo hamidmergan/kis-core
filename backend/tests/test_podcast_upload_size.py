@@ -1,4 +1,4 @@
-"""Die Groesse gilt fuer alle Dateien eines Podcasts zusammen."""
+"""The size limit applies to all files of a podcast together."""
 
 import pytest
 from fastapi import HTTPException
@@ -24,7 +24,7 @@ def test_zusammen_zu_viel_wird_abgelehnt(monkeypatch):
 
 
 def test_zehn_kleine_dateien_gehen_durch(monkeypatch):
-    """Zehn mal 40 MB bleiben unter der Summe, die Zahl der Dateien zaehlt hier nicht."""
+    """Ten times 40 MB stays under the total, the file count does not matter here."""
     _grenze(monkeypatch, 500)
     start._pruefe_gesamtgroesse(_Request(10 * 40 * 1024 * 1024), "de")
 
@@ -36,6 +36,6 @@ def test_eine_einzige_zu_grosse_datei_wird_auch_abgelehnt(monkeypatch):
 
 
 def test_ohne_angabe_wird_nicht_geraten(monkeypatch):
-    """Fehlt die Angabe, bremst weiter die Grenze je Datei beim Einlesen."""
+    """Without the setting, the per-file limit at read time still applies."""
     _grenze(monkeypatch, 500)
     start._pruefe_gesamtgroesse(_Request(None), "de")

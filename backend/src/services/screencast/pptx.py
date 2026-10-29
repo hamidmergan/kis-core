@@ -405,7 +405,7 @@ def pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Pa
             for future in as_completed(futures):
                 future.result()  # re-raises on error
     finally:
-        pdf_path.unlink(missing_ok=True)  # Zwischenschritt, die PNGs sind das Ergebnis
+        pdf_path.unlink(missing_ok=True)  # intermediate step, the PNGs are the result
 
     # Collect generated images (pdftoppm names them slide-1.png, slide-2.png, ...)
     images = sorted(output_dir.glob("slide-*.png"))

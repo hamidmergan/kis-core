@@ -1,4 +1,4 @@
-// Quiz-Modal Konfiguration - einfache Modals
+// Quiz modal configuration - simple modals
 const quizModals = [
     {
         id: 'Frage', title: 'Quiz 1', bodyClass: 'mt-3',
@@ -19,7 +19,7 @@ const quizModals = [
         description: 'Memory - Finde die Sportangebote der TH Lübeck',
         content: {
             type: 'memory',
-            // Jeder Eintrag erscheint zweimal als Karte und muss als Paar gefunden werden.
+            // Each entry appears twice as a card and must be found as a pair.
             pairs: [
                 { image: 'assets/welche_sportarten_gibt_es_drachenboot.png', label: 'Drachenboot' },
                 { image: 'assets/welche_sportarten_gibt_es_judo.png', label: 'Judo' },
@@ -51,7 +51,7 @@ const quizModals = [
         content: {
             type: 'sort',
             question: 'Bringe die Schritte einer Studienbewerbung an der THL in die richtige Reihenfolge:',
-            // Reihenfolge unten = korrekte Reihenfolge (wird beim Rendern gemischt)
+            // Order below = correct order (shuffled when rendering)
             items: [
                 'Ich registriere mich beim THL Bewerbungsportal',
                 'Ich gebe meine persönlichen Daten ein',
@@ -68,7 +68,7 @@ const quizModals = [
             type: 'wordsearch',
             question: 'Finde alle Begriffe rund um das Studentenleben an der TH Lübeck:',
             width: 14, height: 14,
-            // display = was in der Liste angezeigt wird; search = was tatsächlich im Raster steht
+            // display = shown in the list; search = what is actually in the grid
             words: [
                 { display: 'Wohnheim', search: 'WOHNHEIM' },
                 { display: 'AStA', search: 'ASTA' },
@@ -89,7 +89,7 @@ const quizModals = [
             type: 'imageGrid',
             question: 'Welche zwei Studiengänge werden NICHT an der TH Lübeck angeboten?',
             columns: 3,
-            // correct: true = Studiengang wird NICHT angeboten (richtige Antwort, anklicken)
+            // correct: true = degree programme is NOT offered (correct answer, click it)
             options: [
                 { image: 'assets/01_bauingenieurwesen.png', label: 'Bauingenieurwesen', correct: false },
                 { image: 'assets/02_game_design.png', label: 'Game Design', correct: true },
@@ -124,11 +124,10 @@ const quizModals = [
             type: 'hotspot',
             question: 'Was fehlt für einen sicheren Laborversuch? Klicke alle Sicherheitsmängel an.',
             image: 'assets/labor.png',
-            // Textalternative fürs Suchbild: beschreibt die Szene, verrät aber
-            // die Mängel nicht (WCAG 1.1.1, Ausnahme für Tests/Übungen)
+            // Alt text for the hotspot image: describes the scene without revealing the flaws (WCAG 1.1.1 exception for tests)
             imageAlt: 'Suchbild: Studierende arbeiten an einer Laborbank mit Pipetten, Proben und einer Zentrifuge.',
-            // x,y in %, radius in % der Bildbreite
-            // debug: true blendet die Hotspot-Zonen als gestrichelte Kreise ein (nur zum Justieren)
+            // x,y in %, radius in % of image width
+            // debug: true shows the hotspot zones as dashed circles (for calibration only)
             debug: false,
             hotspots: [
                 { x: 30.4, y: 56.9, radius: 7, label: 'Essen im Labor' },
@@ -177,21 +176,21 @@ const quizModals = [
 ];
 
 /**
- * Campus Gebäude Konfiguration
- * 
- * Mögliche Parameter pro Gebäude:
- * - id: string (erforderlich) - Eindeutige ID
- * - title: string (erforderlich) - Anzeigename
- * - icon: string - Pfad zum Icon
- * - iconHeight: string - CSS-Höhe für Icon (z.B. "90px")
- * - images: array - Array von Bildpfaden
- * - description: string - Beschreibungstext (HTML erlaubt)
- * - featureSections: array - Zusätzliche Informationssektionen
+ * Campus building configuration.
+ *
+ * Parameters per building:
+ * - id: string (required) - unique ID
+ * - title: string (required) - display name
+ * - icon: string - icon path
+ * - iconHeight: string - CSS height for the icon (e.g. "90px")
+ * - images: array - image paths
+ * - description: string - description text (HTML allowed)
+ * - featureSections: array - extra info sections
  *   - { heading: string, color: string, items: array }
- * - openingHours: object - Öffnungszeiten
+ * - openingHours: object - opening hours
  *   - { label: string, bgColor: string, color: string, slots: array }
  *   - slots: { label: string, time: string }
- * - link: object - Externer Link
+ * - link: object - external link
  *   - { title: string, url: string, text: string }
  */
 const campusBuildings = [
@@ -1027,7 +1026,7 @@ const campusBuildings = [
 
 
 
-    { // Bushaltestellen
+    { // Bus stops
         id: "Bus_Stephensonstraße",
         title: "Bushaltestelle Stephensonstraße",
         iconHeight: "90px",
@@ -1052,7 +1051,7 @@ const campusBuildings = [
         }
     },
 
-    { // Bushaltestellen
+    { // Bus stops
         id: "Bus_Bessemer_Straße_Sereetz",
         title: "Bushaltestelle Bessemer Straße",
         iconHeight: "90px",
@@ -1076,7 +1075,7 @@ const campusBuildings = [
         }
     },
 
-    { // Bushaltestellen
+    { // Bus stops
         id: "Bus_Bessemer_Straße_Bornkamp",
         title: "Bushaltestelle Bessemer Straße",
         iconHeight: "90px",
@@ -1100,7 +1099,7 @@ const campusBuildings = [
         }
     },
 
-    { // Bushaltestellen
+    { // Bus stops
         id: "Bus_Technische_Hochschule_Sereetz",
         title: "Bushaltestelle Technische Hochschule",
         iconHeight: "90px",
@@ -1123,7 +1122,7 @@ const campusBuildings = [
         }
     },
 
-    { // Bushaltestellen
+    { // Bus stops
         id: "Bus_Technische_Hochschule_Grillenweg",
         title: "Bushaltestelle Technische Hochschule",
         iconHeight: "90px",
@@ -1153,7 +1152,7 @@ const filters = [
     { label: 'Bushaltestelle', icon: 'assets/bus_icon_einstellungen_an.svg', id: ['Bushaltestellen'], defaultVisible: true },
     { label: 'Kiosk & Café', icon: 'assets/kaffee_icon_einstellungen_an.svg', id: ['Kaffee'], defaultVisible: true },
     { label: 'Buttons', icon: 'assets/butten_icon_einstellungen_an.svg', id: ['Buttons'], defaultVisible: true },
-    // Ebenen aus dem offiziellen Campusplan (nur in der Karte nach dem Intro vorhanden)
+    // Layers from the official campus plan (only present in the map after the intro)
     { label: 'Info & Sammelplatz', icon: 'assets/info_icon_einstellungen_an.svg', id: ['Infopunkte'], defaultVisible: true },
     { label: 'WC', icon: 'assets/wc_icon_einstellungen_an.svg', id: ['WC'], defaultVisible: true },
     { label: 'Barrierefreiheit', icon: 'assets/barrierefreiheit_icon_einstellungen_an.svg', id: ['Barrierefreiheit', 'Aufzuege'], defaultVisible: false },

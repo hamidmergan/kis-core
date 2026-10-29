@@ -129,7 +129,7 @@ export function useTour() {
         body: JSON.stringify({ workspace_uuid: workspaceUuid }),
       })
         .then(() => aktionen.beispieleLaden())
-        .catch(() => { /* Der Rundgang laeuft auch ohne die Beispiele. */ });
+        .catch(() => { /* The tour runs without the examples too. */ });
     }
 
     const schritte = demoSchritte(darfModuleAnlegen);

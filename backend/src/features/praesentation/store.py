@@ -183,7 +183,7 @@ def neue_id(ids: set[str]) -> str:
 
 
 def save_map(user_id: int, job_uuid: str, daten: dict) -> None:
-    """Die Planungsgrundlage des Laufs, damit eine neue Etappe die Themen nicht neu bezahlt."""
+    """The run's planning base, so a new stage does not pay for the topics again."""
     _write_json(user_id, job_uuid, MAP_FILE, daten)
 
 

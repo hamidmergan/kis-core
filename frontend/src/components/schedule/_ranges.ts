@@ -13,7 +13,7 @@ export interface RangeEntry {
 
 export interface Segment {
   entry: RangeEntry;
-  /** Rasterspalte 1 bis 8, direkt fuer grid-column verwendbar. */
+  /** Grid column 1 to 8, usable directly for grid-column. */
   col1: number;
   col2: number;
   openLeft: boolean;

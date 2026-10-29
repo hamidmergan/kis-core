@@ -1,4 +1,4 @@
-"""Celery task: das Material planen, dann die Folge in Teilen schreiben."""
+"""Celery task: plan the material, then write the episode in parts."""
 
 import json
 import math
@@ -43,7 +43,7 @@ _ANFANG_WORTE = 12
 
 
 def _fenster(provider_id: int | None) -> int:
-    """Das gemessene Fenster des Modells, 0 wenn es keines gibt."""
+    """The measured window of the model, 0 if there is none."""
     from src.services.feature_provider_choices import binding_for
     from src.services.model_limits import ensure_profile
 
@@ -51,7 +51,7 @@ def _fenster(provider_id: int | None) -> int:
         binding = binding_for("chat", provider_id)
         profil = ensure_profile(binding.provider, binding.model or "")
         return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - ohne Messung gilt das kleinste zugelassene Fenster
+    except Exception as e:  # noqa: BLE001 - without a measurement the smallest admitted window applies
         logger.warning("Podcast: Modell nicht vermessbar ({})", e)
         return 0
 
@@ -207,7 +207,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
         if not still_mine(job_uuid, versuch):
             raise StageLost(job_uuid)
 
-        # Die Quellen des Laufs, gelesen bevor die Aufgabe eingereiht wurde.
+        # The run's sources, read before the task was queued.
         quellenliste = quellen.load_sources(user_id, job_uuid)
         if not quellenliste:
             raise RuntimeError(t("podcast.noContent", locale))

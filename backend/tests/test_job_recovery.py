@@ -1,4 +1,4 @@
-"""Die eine Fehlerbahn: ein paar Anlaeufe von selbst, dann angehalten und warten."""
+"""The single failure path: a few automatic retries, then paused and waiting."""
 
 import json
 
@@ -11,7 +11,7 @@ from src.services import job_recovery
 
 
 class _Db:
-    """Merkt sich jeden Schreibzugriff, damit der Test die Bahn nachlesen kann."""
+    """Records every write so the test can replay the path."""
 
     def __init__(self, job=None):
         self.job = job or {}
@@ -63,7 +63,7 @@ class _Db:
 
 
 class _FakeTask:
-    """Ein Celery-Task, der nur merkt, womit er abgeschickt wurde."""
+    """A Celery task that only records what it was sent with."""
 
     def __init__(self):
         self.args = None
@@ -127,7 +127,7 @@ class TestResumeTuer:
 
 
 class TestUeberlastImErstenSchritt:
-    """Skript und Gliederung lesen große Dokumente, eine überlastete KI darf sie nicht beenden."""
+    """Script and outline read large documents, an overloaded model must not end them."""
 
     def test_ein_podcast_skript_wartet_bei_ueberlast(self, db):
         db.job["progress"] = json.dumps({"step": "script"})
@@ -169,8 +169,7 @@ class TestUeberlastImErstenSchritt:
         assert task.args == ["j", 7, "de", 1, 0]
 
     def test_ein_wiederanlauf_reiht_sich_hinter_neuer_arbeit_ein(self, db, monkeypatch):
-        """Lauf 14: sieben Skripte liefen immer wieder in die Zeitgrenze und nahmen sich sofort wieder einen
-        der drei Plätze, 20 Präsentationen, 17 Übersetzungen und 5 Transkripte kamen über eine Stunde nicht dran."""
+        """Run 14: seven scripts kept timing out and instantly retook one of the three seats, starving 20 presentations, 17 translations and 5 transcripts for over an hour."""
         task = _FakeTask()
         import src.tasks.podcast_tasks as pt
         import src.tasks.podcast_tasks._shared as shared
@@ -197,7 +196,7 @@ class TestStillMine:
         assert not job_recovery.still_mine("j", 2)
 
     def test_eine_uebernommene_etappe_meldet_sich_sofort(self, db):
-        """Nach langem Anstehen ist das letzte Lebenszeichen alt, der Aufseher darf sie nicht erwischen."""
+        """After a long wait the last heartbeat is old, the watchdog must not catch them."""
         db.claim = ("running", 2)
         job_recovery.still_mine("j", 2)
         assert db.lebenszeichen == 1
@@ -303,7 +302,7 @@ class TestNeustart:
 
 
 class TestAnbieterVoll:
-    """Lasttest 26.09.: myLab war nur voll, trotzdem hielten nach 15 Minuten alle Vertonungen an."""
+    """Load test 26.09.: myLab was merely full, yet all renderings paused after 15 minutes."""
 
     def test_ein_voller_anbieter_verbraucht_keinen_anlauf(self, db):
         for _ in range(MAX_AUTO_RESUMES + 5):

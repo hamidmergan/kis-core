@@ -1,4 +1,4 @@
-"""Der Chat-Stream: Titel, Absage-Marker, Quellen und Orte, volle Chats."""
+"""The chat stream: title, refusal marker, sources and places, full chats."""
 import json
 from types import SimpleNamespace
 

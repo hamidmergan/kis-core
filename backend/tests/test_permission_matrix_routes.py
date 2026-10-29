@@ -270,7 +270,7 @@ def test_sprachexperte_reaches_the_area_but_not_the_whitelist(as_sprachexperte):
     assert perms.has(PERM_SET_SYSTEM) is False
 
 
-# ── Doppelter Rollenname ─────────────────────────────────────────────────────
+# ── Duplicate role name ─────────────────────────────────────────────────────
 
 async def test_creating_a_role_twice_says_so(monkeypatch):
     from src.features.admin.repository.roles import RoleNameTaken
@@ -287,7 +287,7 @@ async def test_creating_a_role_twice_says_so(monkeypatch):
     assert "Sprachexperte" in err.value.detail
 
 
-# ── Loeschen einer Rolle mit Rechten aus einem seither abgeschalteten Modul ──
+# ── Deleting a role with rights from a module disabled since ──
 
 async def test_delete_role_ignores_stale_keys_from_a_narrowed_profile(monkeypatch):
     """A role still holding an aia key must stay deletable once MODULES=tools."""

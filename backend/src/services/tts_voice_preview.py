@@ -38,7 +38,7 @@ def preview_audio(provider_id: int, voice_id: str, locale: str = "de", user_id: 
     # Asked before the provider so a hit costs no network round trip at all.
     try:
         vorrat = speech_cache.get(key)
-    except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall
+    except Exception as exc:  # noqa: BLE001 - every database error is the same case
         logger.warning("Stimmen-Vorrat nicht lesbar: {}", exc)
         vorrat = None
     if vorrat:
@@ -54,6 +54,6 @@ def preview_audio(provider_id: int, voice_id: str, locale: str = "de", user_id: 
     audio = client.synthesize_chunk(text, voice_id=voice_id, speed=_SPEED)
     try:
         speech_cache.put(key, audio)
-    except Exception as exc:  # noqa: BLE001 - der Ton ist da, das Ablegen ist Kuer
+    except Exception as exc:  # noqa: BLE001 - the audio is there, storing it is optional
         logger.warning("Stimmen-Vorrat nicht beschreibbar: {}", exc)
     return audio

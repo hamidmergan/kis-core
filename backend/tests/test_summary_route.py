@@ -111,7 +111,7 @@ async def test_ungueltige_zweite_datei_kostet_kein_kontingent(stub, monkeypatch)
 
 
 async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
-    """Der Auftrag entsteht erst, wenn die Quellen liegen. Scheitert das, bleibt nichts."""
+    """The job is created only once the sources are stored, if that fails nothing remains."""
     def kaputt(uid, job, quellen):
         raise RuntimeError("Speicher weg")
 
@@ -126,7 +126,7 @@ async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
 
 
 async def test_die_angaben_fuer_einen_neustart_liegen_ab_dem_einreihen_bereit(stub):
-    """Lasttest 26.09.: nie gestartete Aufträge ließen sich nicht fortsetzen, die Angaben fehlten."""
+    """Load test 26.09.: never-started jobs could not be continued, the params were missing."""
     import json
     await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
                           template="zeitstrahl", provider_id=None, instructions="",

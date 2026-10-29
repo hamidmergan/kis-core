@@ -26,7 +26,7 @@ def _analyse():
 
 
 class _Quellen:
-    """Die Quellen eines Laufs, wie sie aus sources.json kaemen."""
+    """The sources of a run as they would come from sources.json."""
 
     def load_sources(self, u, j):
         from src.services.source_reading import Piece, Source
@@ -261,7 +261,7 @@ class TestOutline:
         assert gemeldet == [True]
 
     def test_beim_warten_steht_der_hinweis_auf_die_ueberlastete_ki(self, umgebung):
-        """Lauf 14: die wartende Gliederung zeigte ihren Fehlertext, obwohl sie von selbst weiterlief."""
+        """Run 14: the waiting outline showed its error text although it continued by itself."""
         from src.i18n import t
 
         st, db = _Store(None), _Db()

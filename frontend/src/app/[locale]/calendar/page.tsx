@@ -12,8 +12,7 @@ export default function SchedulePage() {
 
   return (
     <ProtectedRoute>
-      {/* Fester Rand statt der prozentualen page-shell: ein Monatsraster braucht
-          die Breite, prozentual bleiben auf 1400 px ueber 200 px ungenutzt. */}
+      {/* Fixed margin instead of the percentage page-shell: a month grid needs the width, at 1400 px over 200 px would go unused. */}
       <div className="px-4 sm:px-6 lg:px-8 2xl:px-12 pt-10 pb-20 lg:pt-15 lg:pb-30">
         <h1 className="text-xl font-bold flex items-center gap-2 mb-6" style={{ color: "var(--foreground)" }}>
           <CalendarBlank size={20} weight="bold" style={{ color: "var(--kb)" }} />

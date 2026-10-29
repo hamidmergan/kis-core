@@ -1,20 +1,19 @@
-// Zweisprachigkeit (Deutsch / Englisch)
+// Bilingual support (German / English).
 //
-// Sprache wird bestimmt durch (in dieser Reihenfolge):
-//   1. URL-Parameter ?lang=en|de (z.B. fuer Einbettungen per iframe)
-//   2. gespeicherte Auswahl im localStorage
-//   3. Standard: Deutsch
+// Language is resolved in this order:
+//   1. URL parameter ?lang=en|de (e.g. for iframe embeds)
+//   2. stored choice in localStorage
+//   3. default: German
 //
-// UI-Texte stehen in UI_STRINGS und werden per t('schluessel') geholt.
-// Statische Texte in index.html tragen data-i18n-Attribute.
-// Inhalte (Quizze, Gebaeude, Badges) bleiben in config_v2.js auf Deutsch;
-// content_en.js legt die englischen Texte per applyContentOverlay() darueber.
+// UI texts live in UI_STRINGS and are read via t('key').
+// Static texts in index.html carry data-i18n attributes.
+// Content (quizzes, buildings, badges) stays German in config_v2.js;
+// content_en.js overlays the English texts via applyContentOverlay().
 
 const LANG_STORAGE_KEY = 'campusmap_lang';
 const SUPPORTED_LANGS = ['de', 'en'];
 const DEFAULT_LANG = 'de';
-// Nach einem Sprachwechsel wird die Seite neu geladen. Das Intro soll dabei
-// nicht erneut abgespielt werden.
+// The page reloads after a language switch; the intro must not replay then.
 const LANG_SWITCH_FLAG = 'campusmap_lang_switched';
 
 function readStoredLang() {
@@ -52,7 +51,7 @@ if (new URLSearchParams(window.location.search).get('partner') === 'kis') {
     });
 }
 
-// true, wenn diese Seite durch einen Sprachwechsel neu geladen wurde
+// true if this page was reloaded by a language switch
 const CAME_FROM_LANG_SWITCH = (() => {
     try {
         const flag = sessionStorage.getItem(LANG_SWITCH_FLAG) === '1';
@@ -65,7 +64,7 @@ const CAME_FROM_LANG_SWITCH = (() => {
 
 const UI_STRINGS = {
     de: {
-        // Seite & Kopfzeile
+        // Page & header
         'page.title': 'Campusplan – Technische Hochschule Lübeck',
         'skip.toMap': 'Direkt zur Karte',
         'header.title': 'Campusplan',
@@ -76,7 +75,7 @@ const UI_STRINGS = {
         'lang.label': 'Sprache',
         'common.close': 'Schließen',
 
-        // Gebäude & Legende
+        // Buildings & legend
         'legend.title': 'Gebäude',
         'legend.searchPlaceholder': 'Gebäude, Einrichtung oder Nummer',
         'legend.searchLabel': 'Campus durchsuchen',
@@ -111,7 +110,7 @@ const UI_STRINGS = {
         'legend.markAll': 'Alle {n} Stationen auf der Karte markieren',
         'legend.pillClose': 'Hinweis schließen',
 
-        // Einstellungen
+        // Settings
         'settings.title': 'Einstellungen',
         'settings.close': 'Einstellungen schließen',
         'settings.display': 'Anzeige',
@@ -140,7 +139,7 @@ const UI_STRINGS = {
         'intro.skipClick': 'Klicken zum Überspringen',
         'map.unavailable': 'Karte nicht verfügbar.',
 
-        // Quiz allgemein
+        // Quiz general
         'quiz.close': 'Quiz schließen',
         'quiz.check': 'Prüfen',
         'quiz.retry': 'Nochmal versuchen',
@@ -151,7 +150,7 @@ const UI_STRINGS = {
         'quiz.infoShow': 'Campus-Info anzeigen',
         'quiz.infoHide': 'Campus-Info schließen',
 
-        // Sortieren
+        // Sort
         'sort.up': 'Nach oben: {item}',
         'sort.down': 'Nach unten: {item}',
         'sort.correct': 'Richtige Reihenfolge!',
@@ -159,7 +158,7 @@ const UI_STRINGS = {
         'sort.item': 'Eintrag',
         'sort.position': '{item}: Position {i} von {n}',
 
-        // Kreuzworträtsel
+        // Crossword
         'cw.across': 'Waagerecht',
         'cw.down': 'Senkrecht',
         'cw.dirAcross': 'waagerecht',
@@ -170,14 +169,14 @@ const UI_STRINGS = {
         'cw.missing': 'Es fehlen noch Buchstaben.',
         'cw.wrongLetters': 'Ein paar Buchstaben sind noch falsch (rot markiert).',
 
-        // Suchbild
+        // Hotspot
         'hotspot.done': 'Super! Alle Sicherheitsmängel gefunden.',
         'hotspot.gridLabel': 'Bildbereiche zum Absuchen: {rows} Zeilen, {cols} Spalten',
         'hotspot.region': 'Bildbereich Zeile {r}, Spalte {c}',
         'hotspot.hit': 'Richtig: {label}. {progress}',
         'hotspot.miss': 'In Zeile {r}, Spalte {c} ist nichts zu finden.',
 
-        // Wortsuche
+        // Word search
         'ws.hint': 'Hilfe',
         'ws.libError': 'Wortsuch-Bibliothek konnte nicht geladen werden.',
         'ws.createError': 'Rätsel konnte nicht erstellt werden.',
@@ -203,7 +202,7 @@ const UI_STRINGS = {
         'memory.noPair': '. Kein Paar. Beim nächsten Zug werden beide Karten wieder verdeckt.',
         'memory.pairsFound': '{n} von {total} Paaren gefunden',
 
-        // Gebäude-Info
+        // Building info
         'building.imageAlt': '{title} – Bild {i} von {n}',
         'carousel.prev': 'Vorheriges Bild',
         'carousel.next': 'Nächstes Bild',
@@ -219,7 +218,7 @@ const UI_STRINGS = {
         'badges.earned': 'Badge erhalten:',
         'badges.closeNotification': 'Benachrichtigung schließen',
 
-        // Karte (Screenreader)
+        // Map (screen reader)
         'map.containerLabel': 'Interaktiver Campusplan der TH Lübeck',
         'map.svgLabel': 'Campusplan mit Gebäuden, Quizzen und Serviceorten',
         'map.group.buildings': 'Gebäude',
@@ -248,7 +247,7 @@ const UI_STRINGS = {
         'map.zoomIn': 'Karte vergrößern',
         'map.zoomOut': 'Karte verkleinern',
 
-        // Ansagen
+        // Announcements
         'announce.mapElements': 'Kartenelemente',
         'announce.shown': '{name} eingeblendet',
         'announce.hidden': '{name} ausgeblendet',
@@ -452,8 +451,7 @@ const UI_STRINGS = {
     }
 };
 
-// Uebersetzung holen; {name}-Platzhalter werden durch vars ersetzt.
-// Fehlt ein englischer Text, wird der deutsche verwendet.
+// Get a translation; {name} placeholders are replaced from vars, missing English falls back to German.
 function t(key, vars) {
     const table = UI_STRINGS[CURRENT_LANG] || UI_STRINGS[DEFAULT_LANG];
     let str = table[key];
@@ -465,7 +463,7 @@ function t(key, vars) {
     return str;
 }
 
-// Statische Texte im DOM uebersetzen:
+// Translate static texts in the DOM:
 //   data-i18n="key"             -> textContent
 //   data-i18n-html="key"        -> innerHTML
 //   data-i18n-title="key"       -> title
@@ -489,9 +487,8 @@ function applyStaticTranslations(root = document) {
     });
 }
 
-// Texte in der Campus-Karte (SVG) uebersetzen. Die Karte ist auf Deutsch;
-// uebersetzbare Elemente tragen die Fremdsprache direkt im SVG:
-//   data-en="…"             -> textContent (nur an Blattelementen: text, tspan, title)
+// Translate texts in the campus map SVG; the map is German and translatable elements carry the other language inline:
+//   data-en="…"             -> textContent (leaf elements only: text, tspan, title)
 //   data-en-aria-label="…"  -> aria-label
 function localizeMapTexts(root) {
     if (!root || CURRENT_LANG === DEFAULT_LANG) return;
@@ -502,7 +499,7 @@ function localizeMapTexts(root) {
     root.querySelectorAll(`[${attr}-aria-label]`).forEach(el => {
         el.setAttribute('aria-label', el.getAttribute(`${attr}-aria-label`));
     });
-    // Button-Titel sind im SVG als Pfade gezeichnet: Pfad-Gruppe aus-, Text einblenden
+    // Button titles are drawn as SVG paths: hide the path group, show the text
     root.querySelectorAll(`[${attr}-hide]`).forEach(el => { el.style.display = 'none'; });
     root.querySelectorAll(`[${attr}-show]`).forEach(el => { el.style.display = ''; });
     root.querySelectorAll(`[${attr}-width]`).forEach(el => {
@@ -517,7 +514,7 @@ function setLanguage(lang) {
         sessionStorage.setItem(LANG_SWITCH_FLAG, '1');
     } catch (e) {
     }
-    // Ein ?lang= in der URL wuerde die neue Auswahl ueberstimmen
+    // A ?lang= in the URL would override the new choice
     const url = new URL(window.location.href);
     if (url.searchParams.has('lang')) {
         url.searchParams.set('lang', lang);
@@ -537,14 +534,13 @@ function initLanguageSwitch() {
     });
 }
 
-// --- Inhalts-Overlay ---
+// --- Content overlay ---
 
 function isPlainObject(v) {
     return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-// Ueberschreibt Felder in target mit denen aus overlay.
-// Arrays werden elementweise (per Index) zusammengefuehrt.
+// Overwrites fields in target with those from overlay; arrays merge by index.
 function deepMergeInto(target, overlay) {
     Object.keys(overlay).forEach(key => {
         const src = overlay[key];
@@ -566,7 +562,7 @@ function deepMergeInto(target, overlay) {
     });
 }
 
-// Wendet ein Overlay auf eine Liste von Objekten mit id an
+// Applies an overlay to a list of objects with an id
 function mergeById(list, overlayById) {
     if (!Array.isArray(list) || !overlayById) return;
     list.forEach(item => {
@@ -589,8 +585,7 @@ function applyContentOverlay(lang, overlay) {
     }
 }
 
-// i18n.js steht am Ende von <body>: Das statische Markup ist schon da und
-// wird hier vor dem ersten Zeichnen uebersetzt (kein Aufblitzen von Deutsch).
+// i18n.js sits at the end of <body>: the static markup exists and is translated before first paint (no German flash).
 document.title = t('page.title');
 applyStaticTranslations();
 initLanguageSwitch();

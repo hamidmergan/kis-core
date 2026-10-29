@@ -142,8 +142,7 @@ def _run_screencast(monkeypatch, payload, filename):
     return stored
 
 
-# Die Zusammenfassung fehlt hier bewusst: sie legt die Rohdatei nicht mehr ab,
-# sie liest sie und speichert den Text. Siehe test_summary_route.py.
+# Summary is left out on purpose: it no longer stores the raw file but reads it and saves the text, see test_summary_route.py.
 CASES = [
     ("translate/txt", _run_translate, lambda: b"Ein Satz zum Uebersetzen.\n" * 2000, "doc.txt"),
     ("translate/docx", _run_translate, lambda: _docx_bytes("Absatz"), "doc.docx"),

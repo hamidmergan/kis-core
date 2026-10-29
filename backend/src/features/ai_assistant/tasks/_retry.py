@@ -20,7 +20,7 @@ def is_retryable(exc: Exception) -> bool:
         return status >= 500
     try:
         import openai
-    except ImportError:  # pragma: no cover - openai gehört zu den Abhängigkeiten
+    except ImportError:  # pragma: no cover - openai is one of the dependencies
         return False
     if isinstance(exc, openai.APITimeoutError) and not _never_arrived(exc):
         # The provider worked the whole time limit, a second attempt costs the same again.

@@ -14,7 +14,7 @@ type Props = {
   onCustom: (value: string) => void;
 };
 
-/** 12 Stunden bleibt in Stunden, 24 und mehr zeigt sich als ganze Tage. */
+/** 12 hours stays in hours, 24 and more shows as whole days. */
 function presetLabel(hours: number, t: ReturnType<typeof useTranslations>): string {
   return hours % 24 === 0 ? t("days", { n: hours / 24 }) : t("hours", { n: hours });
 }

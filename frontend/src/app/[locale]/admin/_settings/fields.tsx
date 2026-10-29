@@ -8,7 +8,7 @@ import Select, { type SelectOption } from "@/components/ui/Select";
 import type { SettingHandle } from "./SettingsProvider";
 
 /* ------------------------------------------------------------------ */
-/* Rahmen                                                              */
+/* Frame                                                               */
 /* ------------------------------------------------------------------ */
 
 export function SettingCard({
@@ -28,9 +28,7 @@ export function SettingCard({
   const t = useTranslations("admin");
   return (
     <div className="border border-border-soft rounded-xl bg-background p-5">
-      {/* Umbrechen statt abschneiden: bei 110 % auf einem schmalen Telefon
-          bleiben keine 390 px uebrig, und ein Zahlenfeld mit Einheit und
-          Tokenzahl passt dann nicht mehr neben den Titel. */}
+      {/* Wrap instead of truncate: at 110 % on a narrow phone less than 390 px remain and a number field with unit and token count no longer fits beside the title. */}
       <div className="flex items-start justify-between gap-x-4 gap-y-3 flex-wrap">
         <div className="min-w-0 flex-1 basis-64">
           <p className="text-sm font-medium text-foreground">{title}</p>
@@ -53,7 +51,7 @@ export function SettingCard({
 /** The saved mark is gone, the card passes errors on. */
 
 /* ------------------------------------------------------------------ */
-/* Schalter                                                            */
+/* Switch                                                              */
 /* ------------------------------------------------------------------ */
 
 export function Switch({
@@ -120,7 +118,7 @@ export function ToggleSetting({
 }
 
 /* ------------------------------------------------------------------ */
-/* Zahl                                                                */
+/* Number                                                              */
 /* ------------------------------------------------------------------ */
 
 export function NumberSetting({
@@ -196,7 +194,7 @@ export function NumberSetting({
 
 
 /* ------------------------------------------------------------------ */
-/* Auswahl                                                             */
+/* Select                                                              */
 /* ------------------------------------------------------------------ */
 
 /** Provider and voice belong in a card of their own, they hang together. */

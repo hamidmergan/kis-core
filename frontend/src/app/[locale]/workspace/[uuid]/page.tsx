@@ -207,9 +207,7 @@ export default function KiTutorWorkspacePage() {
   } = ex;
   // statsVersion and glossaryCount come from the hooks below.
 
-  // Wer über die Einladung auf der Startseite kommt, landet direkt im Rundgang.
-  // Auch hierher gereicht, denn ohne Einschreibung weist der erste Abruf unten
-  // die Person ab, bevor der Rundgang ueberhaupt anlaeuft.
+  // The start page invitation lands directly in the tour; handled here too, since without enrolment the first fetch below rejects the person before the tour starts.
   const tourAngefordert = searchParams.get("tour") === "1";
 
   // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
@@ -230,14 +228,12 @@ export default function KiTutorWorkspacePage() {
 
   const { statsVersion, loadStreak, bumpStats } = useStats({ uuid, initialized });
 
-  // Der Rundgang im Demo-Modul bedient die Oberflaeche selbst, seine Griffe
-  // stehen weiter unten und liegen deshalb in einem Ref.
+  // The demo module tour drives the UI itself; its handles are defined further down, hence the ref.
   const tourAktionenRef = useRef<TourAktionen | null>(null);
   const istDemoModul = moduleDetail?.is_demo_workspace ?? false;
   const istDemoModulRef = useRef(istDemoModul);
   istDemoModulRef.current = istDemoModul;
-  // Wer keine Module anlegen darf, bekommt weder die Lehrenden-Vorschau noch
-  // die Stationen, die auf deren Knoepfe zeigen.
+  // Without the right to create modules there is no teacher preview and no tour steps pointing at its buttons.
   const darfModuleAnlegen = auth?.permissions?.allow_workspace_create ?? false;
   const darfModuleAnlegenRef = useRef(darfModuleAnlegen);
   darfModuleAnlegenRef.current = darfModuleAnlegen;
@@ -254,11 +250,10 @@ export default function KiTutorWorkspacePage() {
   useEffect(() => {
     if (!initialized || !tourAngefordert || tourGestartet.current) return;
     tourGestartet.current = true;
-    // Die Panels brauchen einen Moment, sonst zeigt der erste Schritt ins Leere.
+    // The panels need a moment, otherwise the first step points at nothing.
     const timer = window.setTimeout(() => {
       starteRundgang();
-      // Marke erst jetzt aus der Adresse nehmen, sonst startet jedes Neuladen den
-      // Rundgang erneut und ein frueherer Griff danach loescht den Start-Timer.
+      // Remove the flag from the URL only now, otherwise every reload restarts the tour and an earlier access clears the start timer.
       const url = new URL(window.location.href);
       url.searchParams.delete("tour");
       window.history.replaceState({}, "", url.toString());
@@ -383,13 +378,13 @@ export default function KiTutorWorkspacePage() {
     beispieleLaden: () => {
       void loadGlossary();
       void loadGlossaryCount();
-      // Werkzeuge und Übungsverlauf entstehen ebenfalls erst nach dem Seitenaufbau.
+      // Tools and exercise history are also created only after the page has rendered.
       bumpStats();
       void loadStreak();
       fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" })
         .then((r) => (r.ok ? r.json() : null))
         .then((frisch) => { if (frisch) setNotes(frisch); })
-        .catch(() => { /* Ohne die Beispiele stehen die Bereiche eben leer da. */ });
+        .catch(() => { /* Without the examples the areas simply stay empty. */ });
     },
     chatBeispielZeigen: () => {
       // On narrow screens the studio still covers the chat from the step before.
@@ -402,7 +397,7 @@ export default function KiTutorWorkspacePage() {
         body: JSON.stringify({ workspace_uuid: uuid }),
       })
         .then(() => loadMessages())
-        .catch(() => { /* Ohne das Beispiel bleibt der Chat leer, das ist kein Fehler. */ });
+        .catch(() => { /* Without the example the chat stays empty, not an error. */ });
     },
   };
 
@@ -678,10 +673,7 @@ export default function KiTutorWorkspacePage() {
 
   return (
     <ProtectedRoute>
-      {/* Der KI-Assistent bleibt auf der alten, kompakteren Schriftskala,
-          siehe .aia-scale in globals.css. display:contents reicht die
-          Variablen nach unten durch, ohne eine eigene Box zu bauen, und
-          erwischt so auch das Modal ausserhalb des 100vh-Rahmens. */}
+      {/* The AI assistant keeps the old compact font scale (.aia-scale in globals.css); display:contents passes the variables down without a box and reaches the modal outside the 100vh frame. */}
       <OwnerPreviewProvider value={ownerPreview}>
       <div className="aia-scale" style={{ display: "contents" }}>
       <div className="flex flex-col overflow-hidden viewport-shell">
@@ -701,7 +693,7 @@ export default function KiTutorWorkspacePage() {
           isActive={moduleDetail?.is_active ?? true}
           onToggleActive={handleToggleActive}
           onStartTour={() => {
-            // Erst das Fenster zu, sonst verdeckt es genau die Stellen, auf die gezeigt wird.
+            // Close the modal first, otherwise it covers the very spots being pointed at.
             setShowSettings(false);
             setTimeout(starteRundgang, 250);
           }}

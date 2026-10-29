@@ -1,4 +1,4 @@
-"""Die Routen des Bild-Werkzeugs nach dem Umbau 29.09.2026: Varianten, Format, Größe, Qualität, Stil, Aufgaben."""
+"""Image tool routes after the 29.09.2026 rework: variants, format, size, quality, style, tasks."""
 
 import io
 
@@ -153,7 +153,7 @@ def test_ein_altes_bearbeitetes_bild_ohne_vorlage_meldet_404(vorlage_welt, monke
 
 
 async def test_zwei_varianten_beim_bearbeiten_haben_je_eine_eigene_vorlage(welt):
-    """Jeder Auftrag löscht seine Vorlage am Ende, eine geteilte wäre für den zweiten weg."""
+    """Every job deletes its template at the end, a shared one would be gone for the second."""
     antwort = await image.edit_image(image=_bild(800, 800), prompt="blau", format_="16:9", groesse="klein",
                                      qualitaet="entwurf", varianten=2, provider_id=None, current_user=NUTZER,
                                      locale="de")
@@ -175,7 +175,7 @@ async def test_verstehen_schickt_die_anweisung_der_aufgabe_in_der_gewaehlten_spr
 
 
 async def test_eine_frage_ohne_aufgabe_bleibt_eine_frage(welt):
-    """Ältere Oberflächen schicken nur das Textfeld."""
+    """Older UIs send only the text field."""
     await image.analyze_image(image=_bild(400, 300), prompt="Wie viele Personen?", aufgabe="", sprache="",
                               provider_id=None, quelle="", titel="", current_user=NUTZER, locale="de")
     _, kwargs = welt["run_image_analyze"].aufrufe[0]
@@ -203,7 +203,7 @@ def test_ausformulieren_ohne_text_wird_abgewiesen(monkeypatch):
 
 
 def test_stoesst_eine_spaetere_variante_an_die_grenze_bleiben_die_gestarteten(welt, monkeypatch):
-    """Wer schon offene Aufträge hat, bekommt so viele Varianten wie Platz ist, statt eines Fehlers ohne Bilder."""
+    """Whoever has open jobs gets as many variants as there is room for, instead of an error without images."""
     def mit_grenze(uuid, *a, **k):
         if len(welt["jobs"]) >= 2:
             raise HTTPException(status_code=409, detail="zu viele")

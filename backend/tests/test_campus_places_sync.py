@@ -1,4 +1,4 @@
-"""Die Ortsliste wird zu je einer Seite mit Link auf die Karte."""
+"""The place list becomes one page each with a link to the map."""
 import json
 
 from src.features.campus.services import places_sync

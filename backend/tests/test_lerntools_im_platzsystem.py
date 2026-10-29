@@ -1,9 +1,4 @@
-"""Lernsätze, Datentabellen und Zeitpläne laufen über die Francis-Plätze und werden zurückgeholt.
-
-Lasttest 26.09., Lauf 6: diese drei gingen an den Plätzen vorbei in die Schlange. Quellen standen
-hinter 14 Lerntools, und fünf Lernsätze gingen bei einem Arbeiter-Neustart verloren und blieben
-für immer auf "wird erzeugt".
-"""
+"""Learning sets, data tables and schedules run through the Francis seats and are recovered. Load test 26.09., run 6: they bypassed the seats, sources queued behind 14 tools, and five sets lost on a worker restart stayed on "wird erzeugt" forever."""
 
 from pathlib import Path
 

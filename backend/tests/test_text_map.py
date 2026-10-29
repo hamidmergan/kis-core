@@ -1,4 +1,4 @@
-"""Prüft die Textkarte: Nummern, Teile je Fenster, gültige Stellen, Passagen, Themen."""
+"""Tests the text map: numbers, parts per window, valid spots, passages, topics."""
 
 import json
 
@@ -11,7 +11,7 @@ from src.services.source_reading import Piece, Source
 
 def _quelle(name: str, stuecke: int, *, laenge: int = 10, ueberlappung: int = 0,
             je_seite: int = 1) -> Source:
-    """Eine Quelle aus gleich langen Stuecken, auf Wunsch ueberlappend wie beim Lesen."""
+    """A source of equally long chunks, optionally overlapping like real reading."""
     schritt = laenge - ueberlappung
     text = "".join(chr(65 + i % 26) * schritt for i in range(stuecke)) + "z" * ueberlappung
     teile = [Piece(seite=1 + i // je_seite, von=i * schritt, bis=i * schritt + laenge)
@@ -19,7 +19,7 @@ def _quelle(name: str, stuecke: int, *, laenge: int = 10, ueberlappung: int = 0,
     return Source(dateiname=name, fassung="x", text=text, seiten=teile[-1].seite, stuecke=teile)
 
 
-# ── Nummern ──────────────────────────────────────────────────────────────────
+# ── Numbers ──────────────────────────────────────────────────────────────────
 
 def test_die_nummern_laufen_ueber_alle_quellen_ab_eins():
     karte = tm.Karte([_quelle("a.pdf", 2), _quelle("b.pdf", 3)])
@@ -29,7 +29,7 @@ def test_die_nummern_laufen_ueber_alle_quellen_ab_eins():
 
 
 def test_eine_nummer_zeigt_ihr_stueck_nur_bis_zum_naechsten():
-    """Ueberlappende Stuecke wuerden den Text auf der Karte sonst doppeln."""
+    """Overlapping chunks would otherwise duplicate text on the map."""
     karte = tm.Karte([_quelle("a.pdf", 3, laenge=10, ueberlappung=4)])
     assert karte.segment(1) == "A" * 6
     assert karte.segment(3) == "C" * 6 + "zzzz"
@@ -42,7 +42,7 @@ def test_der_block_nennt_jede_datei_einmal_vor_ihren_stellen():
         "=== b.pdf ===", "[SZ3] " + "A" * 10]
 
 
-# ── Teile je Fenster ─────────────────────────────────────────────────────────
+# ── Parts per window ─────────────────────────────────────────────────────────
 
 def test_was_ins_fenster_passt_bleibt_ein_teil():
     karte = tm.Karte([_quelle("a.pdf", 50)])
@@ -75,7 +75,7 @@ def test_geschnitten_wird_an_einem_seitenwechsel(monkeypatch):
         assert (teil.start - 1) % 4 == 0
 
 
-# ── Gültige Stellen ──────────────────────────────────────────────────────────
+# ── Valid spots ──────────────────────────────────────────────────────────
 
 def test_zahlen_und_bereiche_werden_gelesen():
     karte = tm.Karte([_quelle("a.pdf", 20)])
@@ -111,7 +111,7 @@ def test_keine_liste_gibt_keine_stellen():
     assert tm.Karte([_quelle("a.pdf", 5)]).gueltig("3") == []
 
 
-# ── Passagen ─────────────────────────────────────────────────────────────────
+# ── Passages ─────────────────────────────────────────────────────────────────
 
 def test_eine_stelle_bringt_ihre_nachbarn_mit():
     karte = tm.Karte([_quelle("a.pdf", 10)])
@@ -150,7 +150,7 @@ def test_die_ueberlappung_steht_in_der_passage_nur_einmal():
     assert text == karte.sources[0].text
 
 
-# ── Themen, wenn der Text nicht passt ────────────────────────────────────────
+# ── Topics when the text does not fit ────────────────────────────────────────
 
 def _themen_antwort(*titel_und_refs):
     return json.dumps({"topics": [{"title": t, "gist": f"{t} kurz", "refs": r}
@@ -215,7 +215,7 @@ def test_die_grundlage_ueberlebt_den_auftragsordner():
     assert stellen.modus == tm.STELLEN and stellen.material == karte.block()
 
 
-# ── Abdeckung ────────────────────────────────────────────────────────────────
+# ── Coverage ────────────────────────────────────────────────────────────────
 
 def test_die_abdeckung_zaehlt_jede_stelle_einmal():
     assert tm.abdeckung([[1, 2], [2, 3]], 6) == 0.5
@@ -246,7 +246,7 @@ def test_die_zielzahl_waechst_mit_dem_material_in_ihren_grenzen():
 
 
 def test_eine_eingestreute_nummer_deckt_eine_grosse_datei_nicht_ab():
-    """87 Prozent des Materials, im Plan nur eine von zwanzig Nummern: zu kurz."""
+    """87 percent of the material, but only one of twenty numbers in the plan: too short."""
     karte = tm.Karte([_quelle("agg.pdf", 13), _quelle("amg.pdf", 87)])
     plan = [list(range(1, 11)), list(range(4, 13)) + [60]]
     assert tm.zu_kurz(plan, karte) == [("amg.pdf", 87)]
@@ -263,7 +263,7 @@ def test_eine_winzige_datei_darf_fehlen():
     assert tm.zu_kurz([list(range(1, 50))], karte) == []
 
 
-# ── Themen je Datei ──────────────────────────────────────────────────────────
+# ── Topics per file ──────────────────────────────────────────────────────────
 
 def _drei_dateien(monkeypatch):
     monkeypatch.setattr(tm, "window_chars", lambda fenster: 1_000)
@@ -333,10 +333,10 @@ def test_das_budget_folgt_dem_anteil_der_dateien():
     assert len(passage) <= 400 + 60
 
 
-# ── Vorrang der vom Plan genannten Stellen ──────────────────────────────────────
+# ── Priority of the spots named by the plan ──────────────────────────────────────
 
 def _markiert(name: str, stuecke: int) -> Source:
-    """Eine Quelle, deren Stuecke ihre eigene Nummer tragen, um sie im Ergebnis zu finden."""
+    """A source whose chunks carry their own number so they can be found in the result."""
     text = "".join(f"<{i + 1:03d}>".ljust(10, ".") for i in range(stuecke))
     teile = [Piece(seite=1, von=i * 10, bis=i * 10 + 10) for i in range(stuecke)]
     return Source(dateiname=name, fassung="x", text=text, seiten=1, stuecke=teile)
@@ -371,7 +371,7 @@ def test_ein_eintrag_behaelt_seine_stellen_wenn_sonst_nichts_bliebe():
     assert tm.exklusiv([[1, 5], [5]]) == [[1, 5], [5]]
 
 
-# ── Marken vor den Nummern ───────────────────────────────────────────────────
+# ── Marks before the numbers ───────────────────────────────────────────────────
 
 def test_jede_stelle_steht_mit_ihrer_marke_im_material():
     karte = tm.Karte([_quelle("a.pdf", 2)])
@@ -402,7 +402,7 @@ def test_das_beispiel_der_antwort_nutzt_die_marke_des_materials():
 
 
 def test_aufgefuellt_wird_nur_innerhalb_der_datei():
-    # Stellen 1 bis 4 sind Datei 0, 5 und 6 Datei 1. Stelle 4 liegt naeher an 6, gehoert aber zu Datei 0.
+    # Spots 1 to 4 are file 0, 5 and 6 file 1; spot 4 is closer to 6 but belongs to file 0.
     datei = lambda n: 0 if n <= 4 else 1  # noqa: E731
     assert tm.abdecken([[1], [6]], 6) == [[1, 2, 3], [4, 5, 6]]
     assert tm.abdecken([[1], [6]], 6, datei=datei) == [[1, 2, 3, 4], [5, 6]]
@@ -413,10 +413,10 @@ def test_eine_datei_ohne_eintrag_geht_an_den_naechsten():
     assert tm.abdecken([[1, 2], []], 4, datei=datei) == [[1, 2, 3, 4], []]
 
 
-# ── Abgeschriebene Anfangsworte ──────────────────────────────────────────────
+# ── Copied opening words ──────────────────────────────────────────────
 
 def _gesetz() -> Source:
-    """Drei Paragrafen, jeder in seinem eigenen Stueck."""
+    """Three sections, each in its own chunk."""
     absaetze = ["§ 1\n(1) Der Betrieb eines Handwerks ist erlaubt.",
                 "§ 2\n(1) Lehrlinge darf nur einstellen, wer geeignet ist.",
                 "§ 3\n(1) Ordnungswidrig handelt, wer ohne Eintragung arbeitet."]

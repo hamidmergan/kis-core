@@ -1,4 +1,4 @@
-"""Feedback: anonym einreichen fuer jeden mit Sitzung, einsehen nur mit dem Recht."""
+"""Feedback: anyone with a session submits anonymously, viewing needs the permission."""
 
 from unittest.mock import patch
 

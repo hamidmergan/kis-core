@@ -54,8 +54,7 @@ export default function DefaultVoiceRow({ eligible, starId }: { eligible: Provid
           <span className="w-18 shrink-0" aria-hidden="true" />
         </div>
       </div>
-      {/* Nur Fehlerzustaende, keine Erklaerung. Beide sind selten und beide wuerden
-          sonst stillschweigend danebengehen. */}
+      {/* Error states only, no explanation: both are rare and would otherwise fail silently. */}
       {verwaist && <p className="text-2xs text-muted-soft mt-1.5">{t("orphaned")}</p>}
       {error && <p className="text-2xs text-error mt-1.5">{error}</p>}
     </div>

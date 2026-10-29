@@ -11,10 +11,10 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
-_MIN_ZEICHEN = 200          # kuerzere Chunks tragen keine eigenstaendige Frage
+_MIN_ZEICHEN = 200          # shorter chunks carry no standalone question
 _MIN_WOERTER = 25
-_MAX_FRAGE_ZEICHEN = 200    # laenger ist keine Nutzerfrage mehr
-_BELEG_LAENGE = 60          # kurz genug, um keine Chunk-Grenze zu kreuzen
+_MAX_FRAGE_ZEICHEN = 200    # longer is no longer a user question
+_BELEG_LAENGE = 60          # short enough to cross no chunk boundary
 _ETIKETT = re.compile(r"^\s*(frage|question|q|antwort|answer)\s*[:\-]\s*", re.I)
 
 PROMPT = """Du bist eine Person, die eine Frage an eine Sammlung von Dokumenten stellt.
@@ -103,7 +103,7 @@ def _lade_kandidaten(ws_uuid: str, anzahl: int, seed: int) -> tuple[int, list[di
     print(f"{len(alle)} Chunks, davon {len(brauchbar)} brauchbar "
           f"({100 * len(brauchbar) // max(len(alle), 1)}%)", file=sys.stderr)
     random.Random(seed).shuffle(brauchbar)
-    return ws_id, brauchbar[:anzahl * 3]      # Vorrat, weil unten noch aussortiert wird
+    return ws_id, brauchbar[:anzahl * 3]      # surplus, since more is filtered out below
 
 
 def _beleg_ist_eindeutig(ws_id: int, beleg: str) -> bool:

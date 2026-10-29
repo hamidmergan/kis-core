@@ -154,9 +154,7 @@ export default function RegenChatModal({
                     {t("assistant")}
                   </span>
                 )}
-                {/* Die Antwort braucht w-full. Ohne das bestimmt die Standardbreite
-                    des textarea (cols=20) die Blase, und ein langer Text steht in
-                    einer schmalen Säule, obwohl daneben alles frei ist. */}
+                {/* The answer needs w-full, otherwise the textarea default width (cols=20) sets the bubble and long text stands in a narrow column. */}
                 <div
                   className={`${isUser ? "max-w-[85%]" : "w-full max-w-[96%]"} space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}
                 >

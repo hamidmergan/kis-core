@@ -15,5 +15,5 @@ def test_zeitraum_30t_sind_30_tage():
 
 
 def test_unbekannter_zeitraum_faellt_auf_30_tage_zurueck():
-    """Der Router laesst nur die drei bekannten Werte durch, das ist nur das Netz darunter."""
+    """The router lets only the three known values through, this is just the net underneath."""
     assert m.ZEITRAEUME.get("nonsense", 30) == 30

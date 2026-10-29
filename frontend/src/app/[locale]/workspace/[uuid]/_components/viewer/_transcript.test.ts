@@ -234,7 +234,7 @@ describe("resolveCitationFocus — marking and play head land on the same line",
 
     it("markiert ab dem Chunk-Anfang, nicht ab der Zeitmarke", () => {
       const focus = resolveCitationFocus(cues, 197.0, 211.0, claimAusZeile0, corpus, 179.0);
-      expect(focus.idx).toBe(20);        // Chunk-Anfang, nicht 21
+      expect(focus.idx).toBe(20);        // chunk start, not 21
       expect(focus.endIdx).toBe(21);
     });
 
@@ -256,9 +256,9 @@ describe("resolveCitationFocus — marking and play head land on the same line",
         + "Einleitung und die Grundlagen gehören alle dazu.";
       const focus = resolveCitationFocus(cues, 197.0, 211.0, spread, corpus, 179.0);
       expect(focus.claimIdx).toBe(-1);
-      expect(focus.idx).toBe(20);          // markiert wird der ganze Chunk
+      expect(focus.idx).toBe(20);          // the whole chunk is highlighted
       expect(focus.endIdx).toBe(21);
-      expect(focus.focusIdx).toBe(21);     // angesteuert wird die Zeitmarke des Chips
+      expect(focus.focusIdx).toBe(21);     // the chip's timestamp is targeted
       expect(focus.focusTime).toBe(197.0);
     });
   });

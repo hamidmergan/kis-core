@@ -1,8 +1,7 @@
-"""Die Vertonung eines Screencasts legt Anbieter und Stimme einmal beim ersten Lauf fest.
+"""Screencast voicing fixes provider and voice once on the first run (decision 27.09.2026).
 
-Nutzerentscheid 27.09.2026: ist der gewaehlte Anbieter beim Start nicht da, spricht der ganze Lauf mit dem
-Rueckfall aus dem Adminbereich. Etappen, Wiederanlauf und Wiederholen behalten die Festlegung, erst ein neuer
-Lauf entscheidet neu. Ton einer anderen Stimme kommt nie in dasselbe Video.
+If the chosen provider is down at start the whole run uses the admin fallback; stages, resume and retry
+keep that choice, only a new run decides again, and a video never mixes voices.
 """
 
 import inspect
@@ -32,7 +31,7 @@ _WARTESCHLANGE = {"dispatch_as": "render", "voice_id": "anna", "provider_id": 30
 
 @pytest.fixture(autouse=True)
 def ohne_datenbank_und_redis(monkeypatch):
-    """Kein Test dieser Datei erreicht die echte Datenbank oder Redis."""
+    """No test here reaches the real database or Redis."""
     erreicht: list[str] = []
 
     def keine_datenbank():
@@ -46,7 +45,7 @@ def ohne_datenbank_und_redis(monkeypatch):
     monkeypatch.setattr(pool, "_get_pool", keine_datenbank)
     monkeypatch.setattr(redis, "from_url", kein_redis)
     yield
-    # Ein Waechter-Faden der Strecke meldet sich erst nach dem Test.
+    # A watchdog thread of the pipeline only reports after the test.
     for faden in threading.enumerate():
         if faden.name.startswith("cancel-"):
             faden.join(2)
@@ -54,7 +53,7 @@ def ohne_datenbank_und_redis(monkeypatch):
 
 
 class _S3Fehler(Exception):
-    """Ein Lesefehler des Speichers mit dem Code, den S3 mitschickt."""
+    """A storage read error carrying the code S3 sends."""
 
     def __init__(self, code):
         super().__init__(code)
@@ -63,7 +62,7 @@ class _S3Fehler(Exception):
 
 @pytest.fixture
 def ablage(monkeypatch):
-    """Der Auftragsordner im Speicher, geteilt von Aufgabe und Helfern."""
+    """The job folder in memory, shared by task and helpers."""
     dateien: dict[str, bytes] = {}
 
     def hole(user_id, job_uuid, name):
@@ -86,7 +85,7 @@ def _lies(ablage, name):
 
 @pytest.fixture
 def auftrag(monkeypatch, ablage):
-    """Die Render-Aufgabe ohne Datenbank und ohne echte Vertonung, der Anbieter 30 ist beim Start weg."""
+    """The render task without database or real voicing, provider 30 is down at start."""
     ablage["queue_params.json"] = json.dumps(_WARTESCHLANGE).encode()
     aufrufe: dict[str, list] = {"pipeline": [], "etappe": [], "gewaehlt": []}
     monkeypatch.setattr(_render, "still_mine", lambda j, v: True)
@@ -127,7 +126,7 @@ def test_der_erste_lauf_spricht_ganz_mit_dem_rueckfall(auftrag):
 
 
 def test_die_festlegung_steht_in_den_warteschlangen_angaben(auftrag, ablage):
-    """Wiederanlauf und Warteschlange lesen diese Datei, sie muessen die Festlegung finden."""
+    """Resume and queue read this file, they must find the choice."""
     _starte()
     params = _lies(ablage, "queue_params.json")
     assert params["tts_pin"] == PIN
@@ -137,7 +136,7 @@ def test_die_festlegung_steht_in_den_warteschlangen_angaben(auftrag, ablage):
 
 
 def test_eine_gemerkte_festlegung_wird_nie_neu_entschieden(auftrag, ablage):
-    """Wiederanlauf oder erneute Zustellung nach einem Absturz tragen noch die gewaehlte Stimme."""
+    """Resume or redelivery after a crash still carries the chosen voice."""
     ablage["queue_params.json"] = json.dumps({**_WARTESCHLANGE, "tts_pin": PIN}).encode()
     _starte()
     assert auftrag["gewaehlt"] == []
@@ -171,7 +170,7 @@ def test_ist_der_gewaehlte_da_bleibt_alles_wie_gewaehlt(auftrag, ablage, monkeyp
 
 
 def test_ein_lesefehler_der_warteschlangen_angaben_entscheidet_nicht_neu(auftrag, ablage, monkeypatch):
-    """Nur eine fehlende Datei heisst ohne Festlegung, sonst spraeche derselbe Lauf mit einer anderen Stimme."""
+    """Only a missing file means no choice, else the same run would speak with another voice."""
     vorher = ablage["queue_params.json"] = json.dumps({**_WARTESCHLANGE, "tts_pin": PIN}).encode()
 
     def hakt(user_id, job_uuid, name):
@@ -202,7 +201,7 @@ def test_die_festlegung_ergaenzt_die_warteschlangen_angaben(auftrag, ablage):
 
 
 def test_der_vertonte_stand_nennt_die_wahl_der_person_und_die_gesprochene_stimme(auftrag, ablage, monkeypatch):
-    """Schritt 6 vergleicht mit der Wahl der Person, die Strecke mit der Stimme, die wirklich gesprochen hat."""
+    """Step 6 compares with the person's choice, the pipeline with the voice that actually spoke."""
     monkeypatch.setattr(_render, "_run_render_pipeline", lambda **kw: {"result_path": "x.mp4"})
     monkeypatch.setattr(_render, "load_result_meta", lambda u, j: {})
     monkeypatch.setattr(_render, "save_result_meta", lambda *a: None)
@@ -238,7 +237,7 @@ def test_ein_alter_lauf_ohne_festlegung_entscheidet_beim_wiederholen_neu():
     assert params.get("tts_pin") is None
 
 
-# --- Der Wiederholen-Knopf setzt den laufenden Lauf fort ---
+# --- The retry button continues the current run ---
 
 PIN_NEU = {"provider_id": 30, "voice_id": "anna", "voice_label": "Anna", "fallback": False,
            "requested_provider_id": 30, "requested_voice_id": "anna", "lauf": "lauf-2"}
@@ -249,7 +248,7 @@ _RENDER_ALT = {"voice_id": "nova", "speed": 0.9, "slide_pause": 1.0, "dpi": 96, 
 
 @pytest.fixture
 def wiederholen(monkeypatch):
-    """Der Wiederholen-Knopf fuer einen Screencast ohne Datenbank und ohne Warteschlange."""
+    """The retry button for a screencast without database or queue."""
     from src.routes.jobs import _retry as route
     import src.tasks.screencast_tasks as sc
 
@@ -278,7 +277,7 @@ def wiederholen(monkeypatch):
 
 
 def test_wiederholen_ersetzt_die_festlegung_des_laufenden_laufs_nicht(wiederholen):
-    """Die Render-Angaben stammen hier von einem frueheren Lauf mit dem Rueckfall."""
+    """The render params here come from an earlier run with the fallback."""
     dateien, lauf = wiederholen
     dateien["render_params.json"] = json.dumps(_RENDER_ALT).encode()
     dateien["queue_params.json"] = json.dumps({**_WARTESCHLANGE, "speed": 1.2, "tts_pin": PIN_NEU}).encode()
@@ -298,7 +297,7 @@ def test_wiederholen_desselben_laufs_nimmt_die_render_angaben(wiederholen):
 
 
 def test_hat_der_neue_lauf_noch_keine_festlegung_gelten_seine_angaben(wiederholen):
-    """Er scheiterte vor der Wahl der Stimme, die Render-Angaben mit Festlegung stammen von einem frueheren Lauf."""
+    """It failed before the voice was chosen, the render params with a choice come from an earlier run."""
     dateien, lauf = wiederholen
     dateien["render_params.json"] = json.dumps(_RENDER_ALT).encode()
     dateien["queue_params.json"] = json.dumps({**_WARTESCHLANGE, "speed": 1.2}).encode()
@@ -308,7 +307,7 @@ def test_hat_der_neue_lauf_noch_keine_festlegung_gelten_seine_angaben(wiederhole
 
 
 def test_ein_frueherer_lauf_mit_derselben_stimme_liefert_nie_die_angaben(wiederholen):
-    """Gleiche Stimme, gleicher Anbieter, aber ein anderer Lauf: Tempo und Folienauswahl gehoeren dem neuen."""
+    """Same voice and provider but another run: speed and slide selection belong to the new one."""
     dateien, lauf = wiederholen
     dateien["render_params.json"] = json.dumps(_RENDER_ALT).encode()
     dateien["queue_params.json"] = json.dumps(
@@ -320,7 +319,7 @@ def test_ein_frueherer_lauf_mit_derselben_stimme_liefert_nie_die_angaben(wiederh
 
 
 def test_ein_alter_auftrag_ganz_ohne_festlegung_nimmt_die_render_angaben(wiederholen):
-    """Von vor dem 28.09.2026: keine Seite kennt eine Festlegung, es bleibt wie vorher."""
+    """From before 28.09.2026: no side knows a choice, nothing changes."""
     dateien, lauf = wiederholen
     ohne = {k: v for k, v in _RENDER_ALT.items() if k != "tts_pin"}
     dateien["render_params.json"] = json.dumps(ohne).encode()
@@ -339,16 +338,16 @@ def test_jeder_lauf_bekommt_eine_eigene_kennung(ablage, monkeypatch):
     assert all(kennungen) and kennungen[0] != kennungen[1]
 
 
-# --- Vorrat und alter Ton in der Render-Strecke ---
+# --- Stock and old audio in the render pipeline ---
 
 
 class _Halt(Exception):
-    """Haelt die Strecke genau bei der Vertonung an."""
+    """Stops the pipeline exactly at voicing."""
 
 
 @pytest.fixture
 def strecke(monkeypatch, tmp_path):
-    """Die Render-Strecke bis zur Vertonung, alles andere ist ausgebaut."""
+    """The render pipeline up to voicing, everything else stripped out."""
     dateien: dict[str, bytes] = {}
     geleert: list[str] = []
     gesehen: dict = {}
@@ -367,7 +366,7 @@ def strecke(monkeypatch, tmp_path):
         yield {}
 
     class _OhneWaechter:
-        """Der Abbruch-Waechter fragt sonst das echte Redis."""
+        """The cancel watchdog would otherwise query the real Redis."""
 
         def __init__(self, *a, **k):
             pass
@@ -416,7 +415,7 @@ def test_vorrat_derselben_stimme_bleibt_fuer_die_naechste_etappe(strecke):
 
 
 def test_ein_gewollter_stimmwechsel_laesst_nicht_angehakten_folien_ihre_alte_stimme(strecke):
-    """So sagt es Schritt 6: Folien ohne Haken behalten die alte Stimme, die Person hat das gewaehlt."""
+    """As step 6 says: unticked slides keep the old voice, the person chose that."""
     dateien, _geleert, gesehen, lauf = strecke
     dateien["vertonter_stand.json"] = json.dumps({"provider_id": 30, "voice_id": "anna"}).encode()
     lauf(neu_vertonen=[])
@@ -424,7 +423,7 @@ def test_ein_gewollter_stimmwechsel_laesst_nicht_angehakten_folien_ihre_alte_sti
 
 
 def test_spricht_jetzt_der_rueckfall_wird_der_alte_ton_der_wahl_ersetzt(strecke):
-    """Sonst mischt ein Video die gewaehlte Stimme mit der Ersatzstimme, das hat niemand gewaehlt."""
+    """Otherwise a video mixes the chosen voice with the fallback voice, which nobody chose."""
     dateien, _geleert, gesehen, lauf = strecke
     dateien["vertonter_stand.json"] = json.dumps({"provider_id": 30, "voice_id": "anna"}).encode()
     lauf(neu_vertonen=[], tts_pin=PIN)
@@ -439,7 +438,7 @@ def test_alter_ton_derselben_stimme_darf_bleiben(strecke):
 
 
 def test_alter_ton_des_rueckfalls_bleibt_wenn_wieder_der_rueckfall_spricht(strecke):
-    """Der Stand nennt die Wahl der Person, gesprochen hat laut Festlegung der Rueckfall."""
+    """The state names the person's choice, the recorded choice says the fallback spoke."""
     dateien, _geleert, gesehen, lauf = strecke
     dateien["vertonter_stand.json"] = json.dumps({"provider_id": 30, "voice_id": "anna", "tts_pin": PIN}).encode()
     lauf(neu_vertonen=[])
@@ -454,7 +453,7 @@ def test_ist_der_gewaehlte_wieder_da_wird_der_ton_des_rueckfalls_ersetzt(strecke
 
 
 def test_die_render_angaben_tragen_stimmname_und_festlegung(strecke):
-    """Der Wiederholen-Knopf baut daraus den Auftrag neu."""
+    """The retry button rebuilds the job from this."""
     dateien, _geleert, _gesehen, lauf = strecke
     lauf(tts_pin=PIN)
     params = json.loads(dateien["render_params.json"].decode())
@@ -463,7 +462,7 @@ def test_die_render_angaben_tragen_stimmname_und_festlegung(strecke):
 
 
 def test_beim_stimmwechsel_verliert_eine_ausgelassene_folie_ihren_alten_ton(tmp_path):
-    """Sonst holt ein spaeterer Lauf den Ton der alten Stimme zurueck ins Video."""
+    """Otherwise a later run brings the old voice's audio back into the video."""
     from src.tasks.screencast_tasks._pipeline import _ton_fuer_ablage
 
     eins, drei = tmp_path / "a.mp3", tmp_path / "c.mp3"
@@ -474,11 +473,11 @@ def test_beim_stimmwechsel_verliert_eine_ausgelassene_folie_ihren_alten_ton(tmp_
     assert _ton_fuer_ablage(pfade, [True, False, True], alles_ersetzen=False) == [b"ID3eins", None, b"ID3drei"]
 
 
-# --- Die Render-Route beginnt einen neuen Lauf ---
+# --- The render route starts a new run ---
 
 
 def test_neuer_lauf_vergleicht_den_vorrat_mit_der_wahl_der_person():
-    """Der Rueckfall stammt nicht von der Person, die Strecke prueft den Vorrat danach selbst."""
+    """The fallback is not the person's choice, the pipeline checks the stock itself afterwards."""
     from src.routes.screencast.render import _vorrat_passt_nicht
 
     alt = json.dumps({**_WARTESCHLANGE, "voice_id": "nova", "provider_id": 21, "tts_pin": PIN}).encode()
@@ -489,7 +488,7 @@ def test_neuer_lauf_vergleicht_den_vorrat_mit_der_wahl_der_person():
 
 
 def test_ein_neuer_lauf_traegt_keine_alte_festlegung_mit():
-    """Die Route schreibt die Warteschlangen-Angaben neu, die Aufgabe entscheidet dann neu."""
+    """The route rewrites the queue params, the task then decides anew."""
     from src.routes.screencast._models import RenderRequest
     from src.routes.screencast.render import screencast_render
 

@@ -1,7 +1,6 @@
-"""Ein voller oder gestörter Anbieter lässt die Übersetzung warten, er macht die Datei nicht kaputt.
+"""A full or disturbed provider makes the translation wait, it does not break the file.
 
-Lauf 15f, 27.09.: eine Screencast-Übersetzung scheiterte endgültig, weil der Übersetzer aus
-"Anbieter voll" einen Dateifehler (ValueError) machte und der als dauerhaft gilt.
+Run 15f, 27.09.: a screencast translation failed for good because the translator turned "provider full" into a ValueError, which counts as permanent.
 """
 from io import BytesIO
 

@@ -11,12 +11,12 @@ import type { ManualGroup } from "../_lib/articles";
 
 export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
   const t = useTranslations("manual");
-  // Die Nav steht im Layout und ueberlebt den Wechsel, den offenen Artikel liest sie deshalb aus der Adresse.
+  // The nav lives in the layout and survives navigation, so it reads the open article from the URL.
   const activeSlug = usePathname().split("/").pop() ?? "";
   const [query, setQuery] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const filterInput = useRef<HTMLInputElement>(null);
-  // Auf dem Handy steht sonst die ganze Liste vor dem Artikel.
+  // On the phone the whole list would otherwise sit before the article.
   const [openOnPhone, setOpenOnPhone] = useState(false);
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
 
   return (
     <nav
-      // Hoehe und Scrollen nur am breiten Schirm, sonst laeuft die Liste ueber den Artikel.
+      // Height and scrolling only on wide screens, otherwise the list overflows the article.
       className="w-full lg:w-60 shrink-0 lg:sticky lg:self-start lg:top-6 lg:overflow-y-auto lg:max-h-[calc(100vh-3rem)]"
       aria-label={t("navLabel")}
     >
@@ -98,7 +98,7 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
       {groups.map((group, i) => (
         <div key={group.key} className={i === 0 ? "mb-5" : "mb-5 pt-5"}>
           <p
-            // Trennlinie und Grossbuchstaben, sonst geht die Ueberschrift in den Titeln unter.
+            // Rule and capitals, otherwise the heading drowns among the titles.
             className="text-2xs font-bold uppercase tracking-wider mb-2 pb-2 px-3"
             style={{
               color: "var(--kb)",
@@ -116,10 +116,7 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
                     href={`/manual/${article.slug}`}
                     onClick={() => setOpenOnPhone(false)}
                     aria-current={active ? "page" : undefined}
-                    // btn-ghost bringt den Hover-Ring bei den uebrigen Eintraegen. Der offene
-                    // Eintrag bekommt statt Ring eine Fuellfarbe, der Ring bleibt dafuer fest
-                    // transparent, sonst kaeme beim Drueberfahren zusaetzlich einer dazu.
-                    // Der Ring liegt nach innen, sonst schneidet ihn die scrollende Nav links und rechts ab.
+                    // btn-ghost gives the other entries the hover ring; the open entry gets a fill and keeps its ring transparent so hover adds none. The ring is inset, otherwise the scrolling nav clips it.
                     className={`btn-ghost flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm -outline-offset-2 ${active ? "bg-kb/10" : ""}`}
                     style={{
                       color: active ? "var(--kb-dark)" : "var(--foreground)",

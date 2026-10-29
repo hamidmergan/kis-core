@@ -92,7 +92,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         # Without a model only the stored analyses can be used.
         try:
             client, model, _ = _get_llm_client()
-        except Exception as e:  # noqa: BLE001 - der Zwischenspeicher-Weg braucht kein Modell
+        except Exception as e:  # noqa: BLE001 - the cache path needs no model
             logger.warning("Schedule job {}: kein LLM-Client ({})", job_id, e)
             client, model = None, None
 
@@ -111,7 +111,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                     wid, q, vec, source_ids=sids, limit=limit),
             )
             logger.info("Schedule job {}: Suche fand {} offene Stellen", job_id, len(open_spots))
-        except Exception as e:  # noqa: BLE001 - der Zeitplan entsteht auch ohne diese Suche
+        except Exception as e:  # noqa: BLE001 - the schedule is built even without this search
             logger.warning("Schedule job {}: Suche nach offenen Terminen fehlgeschlagen: {}",
                            job_id, e)
 

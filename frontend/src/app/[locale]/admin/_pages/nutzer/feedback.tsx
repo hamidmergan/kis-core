@@ -1,6 +1,6 @@
 "use client";
 
-/** Anonyme Rückmeldungen der Tester. */
+/** Anonymous feedback from testers. */
 
 import { useRouter } from "@/i18n/navigation";
 import FeedbackTab from "../../_components/FeedbackTab";

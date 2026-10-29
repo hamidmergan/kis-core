@@ -51,7 +51,7 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
         # A broken pool must not prevent the reading aloud.
         try:
             return speech_cache.get(key)
-        except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall
+        except Exception as exc:  # noqa: BLE001 - every database error is the same case
             logger.warning("Aussprache-Vorrat nicht lesbar: {}", exc)
             return None
 
@@ -80,14 +80,14 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     for versuch in (1, 2):
         try:
             audio = client.synthesize_chunk(text, voice_id=voice_id, speed=_SPEED)
-        except Exception as exc:  # noqa: BLE001 - jeder Anbieterfehler ist derselbe Fall
+        except Exception as exc:  # noqa: BLE001 - every provider error is the same case
             logger.warning("Lernkarten-Aussprache Versuch {} fehlgeschlagen: {}", versuch, exc)
             if is_provider_refusal(exc):
                 break
             continue
         try:
             speech_cache.put(key, audio)
-        except Exception as exc:  # noqa: BLE001 - der Ton ist da, das Ablegen ist Kuer
+        except Exception as exc:  # noqa: BLE001 - the audio is there, storing it is optional
             logger.warning("Aussprache-Vorrat nicht beschreibbar: {}", exc)
         return audio
 

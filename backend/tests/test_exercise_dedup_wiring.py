@@ -82,7 +82,7 @@ def _generator(mod, monkeypatch, seen, *runden):
     return lauf
 
 
-# --- Vorrat zuerst ------------------------------------------------------------
+# --- Pool first ------------------------------------------------------------
 
 def test_a_full_pool_costs_no_generation(stack, monkeypatch):
     """The heart of it: if the pool suffices, no model runs."""
@@ -144,7 +144,7 @@ def test_the_pool_comes_first_in_the_finished_set(stack, monkeypatch):
     assert fronts == ["alt", "neu"]
 
 
-# --- Einlagern ----------------------------------------------------------------
+# --- Stocking the pool ----------------------------------------------------------------
 
 def test_what_was_generated_goes_into_the_pool(stack, monkeypatch):
     mod, seen = stack
@@ -189,7 +189,7 @@ def test_the_grammar_pool_is_asked_with_its_topic(stack, monkeypatch):
     assert gefragt["topic_id"] == 99
 
 
-# --- Doppler ------------------------------------------------------------------
+# --- Duplicates ------------------------------------------------------------------
 
 def test_what_this_person_already_had_does_not_come_back(stack, monkeypatch):
     mod, seen = stack
@@ -209,8 +209,8 @@ def test_a_dropped_repeat_orders_no_refill(stack, monkeypatch):
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["Abstract"])
     lauf = _generator(
         mod, monkeypatch, seen,
-        _cards("Abstract", "Peer Review", "Exposé"),   # der eine Lauf
-        _cards("Gliederung"),                          # darf nie bestellt werden
+        _cards("Abstract", "Peer Review", "Exposé"),   # the one run
+        _cards("Gliederung"),                          # must never be ordered
     )
 
     _run(count=3)
@@ -398,7 +398,7 @@ def test_a_stale_kind_in_the_column_does_not_break_the_run(stack, monkeypatch):
     assert seen["failed"] is False
 
 
-# --- Notfall: schon gesehen kommt zurueck --------------------------------------
+# --- Emergency: already seen comes back --------------------------------------
 
 def test_when_nothing_new_is_left_seen_exercises_fill_the_gap(stack, monkeypatch):
     """The last resort: repeats beat a set that stays too short."""

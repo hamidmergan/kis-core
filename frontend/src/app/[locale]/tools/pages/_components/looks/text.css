@@ -6,17 +6,17 @@
 .kis-page .v-tx-q .v-tx-ic { display: inline-block; width: 20px; height: 20px; flex: none; }
 .kis-page .v-tx-q .v-tx-ic path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Fließtext */
+/* Body text */
 .kis-page .v-tx-plain { max-width: 70ch; }
 
-/* Liste */
+/* List */
 .kis-page .v-bl-dots { display: grid; gap: 10px; max-width: 72ch; }
 .kis-page .v-bl-dots li { position: relative; padding-left: 26px; }
 .kis-page .v-bl-dots li::before { content: ""; position: absolute; left: 4px; top: .62em; width: 9px; height: 9px; border-radius: 50%; background: var(--pg-accent); }
 .kis-page .v-bl-tags { display: flex; flex-wrap: wrap; gap: 10px; }
 .kis-page .v-bl-tag { border: 2px solid var(--pg-line); border-radius: 8px; padding: 4px 14px; font-size: 15px; font-weight: 600; color: var(--pg-ink-soft); line-height: 1.4; }
 
-/* Kernsatz */
+/* Key sentence */
 .kis-page .v-qt-big { max-width: 36ch; }
 .kis-page .v-qt-big .v-qt-mark { display: block; width: 44px; height: 33px; margin-bottom: 14px; color: var(--pg-soft); }
 .kis-page .v-qt-big .v-qt-mark path { fill: currentColor; }
@@ -27,7 +27,7 @@
 .kis-page .v-qt-under p { font-size: 32px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; }
 .kis-page .v-qt-under .v-qt-kw { color: var(--pg-accent); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 7px; text-decoration-color: var(--pg-accent); }
 
-/* Checkliste */
+/* Checklist */
 .kis-page .v-ck-box { display: grid; gap: 12px; }
 .kis-page .v-ck-box li { display: flex; align-items: center; gap: 14px; }
 .kis-page .v-ck-box .v-ck-sq { width: 26px; height: 26px; border: 2px solid var(--pg-accent); border-radius: 6px; color: var(--pg-accent); display: grid; place-items: center; flex: none; }
@@ -41,7 +41,7 @@
 .kis-page .v-ck-num .v-ck-i { font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
 .kis-page .v-ck-num .v-tx-ic { color: var(--pg-accent); justify-self: end; }
 
-/* Begriffe */
+/* Terms */
 .kis-page .v-df-table > div { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 0 28px; padding: 12px 0; border-bottom: 2px solid var(--pg-line); }
 .kis-page .v-df-table > div:first-child { border-top: 2px solid var(--pg-line); }
 .kis-page .v-df-table dt { font-weight: 700; }
@@ -66,7 +66,7 @@
 .kis-page .v-df-dict .v-df-term { font-weight: 700; letter-spacing: .01em; }
 .kis-page .v-df-dict i { color: var(--pg-ink-soft); }
 
-/* Karten */
+/* Cards */
 .kis-page .v-cd-card { padding: 20px 22px; border-radius: 10px; }
 .kis-page .v-cd-card h3 { font-size: 17px; font-weight: 700; line-height: 1.3; margin: 0 0 6px; color: var(--pg-ink); }
 .kis-page .v-cd-card p { font-size: 16px; color: var(--pg-ink-soft); line-height: 1.5; }
@@ -96,7 +96,7 @@
 .kis-page .v-cd-grid .v-cd-c2, .kis-page .v-cd-icons .v-cd-c2 { grid-column: 2 / span 2; }
 .kis-page .v-cd-grid .v-cd-c4, .kis-page .v-cd-icons .v-cd-c4 { grid-column: 4 / span 2; }
 
-/* Akkordeon */
+/* Accordion */
 .kis-page .v-ac details summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px; font-weight: 700; font-size: 18px; line-height: 1.35; }
 .kis-page .v-ac details summary::-webkit-details-marker { display: none; }
 .kis-page .v-ac details summary > span { flex: 1; min-width: 0; }

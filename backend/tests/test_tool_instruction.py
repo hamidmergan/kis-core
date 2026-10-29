@@ -1,4 +1,4 @@
-"""Die Anweisung der Lernwerkzeuge entscheidet den Weg: auffuellen, suchen oder fallenlassen."""
+"""The learning tools' instruction decides the path: top up, search or drop."""
 
 import types
 
@@ -9,7 +9,7 @@ from src.features.ai_assistant.tasks import _instruction as anweisung
 
 @pytest.fixture
 def kein_vorcall(monkeypatch):
-    """Der Vor-Call darf in keinem dieser Tests ein Modell fragen."""
+    """The pre-call must not query a model in any of these tests."""
     def _nie(*args, **kwargs):
         raise AssertionError("der Vor-Call haette nicht laufen duerfen")
 
@@ -17,7 +17,7 @@ def kein_vorcall(monkeypatch):
 
 
 def _weg(monkeypatch, antwort):
-    """Der Vor-Call antwortet mit einem festen Weg, ohne Modell."""
+    """The pre-call answers with a fixed path, without a model."""
     gefragt = []
 
     def _fake(text):
@@ -50,7 +50,7 @@ def _treffer(monkeypatch, chunks):
 STELLE = {"source_id": 1, "page_number": 3, "content": "Die Kuehlung arbeitet mit Wasser."}
 
 
-# --- resolve: die Wegwahl ----------------------------------------------------
+# --- resolve: choosing the path ----------------------------------------------------
 
 class TestWegwahl:
     def test_leere_anweisung_geht_keinen_weg(self, kein_vorcall):
@@ -178,7 +178,7 @@ class TestWegwahl:
         assert ergebnis.way == anweisung.FILL
 
 
-# --- classify: der Vor-Call ---------------------------------------------------
+# --- classify: the pre-call ---------------------------------------------------
 
 def _client(content):
     gefragt = []
@@ -223,7 +223,7 @@ class TestVorcall:
         assert anweisung.classify("nur Kapitel 3") == anweisung.FILL
 
 
-# --- clean und prompt_block ---------------------------------------------------
+# --- clean and prompt_block ---------------------------------------------------
 
 def test_clean_glaettet_und_kappt():
     assert anweisung.clean(None) == ""
@@ -243,7 +243,7 @@ def test_prompt_block_traegt_die_anweisung_und_den_waechter():
     assert "Never invent" in block
 
 
-# --- spots_by_source: die Treffer je Quelle -----------------------------------
+# --- spots_by_source: the hits per source -----------------------------------
 
 def test_prompt_block_on_the_search_way_keeps_everything_on_the_topic():
     block = anweisung.prompt_block("nur Zitierarten", narrowed=True)

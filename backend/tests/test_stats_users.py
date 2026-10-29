@@ -47,10 +47,10 @@ def test_die_schwelle_fuer_regelmaessig_steht_im_code():
 def test_die_drei_gruppen_teilen_die_nutzer_ohne_ueberschneidung():
     cur = MagicMock()
     cur.fetchall.return_value = [
-        {"tage": 1, "n": 5},    # genau einmal
-        {"tage": 4, "n": 3},    # gelegentlich
-        {"tage": 10, "n": 2},   # noch gelegentlich, Schwelle ist "mehr als"
-        {"tage": 11, "n": 1},   # regelmaessig
+        {"tage": 1, "n": 5},    # exactly once
+        {"tage": 4, "n": 3},    # occasional
+        {"tage": 10, "n": 2},   # still occasional, threshold is "more than"
+        {"tage": 11, "n": 1},   # regular
     ]
     r = u._retention(cur)
     assert (r["once"], r["occasional"], r["regular"]) == (5, 5, 1)
@@ -66,7 +66,7 @@ def test_wie_lange_jemand_schon_da_ist():
 
 
 def test_tagesverlauf_geht_bis_zur_aktuellen_stunde_auch_ohne_spaete_aktivitaet():
-    """Niemand mehr online nach 18 Uhr darf den Verlauf nicht bei 18 Uhr abschneiden."""
+    """Nobody online after 18:00 must not cut the timeline off at 18:00."""
     cur = MagicMock()
     cur.fetchall.return_value = [{"hour": 6, "n": 4}, {"hour": 18, "n": 3}]
     mit_uhrzeit = datetime(2026, 8, 31, 22, 59, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -116,14 +116,14 @@ class CapturingCursor:
 
 
 def test_tages_liste_zaehlt_jeden_nutzer_nur_einmal():
-    """Wer mehrere Stunden am selben Tag da war, taucht in user_presence mehrfach auf."""
+    """Whoever was present several hours on one day appears in user_presence more than once."""
     cur = CapturingCursor()
     u._users_by_day(cur, "2026-08-28")
     assert "DISTINCT" in cur.sql
 
 
 def test_tages_liste_verliert_geloeschte_nutzer_nicht():
-    """user_presence behaelt Zeilen geloeschter Nutzer, die Zahl im Chart zaehlt sie mit."""
+    """user_presence keeps rows of deleted users, the chart number counts them too."""
     cur = CapturingCursor()
     u._users_by_day(cur, "2026-08-28")
     assert "LEFT JOIN" in cur.sql

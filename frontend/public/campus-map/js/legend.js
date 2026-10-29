@@ -1,21 +1,20 @@
 // ============================================================
-// Gebäude & Legende
+// Buildings & legend
 // ============================================================
 //
-// Inhalt der Legende aus dem offiziellen Campusplan (PDF, rechte Seite):
-// Einrichtungen A–Z und Gebäudenummern neu/alt. Die Suche findet außerdem
-// Gebäude, Cafés, Bushaltestellen und Fahrradstationen.
+// Legend content from the official campus plan (PDF, right page):
+// facilities A–Z and building numbers new/old. Search also finds
+// buildings, cafés, bus stops and bike stations.
 //
-// Die Legende lebt im rechten Panel (#buildingInfoOffcanvas), das auch die
-// Gebäude-Details zeigt. Auf dem Smartphone ist das Panel ein Bottom-Sheet.
-// Ablauf: Legende → Eintrag antippen → Gebäude-Details → „‹ Legende“ zurück.
-// „Auf Karte zeigen“ fliegt zum Gebäude und hebt es hervor; auf kleinen
-// Bildschirmen schließt sich dabei das Sheet und eine Leiste am unteren Rand
-// führt zurück zu den Infos.
+// The legend lives in the right panel (#buildingInfoOffcanvas), which also
+// shows the building details; on phones the panel is a bottom sheet.
+// Flow: legend → tap entry → building details → "‹ Legend" back.
+// "Show on map" flies to the building and highlights it; on small screens
+// the sheet closes and a bar at the bottom leads back to the details.
 //
-// Texte: UI-Texte über t() (i18n.js), Inhalte hier direkt zweisprachig.
+// Texts: UI strings via t() (i18n.js), content here directly bilingual.
 
-// --- Bereiche (Farben aus den Gebäude-Icons: kräftig + hell) ---
+// --- Areas (colours from the building icons: strong + light) ---
 const LEGEND_AREAS = [
     { key: 'A', color: '#e4003a', tint: '#fcdad4' },
     { key: 'B', color: '#008a8b', tint: '#d1e5e8' },
@@ -27,8 +26,8 @@ const LEGEND_AREAS = [
     { key: 'MFC', color: '#6a7078', tint: '#e7e7ea' }
 ];
 
-// --- Gebäude: neue Nummer, alte Nummer (PDF „Gebäudenummern neu/alt“) ---
-// name: nur wo das Gebäude einen eigenen Namen hat
+// --- Buildings: new number, old number (PDF "Gebäudenummern neu/alt") ---
+// name: only where the building has its own name
 const LEGEND_BUILDINGS = [
     { code: 'A.1', id: 'Gebaeude_A_1', area: 'A', old: '36' },
     { code: 'B.59', id: 'Mensa_B_59', area: 'B', name: { de: 'Mensa', en: 'Mensa (dining hall)' } },
@@ -68,8 +67,8 @@ const LEGEND_BUILDINGS = [
     { code: 'GC 2', id: 'GruenderCube_2', area: 'MFC', name: { de: 'GründerCube 2', en: 'GründerCube 2' } }
 ];
 
-// --- Einrichtungen A–Z (PDF), in: Gebäudenummern ---
-// open: optional eigene Detailseite statt des Gebäudes
+// --- Facilities A–Z (PDF), in: building numbers ---
+// open: optional own detail page instead of the building
 const LEGEND_FACILITIES = [
     { de: 'Angewandte Naturwissenschaften (AN), Sekretariat', en: 'Applied Natural Sciences, Secretariat', in: ['G.1'] },
     { de: 'AStA-Cafeteria / AStA-Shop', en: 'AStA Cafeteria, AStA Shop', in: ['D.4'] },
@@ -82,7 +81,7 @@ const LEGEND_FACILITIES = [
     { de: 'Druckerei', en: 'Print Shop', in: ['A.1'] },
     { de: 'Elektrotechnik und Informatik (EI), Sekretariat', en: 'Electrical Engineering & Computer Science, Secretariat', in: ['C.3'] },
     { de: 'Fachschaften', en: 'Student Councils', in: ['E.4'] },
-    // mark: statt Gebäuden alle Stationen auf der Karte markieren (kein Hinspringen)
+    // mark: highlight all stations on the map instead of buildings (no flying there)
     { de: 'Fahrradreparaturpunkte', en: 'Bike Repair Points', in: [], icon: 'assets/fahrrad_icon_einstellungen_an.svg',
         keywords: 'Fahrrad Fahrradstation Rad Bike Reparatur Repair',
         mark: ['Fahrradstation_Gebaeude_C_4', 'Fahrradstation_Gebaeude_G_1', 'Fahrradstation_Wohnheim', 'Fahrradstation_Studentendorf', 'Fahrradstation_Audimax'] },
@@ -106,18 +105,18 @@ const LEGEND_FACILITIES = [
     { de: 'Zulassungsstelle', en: 'Admissions Office', in: ['A.1'] }
 ];
 
-// Schnellzugriff oben in „Einrichtungen“ (deutscher Name aus der Liste)
+// Quick access at the top of "Facilities" (German name from the list)
 const LEGEND_POPULAR = ['Mensa', 'Audimax', 'Bibliothek', 'International Office', 'Service-Point', 'Studienberatung', 'Druckerei'];
 
-// Weitere Orte aus campusBuildings (eigene Detailseiten, keine Gebäude)
+// More places from campusBuildings (own detail pages, not buildings)
 const LEGEND_PLACE_GROUPS = [
     { key: 'food', prefix: 'Kaffee_', color: '#c2571a', tint: '#fdebd3', name: { de: 'Essen & Trinken', en: 'Food & drink' }, keywords: 'Café Kaffee Coffee Snacks Essen Food' },
     { key: 'mobility', prefix: ['Bus_', 'Fahrradstation_'], color: '#4b5459', tint: '#eceef0', name: { de: 'Bus & Fahrrad', en: 'Bus & bike' }, keywords: 'Haltestelle Bus stop Fahrrad Rad Bike' }
 ];
 
-// --- Suchbegriffe je Gebäude/Ort (aus den Beschreibungen in config_v2.js) ---
-// Findet z.B. „Atrium“ → C.4. In den Treffern steht der passende Begriff
-// unter dem Gebäude. Beim Ändern der Beschreibungen hier nachziehen.
+// --- Search terms per building/place (from the descriptions in config_v2.js) ---
+// Finds e.g. "Atrium" → C.4; the matching term is shown under the building
+// in the results. Update here when the descriptions change.
 const BIKE_TERMS = { de: ['Fahrradreparatur', 'Reparatur', 'Werkzeug', 'Luftpumpe', 'Pumpe'], en: ['bike repair', 'repair', 'tools', 'air pump', 'pump'] };
 const LEGEND_SEARCH_TERMS = {
     Mensa_B_59: { de: ['Essen', 'Mittagessen', 'Kantine', 'Wickeltisch', 'Spielecke'], en: ['food', 'lunch', 'canteen', 'dining hall', 'changing table'] },
@@ -184,18 +183,18 @@ const campusLegend = (() => {
     const canHover = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     const isSheet = () => window.matchMedia('(max-width: 767px)').matches;
 
-    // Für die Suche: Kleinschreibung, ohne Akzente, ß → ss
+    // For search: lowercase, no accents, ß → ss
     const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss');
     const compact = s => norm(s).replace(/[^a-z0-9]/g, '');
 
     const state = { mode: 'closed', query: '', scrollTop: 0, detailId: null, fromLegend: false };
     let panel, body, legendView, detailView, titleEl, backBtn, searchInput, clearBtn, resultsEl, pill;
     let announceTimer = null;
-    let pendingAction = null;   // läuft, sobald das Panel zu ist (Smartphone)
-    let pillOpen = null;        // was die Leiste unten beim Antippen öffnet
+    let pendingAction = null;   // runs once the panel is closed (phone)
+    let pillOpen = null;        // what the bottom bar opens on tap
     let focusSearchOnShow = false;
 
-    // --- Daten aufbereiten -------------------------------------------------
+    // --- Prepare data ------------------------------------------------------
 
     function facilitiesIn(code) {
         return LEGEND_FACILITIES.filter(f => f.in.includes(code));
@@ -209,7 +208,7 @@ const campusLegend = (() => {
         }).sort((a, b) => a.name.localeCompare(b.name, CURRENT_LANG));
     }
 
-    // Suchbegriffe, Sprache der Seite zuerst (die erscheint dann im Treffer)
+    // Search terms, page language first (that one shows up in the result)
     function termsOf(id) {
         const t = LEGEND_SEARCH_TERMS[id];
         if (!t) return [];
@@ -249,17 +248,17 @@ const campusLegend = (() => {
         return 2;
     }
 
-    // Felder einzeln prüfen: zusammengeklebt würde aus „F.3“ und „6“ ein „f36“
+    // Check fields separately: concatenated, "F.3" and "6" would become "f36"
     function matches(entry, q, qc) {
         return entry.hay.filter(Boolean).some(field => norm(field).includes(q) || (qc && compact(field).includes(qc)));
     }
 
-    // --- Ersatzsuche: Fragen und Tippfehler --------------------------------
-    // Greift nur, wenn die normale Suche nichts findet. Aus „Wo kann ich
-    // Mittag essen?“ werden die Wörter „mittag“ + „essen“, „Mesna“ findet
-    // die Mensa. Angezeigt werden die Einträge, die die meisten Wörter treffen.
+    // --- Fallback search: questions and typos ------------------------------
+    // Only used when the normal search finds nothing. "Wo kann ich Mittag
+    // essen?" becomes the words "mittag" + "essen", "Mesna" finds the Mensa.
+    // Entries matching the most words are shown.
 
-    // schon normalisiert (norm): ohne Umlaute, ß → ss
+    // already normalised (norm): no umlauts, ß → ss
     const STOPWORDS = new Set((
         'wo wie was wer wann welche welcher welches ist sind gibt gibts es der die das den dem des ein eine einen einem einer ' +
         'ich man du wir kann konnen finde finden such suche brauche mochte will komme kommen hin ' +
@@ -273,7 +272,7 @@ const campusLegend = (() => {
         return [...new Set(norm(query).split(/[^a-z0-9]+/).filter(w => w && !STOPWORDS.has(w)))];
     }
 
-    // Damerau-Levenshtein (Vertauschen zweier Buchstaben zählt als 1 Fehler)
+    // Damerau-Levenshtein (swapping two letters counts as 1 error)
     function editDistance(a, b) {
         let prev2 = null;
         let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -289,13 +288,13 @@ const campusLegend = (() => {
         return prev[b.length];
     }
 
-    // grobe Stammform: „immatrikulieren“ → „immatrikul“ (findet „Immatrikulation“)
+    // rough stem: "immatrikulieren" → "immatrikul" (finds "Immatrikulation")
     function stem(w) {
         const suffix = ['ieren', 'ungen', 'ung', 'en', 'er', 'e', 'n', 's'].find(s => w.endsWith(s) && w.length - s.length >= 5);
         return suffix ? w.slice(0, -suffix.length) : w;
     }
 
-    // 2 = Wort steckt im Feld, 1 = nur mit Tippfehler, 0 = kein Treffer
+    // 2 = word is in the field, 1 = only with a typo, 0 = no match
     function wordMatches(w, field) {
         if (compact(field) === w) return 2;                 // „c4“ → C.4
         if (w.length >= 3 && (norm(field).includes(w) || compact(field).includes(w))) return 2;
@@ -305,17 +304,17 @@ const campusLegend = (() => {
         if (s !== w && parts.some(p => p.startsWith(s))) return 2;
         const max = w.length >= 8 ? 2 : 1;
         return parts.some(p => Math.abs(p.length - w.length) <= max && editDistance(w, p) <= max
-            // angefangenes Wort mit Tippfehler: „bibilo“ → Bibliothek
+            // word prefix with a typo: "bibilo" → Bibliothek
             || (w.length >= 6 && p.length > w.length && editDistance(w, p.slice(0, w.length)) <= max)) ? 1 : 0;
     }
 
-    // Wie gut trifft der Eintrag die Wörter der Anfrage? (Summe der besten Treffer je Wort)
+    // How well does the entry match the query words? (sum of the best match per word)
     function fuzzyCount(entry, words) {
         const fields = entry.hay.filter(Boolean);
         return words.reduce((sum, w) => sum + Math.max(0, ...fields.map(f => wordMatches(w, f))), 0);
     }
 
-    // Treffer im Namen markieren (nur wenn die Schreibweise direkt passt)
+    // Highlight the match in the name (only on a direct spelling match)
     function mark(text, query) {
         if (!query) return esc(text);
         const i = text.toLowerCase().indexOf(query.toLowerCase());
@@ -323,7 +322,7 @@ const campusLegend = (() => {
         return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + query.length)) + '</mark>' + esc(text.slice(i + query.length));
     }
 
-    // --- Bausteine ---------------------------------------------------------
+    // --- Building blocks ---------------------------------------------------
 
     function swatch(buildings) {
         const colors = [...new Set(buildings.map(b => areaOf(b.area).color))];
@@ -341,7 +340,7 @@ const campusLegend = (() => {
             aria-label="${esc(contentOf(b.id)?.title || b.code)}">${esc(b.code)}</button>`;
     }
 
-    // Pin rechts neben der Zeile: direkt zur Karte, ohne erst die Infos zu öffnen
+    // Pin right of the row: straight to the map without opening the details first
     function withPin(row, id, name) {
         if (!mapElement(id)) return `<li class="legend-item">${row}</li>`;
         return `<li class="legend-item has-pin">${row}
@@ -394,7 +393,7 @@ const campusLegend = (() => {
           </button>`, e.id, e.title);
     }
 
-    // --- Ansichten ---------------------------------------------------------
+    // --- Views -------------------------------------------------------------
 
     function renderFacilities() {
         const all = facilityEntries();
@@ -429,15 +428,15 @@ const campusLegend = (() => {
             .sort((a, b) => score(a, q) - score(b, q) || byName(a, b));
         let fac = sort(facilityEntries());
         let bld = sort([...buildingEntries(), ...placeEntries()]).map(e => {
-            // Nur über einen Suchbegriff gefunden? Dann den Begriff zeigen,
-            // damit klar ist, warum das Gebäude in der Liste steht
+            // Found only via a search term? Show the term so it is clear
+            // why the building is in the list
             const hit = (e.terms || []).filter(term => norm(term).includes(q) || (qc && compact(term).includes(qc)));
             const byName = norm(e.title).includes(q) || norm(e.sub).includes(q);
-            // erster Treffer genügt – Begriffe in Seitensprache stehen vorn
+            // first match is enough, terms in the page language come first
             return hit.length && !byName ? { ...e, sub: hit[0] } : e;
         });
 
-        // Nichts gefunden? Dann als Frage bzw. mit Tippfehlern versuchen
+        // Nothing found? Try as a question or with typos
         let fuzzy = false;
         const words = fac.length + bld.length ? [] : queryWords(query);
         if (words.length) {
@@ -463,7 +462,7 @@ const campusLegend = (() => {
                 <p class="legend-empty-title">${esc(t('legend.noResults', { q: query.trim() }))}</p>
                 <p>${esc(t('legend.noResultsHint'))}</p></div>`;
         }
-        // ungefähre Treffer: keine Markierung, dafür ein Hinweis
+        // approximate matches: no highlighting, but a hint
         const raw = fuzzy ? '' : query.trim();
         return (fuzzy ? `<p class="legend-fuzzy-hint">${esc(t('legend.fuzzyHint', { q: query.trim() }))}</p>` : '')
             + (fac.length ? `<h3 class="legend-subhead">${esc(t('legend.facilities'))} <span class="legend-count">${fac.length}</span></h3>
@@ -486,7 +485,7 @@ const campusLegend = (() => {
         }, 600);
     }
 
-    // --- Panel-Modi --------------------------------------------------------
+    // --- Panel modes -------------------------------------------------------
 
     function setHeader(mode, title) {
         titleEl.textContent = title;
@@ -512,8 +511,8 @@ const campusLegend = (() => {
         else inst.show();
     }
 
-    // Suche-Button an der Karte: Legende öffnen und direkt ins Suchfeld.
-    // Auch auf dem Handy (sonst nur mit Maus/Trackpad) – hier will man tippen.
+    // Search button on the map: open the legend straight into the search field.
+    // Also on phones (otherwise mouse/trackpad only), here the user wants to type.
     function openSearch() {
         focusSearchOnShow = true;
         openLegend();
@@ -532,13 +531,13 @@ const campusLegend = (() => {
         legendView.hidden = false;
         renderResults();
         body.scrollTop = state.scrollTop;
-        // Fokus zurück auf den Eintrag, der die Details geöffnet hat
+        // Focus back on the entry that opened the details
         const last = state.detailId && resultsEl.querySelector(`[data-open="${CSS.escape(state.detailId)}"]`);
         (last || searchInput).focus({ preventScroll: true });
     }
 
-    // Wird von openBuildingInfo() (main.js) gerufen, nachdem die Details
-    // gerendert sind. fromLegend: Zurück-Knopf und „Auf Karte zeigen“ zeigen.
+    // Called by openBuildingInfo() (main.js) once the details are rendered.
+    // fromLegend: show the back button and "Show on map".
     function onDetailShown(id, fromLegend) {
         if (state.mode === 'legend' && !legendView.hidden) state.scrollTop = body.scrollTop;
         state.mode = 'detail';
@@ -553,8 +552,8 @@ const campusLegend = (() => {
         if (state.fromLegend && mapElement(id)) {
             const bar = document.createElement('div');
             bar.className = 'building-actions';
-            // Liegt das Ziel in einer ausgeblendeten Ebene, gibt es keinen
-            // Umriss zum Ausschneiden – dann bleibt es beim einfachen Button
+            // If the target is in a hidden layer there is no outline to cut out,
+            // so keep the plain button
             bar.innerHTML = miniMap(id) || `<button type="button" class="show-on-map-btn" data-show-on-map="${id}">
                 <i class="fas fa-map-marker-alt" aria-hidden="true"></i><span>${esc(t('legend.showOnMap'))}</span></button>`;
             detailView.prepend(bar);
@@ -562,13 +561,13 @@ const campusLegend = (() => {
         updateShareButton();
     }
 
-    // --- Teilen (Icon links neben „Schließen“) -----------------------------
-    // Das Icon öffnet ein kleines Fenster mit dem Link. Kopiert wird erst
-    // beim Klick ins Linkfeld oder aufs Kopier-Icon darin. Klappt das nicht
-    // (fremdes iframe ohne Erlaubnis), bleibt der Link markiert stehen.
+    // --- Share (icon left of "Close") --------------------------------------
+    // The icon opens a small popover with the link. Copying happens only on
+    // click into the link field or its copy icon. If that fails (foreign
+    // iframe without permission) the link stays selected.
     let shareBtn, sharePop, shareReset;
 
-    // Kurz und lesbar: Gebäudenummer (B.59, MFC1), sonst die ID (Kaffee_Cafeteria)
+    // Short and readable: building number (B.59, MFC1), else the ID (Kaffee_Cafeteria)
     function shareUrl(id) {
         const url = new URL(window.location.href);
         url.search = '';
@@ -579,13 +578,13 @@ const campusLegend = (() => {
         return url.toString();
     }
 
-    // Nur in den Gebäude-Infos, und nur wenn es den Ort auf der Karte gibt
+    // Only in the building details, and only if the place exists on the map
     function updateShareButton() {
         closeSharePop();
         shareBtn.hidden = !(state.mode === 'detail' && state.detailId && mapElement(state.detailId));
     }
 
-    // Hängt am Panel, nicht in der Kopfzeile: die ist auf dem Handy der Zieh-Griff
+    // Attached to the panel, not the header: on phones the header is the drag handle
     function ensureSharePop() {
         if (sharePop) return sharePop;
         sharePop = document.createElement('div');
@@ -605,7 +604,7 @@ const campusLegend = (() => {
         input.addEventListener('click', () => copyLink());
         input.addEventListener('focus', () => input.select());
         sharePop.querySelector('.share-pop-copy').addEventListener('click', () => copyLink());
-        // direkt hinter der Kopfzeile: Tab führt vom Icon gleich hinein
+        // right after the header: Tab moves from the icon straight into it
         panel.querySelector('.offcanvas-header').after(sharePop);
         return sharePop;
     }
@@ -620,8 +619,8 @@ const campusLegend = (() => {
         icon.className = mode === 'ok' ? 'fas fa-check' : 'fas fa-copy';
     }
 
-    // Zwischenablage-API fehlt ohne https und ist in fremden iframes oft
-    // gesperrt – dann der alte Weg über die markierte Eingabe
+    // The clipboard API is missing without https and often blocked in foreign
+    // iframes, then fall back to the selected input
     async function copyLink() {
         const input = sharePop.querySelector('.share-pop-input');
         let ok = false;
@@ -647,7 +646,7 @@ const campusLegend = (() => {
         pop.style.top = `${panel.querySelector('.offcanvas-header').offsetHeight}px`;
         pop.hidden = false;
         shareBtn.setAttribute('aria-expanded', 'true');
-        // Fokus aufs Kopier-Icon: mit der Tastatur genügt dann Enter
+        // Focus the copy icon: Enter is then enough on the keyboard
         pop.querySelector('.share-pop-copy').focus({ preventScroll: true });
     }
 
@@ -663,7 +662,7 @@ const campusLegend = (() => {
         document.addEventListener('pointerdown', e => {
             if (sharePop && !sharePop.hidden && !sharePop.contains(e.target) && !shareBtn.contains(e.target)) closeSharePop();
         });
-        // Escape schließt erst das kleine Fenster, nicht gleich das ganze Panel
+        // Escape closes the popover first, not the whole panel at once
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape' || !sharePop || sharePop.hidden) return;
             e.stopPropagation();
@@ -676,11 +675,11 @@ const campusLegend = (() => {
         if (!contentOf(id)) return;
         state.scrollTop = body.scrollTop;
         openBuildingInfo(id, { fromLegend: true });
-        // Fokus in die Details (Überschrift), damit Screenreader mitkommen
+        // Focus the details heading so screen readers follow
         if (trigger) titleEl.focus({ preventScroll: true });
     }
 
-    // --- Karte: finden, einblenden, hinfliegen, hervorheben ----------------
+    // --- Map: find, show, fly to, highlight --------------------------------
 
     function mapSvg() {
         return document.querySelector('#lottieMap svg');
@@ -691,8 +690,8 @@ const campusLegend = (() => {
         return svg ? svg.querySelector(`#${CSS.escape(id)}`) : null;
     }
 
-    // Liegt das Element in einer ausgeblendeten Ebene (Einstellungen),
-    // wird die Ebene eingeschaltet – sonst gäbe es nichts zu zeigen.
+    // If the element is in a hidden layer (settings), the layer is switched on,
+    // otherwise there would be nothing to show.
     function ensureLayerVisible(el) {
         filters.forEach((f, i) => {
             const ids = Array.isArray(f.id) ? f.id : [f.id];
@@ -725,7 +724,7 @@ const campusLegend = (() => {
             layer.setAttribute('pointer-events', 'none');
             layer.setAttribute('aria-hidden', 'true');
         }
-        svg.appendChild(layer); // immer zuoberst
+        svg.appendChild(layer); // always on top
         return layer;
     }
 
@@ -736,8 +735,8 @@ const campusLegend = (() => {
         return g ? g.color : '#4b5459';
     }
 
-    // Umriss eines Kartenelements in SVG-Koordinaten (unabhängig vom Zoom).
-    // null, wenn es gerade nicht gezeichnet wird (ausgeblendete Ebene).
+    // Outline of a map element in SVG coordinates (independent of zoom).
+    // null if it is currently not drawn (hidden layer).
     function boxInSvg(el, pad) {
         const svg = mapSvg();
         const inv = svg?.getScreenCTM()?.inverse();
@@ -764,8 +763,8 @@ const campusLegend = (() => {
         return `<g class="map-spotlight is-${mode}" style="--spot:${colorFor(id)}">${wave}${ring}</g>`;
     }
 
-    // mode: 'hover' (ruhiger Rahmen, nur solange die Maus drauf ist) oder
-    // 'pulse' (bleibt stehen: nach „Auf Karte zeigen“ bzw. „Markieren“)
+    // mode: 'hover' (calm frame, only while the mouse is over it) or
+    // 'pulse' (stays: after "Show on map" or "Mark")
     function spotlight(ids, mode) {
         const svg = mapSvg();
         const layer = spotlightLayer();
@@ -778,13 +777,13 @@ const campusLegend = (() => {
         });
     }
 
-    // --- Mini-Lageplan in den Gebäude-Infos --------------------------------
-    // Ausschnitt der echten Karte rund ums Gebäude. <use> zeigt die schon
-    // geladenen Ebenen noch einmal an – nichts wird doppelt geladen, und der
-    // Zoom der großen Karte (deren viewBox) wirkt sich hier nicht aus.
+    // --- Mini map in the building details ----------------------------------
+    // Crop of the real map around the building. <use> re-renders the already
+    // loaded layers, nothing is loaded twice, and the zoom of the big map
+    // (its viewBox) has no effect here.
     const MINI_MAP_LAYERS = ['Hg', 'Bereiche', 'unbzeichnete_Flaechen', 'Parkplaetze', 'Straßen',
         'Carlebach_Park', 'Gebaeude', 'Gebaeudebezeichnung'];
-    const MINI_MAP_RATIO = 2.6;   // Breite : Höhe, passt zu .mini-map-svg
+    const MINI_MAP_RATIO = 2.6;   // width : height, matches .mini-map-svg
 
     function miniMap(id) {
         const svg = mapSvg();
@@ -792,12 +791,12 @@ const campusLegend = (() => {
         const box = boxInSvg(el, 6);
         if (!box) return null;
         const layers = [...svg.children].filter(c => MINI_MAP_LAYERS.includes(c.id));
-        // Ziel in einer anderen Ebene (Bushaltestelle, Fahrradstation …): die dazu
+        // Target in another layer (bus stop, bike station …): add that layer too
         const own = [...svg.children].find(c => c.contains(el));
         if (own && !layers.includes(own)) layers.push(own);
 
-        // Ausschnitt: Gebäude mittig, Nachbarn drumherum, nicht über den Rand
-        const full = { w: 1920, h: 1080 };   // viewBox der Karte ohne Zoom
+        // Crop: building centred, neighbours around it, not past the edge
+        const full = { w: 1920, h: 1080 };   // map viewBox without zoom
         let w = Math.max(box.w * 5, 680);
         let h = Math.max(box.h * 3, w / MINI_MAP_RATIO);
         w = Math.min(full.w, Math.max(w, h * MINI_MAP_RATIO));
@@ -850,8 +849,8 @@ const campusLegend = (() => {
         const el = mapElement(id);
         if (!el) return;
         ensureLayerVisible(el);
-        // Deckt das Panel den Großteil der Karte ab (Smartphone, Tablet hoch),
-        // geht es zu – die Leiste unten führt zurück zu den Infos.
+        // If the panel covers most of the map (phone, tablet portrait) it closes;
+        // the bottom bar leads back to the details.
         if (panelCoversMap()) {
             pendingAction = () => {
                 showPill({ title: contentOf(id)?.title || '', action: t('legend.pillInfo'), color: colorFor(id),
@@ -870,7 +869,7 @@ const campusLegend = (() => {
         return panel.offsetWidth > window.innerWidth * 0.55;
     }
 
-    // Mehrere Orte auf einmal markieren, ohne den Kartenausschnitt zu ändern
+    // Highlight several places at once without changing the map view
     function markOnMap(ids, title) {
         ids.map(mapElement).filter(Boolean).forEach(ensureLayerVisible);
         if (panelCoversMap()) {
@@ -885,7 +884,7 @@ const campusLegend = (() => {
         }
     }
 
-    // --- Leiste „zurück zu den Infos“ (nach „Auf Karte zeigen“) -------------
+    // --- "Back to details" bar (after "Show on map") ------------------------
 
     function ensurePill() {
         if (pill) return pill;
@@ -933,7 +932,7 @@ const campusLegend = (() => {
         document.body.classList.remove('map-pill-open');
     }
 
-    // --- Bottom-Sheet: nach unten ziehen zum Schließen ----------------------
+    // --- Bottom sheet: drag down to close -----------------------------------
 
     function enableSheetDrag() {
         const header = panel.querySelector('.offcanvas-header');
@@ -962,7 +961,7 @@ const campusLegend = (() => {
         header.addEventListener('touchcancel', end);
     }
 
-    // --- Ereignisse --------------------------------------------------------
+    // --- Events ------------------------------------------------------------
 
     function bindEvents() {
         backBtn.addEventListener('click', backToLegend);
@@ -974,12 +973,12 @@ const campusLegend = (() => {
         });
         searchInput.addEventListener('keydown', e => {
             if (e.key === 'Escape' && searchInput.value) {
-                e.stopPropagation(); // Panel bleibt offen, nur die Suche wird geleert
+                e.stopPropagation(); // panel stays open, only the search is cleared
                 searchInput.value = '';
                 state.query = '';
                 renderResults();
             } else if (e.key === 'Enter') {
-                // Enter öffnet den ersten Treffer
+                // Enter opens the first result
                 const first = resultsEl.querySelector('[data-open]');
                 if (state.query.trim() && first) {
                     e.preventDefault();
@@ -995,9 +994,9 @@ const campusLegend = (() => {
             searchInput.focus();
         });
 
-        // Leertaste öffnet die Suche – aber nur, wenn sie gerade nichts anderes
-        // tut: kein Eingabefeld, Button, Link oder Kartenelement im Fokus und
-        // kein Quiz, Einstellungs- oder Badges-Fenster offen.
+        // Space opens the search, but only if it does nothing else right now:
+        // no input, button, link or map element focused and no quiz,
+        // settings or badges window open.
         document.addEventListener('keydown', e => {
             if (e.key !== ' ' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
             if (e.target.closest?.('input, textarea, select, button, a, [contenteditable], [tabindex]:not(#mapContainer), .modal, .offcanvas')) return;
@@ -1025,11 +1024,11 @@ const campusLegend = (() => {
             if (btn) showOnMap(btn.dataset.showOnMap);
         });
 
-        // Hover/Fokus: Gebäude auf der Karte mit aufleuchten lassen (Desktop)
+        // Hover/focus: light up the building on the map too (desktop)
         const highlightFrom = target => {
             const el = target.closest && target.closest('[data-highlight]');
             if (!el) return null;
-            // Chip in einer Mehrfach-Zeile: nur dieses Gebäude
+            // Chip in a multi-building row: only this building
             return el.dataset.highlight.split(' ').filter(Boolean);
         };
         resultsEl.addEventListener('pointerover', e => {
@@ -1048,8 +1047,8 @@ const campusLegend = (() => {
         panel.addEventListener('shown.bs.offcanvas', () => {
             if (state.mode === 'legend' && !legendView.hidden) {
                 body.scrollTop = state.scrollTop;
-                // Tastatur nur auf Geräten mit Maus/Trackpad direkt in die Suche –
-                // auf dem Handy würde sonst sofort die Tastatur das Sheet verdecken
+                // Keyboard straight into the search only on devices with mouse/trackpad;
+                // on phones the on-screen keyboard would immediately cover the sheet
                 if (focusSearchOnShow || window.matchMedia('(pointer: fine)').matches) searchInput.focus({ preventScroll: true });
                 focusSearchOnShow = false;
             }
@@ -1065,7 +1064,7 @@ const campusLegend = (() => {
                 action();
                 pill.querySelector('.map-return-main').focus({ preventScroll: true });
             } else if (!pill || pill.hidden) {
-                // Die Markierung bleibt, solange die Leiste unten sie noch trägt
+                // The highlight stays as long as the bottom bar still carries it
                 clearSpotlight();
             }
             state.mode = 'closed';
@@ -1075,11 +1074,11 @@ const campusLegend = (() => {
         enableSheetDrag();
     }
 
-    // --- Direktlinks: ?show=… (Karte) und ?info=… (Gebäude-Infos) ---------
-    // Als Ziel geht: interne ID (Mensa_B_59), neue oder alte Gebäudenummer
-    // (B.59, b59, 36), Name (Mensa, Bibliothek) oder Einrichtung
-    // (International Office). Schreibweise und Satzzeichen sind egal, Tippfehler
-    // werden aber bewusst nicht geraten – ein Link soll eindeutig sein.
+    // --- Direct links: ?show=… (map) and ?info=… (building details) -------
+    // Valid targets: internal ID (Mensa_B_59), new or old building number
+    // (B.59, b59, 36), name (Mensa, Bibliothek) or facility
+    // (International Office). Case and punctuation do not matter, but typos
+    // are deliberately not guessed, a link should be unambiguous.
     function resolveTarget(raw) {
         const c = compact(raw || '');
         if (!c) return null;
@@ -1094,11 +1093,11 @@ const campusLegend = (() => {
         const fac = LEGEND_FACILITIES.find(f => [f.de, f.en].some(n => compact(n) === c));
         if (!fac) return null;
         const ids = fac.mark || fac.in.map(buildingByCode).filter(b => b && contentOf(b.id)).map(b => b.id);
-        // Leiste zeigt den gesuchten Namen („International Office“), nicht „Gebäude A.1“
+        // The bar shows the searched name ("International Office"), not "Gebäude A.1"
         return ids.length ? { ids, title: L(fac), stations: !!fac.mark } : null;
     }
 
-    // Läuft einmal, sobald die Karte steht (main.js überspringt dann das Intro)
+    // Runs once when the map is ready (main.js then skips the intro)
     function openFromUrl() {
         const params = new URLSearchParams(window.location.search);
         const raw = params.get('info') || params.get('show');
@@ -1111,7 +1110,7 @@ const campusLegend = (() => {
         ids.map(mapElement).filter(Boolean).forEach(ensureLayerVisible);
 
         if (params.get('info') && ids.length === 1) {
-            // Infos öffnen; wo daneben Platz ist, fliegt die Karte mit hin
+            // Open the details; where there is room beside them, the map flies along
             panel.addEventListener('shown.bs.offcanvas', () => { if (!panelCoversMap()) flyTo(ids[0]); }, { once: true });
             openBuildingInfo(ids[0], { fromLegend: true });
         } else if (ids.length === 1) {

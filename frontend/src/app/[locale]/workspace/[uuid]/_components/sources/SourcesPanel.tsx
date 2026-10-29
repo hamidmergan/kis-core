@@ -304,7 +304,7 @@ export function SourcesPanel({
 
   return (
     <div ref={panelRef} data-tour="sources-panel" className="sources-panel flex flex-col h-full">
-      {/* Panel header. Anlegen sitzt hier, deshalb kostet es keine eigene Zeile. */}
+      {/* Panel header. Create sits here, so it costs no extra row. */}
       {!hideHeader && (
         <div
           data-panel-header=""
@@ -321,8 +321,8 @@ export function SourcesPanel({
           </span>
           {isOwner && (
             <>
-              {/* Ansicht bleibt grau. Der Strich zieht die Grenze. */}
-              {/* Nur die Bedienelemente werden markiert, der Trennstrich nicht. */}
+              {/* View stays grey, the rule draws the boundary. */}
+              {/* Only the controls are marked, not the divider. */}
               <OwnerOnly show>{ownerActions}</OwnerOnly>
               <span className="mx-1 flex-shrink-0" style={{ width: 1, height: 18, backgroundColor: "var(--border)" }} />
             </>
@@ -333,9 +333,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Mobil: die Kopfzeile ist weg, den Titel traegt die Tab-Leiste. Die
-          Anlegen-Knoepfe brauchen trotzdem einen Platz, also bekommen sie eine
-          eigene schmale Zeile ohne Titel und ohne Minimieren. */}
+      {/* Mobile: the header is gone and the tab bar carries the title, so the create buttons get their own slim row without title or minimise. */}
       {hideHeader && ownerActions && (
         <div
           className="flex items-center justify-end gap-1.5 px-3 py-1.5 flex-shrink-0"
@@ -345,8 +343,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Das Dateifeld liegt ausserhalb der Kopfzeile, damit es auch dann da ist,
-          wenn die Kopfzeile ausgeblendet ist (mobil). */}
+      {/* The file input sits outside the header so it exists even when the header is hidden (mobile). */}
       {isOwner && (
         <input
           ref={fileInputRef}
@@ -389,8 +386,7 @@ export function SourcesPanel({
         />
       )}
 
-      {/* Fortschritt und Fehler des Hochladens. Stehen direkt unter dem Knopf,
-          der sie ausgeloest hat, und sind sonst nicht da. */}
+      {/* Upload progress and errors, directly below the button that triggered them, otherwise absent. */}
       {isOwner && (uploadProgress !== null || uploadErrors.length > 0) && (
         <div className="px-4 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           {uploadProgress !== null && (
@@ -417,7 +413,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Neues Kapitel */}
+      {/* New chapter */}
       {creatingChapter && (
         <div
           className="relative px-3 py-2 flex items-center gap-2 flex-shrink-0"
@@ -463,8 +459,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Select all row. Der Stift schaltet in den Verschiebe-Modus, dann
-          zeigt die Zeile in Hausblau, dass jetzt fuers Verschieben gewaehlt wird. */}
+      {/* Select all row. The pencil switches to move mode, then the row shows in brand blue that selection is for moving. */}
       {sources.length > 0 && (
         <div
           onClick={moving && !canMove ? undefined : toggleAll}
@@ -564,8 +559,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Source list. Die ganze Liste nimmt gezogene Dateien an, den Rahmen
-          dazu gibt es nur waehrend des Ziehens. */}
+      {/* Source list. The whole list accepts dropped files, the frame shows only while dragging. */}
       <div
         className="relative flex-1 overflow-y-auto transition-colors"
         style={moving ? { backgroundColor: "rgba(var(--kb-rgb),0.05)" } : undefined}
@@ -648,9 +642,7 @@ export function SourcesPanel({
               );
             })}
 
-            {/* Ohne Kapitel bekommt nur dann eine Ueberschrift, wenn es
-                ueberhaupt Kapitel gibt. Ohne Gliederung bleibt es die
-                schlichte Liste von vorher. */}
+            {/* "No chapter" gets a heading only when chapters exist, otherwise it stays the plain list. */}
             {loose.length > 0 && chapterList.length > 0 && (
               <div
                 className="flex items-center gap-2 pl-4 pr-2 py-2"
@@ -703,8 +695,7 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* Kapitel loeschen. Andere Warnung als bei der Quelle, weil hier nichts
-          verloren geht. */}
+      {/* Delete chapter. Different warning than for a source, nothing is lost here. */}
       {deleteChapterTarget && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">

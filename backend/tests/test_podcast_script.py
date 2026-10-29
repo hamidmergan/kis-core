@@ -33,7 +33,7 @@ class TestAntwortLesen:
         assert len(parse_answer(roh, 2)) == 2
 
     def test_holt_einen_sprecher_ausserhalb_der_besetzung_zurueck(self):
-        # Ein verirrter Index darf das Gespraech nicht auf eine Stimme zusammenfallen lassen.
+        # A stray index must not collapse the conversation onto one voice.
         zeilen = parse_answer(_antwort([(0, "Eins."), (9, "Zwei.")]), 2)
         assert zeilen[1].speaker == 1
         assert parse_answer(_antwort([(0, "Eins."), (5, "Zwei."), (2, "Drei.")]), 3)[1].speaker == 2
@@ -116,7 +116,7 @@ class TestPrompt:
         assert all(anzahl <= PODCAST_MAX_LINES for anzahl, _ in LENGTH_PLAN.values())
 
 
-# ── Eine lange Folge in Teilen ───────────────────────────────────────────────
+# ── A long episode in parts ───────────────────────────────────────────────
 
 class TestTeile:
     def test_die_beitraege_werden_gleichmaessig_verteilt(self):
@@ -210,7 +210,7 @@ class TestNahtstelle:
         assert "erwähne nie einen Teil" not in user
 
 
-# ── Form wie ein gutes Gespräch: Einstieg, Warum, roter Faden ─────────────────
+# ── Shaped like a good conversation: opening, why, thread ─────────────────
 
 class TestGespraechsform:
     def test_der_plan_verlangt_einstieg_und_roten_faden(self):

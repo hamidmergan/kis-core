@@ -30,7 +30,7 @@ def test_the_glossary_mode_stays_out():
     assert _pool.uses_pool("quiz", "glossary") is False
 
 
-# --- welches Niveau ------------------------------------------------------------
+# --- which level ---------------------------------------------------------------
 
 def test_without_an_adaptive_suffix_the_level_is_none(monkeypatch):
     """The suffix is empty as soon as one of the three gates is closed."""
@@ -53,7 +53,7 @@ def test_an_unreadable_level_falls_back_to_the_level_free_pool(monkeypatch):
     assert _pool.pool_level("...", 7) is None
 
 
-# --- ziehen --------------------------------------------------------------------
+# --- drawing -------------------------------------------------------------------
 
 def _stub_pool(monkeypatch, bestand: dict, warm=None, aufgewaermt_gefragt=None):
     """The stub stays stateless, like the real query, and every pool is warm unless named."""
@@ -156,7 +156,7 @@ def test_pool_rows_carry_their_reference(monkeypatch):
     assert out[0]["pool_item_id"] == "1-a"
 
 
-# --- der Notfall-Nachschlag, wenn wirklich nichts Neues mehr da ist ------------
+# --- the emergency top-up when nothing new is left -----------------------------
 
 def test_ignore_seen_reaches_the_query(monkeypatch):
     """The last-resort draw must ask the pool to include already-seen exercises."""
@@ -180,7 +180,7 @@ def test_an_earlier_draws_ids_are_excluded_from_the_start(monkeypatch):
     assert set(fronts) == {"b", "c"}
 
 
-# --- Aufwaermen: erst nach 20 Erzeugungen gibt der Vorrat aus -------------------
+# --- warm-up: the pool only serves after 20 generations -------------------------
 
 def test_a_pool_still_warming_up_hands_out_nothing(monkeypatch):
     """Otherwise the whole room gets the first person's set."""
@@ -209,7 +209,7 @@ def test_the_repeat_fallback_draws_while_the_pool_warms_up(monkeypatch):
     assert len(out) == 2
 
 
-# --- einlagern -----------------------------------------------------------------
+# --- storing -------------------------------------------------------------------
 
 def _ctx(**quellen):
     return types.SimpleNamespace(source_by_name=quellen)
@@ -281,7 +281,7 @@ def test_a_failing_store_does_not_reach_the_caller(monkeypatch):
 
     monkeypatch.setattr("src.database.pool_size", boom)
     items = [{"front": "a", "source_label": "A.pdf"}]
-    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)  # darf nicht werfen
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)  # must not raise
     assert "pool_item_id" not in items[0]
 
 

@@ -2,7 +2,7 @@ import type { UserPermissions } from "@/types";
 
 export const ALL_MODULES = ["aia", "tools"] as const;
 
-/** Order of the tools on the start page, nach Wichtigkeit für die Lehre. */
+/** Order of the tools on the start page, by importance for teaching. */
 export const TOOL_ROUTES = [
   { key: "campus", href: "/tools/info" },
   { key: "translation", href: "/tools/translate" },

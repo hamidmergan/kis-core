@@ -1,4 +1,4 @@
-"""Die Betriebszahlen der Zusammenfassung kommen aus dem Adminbereich, nicht aus dem Code."""
+"""The summary's operating numbers come from the admin panel, not the code."""
 
 import pytest
 
@@ -12,7 +12,7 @@ from src.limits import (
 
 @pytest.fixture
 def eingestellt(monkeypatch):
-    """Der Adminbereich als Wörterbuch, leer heißt nichts eingestellt."""
+    """The admin panel as a dict, empty means nothing set."""
     werte: dict[str, str] = {}
     monkeypatch.setattr("src.database.get_setting",
                         lambda key, default="": werte.get(key, default))
@@ -20,7 +20,7 @@ def eingestellt(monkeypatch):
 
 
 class TestRueckfall:
-    """Ohne brauchbaren Eintrag gilt der Wert aus limits.py, nie eine Null."""
+    """Without a usable entry the value from limits.py applies, never zero."""
 
     def test_ohne_eintrag_gilt_der_wert_aus_limits(self, eingestellt):
         assert cfg.facts_cap() == SUMMARY_READ_MAX_FACTS
@@ -40,7 +40,7 @@ class TestRueckfall:
 
 
 class TestSpanne:
-    """Ein Wert außerhalb der Spanne wird ans nächste Ende gezogen, nie durchgereicht."""
+    """A value outside the range is clamped to the nearest end, never passed through."""
 
     def test_zu_viele_fakten_werden_gekappt(self, eingestellt):
         eingestellt["summary_read_max_facts"] = "500"
@@ -51,13 +51,13 @@ class TestSpanne:
         assert cfg.facts_cap() == 10
 
     def test_der_timeout_bleibt_unter_der_mauer_des_anbieters(self, eingestellt):
-        # Der Anbieter wirft einen Aufruf bei etwa 300 s weg, unsere Grenze muss vorher greifen.
+        # The provider drops a call at about 300 s, our limit must fire first.
         eingestellt["summary_call_timeout_seconds"] = "900"
         assert cfg.call_timeout() <= 300
 
 
 class TestSofortWirksam:
-    """Der Wert wird bei jedem Aufruf gelesen, ein Arbeiter braucht keinen Neustart."""
+    """The value is read on every call, a worker needs no restart."""
 
     def test_eine_aenderung_wirkt_ohne_neustart(self, eingestellt):
         eingestellt["summary_read_max_facts"] = "20"

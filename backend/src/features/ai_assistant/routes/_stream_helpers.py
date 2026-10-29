@@ -8,13 +8,12 @@ from langfuse.decorators import langfuse_context
 
 
 async def _antwort_ohne_denken(llm, messages: list[dict]) -> str:
-    """Holt die Antwort ohne Strom und ohne Denken, jeden Schalter der Reihe nach."""
+    """Fetches the answer without streaming and without thinking, trying each switch in turn."""
     import asyncio as _a
 
     from src.services import model_limits as _ml
 
-    # Der schon aktive Schalter zuerst, danach die anderen. Nie zwei gleichzeitig,
-    # das lehnen strenge Anbieter ab.
+    # The already active switch first, then the others; never two at once, strict providers refuse that.
     _aktiv = getattr(getattr(llm, "_model_profile", None), "think_off", "") or ""
     _reihe = [_aktiv] if _aktiv else []
     _reihe += [n for n in _ml._SWITCH_ORDER if n != _aktiv]
@@ -22,9 +21,9 @@ async def _antwort_ohne_denken(llm, messages: list[dict]) -> str:
     _grund = {k: v for k, v in (llm._extra_body or {}).items()
               if k not in _ml.THINK_OFF_SWITCHES}
 
-    # Eigene Kopie, damit ein gelerntes Fenster hier auch wirkt.
+    # Own copy so a learned window takes effect here too.
     _msgs = list(messages)
-    # Kleiner als im Strom, ein enges Fenster platzt sonst schon an der Ausgabe.
+    # Smaller than in the stream, a tight window would burst on the output otherwise.
     _raum = min(_ml.CHAT_MAX_OUTPUT_TOKENS, 2048)
 
     def _hol(schalter: dict, nachrichten: list[dict]):
@@ -36,7 +35,7 @@ async def _antwort_ohne_denken(llm, messages: list[dict]) -> str:
             extra_body={**_grund, **schalter} or None,
         )
         nachricht = antwort.choices[0].message
-        # Manche Denk-Modelle legen alles ins Denkfeld, dann ist das die Antwort.
+        # Some thinking models put everything in the reasoning field, then that is the answer.
         return (nachricht.content
                 or getattr(nachricht, "reasoning_content", None)
                 or getattr(nachricht, "reasoning", None)
@@ -49,10 +48,10 @@ async def _antwort_ohne_denken(llm, messages: list[dict]) -> str:
         for _anlauf in (1, 2, 3, 4):
             try:
                 _text = (await _a.to_thread(_hol, _schalter, _msgs)).strip()
-            except Exception as e:  # noqa: BLE001 — abgelehnt heisst nur: naechster Anlauf
+            except Exception as e:  # noqa: BLE001 — refused only means: next attempt
                 _ml.learn_from_error(getattr(llm, "_provider_id", None), llm._model, e)
-                # Relativ schrumpfen statt auf die Formel. Die rechnet mit 3 Zeichen
-                # je Token, deutscher Text liegt naeher bei 2 und passt sonst nie.
+                # Shrink relatively instead of by the formula, which assumes 3 chars per token;
+                # German text is nearer 2 and would never fit.
                 _zu_lang = "context length" in str(e).lower() or "max_tokens" in str(e).lower()
                 _jetzt = sum(len(m.get("content") or "") for m in _msgs)
                 if _zu_lang and _anlauf < 4 and _jetzt > _ml.MIN_CONTEXT_CHARS:

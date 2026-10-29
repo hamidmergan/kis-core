@@ -178,8 +178,7 @@ export function MCExerciseView({
             <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
           </div>
           {/* Question Card */}
-          {/* Gescrollt wird aussen, zentriert innen: der Block waechst bei langer
-              Aufgabe mit, statt oben abgeschnitten zu werden. */}
+          {/* Scroll outside, centre inside: the block grows with a long task instead of being cut off at the top. */}
           <div className="flex-1 overflow-y-auto p-4 flex flex-col">
             <div className="flex-1 mx-auto w-full flex flex-col justify-center gap-3" style={{ maxWidth: 560 }}>
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
@@ -248,8 +247,7 @@ export function MCExerciseView({
                       <HelpTooltip text={t("common.aiKnowledgeHint")} />
                     </p>
                   )}
-                  {/* Der Tipp steht ueber den Quellen und unter den Optionen, also da,
-                      wo der Blick nach dem Lesen der Aufgabe schon ist. */}
+                  {/* The hint sits above the sources and below the options, where the eye already is after reading the task. */}
                   {showHint && card.extras?.tip && <HintCard text={card.extras.tip} />}
                   {/* Source chips + Hint */}
                   <div className="flex items-center justify-between mt-1 gap-2">
@@ -312,15 +310,13 @@ export function MCExerciseView({
                   )}
                 </div>
               </div>
-              {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine
-                  Aufgabe nicht loesen kann, blaettert weiter und kommt spaeter zurueck.
-                  Beantwortete sind dann gesperrt, unbeantwortete weiter offen. */}
+              {/* Back and next are always there, even unanswered: skip a task and return later; answered ones are locked, unanswered stay open. */}
               <ExerciseNav index={index} total={total}
                 onPrev={() => goTo(index - 1)} onNext={advance}
                 backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
             </div>
 
-            {/* Steht hinter dem wachsenden Block und landet dadurch immer unten. */}
+            {/* Follows the growing block and therefore always lands at the bottom. */}
             <div className="mx-auto w-full shrink-0 pt-5" style={{ maxWidth: 560 }}>
               <SetSourceLegend
                 sources={exerciseSet.sources}

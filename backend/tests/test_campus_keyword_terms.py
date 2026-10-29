@@ -1,4 +1,4 @@
-"""Die Stichwortsuche nimmt seltene Wörter der Frage, ohne Wortlisten."""
+"""Keyword search takes rare words of the question, without word lists."""
 from src.features.campus.repository.chunks import pick_rare, query_words
 
 

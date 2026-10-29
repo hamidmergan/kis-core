@@ -1,4 +1,4 @@
-"""Ein Upload wartet kurz auf einen freien Platz, statt sofort abgewiesen zu werden."""
+"""An upload waits briefly for a free slot instead of being rejected at once."""
 
 import pytest
 
@@ -7,7 +7,7 @@ from src.features.ai_assistant.routes.sources import _upload
 
 @pytest.mark.asyncio
 async def test_ein_frei_werdender_platz_wird_genommen(monkeypatch):
-    """Lasttest 26.09.: Absagen kamen, obwohl nach Sekunden wieder Platz war."""
+    """Load test 26.09.: rejections came although a slot was free again seconds later."""
     antworten = iter([None, None, "ticket"])
     monkeypatch.setattr(_upload, "_claim_upload_slot", lambda limit: next(antworten))
 

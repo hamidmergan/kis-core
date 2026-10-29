@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 /* ------------------------------------------------------------------ */
-/* Rahmen                                                              */
+/* Frame                                                               */
 /* ------------------------------------------------------------------ */
 
 export function Ladeanzeige() {
@@ -64,7 +64,7 @@ export function Kachel({
 }
 
 /* ------------------------------------------------------------------ */
-/* Gemessene Breite                                                    */
+/* Measured width                                                      */
 /* ------------------------------------------------------------------ */
 
 function useBreite() {
@@ -100,7 +100,7 @@ function schoenerHoechstwert(v: number) {
 const de = (n: number) => n.toLocaleString("de-DE");
 
 /* ------------------------------------------------------------------ */
-/* Saeulen                                                             */
+/* Columns                                                             */
 /* ------------------------------------------------------------------ */
 
 export function Saeulen({
@@ -110,7 +110,7 @@ export function Saeulen({
 }: {
   werte: { label: string; wert: number }[];
   hoehe?: number;
-  /** Balken werden klickbar, aufgerufen mit dem Index in werte. */
+  /** Makes bars clickable, called with the index into werte. */
   aufKlick?: (index: number) => void;
 }) {
   const t = useTranslations("admin.statistik");
@@ -187,7 +187,7 @@ export function Saeulen({
 }
 
 /* ------------------------------------------------------------------ */
-/* Liegende Balken                                                     */
+/* Horizontal bars                                                     */
 /* ------------------------------------------------------------------ */
 
 export interface BalkenZeile {

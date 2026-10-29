@@ -1,4 +1,4 @@
-"""Sitemap-Index und Urlset werden gelesen, Muster entscheiden über die Aufnahme."""
+"""Sitemap index and urlset are read, patterns decide on inclusion."""
 from src.features.campus.services import sitemap
 
 INDEX = b"""<?xml version="1.0" encoding="UTF-8"?>

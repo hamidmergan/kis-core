@@ -88,13 +88,13 @@ class LLMTranslationClient:
         self._client = OpenAI(api_key=api_key, base_url=base_url, http_client=http_client)
         self._model = model
         self._provider = provider
-        # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
+        # Sampling values from the admin, empty means the built-in value applies.
         self._sampling = dict(sampling or {})
         # The switch that turns the model's thinking off, filled from its measured profile.
         self._extra_body: dict = {}
 
     def sampling(self, standard: float) -> dict:
-        """Die Admin-Werte wenn gesetzt, sonst die eingebaute Temperatur."""
+        """The admin values if set, else the built-in temperature."""
         werte = getattr(self, "_sampling", None)
         return dict(werte) if werte else {"temperature": standard}
 

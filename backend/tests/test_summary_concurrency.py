@@ -1,4 +1,4 @@
-"""Prüft das gleichzeitige Schreiben: höchstens drei, nach Überlastung einzeln, nie doppelt."""
+"""Tests concurrent writing: at most three, one at a time after overload, never twice."""
 
 import asyncio
 
@@ -10,7 +10,7 @@ from src.features.summary import concurrency as cc
 
 
 class _Zaehler:
-    """Merkt sich, wie viele Aufgaben höchstens gleichzeitig liefen."""
+    """Records the peak number of tasks running at once."""
 
     def __init__(self):
         self.jetzt = 0
@@ -18,7 +18,7 @@ class _Zaehler:
         self.danach: list[int] = []
 
     def aufgabe(self, wert, fehler=()):
-        """Eine Aufgabe, die bei jedem Aufruf den nächsten Fehler aus der Liste wirft."""
+        """A task that raises the next error from the list on each call."""
         fehler = list(fehler)
 
         async def lauf():

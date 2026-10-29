@@ -1,7 +1,6 @@
-"""Der Verbindungspool gibt keine toten Verbindungen weiter.
+"""The connection pool hands out no dead connections.
 
-Lasttest 26.09.: Postgres wurde abgeschossen und startete neu. Stunden später scheiterte
-der Aufseher immer noch alle paar Takte an "server closed the connection unexpectedly".
+Load test 26.09.: after a Postgres restart the watchdog still failed every few ticks with "server closed the connection unexpectedly".
 """
 
 import psycopg2
@@ -68,7 +67,7 @@ def test_eine_tote_verbindung_aus_dem_pool_wird_ersetzt(pool):
 
 
 def test_nach_dem_abspalten_eines_arbeiters_beginnt_ein_eigener_pool(monkeypatch):
-    """Ein geerbter Pool teilt die Leitung mit dem Elternprozess, und ist sie tot, bleibt sie tot."""
+    """An inherited pool shares the line with the parent process, and a dead line stays dead."""
     monkeypatch.setattr(db_pool, "_pool", object())
     db_pool.reset_after_fork()
     assert db_pool._pool is None

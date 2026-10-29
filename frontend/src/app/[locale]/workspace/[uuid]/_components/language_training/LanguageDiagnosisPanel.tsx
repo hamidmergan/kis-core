@@ -257,12 +257,7 @@ export function LanguageDiagnosisPanel({
             </div>
           )}
 
-          {/* Eine Schreibprobe bekommt einen echten Kasten und einen eigenen
-              Absenden-Knopf, denn dort schreibt der Lernende ganze Sätze.
-              Cmd/Strg+Enter sendet auch. Eine Lücke bekommt stattdessen ein
-              einzeiliges Feld, in dem schon Enter absendet: da ist nur ein Wort
-              zu tippen, und auf eine Zusatztaste zu warten fühlt sich an, als
-              klemme es. */}
+          {/* A writing sample gets a real textarea and its own submit button (Cmd/Ctrl+Enter also sends), a gap gets a single-line field where Enter submits: one word only. */}
           {isFreeText && (
             <div className="px-4 pt-3 pb-4">
               <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">

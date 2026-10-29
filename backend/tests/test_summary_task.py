@@ -24,7 +24,7 @@ _GRUPPE = "## A\nText A\n\n## B\nText B\n\n## C\nText C"
 _ZUORDNUNG = json.dumps({"assignments": [{"fact_id": n, "section_index": n - 1}
                                          for n in (1, 2, 3)]})
 _QUELLEN = [{"filename": "a.txt", "input_path": "p1"}]
-# Die Sprache wird am Text gelesen, ein Test der sie prueft muss echten Text liefern.
+# The language is detected from the text, a test checking it must supply real text.
 _DEUTSCHER_TEXT = ("Die Lohnsteuer ist spaetestens am zehnten Tag nach Ablauf des "
                    "Anmeldungszeitraums abzufuehren. Wer eine gewerbliche Taetigkeit "
                    "aufnimmt, teilt dies der Gemeinde innerhalb eines Monats mit. ") * 3
@@ -45,11 +45,11 @@ def _modell(monkeypatch, antworten):
 
 
 class TestDateigrenzeAusDemAdminbereich:
-    """Wie viel Text ein Lese-Aufruf traegt, entscheidet die Einstellung, nicht der Code."""
+    """How much text a read call carries is decided by the setting, not the code."""
 
 
 class TestFensterUndSeiten:
-    """Was das Modell nicht am Stueck lesen kann, wird vor dem ersten Aufruf abgelehnt."""
+    """What the model cannot read in one piece is rejected before the first call."""
 
 
 
@@ -59,7 +59,7 @@ class TestFensterUndSeiten:
 
 
 class TestNamensgebung:
-    """Der Titel kommt aus dem Gliederungsaufruf, ein eigener Aufruf dafuer gibt es nicht."""
+    """The title comes from the outline call, there is no separate call for it."""
 
 
 
@@ -85,7 +85,7 @@ class TestTitelSaeuberung:
 
 
 class TestSpracheDerWortdatei:
-    """Der Hinweis auf dem Deckblatt folgt dem Dokument, nicht der Oberflaeche des Nutzers."""
+    """The cover note follows the document's language, not the user's UI."""
 
     def _gemerkte_sprache(self, monkeypatch) -> dict:
         gemerkt: dict = {}
@@ -101,7 +101,7 @@ class TestSpracheDerWortdatei:
 
 
 class TestMarkdownDatei:
-    """Die Markdown-Datei traegt Titel, Datum und KI-Hinweis wie die Word-Datei."""
+    """The Markdown file carries title, date and AI note like the Word file."""
 
     def test_titel_datum_und_hinweis_stehen_vor_dem_text(self):
         from src.tasks.summary_tasks import _markdown_file
@@ -120,7 +120,7 @@ class TestMarkdownDatei:
 
 
 def test_das_datum_folgt_deutscher_zeit_nicht_dem_container(monkeypatch):
-    """Kurz nach Mitternacht ist in UTC noch gestern, das Deckblatt soll heute zeigen."""
+    """Shortly after midnight it is still yesterday in UTC, the cover must show today."""
     from datetime import datetime, timezone
 
     from src.utils import local_date

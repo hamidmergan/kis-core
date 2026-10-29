@@ -1,9 +1,4 @@
-"""Ein gesprochener Beispielsatz ist ein Auftrag: die Wahl des Anbieters fällt einmal je Satz.
-
-Ist die eingestellte Stimme beim Start nicht da, spricht der Rückfall aus dem Adminbereich den ganzen Satz,
-und der Ton landet unter dem Schlüssel des Rückfalls, nie unter dem der ersten Wahl.
-Die Stimmenvorschau fragt dagegen genau den genannten Anbieter.
-"""
+"""A spoken example sentence is one job: the provider is chosen once per sentence. If the configured voice is down at start, the admin fallback speaks the whole sentence and the audio is stored under the fallback's key, never the first choice's; the voice preview asks exactly the named provider."""
 import pytest
 
 from src.features.ai_assistant.repository import speech_cache

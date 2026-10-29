@@ -133,7 +133,7 @@ def test_mindmaps_bekommen_trotzdem_immer_einen_platz():
 
 
 def test_tools_laufen_neben_hoechstens_drei_quellen():
-    """Lauf 10: 100 Tools teilten sich 4 Plätze mit Quellen, die letzten warteten über eine halbe Stunde."""
+    """Run 10: 100 tools shared 4 seats with sources, the last ones waited over half an hour."""
     from src.features.ai_assistant.scheduling.service import get_dispatch_service
 
     store = InMemoryJobStore()

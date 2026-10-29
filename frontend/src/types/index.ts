@@ -23,7 +23,7 @@ export interface AuthStatus {
   role?: SystemRole;
   custom_role_id?: number | null;
   permissions?: UserPermissions;
-  /** Welche Module diese Anlage hat, fehlt bei aelteren Servern. */
+  /** Which modules this installation has, missing on older servers. */
   modules?: string[];
   /** The one notice every account confirms once, before any service is reachable. */
   global_consent_accepted?: boolean;

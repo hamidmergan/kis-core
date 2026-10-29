@@ -280,11 +280,7 @@ def test_set_user_access_writes_both_columns(fake_db):
 
 
 def test_lock_expired_accounts_laeuft_gegen_die_echte_datenbank(monkeypatch):
-    """Die Spalte users.active ist eine Zahl, der Textvergleich oben hat das nie gemerkt.
-
-    Seit dem 26.09. im Protokoll: "argument of AND must be type boolean, not type integer",
-    stündlich, also wurde kein abgelaufenes Testkonto je gesperrt.
-    """
+    """users.active is an integer, so the hourly "argument of AND must be type boolean" error meant no expired test account was ever locked."""
     import os
     from contextlib import contextmanager
 

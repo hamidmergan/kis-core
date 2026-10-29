@@ -89,9 +89,7 @@ export function ClozeExerciseView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Kein toolKey: der Satztitel ist der Name des Uebungssatzes und steht
-          schlicht in Schriftfarbe, so wie bei Grammatik und Karteikarten. Die
-          Farbmarke traegt nur das Werkzeug im Pfad davor. */}
+      {/* No toolKey: the set title is plain text colour like grammar and flashcards, only the tool in the path before it carries the colour mark. */}
       <SubviewHeader
         title={exerciseSet.title}
         category="language_training"
@@ -102,9 +100,7 @@ export function ClozeExerciseView({
         {instruction && (
           <p className="text-xs" style={{ color: "var(--muted)" }}>{instruction}</p>
         )}
-        {/* Der Fliesstext ist modell-verfasst und wird als reine React-Textknoten
-            gerendert, nie ueber dangerouslySetInnerHTML: das Modell schreibt hier
-            frei formulierten Text und keine vertrauenswuerdige Auszeichnung. */}
+        {/* Model-written text is rendered as plain React text nodes, never via dangerouslySetInnerHTML: it is free text, not trusted markup. */}
         <p className="text-sm leading-8">
           {parts.map((p, i) => p.text !== undefined ? (
             <span key={i}>{p.text}</span>
@@ -123,8 +119,7 @@ export function ClozeExerciseView({
           <HelpTooltip text={t("common.aiKnowledgeHint")} />
         </p>
 
-        {/* Signatur aus dem Bestand: sources und ein onSourceClick, das NUR den
-            Dateinamen bekommt. Die Seite steht am Chip und nicht an der Legende. */}
+        {/* Existing signature: sources and an onSourceClick that gets ONLY the filename; the page sits on the chip, not the legend. */}
         <SetSourceLegend
           sources={exerciseSet.sources}
           items={exerciseSet.items}

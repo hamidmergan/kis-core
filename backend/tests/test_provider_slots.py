@@ -1,4 +1,4 @@
-"""Plätze beim Anbieter: nie mehr gleichzeitige Anfragen, als er verkraftet, der Rest wartet bei uns."""
+"""Provider slots: never more concurrent requests than it can take, the rest wait on our side."""
 
 import pytest
 
@@ -6,7 +6,7 @@ from src.services import provider_slots
 
 
 class _Redis:
-    """Ein sortiertes Set wie in Redis, mit einer einstellbaren Uhr."""
+    """A sorted set like in Redis, with an adjustable clock."""
 
     def __init__(self):
         self.sets: dict[str, dict[str, float]] = {}
@@ -46,7 +46,7 @@ def test_bis_zur_grenze_gibt_es_sofort_einen_platz(uhr):
 
 
 def test_ueber_der_grenze_wartet_die_anfrage_und_gibt_dann_als_voll_auf(uhr):
-    """Lasttest 26.09.: ab 12 gleichzeitigen Vertonungen scheiterte bei myLab jede einzelne."""
+    """Load test 26.09.: from 12 concurrent voicings every single one failed at myLab."""
     r = _Redis()
     for _ in range(4):
         provider_slots.claim("mylab", limit=4, wait_seconds=0, r=r)
@@ -54,7 +54,7 @@ def test_ueber_der_grenze_wartet_die_anfrage_und_gibt_dann_als_voll_auf(uhr):
     with pytest.raises(provider_slots.ProviderFull) as fehler:
         provider_slots.claim("mylab", limit=4, wait_seconds=30, r=r)
     assert uhr["t"] - start >= 30
-    # Die Meldung muss als "Anbieter voll" erkannt werden, sonst zählt sie als Fehlversuch.
+    # The message must be recognized as "provider full", else it counts as a failed attempt.
     from src.services.upstream_errors import is_upstream_busy
     assert is_upstream_busy(fehler.value)
 
@@ -67,7 +67,7 @@ def test_ein_freigegebener_platz_geht_an_den_naechsten(uhr):
 
 
 def test_ein_verwaister_platz_heilt_von_selbst(uhr):
-    """Stirbt ein Arbeiter mitten in der Anfrage, darf sein Platz nicht ewig belegt bleiben."""
+    """If a worker dies mid-request, its slot must not stay taken forever."""
     r = _Redis()
     for _ in range(2):
         provider_slots.claim("mylab", limit=2, wait_seconds=0, r=r)
@@ -98,7 +98,7 @@ def test_der_platz_wird_auch_bei_einem_fehler_zurueckgegeben(uhr):
 
 
 def test_eine_zeitgrenze_beim_warten_laesst_die_anfrage_nicht_ohne_platz_durch(uhr, monkeypatch):
-    """Die weiche Zeitgrenze von Celery ist auch eine Exception, sie darf nicht als Redis-Ausfall gelten."""
+    """Celery's soft time limit is an exception too, it must not count as a Redis outage."""
     from celery.exceptions import SoftTimeLimitExceeded
 
     r = _Redis()
@@ -113,11 +113,11 @@ def test_eine_zeitgrenze_beim_warten_laesst_die_anfrage_nicht_ohne_platz_durch(u
     assert r.zcard("kis:provider-slots:mylab") == 1
 
 
-# ─── Reihenfolge an der Tür ────────────────────────────────────────────────
+# ─── Order at the door ────────────────────────────────────────────────
 
 
 class _RangRedis(_Redis):
-    """Dazu die Warteschlange vor der Tür, sortiert wie in Redis."""
+    """Plus the waiting queue at the door, sorted like in Redis."""
 
     def zadd(self, key, mapping, nx=False, xx=False):
         s = self.sets.setdefault(key, {})
@@ -141,7 +141,7 @@ class _RangRedis(_Redis):
 
 
 def test_eine_niedrigere_stufe_kommt_zuerst_dran(uhr):
-    """Ein kurzer Übersetzungsschnipsel soll nicht hinter einer Zusammenfassung warten."""
+    """A short translation snippet should not wait behind a summary."""
     r = _RangRedis()
     provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
     uhr["t"] += 1
@@ -165,7 +165,7 @@ def test_in_derselben_stufe_gilt_wer_zuerst_kam(uhr):
 
 
 def test_wer_nicht_mehr_fragt_verlaesst_die_schlange(uhr):
-    """Ein Arbeiter, der beim Warten starb, darf die Schlange nicht für immer blockieren."""
+    """A worker that died while waiting must not block the queue forever."""
     r = _RangRedis()
     provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
     assert not provider_slots._try_sit_ranked(r, "mylab:llm", "tot", 1, 900, 0)
@@ -196,11 +196,11 @@ def test_die_asynchrone_tuer_haelt_dieselbe_reihenfolge(uhr, monkeypatch):
     assert r.zcard("kis:provider-wait:mylab:llm") == 0
 
 
-# ─── Frisch halten ────────────────────────────────────────────────────────
+# ─── Keeping fresh ────────────────────────────────────────────────────────
 
 
 def test_ein_gehaltener_platz_wird_erneuert_und_ein_freigegebener_nicht(uhr, monkeypatch):
-    """Nach einem Neustart blieben Plätze 15 Minuten belegt, jetzt nur so lange, bis keiner sie erneuert."""
+    """After a restart slots stayed taken for 15 minutes, now only until nobody renews them."""
     r = _RangRedis()
     monkeypatch.setattr(provider_slots, "_redis", lambda: r)
     monkeypatch.setattr(provider_slots, "_start_refresher", lambda: None)

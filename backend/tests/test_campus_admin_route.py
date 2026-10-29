@@ -1,4 +1,4 @@
-"""Die Verwaltungsseite: Einstellungen prüfen, Dokumente annehmen, Abgleich anstoßen."""
+"""The admin page: check settings, accept documents, trigger the sync."""
 import io
 
 import pytest

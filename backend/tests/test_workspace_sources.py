@@ -1,4 +1,4 @@
-"""Prüft den Weg aus einem Workspace in die drei Dienste: Zugang, Auswahl, Lesen."""
+"""Tests the path from a workspace into the three services: access, selection, reading."""
 
 import pytest
 from fastapi import HTTPException
@@ -8,7 +8,7 @@ from src.services.sources import MAX_TOTAL_CHARS
 from src.services.source_reading import NoReadableText, Source
 
 
-# ── Die Auswahl aus dem Formular ─────────────────────────────────────────────
+# ── The selection from the form ─────────────────────────────────────────────
 
 def test_ids_kommen_in_der_reihenfolge_der_person_an():
     assert ws.parse_uuids('["c", "a", "b"]') == ["c", "a", "b"]
@@ -23,10 +23,10 @@ def test_unbrauchbare_eingaben_ergeben_keine_auswahl(roh):
     assert ws.parse_uuids(roh) == []
 
 
-# ── Wer heran darf ───────────────────────────────────────────────────────────
+# ── Who may access ───────────────────────────────────────────────────────────
 
 class _Db:
-    """Die paar Datenbankfragen, die dieses Modul stellt."""
+    """The few database queries this module makes."""
 
     def __init__(self, workspace=None, enrolled=False, tutor=False, sources=()):
         self.workspace = workspace
@@ -88,7 +88,7 @@ def test_die_tutorin_kommt_auch_in_den_gesperrten_raum(monkeypatch):
     assert ws._workspace_or_raise("w1", 7, "de")["id"] == 1
 
 
-# ── Dokument oder Abschrift ──────────────────────────────────────────────────
+# ── Document or transcript ──────────────────────────────────────────────────
 
 def test_eine_bekannte_endung_wird_als_dokument_gelesen(monkeypatch):
     gerufen = {}
@@ -105,7 +105,7 @@ def test_alles_andere_braucht_eine_abschrift(monkeypatch, name):
     assert gerufen == {"name": name}
 
 
-# ── Der ganze Weg ────────────────────────────────────────────────────────────
+# ── The whole path ────────────────────────────────────────────────────────────
 
 def _quelle(uuid, name, status="ready"):
     return {"uuid": uuid, "filename": name, "status": status, "file_path": f"s/{uuid}.pdf"}

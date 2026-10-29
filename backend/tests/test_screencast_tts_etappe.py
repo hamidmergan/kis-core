@@ -1,4 +1,4 @@
-"""Ist die Etappe vorbei, werden nur noch begonnene Folien fertig gesprochen."""
+"""Once the stage is over, only slides already begun are spoken to the end."""
 
 import asyncio
 import threading
@@ -8,12 +8,12 @@ from src.tasks._stage import StageClock
 
 from tests.test_screencast_tts_reihenfolge import FakeTts, LANG
 
-# Lang genug fuer den langsamen Zweig der Attrappe, kurz genug fuer genau ein Stueck.
+# Long enough for the slow branch of the fake, short enough for exactly one chunk.
 MITTEL = ("Ein Satz ueber das Thema der Folie und seine Bedeutung. " * 3).strip()
 
 
 class _Uhr:
-    """Laeuft nach der angegebenen Zahl von Abfragen ab."""
+    """Expires after the given number of queries."""
 
     def __init__(self, nach: int):
         self.rest = nach
@@ -50,7 +50,7 @@ def test_eine_abgelaufene_uhr_beginnt_keine_neue_folie(tmp_path):
 
 
 def test_eine_begonnene_folie_wird_zu_ende_gesprochen(tmp_path):
-    """Die Uhr laeuft nach dem ersten Stueck ab, die restlichen Stuecke derselben Folie bleiben."""
+    """The clock expires after the first chunk, the remaining chunks of the same slide stay."""
     _gemeldet, tts = _lauf([LANG], tmp_path, clock=_Uhr(nach=1))
     datei = tmp_path / "slide_000.mp3"
     assert datei.exists()
@@ -64,16 +64,16 @@ def test_nicht_erreichte_folien_haben_keine_datei(tmp_path):
 
 
 def test_eine_verkehrt_fertige_folie_gibt_trotzdem_ein_lebenszeichen(tmp_path):
-    """Folie 1 wird vor Folie 0 fertig, freigegeben wird nichts, gemeldet werden muss es doch."""
+    """Slide 1 finishes before slide 0, nothing is released, yet it must report."""
     schlaege = []
     schlag = threading.Event()
 
     class _Wartend:
-        """Folie 0 gibt ihr Stueck erst frei, wenn sich Folie 1 gemeldet hat."""
+        """Slide 0 releases its chunk only once slide 1 has reported."""
 
         def synthesize_with_timestamps(self, text, language, *, voice_id, speed):
             if len(text) > 100:
-                # Ohne Lebenszeichen laeuft die Wartezeit ab und der Test faellt durch.
+                # Without a sign of life the wait expires and the test fails.
                 schlag.wait(timeout=5)
             return {"audio_bytes": b"mp3", "alignment": None}
 

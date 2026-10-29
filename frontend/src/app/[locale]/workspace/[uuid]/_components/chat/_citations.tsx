@@ -294,9 +294,7 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: str
           aria-label={`${pinned ? "−" : "+"}${chips.length}`} className={toggleCls} style={toggleStyle}
         ><ChipToggleMark open={open} /></span>{tail}
       </span>
-      {/* Die Chips gibt es nur, solange die Stelle offen ist. Zu ist der Satz reiner Text,
-          kein reservierter Platz und keine Luecke darin. Der Preis ist bekannt und so
-          gewollt: die Chips brauchen beim Aufklappen Platz und schieben den Text weiter. */}
+      {/* Chips exist only while the site is open; closed, the sentence is plain text without reserved space. Known price: opening pushes the text. */}
       {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} onPin={pin} />)}
     </span>
   );

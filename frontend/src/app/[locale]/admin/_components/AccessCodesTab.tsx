@@ -89,7 +89,7 @@ function datumZeit(wert: string): string {
   return new Date(wert).toLocaleString("de-DE");
 }
 
-/** 24 Stunden und mehr zeigen sich als ganze Tage, alles darunter bleibt in Stunden. */
+/** 24 hours and more show as whole days, less stays in hours. */
 function zugangsdauer(stunden: number | null, t: ReturnType<typeof useTranslations>): string {
   if (stunden == null) return t("accessUnlimited");
   return stunden % 24 === 0 ? t("accessDays", { n: stunden / 24 }) : t("accessHours", { n: stunden });

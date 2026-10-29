@@ -19,7 +19,7 @@ export default function ManualLightbox({
   const t = useTranslations("manual");
   const press = useRef(newBackdropPress());
   const closeRef = useRef<HTMLButtonElement>(null);
-  // Im Seitenbaum liegt der Dialog in einem fremden Stapel-Kontext und wird ueberlagert.
+  // In the page tree the dialog sits in a foreign stacking context and gets covered.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

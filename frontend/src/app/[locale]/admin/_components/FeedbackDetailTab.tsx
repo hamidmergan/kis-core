@@ -1,6 +1,6 @@
 "use client";
 
-/** Eine Rückmeldung, vollständig dargestellt. */
+/** One feedback entry, shown in full. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

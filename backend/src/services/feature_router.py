@@ -20,7 +20,7 @@ class FeatureBinding:
     feature: str
     provider: dict
     model: Optional[str]
-    # Temperatur und top_p aus dem Admin, leer heisst eingebauter Wert.
+    # Temperature and top_p from the admin, empty means built-in value.
     sampling: dict = field(default_factory=dict)
 
     @property
@@ -123,7 +123,7 @@ def _attach_model_profile(client, binding: FeatureBinding) -> None:
         return
     try:
         profil = model_limits.ensure_profile(binding.provider, binding.model)
-    except Exception as e:  # noqa: BLE001 — ohne Profil laeuft alles wie vorher
+    except Exception as e:  # noqa: BLE001 — without a profile everything runs as before
         from loguru import logger
         logger.debug("Modellprofil nicht verfuegbar: {}", e)
         return

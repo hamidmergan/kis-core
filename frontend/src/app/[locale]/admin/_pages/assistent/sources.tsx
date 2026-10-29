@@ -27,7 +27,7 @@ export default function SourcesPage() {
         if (abgebrochen || !data?.languages) return;
         setCodes(data.languages.map((l: { id: string; deepl: string }) => ({ id: l.id, deepl: l.deepl })));
       })
-      .catch(() => { /* die Karte bleibt dann ohne Auswahl */ });
+      .catch(() => { /* the card then stays without a selection */ });
     return () => { abgebrochen = true; };
   }, []);
 
@@ -53,12 +53,9 @@ export default function SourcesPage() {
         options={langOptions}
         label={tToolLang("title")}
       />
-      {/* Ganz unten, weil das als einziges hier ein Knopf ist und nicht eine
-          Einstellung. Man liest die Regeln von oben nach unten und handelt am
-          Ende, nicht mittendrin. */}
+      {/* At the very bottom because it is the only button here, not a setting: read the rules top down, act at the end. */}
       <ReindexCard />
-      {/* Direkt darunter, weil beides ein Vorgang ist und nicht eine
-          Einstellung: der eine baut neu auf, der andere raeumt weg. */}
+      {/* Directly below because both are actions, not settings: one rebuilds, the other clears. */}
       <PoolClearCard />
     </div>
   );

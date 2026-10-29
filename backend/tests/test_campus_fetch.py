@@ -1,4 +1,4 @@
-"""Bedingte Abrufe: 304 heißt unverändert, 404 heißt weg, nur öffentliche http(s)-Hosts."""
+"""Conditional fetches: 304 means unchanged, 404 means gone, public http(s) hosts only."""
 import httpx
 import pytest
 

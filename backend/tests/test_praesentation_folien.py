@@ -190,7 +190,7 @@ class TestSprechtext:
 
 
 class TestFaktenJeFolie:
-    """Ein Folienpaket sieht nur die Fakten seiner Zeilen, nicht mehr das ganze Material."""
+    """A slide batch sees only the facts of its rows, no longer the whole material."""
 
     FAKTEN = {"s2": '#1 (Zahl) Es sind 40 Grad. Beleg: "40 Grad"',
               "s3": '#7 (These) Alles fliesst. Beleg: "panta rhei"'}
@@ -206,7 +206,7 @@ class TestFaktenJeFolie:
 
 
 class TestFaktenWaehlen:
-    """Welche Fakten eine Zeile bekommt, und was eine Zeile ohne Nummern bekommt."""
+    """Which facts a row gets, and what a row without numbers gets."""
 
 
 
@@ -215,14 +215,14 @@ class TestFaktenWaehlen:
 
 
 
-# ── Material je Folie: Aussagen mit Beleg und die Passagen dazu ──────────────
+# ── Material per slide: cited statements and their passages ──────────────
 
 class TestMaterialJeFolie:
     def _karte(self):
         from src.services.source_reading import Piece, Source
         from src.services.text_map import Karte
 
-        # Weit genug auseinander, dass ein Nachbar das ferne Stueck nicht mitbringt.
+        # Far enough apart that a neighbour does not drag in the distant chunk.
         text = "AAAA BBBB CCCC DDDD EEEE"
         stuecke = [Piece(seite=1, von=i * 5, bis=i * 5 + 4) for i in range(5)]
         return Karte([Source(dateiname="a.pdf", fassung="x", text=text, seiten=1,
@@ -244,7 +244,7 @@ class TestMaterialJeFolie:
         assert "[a.pdf, S. 1]" in aus["s1"]
 
     def test_eine_folie_ohne_stellen_bekommt_den_plan_des_decks(self):
-        """Eine Agenda oder eine Schlussfolie nennt keine Stellen, das ist kein Fehler."""
+        """An agenda or closing slide names no spots, that is not an error."""
         zeilen = [OutlineRow(id="s1", title="Agenda"),
                   OutlineRow(id="s2", title="Zulassung", gist="Wer zulaesst", stellen=[2])]
         aus = folien.material_je_folie(zeilen[:1], self._karte(), zeilen)

@@ -1,4 +1,4 @@
-"""Die Etappen-Uhr misst die Arbeitszeit eines Laufs, nicht die des Auftrags."""
+"""The stage clock measures a run's working time, not the job's."""
 
 from src.tasks._stage import StageClock, continue_stage
 
@@ -40,8 +40,8 @@ def test_die_naechste_etappe_bekommt_dieselben_argumente(monkeypatch):
 
 
 def test_die_naechste_etappe_reiht_sich_hinter_neue_arbeit_ein(monkeypatch):
-    """Lauf 14: Podcast-Skripte reichten jede Etappe mit Vorrang weiter und hielten die drei langen Plätze
-    über eine Stunde, 20 Präsentationen und 17 Übersetzungen kamen nicht dran."""
+    """Run 14: podcast scripts passed each stage on with priority and held the three long slots
+    for over an hour, 20 presentations and 17 translations never got a turn."""
     from src.tasks import _stage
 
     monkeypatch.setattr(_stage, "db", type("D", (), {"set_job_celery_task_id": staticmethod(lambda job, tid: None)}))

@@ -1,4 +1,4 @@
-"""Seiten, Chunks, Orte und Chats des Campus-Assistenten gegen das echte Schema."""
+"""Pages, chunks, places and chats of the campus assistant against the real schema."""
 import os
 import uuid
 

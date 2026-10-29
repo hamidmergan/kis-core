@@ -1,4 +1,4 @@
-"""Format, Größe, Qualität und Stil des Bild-Werkzeugs, dazu die Aufgaben beim Bildverstehen (Umbau 29.09.2026)."""
+"""Format, size, quality and style of the image tool, plus the image understanding tasks (rework 29.09.2026)."""
 
 import pytest
 
@@ -30,7 +30,7 @@ def test_unbekannte_werte_gelten_nicht(format_, groesse):
 
 
 def test_wie_vorlage_haelt_das_seitenverhaeltnis():
-    """Ein Hochformat wurde früher auf 1024x1024 gezerrt."""
+    """Portrait format used to be stretched to 1024x1024."""
     b, h = map(int, o.wie_vorlage(900, 1600, "mittel").split("x"))
     assert b % 16 == 0 and h % 16 == 0
     assert abs(b / h - 900 / 1600) < 0.03
@@ -47,7 +47,7 @@ def test_wie_vorlage_waechst_mit_der_groesse():
 
 
 def test_kleiner_passt_in_1080_und_haelt_das_verhaeltnis():
-    """GWDG lehnt Höhen über 1080 ab."""
+    """GWDG rejects heights above 1080."""
     assert o.kleiner("1920x1088") == "1904x1072"
     b, h = map(int, o.kleiner("1088x1920").split("x"))
     assert max(b, h) <= 1080 and b % 16 == 0 and h % 16 == 0
@@ -92,7 +92,7 @@ def test_jede_aufgabe_hat_ihre_anweisung(aufgabe, merkmal):
 
 
 def test_jede_anweisung_traegt_die_grundregeln():
-    """Die allgemeine Bildanweisung fällt bei einer Aufgabe weg, ihre Regeln gegen Erfinden und Striche bleiben."""
+    """The general image instruction is dropped for a task, its rules against inventing and dashes stay."""
     text = o.analyse_anweisung("text", "de", "")
     assert "not visible" in text and "semicolons" in text
     assert "same language as the primary text" not in text
@@ -115,7 +115,7 @@ def test_eine_eigene_frage_ohne_frage_gilt_nicht():
 
 
 def test_ein_panorama_wird_auf_2048_begrenzt():
-    """Eine Vorlage 4000x400 ergäbe sonst über 3.000 px, das lehnen Anbieter ab."""
+    """A 4000x400 template would otherwise exceed 3000 px, which providers reject."""
     b, h = map(int, o.wie_vorlage(4000, 400, "mittel").split("x"))
     assert max(b, h) <= 2048 and b % 16 == 0 and h % 16 == 0
 
@@ -125,7 +125,7 @@ def test_eine_normale_vorlage_bleibt_wie_sie_ist():
 
 
 def test_ein_panorama_wird_auf_4_zu_1_aufgefuellt_und_merkt_sich_den_streifen():
-    """klein lehnt Vorlagen über 8:1 ab ("Aspect ratio too extreme"), 29.09.2026 mit 4000x400 gesehen."""
+    """klein rejects templates above 8:1 ("Aspect ratio too extreme"), seen 29.09.2026 with 4000x400."""
     b, h, zuschnitt = o.ausgleichen(4000, 400)
     assert (b, h) == (4000, 1000)
     assert zuschnitt == {"achse": "hoehe", "anteil": 0.4}

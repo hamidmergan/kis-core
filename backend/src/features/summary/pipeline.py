@@ -213,7 +213,7 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
     worte = je // 6 if je else None
     gruppen = writing.group_sections(plan.sections, _costs(plan.sections, je),
                                      SUMMARY_SECTION_GROUP_CHARS)
-    # Nur die offenen, ein bezahlter Abschnitt wird nie noch einmal geschrieben.
+    # Only the open ones, a paid section is never written again.
     offen = [[i for i in alle if i not in fertig] for alle in gruppen]
     schluss = offen.pop() if vorlage.closing_reads_document and offen else []
     offen = [gruppe for gruppe in offen if gruppe]

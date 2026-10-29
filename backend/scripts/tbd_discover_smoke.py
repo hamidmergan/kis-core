@@ -39,7 +39,7 @@ def main():
         # Only the open spot counts here, not the date hits of the same call.
         phrase = (found.get(i) or {}).get("tbd")
         if phrase is not None and _locate(text, phrase) is None:
-            phrase = None  # nicht im Text, wird verworfen
+            phrase = None  # not in the text, discarded
         ok = (phrase is not None) == soll
         fehler += 0 if ok else 1
         zeichen = "ok " if ok else "FEHLER"

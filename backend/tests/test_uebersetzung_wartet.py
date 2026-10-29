@@ -1,8 +1,4 @@
-"""Eine Übersetzung wartet bei vollem Anbieter und reiht sich neu ein, statt zu scheitern.
-
-Lauf 15, 27.09.: Mit der Obergrenze von 10 LLM-Plätzen bei myLab warteten Übersetzungen 120 s
-auf einen Platz und scheiterten dann endgültig, weil nur die Transkription neu einreihte.
-"""
+"""A translation waits when the provider is full and re-queues instead of failing. Run 15, 27.09.: with 10 LLM seats at myLab, translations waited 120 s for a seat and then failed for good, only transcription re-queued."""
 import contextlib
 
 import pytest

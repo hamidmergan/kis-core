@@ -1,4 +1,4 @@
-"""Die Angaben neben dem fertigen Podcast: wer mit welcher Rolle und Stimme spricht, bei welchem Anbieter."""
+"""The details next to the finished podcast: who speaks with which role and voice, at which provider."""
 
 import pytest
 

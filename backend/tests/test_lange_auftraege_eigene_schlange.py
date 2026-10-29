@@ -1,7 +1,6 @@
-"""Große Übersetzungen und lange Aufnahmen laufen in der Schlange für lange Dienste.
+"""Large translations and long recordings run in the queue for long services.
 
-Lauf 13 (27.09.): drei Übersetzungen von 95.000 Zeichen belegten je 20 Minuten drei der vier
-schnellen Plätze, Transkripte von 10 Sekunden warteten dahinter.
+Run 13 (27.09.): three translations of 95,000 characters held three of four fast seats for 20 minutes each, 10 s transcripts waited behind them.
 """
 import asyncio
 

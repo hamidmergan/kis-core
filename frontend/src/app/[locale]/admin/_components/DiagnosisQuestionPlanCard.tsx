@@ -306,19 +306,12 @@ export default function DiagnosisQuestionPlanCard() {
                   className={`${inputClass} w-full resize-y`}
                 />
 
-                {/* Freitext: die Lösung ist FREIWILLIG und genau das ist der
-                    Schalter. Steht eine da, prüft der Code Wort für Wort und der
-                    Test bleibt ohne KI. Bleibt sie leer, beurteilt die KI die
-                    Antwort am Ende, und nur solche Zeilen tragen die Stufe. Der
-                    Hinweis darunter sagt live, was gerade gilt, damit niemand
-                    raten muss, was das leere Feld bedeutet. */}
+                {/* Free text: the solution is OPTIONAL and that is the switch. Given, the code checks word by word without AI; empty, the AI judges the answer and only those rows carry the level. The hint below says live which applies. */}
                 {!isOptionType(r.type) && (
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs text-muted">{t("answersLabel")}</span>
                     <span className="text-2xs text-muted-soft">{t("answersHint")}</span>
-                    {/* Kein Platzhalter: ein Beispielwort im leeren Feld sah aus
-                        wie eine schon eingetragene Lösung, und leer heißt hier
-                        etwas ganz Bestimmtes, nämlich dass die KI beurteilt. */}
+                    {/* No placeholder: an example word looked like an entered solution, and empty here means the AI judges. */}
                     <textarea
                       value={r.answers}
                       rows={2}
@@ -438,12 +431,7 @@ export default function DiagnosisQuestionPlanCard() {
           </div>
         }
       >
-        {/* Der Knopf folgt der ausgelieferten Typen-Folge, nicht der aktuellen
-            Liste. Anzahl und Aufgabenarten aendern sich also, und das muss vorher
-            dastehen. Die Zahl kommt aus dem Standardplan, damit sie stimmt, falls
-            die Folge sich einmal aendert. Das Fenster oeffnet nur bei gefuellter
-            Liste, und die kommt aus derselben Antwort wie der Standardplan, also
-            steht hier nie eine Null. */}
+        {/* The button follows the delivered type sequence, not the current list, so count and task types change and must be stated up front. The count comes from the default plan; the dialog opens only with a filled list from the same response, so it is never zero. */}
         <p className="text-sm text-foreground">
           {t("generateWarningResult", { count: defaultPlan.length })}
         </p>

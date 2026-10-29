@@ -235,7 +235,7 @@ async def test_the_repair_turn_tells_the_model_what_broke(monkeypatch):
     monkeypatch.setattr(route.db, "get_setting", lambda key, default="": default)
 
     half = json.loads(_full_answer())
-    del half["questions"][5]["options"]  # Platz 6 ist eine Auswahl-Aufgabe
+    del half["questions"][5]["options"]  # slot 6 is a multiple-choice task
     answers = [json.dumps(half), _full_answer()]
 
     with patch(f"{ROUTE}._ask", new=AsyncMock(side_effect=answers)) as ask:

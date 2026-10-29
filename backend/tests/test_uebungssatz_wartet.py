@@ -1,8 +1,4 @@
-"""Ein Übungssatz wartet, wenn nur das Modell zu langsam oder überlastet war.
-
-Lasttest 26.09., Lauf 5: zwei Sätze liefen in drei Modell-Zeitüberschreitungen und dann in
-die Zeitgrenze der Aufgabe. Sie landeten auf failed, obwohl nur der Anbieter zu voll war.
-"""
+"""An exercise set waits when only the model was too slow or overloaded. Load test 26.09., run 5: two sets hit three model timeouts and then the task time limit and failed, although only the provider was full."""
 
 from datetime import datetime, timedelta
 

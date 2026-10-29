@@ -1,4 +1,4 @@
-"""Ein Workspace-Dokument darf höchstens so viele Zeichen haben, wie der Adminbereich erlaubt."""
+"""A workspace document may have at most as many characters as the admin area allows."""
 
 import pytest
 
@@ -9,7 +9,7 @@ from src.services import tool_numbers as tn
 
 @pytest.fixture
 def eingestellt(monkeypatch):
-    """Der Adminbereich als Wörterbuch, leer heißt nichts eingestellt."""
+    """The admin area as a dict, empty means nothing configured."""
     werte: dict[str, str] = {}
     monkeypatch.setattr("src.database.get_setting",
                         lambda key, default="": werte.get(key, default))

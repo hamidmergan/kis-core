@@ -216,14 +216,10 @@ export function GrammarExerciseView({
         <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
       </div>
 
-      {/* Gescrollt wird aussen, zentriert innen: der Block waechst bei langer
-          Aufgabe mit, statt oben abgeschnitten zu werden. */}
+      {/* Scroll outside, centre inside: the block grows with a long task instead of being cut off at the top. */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col">
         <div className="flex-1 mx-auto w-full flex flex-col justify-center gap-3" style={{ maxWidth: 560 }}>
-          {/* Welches Thema geübt wird. In der Liste steht es auf der Karte, beim Üben
-              fehlte es: die Anweisung nennt zwar die Form, aber erst ab der zweiten
-              Aufgabe weiss man, dass sie für das ganze Set gilt. Gleiche Machart wie
-              das Abzeichen in der Übersicht. */}
+          {/* The topic being practised, same badge as in the overview; the instruction alone does not show it applies to the whole set. */}
           {exerciseSet.grammar_topic_name && (
             <div className="flex items-center gap-2">
               <span className="text-3xs font-semibold px-1.5 py-0.5 rounded"
@@ -236,9 +232,7 @@ export function GrammarExerciseView({
           {/* The sentence to transform */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
             <div className="px-6 pt-5 pb-6 flex flex-col gap-3">
-              {/* Anweisung direkt über dem Satz, auf den sie sich bezieht. Sie wechselt
-                  mit der Aufgabe, denn ein gemischtes Set hat keine gemeinsame. Fett
-                  hebt sie ab, ohne den Satz zu überstimmen. */}
+              {/* Instruction directly above its sentence; it changes per task since a mixed set has no common one. Bold sets it apart without overpowering the sentence. */}
               {taskLine && (
                 <p className="text-sm font-bold leading-snug" style={{ color: "var(--foreground)" }}>{taskLine}</p>
               )}
@@ -287,9 +281,7 @@ export function GrammarExerciseView({
                 />
               )}
 
-              {/* Das Muster, eingeklappt und unter der Eingabe.
-                  Offen und über der Eingabe stand es dem Satz im Weg und lud zum
-                  Abschreiben ein. Wer nicht weiterweiss, klappt es auf. */}
+              {/* The pattern, collapsed and below the input: open and above it, it got in the way and invited copying. */}
               {pattern && (
                 <div>
                   <button type="button" onClick={() => setShowPattern((v) => !v)}
@@ -302,12 +294,9 @@ export function GrammarExerciseView({
                   </button>
                   {showPattern && (
                     <div className="mt-1.5 rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
-                      {/* Gleiche Groesse wie der Satz in der Aufgabe und wie die
-                          Erklaerung nach dem Pruefen: alles, was der Lernende LIEST,
-                          liest sich auf einer Stufe. Klein bleiben nur die Bedienteile. */}
+                      {/* Same size as the task sentence and the explanation after checking: everything the learner READS is one size, only controls stay small. */}
                       <p className="text-sm leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{pattern.front}</p>
-                      {/* Der Pfeil trägt die Richtung ohne Wort und braucht keine
-                          Übersetzung. Für einen Screenreader nur Zierde. */}
+                      {/* The arrow carries the direction without words and needs no translation; decoration only for screen readers. */}
                       <p className="text-sm leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
                         <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
                         <span>{pattern.back}</span>
@@ -371,15 +360,13 @@ export function GrammarExerciseView({
             </div>
           </div>
 
-          {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine Aufgabe
-              nicht loesen kann, blaettert weiter und kommt spaeter zurueck. Beantwortete
-              sind dann gesperrt, unbeantwortete weiter offen. */}
+          {/* Back and next are always there, even unanswered: skip a task and return later; answered ones are locked, unanswered stay open. */}
           <ExerciseNav index={index} total={total}
             onPrev={() => goTo(index - 1)} onNext={advance}
             backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
         </div>
 
-        {/* Steht hinter dem wachsenden Block und landet dadurch immer unten. */}
+        {/* Follows the growing block and therefore always lands at the bottom. */}
         <div className="mx-auto w-full shrink-0 pt-5" style={{ maxWidth: 560 }}>
           <SetSourceLegend
             sources={exerciseSet.sources}

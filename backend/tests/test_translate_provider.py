@@ -27,7 +27,7 @@ def test_get_translation_providers_merges_translation_and_chat(monkeypatch):
 
 
 def test_die_erste_wahl_aus_dem_admin_steht_vorn(monkeypatch):
-    """Lauf 18: Übersetzer und Screencast nahmen den ältesten Anbieter statt der ersten Wahl aus dem Admin."""
+    """Run 18: translator and screencast took the oldest provider instead of the admin's first choice."""
     from src.dependencies import get_translation_providers
     gwdg, mylab, hpc = _make_provider(20, "GWDG"), _make_provider(21, "myLab"), _make_provider(92, "HPC")
     monkeypatch.setattr("src.dependencies.db.list_providers_with_capability",

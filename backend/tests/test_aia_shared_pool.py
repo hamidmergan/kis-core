@@ -68,7 +68,7 @@ def test_cumulative_user_fairness_interleaves_flooder_and_newcomer():
 
 
 def test_ein_bereich_nimmt_nie_mehr_als_seine_obergrenze():
-    # Große Quellen belegen je bis 365 MB, mehr als drei gleichzeitig sprengen den Arbeiter.
+    # Large sources take up to 365 MB each, more than three at once blow up the worker.
     q = [_j(f"i{n}", n, "ingest", float(n)) for n in range(6)]
     picks = select_shared_pool(q, running=[(90, "ingest")], total_slots=6, weights=W, area_caps={"ingest": 3})
     assert picks == ["i0", "i1"]

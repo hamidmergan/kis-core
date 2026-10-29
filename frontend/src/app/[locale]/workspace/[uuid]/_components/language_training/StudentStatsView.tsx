@@ -213,7 +213,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold">{t("stats.activity")}</h3>
           <div className="flex items-center gap-1">
-            {/* Der Zeitraum gilt nur fuer den vollen Kalender, die Wochenzeile zeigt immer die letzten sieben Tage. */}
+            {/* The range applies only to the full calendar, the week row always shows the last seven days. */}
             {calendarOpen && ([["30", t("stats.period30")], ["180", t("stats.period180")]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
                 key={val}
@@ -254,7 +254,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               <span>{t("stats.activeDays", { count: periodActiveDays })}</span>
             </div>
 
-            {/* ── Kalender: letzte sieben Tage als eine Zeile, aufgeklappt das volle Raster ── */}
+            {/* ── Calendar: last seven days as one row, expanded the full grid ── */}
             <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
             {!calendarOpen ? (() => {
               const cellSize = heatmapContainerWidth === 0
@@ -391,8 +391,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                         {toolLabel(s.tool)}
                       </span>
                     </div>
-                    {/* Eine Zeile je Durchgang. Der Nenner ist die Kartenzahl des
-                        Satzes, wer abbricht hat deshalb 2 von 10 und nicht 2 von 2. */}
+                    {/* One row per run. The denominator is the set's card count, so quitting gives 2 of 10, not 2 of 2. */}
                     {sichtbareRuns.map((r, i) => (
                       // From the fifth round on a hairline separates the rows.
                       <div key={i} className="flex items-center justify-between text-3xs py-1"

@@ -1,6 +1,6 @@
 "use client";
 
-/** Die gewählte Rückmeldung sitzt in der URL, der Weg zurück führt in die Liste. */
+/** The selected feedback sits in the URL, back leads to the list. */
 
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";

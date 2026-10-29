@@ -19,8 +19,8 @@ class _FakeEndpoint(OpenAICompatEmbeddingProvider):
 
     def __init__(self, max_inputs: int) -> None:
         self.max_inputs = max_inputs
-        self.gesendet: list[int] = []   # Eingaben je Anfrage, in Reihenfolge
-        self.abgelehnt: list[int] = []  # davon die abgelehnten
+        self.gesendet: list[int] = []   # inputs per request, in order
+        self.abgelehnt: list[int] = []  # the rejected ones among them
         self._model = "fake-embed"
         self._key = ("http://fake/v1", "fake-embed")
 
@@ -96,7 +96,7 @@ def test_rate_limit_wird_wiederholt_und_nicht_halbiert(monkeypatch):
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
 
     assert len(vektoren) == 700
-    assert p.gesendet == [700, 700]  # gleiche Groesse noch einmal, kein Halbieren
+    assert p.gesendet == [700, 700]  # same size once more, no halving
 
 
 def test_gibt_nach_begrenzt_vielen_versuchen_auf():
@@ -133,19 +133,19 @@ def test_langsamer_endpunkt_wird_nach_dem_zweitversuch_doch_kleiner():
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
 
     assert len(vektoren) == 700
-    assert p.gesendet == [700, 700, 500, 250, 250, 200]  # gleich, gleich, dann kleiner
+    assert p.gesendet == [700, 700, 500, 250, 250, 200]  # same, same, then smaller
 
 
 def test_erfolg_eines_kleinen_stapels_senkt_die_gelernte_groesse_nicht():
     """Learning only happens on a full batch, otherwise a handful of rows poisons the upload."""
     klein = _FakeEndpoint(max_inputs=3)
     klein.embed([f"zeile {i}" for i in range(6)])
-    assert klein.gesendet == [6, 3, 3]  # 6 abgelehnt, dann zweimal 3
+    assert klein.gesendet == [6, 3, 3]  # 6 rejected, then 3 twice
 
     upload = _FakeEndpoint(max_inputs=AIA_EMBEDDING_BATCH_SIZE)
     upload.embed([f"chunk {i}" for i in range(700)])
 
-    assert upload.gesendet == [700]  # voller Stapel, nicht auf 3 gedrosselt
+    assert upload.gesendet == [700]  # full batch, not throttled to 3
 
 
 def test_kleiner_stapel_wird_nicht_unveraendert_wiederholt():
@@ -155,7 +155,7 @@ def test_kleiner_stapel_wird_nicht_unveraendert_wiederholt():
     with pytest.raises(RuntimeError):
         p.embed([f"zeile {i}" for i in range(6)])
 
-    assert p.gesendet == [6, 3, 1]  # jede Wiederholung ist echt kleiner
+    assert p.gesendet == [6, 3, 1]  # every retry is really smaller
 
 
 def test_zeitueberschreitung_wird_nicht_halbiert():
@@ -165,7 +165,7 @@ def test_zeitueberschreitung_wird_nicht_halbiert():
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
 
     assert len(vektoren) == 700
-    assert p.gesendet == [700, 700]  # gleiche Groesse noch einmal, kein Halbieren
+    assert p.gesendet == [700, 700]  # same size once more, no halving
 
 
 def test_tote_gegenstelle_bleibt_im_hintergrund_begrenzt():

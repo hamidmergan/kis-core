@@ -45,7 +45,7 @@ def test_a_stranger_cannot_even_read_the_list(workspace):
     assert err.value.status_code == 403
 
 
-# ─── Themen fremder Kurse ────────────────────────────────────────────────────
+# ─── Topics of other courses ────────────────────────────────────────────────────
 
 def test_a_topic_from_another_workspace_counts_as_missing(monkeypatch):
     monkeypatch.setattr(grammar_topics.db, "get_grammar_topic",
@@ -106,7 +106,7 @@ async def test_a_missing_suggested_name_is_an_empty_field_and_not_an_error(
     assert out["suggested_name"] == ""
 
 
-# ─── Mehrere Musterwege ──────────────────────────────────────────────────────
+# ─── Several pattern paths ──────────────────────────────────────────────────────
 
 def _create_body(name: str, pairs: list[dict]):
     return types.SimpleNamespace(
@@ -158,7 +158,7 @@ async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
     assert len(saved["pairs"]) == 3
 
 
-# ─── Bearbeiten ──────────────────────────────────────────────────────────────
+# ─── Editing ──────────────────────────────────────────────────────────────
 
 _PAAR = {"before": "Das Team prüft die Quelle.", "after": "Die Quelle wird geprüft."}
 
@@ -209,7 +209,7 @@ def test_editing_with_all_formats_means_free_choice(workspace, monkeypatch):
     assert saved["kinds"] is None
 
 
-# ─── Feste Formate ───────────────────────────────────────────────────────────
+# ─── Fixed formats ───────────────────────────────────────────────────────────
 
 def _kinds(creator, user, topic_kinds, chosen):
     from src.features.ai_assistant.routes.language_training import exercises

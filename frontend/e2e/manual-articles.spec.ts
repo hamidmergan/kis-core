@@ -77,7 +77,7 @@ test.describe("Auf dem Handy", () => {
     const toggle = page.locator("nav button[aria-expanded]");
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    // Die Artikelliste darf den Text nicht nach unten schieben.
+    // The article list must not push the text down.
     await expect(page.locator("nav a:visible")).toHaveCount(0);
 
     const heading = page.locator("article h1");
@@ -93,7 +93,7 @@ test.describe("Auf dem Handy", () => {
     await page.locator("nav button[aria-expanded]").click();
     await expect(page.locator("nav a").first()).toBeVisible();
 
-    // Eine gedeckelte Hoehe ohne Scrollen laesst die Liste ueber den Artikel laufen.
+    // A capped height without scrolling lets the list run over the article.
     const ueberlauf = await page.locator("nav").evaluate((n) => ({
       sichtbar: n.clientHeight,
       inhalt: n.scrollHeight,
@@ -110,7 +110,7 @@ test.describe("Auf dem Handy", () => {
     await expect(dialog).toBeVisible();
     const box = await dialog.boundingBox();
     expect(box).toEqual({ x: 0, y: 0, width: 390, height: 844 });
-    // Was oben liegt, faengt auch die Klicks ab.
+    // Whatever is on top also catches the clicks.
     const treffer = await page.evaluate(() => {
       const el = document.elementFromPoint(10, 800);
       return el?.getAttribute("role") ?? el?.closest("[role]")?.getAttribute("role") ?? "";
@@ -122,19 +122,19 @@ test.describe("Auf dem Handy", () => {
 test.describe("Druckansicht", () => {
   test("ergibt ein PDF mit allen Kapiteln", async ({ page }) => {
     await page.goto("/manual/print", { waitUntil: "domcontentloaded" });
-    // ProtectedRoute zeigt erst einen Spinner, vorher steht nichts im DOM.
+    // ProtectedRoute shows a spinner first, nothing is in the DOM before that.
     await expect(page.locator("section").first()).toBeVisible();
 
-    // Jeder Gruppentitel muss als Kapitel auftauchen.
+    // Every group title must appear as a chapter.
     const kapitel = await page.locator("section > h2").count();
     expect(kapitel).toBe(7);
-    // Und jeder Artikel als eigener Abschnitt.
+    // And every article as its own section.
     const artikel = await page.locator("section article").count();
     expect(artikel).toBe(36);
 
     await page.waitForLoadState("networkidle");
     const pdf = await page.pdf({ format: "A4", printBackground: true });
-    // Ein leeres oder abgebrochenes PDF waere winzig.
+    // An empty or aborted PDF would be tiny.
     expect(pdf.byteLength).toBeGreaterThan(500_000);
     const seiten = (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     expect(seiten).toBeGreaterThan(30);

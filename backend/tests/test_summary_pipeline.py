@@ -1,4 +1,4 @@
-"""Prüft den Ablauf der Zusammenfassung: Sprache, Grundlage, Plan, Abschnitte, Zusammenbau."""
+"""Checks the summary flow: language, basis, plan, sections, assembly."""
 
 import asyncio
 import json
@@ -19,7 +19,7 @@ def _quelle(text: str = "Ein Satz. " * 50, name: str = "a.pdf") -> Source:
 
 
 def _gruppe(*titel: str) -> str:
-    """Eine Antwort fuer eine ganze Gruppe, mit Ueberschriften zum Auftrennen."""
+    """One answer for a whole group, with headings to split on."""
     return "\n\n".join(f"## {t}\nText {t}" for t in titel)
 
 
@@ -76,7 +76,7 @@ def _lauf(antworten, quellen=None, store=None, vorlage="zeitstrahl"):
     return ergebnis, store
 
 
-# ── Sprache ──────────────────────────────────────────────────────────────────
+# ── Language ─────────────────────────────────────────────────────────────────
 
 def test_die_sprache_wird_ohne_modellaufruf_erkannt_und_gemerkt():
     client = FakeClient([_plan("A", "B", "C"), _gruppe("A", "B", "C")])
@@ -108,7 +108,7 @@ def test_zu_wenig_text_faellt_zurueck():
     assert pl.detect_language([_quelle("Kurz.")]) == LANGUAGE_FALLBACK
 
 
-# ── Grundlage und Plan ──────────────────────────────────────────────────────────
+# ── Basis and plan ──────────────────────────────────────────────────────────────
 
 def test_ein_lauf_liefert_den_zusammengesetzten_text():
     ergebnis, _ = _lauf([_plan("A", "B", "C"), _gruppe("A", "B", "C")])
@@ -128,7 +128,7 @@ def test_ohne_text_scheitert_der_lauf():
 
 
 def test_ein_zu_langer_text_wird_ueber_themen_geplant():
-    """Passt der Text nicht in ein Fenster, liest jeder Teil nur seine Themen heraus."""
+    """If the text does not fit one window, every part extracts only its topics."""
     stuecke = [Piece(seite=1 + i // 5, von=i * 1000, bis=(i + 1) * 1000) for i in range(300)]
     gross = Source(dateiname="g.pdf", fassung="x", text="Ein Wort " * 33_334, seiten=60,
                    stuecke=stuecke)
@@ -158,7 +158,7 @@ def test_fertige_abschnitte_werden_nicht_neu_geschrieben():
     assert store.abschnitte[0] == "Schon da"
 
 
-# ── Was der Schreiber sieht ──────────────────────────────────────────────────
+# ── What the writer sees ─────────────────────────────────────────────────────
 
 def test_ein_abschnitt_bekommt_die_passage_aus_dem_original():
     text = "Die Frist betraegt dreissig Tage ab Zugang des Bescheids. " * 20
@@ -177,7 +177,7 @@ def test_der_plan_liest_den_nummerierten_text():
     assert "[SZ1] Ein Satz." in caller.client.user_prompts()[0]
 
 
-# ── Sprachprobe ──────────────────────────────────────────────────────────────
+# ── Language probe ───────────────────────────────────────────────────────────
 
 def test_die_sprachprobe_kommt_aus_der_mitte():
     text = "A" * 5000 + "MITTE" + "B" * 5000
@@ -188,7 +188,7 @@ def test_ein_kurzer_text_ist_seine_eigene_probe():
     assert language_sample("Kurzer Satz.") == "Kurzer Satz."
 
 
-# ── Fortschritt ──────────────────────────────────────────────────────────────
+# ── Progress ─────────────────────────────────────────────────────────────────
 
 # Mirrors tools.summarize.step in frontend/messages, a step outside it breaks the page.
 SCHRITTE_IM_FRONTEND = {"extract", "map", "outline", "section", "compose"}
@@ -201,10 +201,10 @@ def test_jeder_gemeldete_schritt_ist_dem_frontend_bekannt():
     assert gemeldet <= SCHRITTE_IM_FRONTEND
 
 
-# ── Gleichzeitig schreiben ───────────────────────────────────────────────────
+# ── Writing concurrently ─────────────────────────────────────────────────────
 
 class _NachUeberschrift:
-    """Beantwortet jeden Abschnitt nach seiner Überschrift und zählt, wie viele gleichzeitig laufen."""
+    """Answers every section by its heading and counts how many run at once."""
 
     def __init__(self, plan: str):
         self.plan = plan
@@ -261,7 +261,7 @@ def test_im_lernleitfaden_kommt_der_schluss_zuletzt_und_liest_den_text(monkeypat
     assert "Text A" in user and "Text B" in user and "Text C" in user
 
 
-# ── Jede Datei kommt vor ─────────────────────────────────────────────────────
+# ── Every file appears ───────────────────────────────────────────────────────
 
 def _plan_mit_refs(*paare) -> str:
     return json.dumps({"title": "T", "intro": "I.", "sections": [
@@ -290,7 +290,7 @@ def test_ein_ausgewogener_plan_wird_nicht_neu_verlangt():
     assert sum(1 for o in caller.client.optionen if o.get("name", "").startswith("outline")) == 1
 
 
-# ── Die Vorlage bestimmt die Form ────────────────────────────────────────────
+# ── The template sets the form ───────────────────────────────────────────────
 
 def test_das_kurzbriefing_bleibt_bei_wenigen_abschnitten_auch_bei_viel_stoff():
     from src.features.summary import writing
@@ -317,7 +317,7 @@ def test_die_kurznamen_aus_dem_plan_erreichen_jeden_schreiber(monkeypatch):
     assert all("a.pdf = AGes" in user for _, user in client.abschnitte)
 
 
-# ── Vorrang der vom Plan genannten Stellen ──────────────────────────────────────
+# ── Spots named by the plan take precedence ─────────────────────────────────────
 
 def _markiert(stuecke: int) -> Source:
     text = "".join(f"<{i + 1:03d}>".ljust(10, ".") for i in range(stuecke))
@@ -351,7 +351,7 @@ def test_eine_von_zwei_abschnitten_genannte_stelle_bleibt_beim_ersten():
 
 
 class TestAnweisung:
-    """Die eigene Anweisung reist in Planung und Schreiben mit, als letzter Absatz."""
+    """The custom instruction travels along in planning and writing, as the last paragraph."""
 
     def test_die_planung_liest_die_anweisung_zuletzt(self):
         from src.features.summary.writing import _outline_user
@@ -403,7 +403,7 @@ def _grosse_quelle() -> Source:
 
 
 def test_fertige_themenstuecke_ueberleben_die_etappe():
-    """Ein langsames Modell braucht mehrere Etappen, schon beantwortete Stuecke kosten nichts mehr."""
+    """A slow model needs several stages, pieces already answered cost nothing more."""
     themen = json.dumps({"topics": [{"title": "Thema", "gist": "g", "refs": ["1-3"]}]})
     store = _Store()
     store.grundlage = {"teile_fertig": {"0": themen, "1": themen}}

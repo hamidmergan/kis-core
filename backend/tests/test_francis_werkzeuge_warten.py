@@ -1,7 +1,7 @@
-"""Mindmap, Datentabelle und Zeitplan warten auf eine überlastete KI, statt abzubrechen.
+"""Mindmap, data table and schedule wait for an overloaded AI instead of aborting.
 
-Lasttest mit großen Dateien am 26.09.: Eine Mindmap mit nur 2.581 Zeichen Material brach nach
-4 Minuten ab, weil die KI mit den großen Dokumenten der anderen Dienste beschäftigt war.
+Load test 26.09.: a mindmap with only 2581 characters aborted after 4 minutes because the AI
+was busy with the large documents of other services.
 """
 
 import time
@@ -91,7 +91,7 @@ def _versteckte_zeitgrenze():
 
 
 def test_eine_versteckte_zeitgrenze_zaehlt_als_zeitgrenze_nicht_als_wartende_ki(werkzeug):
-    """Am 07.10. lief eine Mindmap so in 12 Stunden Wiederholung statt nach 3 Laeufen zu enden."""
+    """On 07.10. a mindmap retried for 12 hours this way instead of ending after 3 runs."""
     task, args, stand = werkzeug
     stand["fehler"] = _versteckte_zeitgrenze()
 
@@ -136,7 +136,7 @@ class _NeuerLauf:
 
 
 def test_der_platz_kennt_nach_dem_warten_die_neue_auftragsnummer(monkeypatch):
-    """Lauf 14: 20 Mindmaps liefen doppelt, der Aufseher fand die alte Nummer nicht mehr und startete sie neu."""
+    """Run 14: 20 mindmaps ran twice, the supervisor lost the old id and restarted them."""
     from src.features.ai_assistant.repository import jobs as repo
     from src.features.ai_assistant.tasks import _warten
 

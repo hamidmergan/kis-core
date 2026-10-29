@@ -336,8 +336,8 @@ def test_multi_chip_other_source_needs_equal_distance_too():
         _DEADLINE, _searcher({"finale Abgabe": hits}), {1: 1, 3: 2},
         context_chunks=_COURSE + [dict(h) for h in hits],
         seen_pages_by_source={1: {41}, 3: {4}}, max_distance=0.6)
-    assert "[1, 08:58]" in out    # die Aufzeichnung, am naechsten
-    assert "[2, S. 4]" not in out  # die Folie ist merklich weiter weg
+    assert "[1, 08:58]" in out    # the recording, closest
+    assert "[2, S. 4]" not in out  # the slide is clearly farther away
     assert out.count("[") == 1
 
 
@@ -782,8 +782,8 @@ def test_clause_coverage_keeps_the_page_that_states_the_lines_figures():
                          "10-minütigen Fragerunde": [slide]}), {1: 1, 3: 2},
         context_chunks=_SEMINAR + [dict(talk), dict(slide)],
         seen_pages_by_source={1: {22}, 3: {7}}, max_distance=0.6)
-    assert "[1, 09:28]" in out   # die Aufzeichnung, sie sagt die Termine
-    assert "[2, S. 7]" in out    # die Folie, sie sagt die 20 und die 10
+    assert "[1, 09:28]" in out   # the recording, it states the dates
+    assert "[2, S. 7]" in out    # the slide, it states the 20 and the 10
 
 
 def test_clause_coverage_states_the_figures_in_a_bullet_too():
@@ -819,8 +819,8 @@ def test_clause_coverage_picks_the_figure_passage_over_a_nearer_stranger():
                          "10-minütige Fragerunde": [fremd, folie]}), {1: 1, 3: 2, 4: 3},
         context_chunks=_SEMINAR + [dict(talk), dict(fremd), dict(folie)],
         seen_pages_by_source={1: {45}, 3: {3}, 4: {2}}, max_distance=0.6)
-    assert "[2, S. 3]" in out      # die Folie, sie nennt die 20 und die 10
-    assert "[3, 00:43]" not in out  # das Gerede ueber Fragen im Vorlesungsablauf nicht
+    assert "[2, S. 3]" in out      # the slide, it names the 20 and the 10
+    assert "[3, 00:43]" not in out  # not the chatter about questions during the lecture
 
 
 def test_coverage_chips_never_exceed_the_cap():
@@ -836,8 +836,8 @@ def test_coverage_chips_never_exceed_the_cap():
                          "10-minütige Fragerunde": [fremd]}), {1: 1, 2: 2, 3: 3, 4: 4},
         context_chunks=_SEMINAR + [dict(h) for h in nah + [fremd]],
         seen_pages_by_source={1: {45}, 2: {7}, 3: {3}, 4: {2}}, max_distance=0.6)
-    assert out.count("[") == 3        # nie mehr als die Obergrenze
-    assert "[4, 00:43]" not in out    # der vierte faellt weg, und zwar der schwaechste
+    assert out.count("[") == 3        # never more than the cap
+    assert "[4, 00:43]" not in out    # the fourth is dropped, the weakest one
 
 
 # A prose paragraph gets a chip after every sentence.
@@ -1154,7 +1154,7 @@ def test_lead_in_reicht_bis_zur_ersten_abschnitts_ueberschrift():
 
 
 def test_eine_titelzeile_oben_zaehlt_nicht_als_abschnitt():
-    """Steht die Überschrift ganz oben, ist sie der Titel der Antwort, nicht ein Abschnitt."""
+    """A heading at the very top is the answer's title, not a section."""
     zeilen = ["**Überblick über die Materialien**", "Die Materialien umfassen vieles.",
               "**Gesellschaftsrecht (GmbHG)**", "Das Gesetz regelt."]
     assert _lead_in_lines(zeilen) == {0, 1}

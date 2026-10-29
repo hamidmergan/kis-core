@@ -1,4 +1,4 @@
-"""Transkript-Wege: ausliefern, melden, Sprachen auflisten."""
+"""Transcript routes: serve, report, list languages."""
 
 import pytest
 from fastapi import HTTPException
@@ -13,7 +13,7 @@ WORKSPACE = {"id": 7, "uuid": "w1", "user_id": 42, "transcript_target_lang": "xx
 
 @pytest.fixture
 def quelle(lokal, monkeypatch):
-    """Eine Medienquelle samt Zugriffspruefung. Liefert (ordner, vtt_anlegen, source)."""
+    """A media source with access check. Returns (ordner, vtt_anlegen, source)."""
     ordner = lokal / "users/42/aia/workspaces/w1/sources"
     ordner.mkdir(parents=True)
     (ordner / "abc.mp4").write_bytes(b"video")
@@ -55,7 +55,7 @@ async def _langs():
     )
 
 
-# ─── Untertitel ausliefern ─────────────────────────────────────────────────
+# ─── Serving subtitles ─────────────────────────────────────────────────
 
 async def test_vorhandene_untertitel_kommen_zurueck(quelle):
     _, vtt_anlegen, _ = quelle
@@ -98,7 +98,7 @@ async def test_ein_unsinniger_sprachcode_wird_abgewiesen(quelle):
     assert fehler.value.status_code == 400
 
 
-# ─── Vorhandensein melden ──────────────────────────────────────────────────
+# ─── Reporting presence ──────────────────────────────────────────────────
 
 async def test_vorhandensein_meldet_wahr_und_falsch(quelle):
     _, vtt_anlegen, _ = quelle
@@ -108,7 +108,7 @@ async def test_vorhandensein_meldet_wahr_und_falsch(quelle):
     assert await _exists("fr") == {"exists": False}
 
 
-# ─── Sprachen auflisten ────────────────────────────────────────────────────
+# ─── Listing languages ────────────────────────────────────────────────────
 
 async def test_nur_wirklich_vorhandene_sprachen_werden_gemeldet(quelle):
     _, vtt_anlegen, _ = quelle
@@ -150,11 +150,11 @@ async def test_das_transkript_der_nachbarquelle_zaehlt_nicht_mit(quelle):
     assert antwort["available"] == ["de"]
 
 
-# ─── Uebersetzung starten ──────────────────────────────────────────────────
+# ─── Starting a translation ──────────────────────────────────────────────────
 
 @pytest.fixture
 def auftraege(quelle, monkeypatch):
-    """Faengt den Celery-Auftrag ab und liefert die Liste der Aufrufe."""
+    """Intercepts the Celery task and returns the list of calls."""
     from src.services import feature_router
     from src.tasks import aia_tasks
 
@@ -183,7 +183,7 @@ async def _translate(target_lang: str):
 
 
 async def test_die_gewaehlte_sprache_landet_im_auftrag(quelle, auftraege):
-    """Die Sprache kommt aus dem Rumpf, nicht mehr aus dem Modul."""
+    """The language comes from the body, no longer from the module."""
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
 
@@ -194,7 +194,7 @@ async def test_die_gewaehlte_sprache_landet_im_auftrag(quelle, auftraege):
 
 
 async def test_die_originalsprache_wird_abgewiesen(quelle, auftraege):
-    """In die eigene Sprache zu uebersetzen ergibt keinen Sinn."""
+    """Translating into the source's own language makes no sense."""
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
 
@@ -216,10 +216,10 @@ async def test_eine_unbekannte_sprache_wird_abgewiesen(quelle, auftraege):
     assert auftraege == []
 
 
-# ─── Zielsprache steht an der Quelle ───────────────────────────────────────
+# ─── Target language is stored on the source ───────────────────────────────────────
 
 async def test_die_zielsprache_kommt_aus_den_dateien(quelle):
-    """Die vorhandene Uebersetzung zaehlt, das Modul-Feld sagt 'xx' und wird ignoriert."""
+    """The existing translation counts, the module field says 'xx' and is ignored."""
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
     vtt_anlegen("en")

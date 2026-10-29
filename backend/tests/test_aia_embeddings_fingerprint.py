@@ -35,7 +35,7 @@ def test_fingerprint_differs_for_different_dimension():
 
 
 def test_ollama_schreibweise_gilt_als_gleiches_modell():
-    # Lokal 08.10.: Ollama heißt qwen3-embedding:4b, GWDG qwen3-embedding-4b, gleicher Index.
+    # Local 08.10.: Ollama names it qwen3-embedding:4b, GWDG qwen3-embedding-4b, same index.
     from src.services.aia_embeddings import same_embedding_space
     gwdg = compute_fingerprint(_JitteryProvider("qwen3-embedding-4b", dim=2560))
     ollama = compute_fingerprint(_JitteryProvider("qwen3-embedding:4b", dim=2560))

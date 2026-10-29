@@ -550,7 +550,7 @@ function ScreencastPageInner() {
           </section>
         )}
 
-        {/* Fortsetzen ist fehlgeschlagen: sagen statt schweigend beim Upload landen */}
+        {/* Resume failed: say so instead of silently landing on the upload */}
         {!resumeBusy && resumeFailed && step === "upload" && (
           <p className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
             {t("error.resumeFailed")}
@@ -732,7 +732,7 @@ function ScreencastPageInner() {
           />
         )}
 
-        {/* ── Step: TTS Settings, wartet auf den gespeicherten Stand ── */}
+        {/* ── Step: TTS settings, waits for the saved state ── */}
         {!resumeBusy && step === "tts-settings" && !schritt6Bereit && (
           <section className="animate-[fadeIn_0.2s_ease-out] text-center py-20" role="status" aria-live="polite">
             <Spinner size="lg" className="justify-center mb-4" />

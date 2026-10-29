@@ -164,7 +164,7 @@ def _result_name(names: list[str], title: str = "") -> str:
 
 
 def _fenster(provider_id: int | None) -> int:
-    """Das gemessene Fenster des Modells dieses Laufs, 0 wenn es keines gibt."""
+    """The measured window of this run's model, 0 if there is none."""
     from src.services.model_limits import ensure_profile
 
     try:
@@ -176,7 +176,7 @@ def _fenster(provider_id: int | None) -> int:
             binding = feature_router.resolve("chat")
         profil = ensure_profile(binding.provider, binding.model or "")
         return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - ohne Messung laeuft der Auftrag einfach los
+    except Exception as e:  # noqa: BLE001 - without a measurement the job simply starts
         logger.warning("Zusammenfassung: Modell nicht vermessbar ({})", e)
         return 0
 

@@ -4,7 +4,7 @@
 @import "tailwindcss";
 @import "driver.js/dist/driver.css" layer(vendor);
 
-/* Tailwind v4 dark variant: aktiviert via <html data-theme="dark"> */
+/* Tailwind v4 dark variant: activated via <html data-theme="dark"> */
 @custom-variant dark (&:where(:root[data-theme="dark"] *, :root[data-theme="dark"]));
 
 @theme {
@@ -176,13 +176,11 @@
   --scrollbar-color: #d8d8d8;
   --tooltip-bg:      #1a1a1a;
   --tooltip-fg:      #ffffff;
-  --header-bg:       #004261;   /* Brand-Header bleibt Blau in beiden Modi */
+  --header-bg:       #004261;   /* Brand header stays blue in both modes */
   --header-fg:       #ffffff;
-  --on-accent:       #ffffff;   /* Text/Icon auf --kb-Hintergrund */
+  --on-accent:       #ffffff;   /* Text/icon on --kb background */
 
-  /* Generisches Badge-Palette-System (Light)
-     Konsumiert in workspace/_constants.ts und SubviewHeader.tsx.
-     Hellpastell-BG + saturierte dunkle Schrift. */
+  /* Generic badge palette (light), used in workspace/_constants.ts and SubviewHeader.tsx: pastel background, saturated dark text. */
   --badge-amber-bg:   rgba(245,235,220,0.7);  --badge-amber-fg:   #78350F;
   --badge-emerald-bg: rgba(220,252,231,0.7);  --badge-emerald-fg: #166534;
   --badge-yellow-bg:  rgba(254,249,195,0.7);  --badge-yellow-fg:  #A16207;
@@ -207,10 +205,10 @@
    Activated via <html data-theme="dark"> (set by useTheme plus the FOUC
    inline script in layout.tsx). Overrides all :root values. */
 :root[data-theme="dark"] {
-  /* Native UI (date-picker icon, scrollbars etc.) im Dark Mode rendern */
+  /* Render native UI (date-picker icon, scrollbars etc.) in dark mode */
   color-scheme: dark;
 
-  /* Brand — identisch zu Light (THL-Original), keine Aufhellung */
+  /* Brand — identical to light (THL original), not lightened */
   --kb:           #004261;
   --kb-rgb:       0, 66, 97;
   --kb-dark:      #7BBDE5;
@@ -221,13 +219,13 @@
   /* The brand blue disappears on the dark background, the light blue stays visible. */
   --warte-kugel:  var(--kb-dark);
 
-  /* Neutrals — Deep Slate (fast schwarz, minimaler Blau-Tint) */
+  /* Neutrals — Deep Slate (near black, minimal blue tint) */
   --background:      #0A0B0D;
   --surface:         #141519;
   --surface-dim:     #1C1D22;
   --border-soft:     #23252B;
   --border:          #2A2C32;
-  /* aufgehellt: 3,7:1 bzw. 5,1:1 auf --surface-dim waren zu wenig */
+  /* lightened: 3.7:1 and 5.1:1 on --surface-dim were too little */
   --muted-soft:      #85888F;
   --muted:           #9A9DA6;
   --foreground-soft: #ffffff;
@@ -271,10 +269,10 @@
   --scrollbar-color: #3A3C42;
   --tooltip-bg:      #F5F5F7;
   --tooltip-fg:      #0A0B0D;
-  --header-bg:       #141519;   /* Dark Mode: Header = --surface (leicht abgesetzt vom Content-BG) */
-  /* --header-fg / --on-accent bleiben weiss */
+  --header-bg:       #141519;   /* Dark mode: header = --surface (slightly set off from the content background) */
+  /* --header-fg / --on-accent stay white */
 
-  /* Badge-Palette (Dark) — gedaempfte BG (~30% alpha auf saturem Ton), heller Text */
+  /* Badge palette (dark) — muted background (~30% alpha on a saturated tone), light text */
   --badge-amber-bg:   rgba(120,53,15,0.30);   --badge-amber-fg:   #FCD9B0;
   --badge-emerald-bg: rgba(22,101,52,0.30);   --badge-emerald-fg: #A8E6BC;
   --badge-yellow-bg:  rgba(161,98,7,0.30);    --badge-yellow-fg:  #FDE68A;
@@ -286,7 +284,7 @@
   --badge-orange-bg:  rgba(194,65,12,0.30);   --badge-orange-fg:  #FED7AA;
   --badge-slate-bg:   rgba(71,85,105,0.30);   --badge-slate-fg:   #CBD5E1;
 
-  /* Mind-Elixir Palette — auf Dunkel optimiert */
+  /* Mind-Elixir palette — tuned for dark */
   --mm-c1: var(--kb);
   --mm-c2: #5DD5E5;
   --mm-c3: var(--success-strong);
@@ -308,7 +306,7 @@
 }
 
 
-/* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border, Hover kb-blau (dashed bleibt). */
+/* Dark mode only: add-source button — white text, neutral border, hover kb blue (stays dashed). */
 :root[data-theme="dark"] .add-source-btn {
   color: #FFFFFF !important;
   border-color: var(--border) !important;
@@ -333,7 +331,7 @@
   color: var(--foreground) !important;
 }
 
-/* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover Outline #004261. Light: Schrift unveraendert. Dark: Schrift bleibt weiss. */
+/* Unified cancel button: permanent 2px outline (layout-stable), transparent by default, #004261 on hover. Light: text unchanged. Dark: text stays white. */
 .btn-cancel {
   outline: 2px solid transparent;
   outline-offset: -2px;
@@ -415,7 +413,7 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   user-select: text;
 }
 
-/* ─── Safelist (dynamisch zusammengebaute Klassen) ─── */
+/* ─── Safelist (dynamically assembled classes) ─── */
 @source inline("object-contain p-1 p-2 p-4");
 
 @utility scrollbar-hide {
@@ -1332,7 +1330,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
   40%      { transform: scale(.7); opacity: .4; }
 }
 
-/* ─── Rundgang (driver.js) ──────────────────────────────────────────────── */
+/* ─── Tour (driver.js) ──────────────────────────────────────────────────── */
 /* The note button in the transcript only shows on hover, the tour points at it. */
 .driver-active-element[data-tour="transcript-note"] {
   opacity: 1 !important;
@@ -1378,13 +1376,11 @@ body.is-phone-landscape [title="Panel minimieren"] {
   right: 0.75rem;
 }
 
-/* ─── Owner-Vorschau ──────────────────────────────────────────────────────
-   Wer die Lehrenden-Ansicht nur vorschaut, sieht deren Bedienelemente
-   gestrichelt umrandet und kann sie nicht bedienen (inert sitzt am Wrapper).
-   Der Wrapper selbst ist display:contents und hat keine eigene Box, deshalb
-   traegt das Kind die Umrandung. Bewusst keine zusaetzliche Farbe: die
-   Badge-Palette ist bereits an die Studio-Bereiche vergeben, eine weitere
-   Farbe wuerde dort Bedeutung vortaeuschen. */
+/* ─── Owner preview ───────────────────────────────────────────────────────
+   Previewing the teacher view shows its controls dashed and unusable (inert
+   sits on the wrapper). The wrapper is display:contents without a box, so the
+   child carries the outline. No extra colour: the badge palette already
+   belongs to the studio areas. */
 .owner-preview {
   display: contents;
 }

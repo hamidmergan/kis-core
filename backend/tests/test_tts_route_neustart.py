@@ -1,4 +1,4 @@
-"""Die Stimm-Einstellungen liegen ab dem Einreihen bereit, nicht erst ab dem Start."""
+"""The voice settings are ready from enqueue on, not only from start."""
 
 import json
 
@@ -36,7 +36,7 @@ def stub(monkeypatch):
 
 
 async def test_ein_nie_gestarteter_auftrag_laesst_sich_fortsetzen(stub):
-    """Lasttest 26.09.: vier Vorlese-Aufträge standen zu lange an und waren danach nicht mehr zu retten."""
+    """Load test 26.09.: four read-aloud jobs queued too long and could not be rescued afterwards."""
     await route.text_to_speech(
         request=_Request(), file=None, text="Hallo Welt", voice_id="nova", speed=1.1,
         provider_id=21, voice_label="Nova", current_user={"user_id": 1}, locale="de")

@@ -3,7 +3,7 @@ import ManualPrintView from "../_components/ManualPrint";
 import { readManualTree, readManualArticle } from "../_lib/articles";
 import { imageSizes, type ImageSize } from "../_lib/imageSizes";
 
-/** Alle Artikel auf einer Seite, gedacht zum Drucken und als PDF sichern. */
+/** All articles on one page, meant for printing and saving as PDF. */
 export default async function ManualPrintPage({
   params,
 }: {

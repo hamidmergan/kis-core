@@ -24,7 +24,7 @@ class _FakeCursor:
         self._calls.append((sql, params))
 
     def fetchall(self):
-        return []          # keine Treffer -> die Funktion bricht nach der Fusion ab
+        return []          # no hits -> the function stops after the fusion
 
 
 class _FakeConn:

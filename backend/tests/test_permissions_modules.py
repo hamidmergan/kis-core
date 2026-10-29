@@ -1,4 +1,4 @@
-"""Der Rechte-Katalog richtet sich nach dem Modul-Profil."""
+"""The permission catalog follows the module profile."""
 from src.modules import MODULE_AIA, MODULE_TOOLS
 from src.permissions import custom_role_permissions, is_full_admin, permissions_for_system_role
 from src.permissions_registry import (
@@ -136,7 +136,7 @@ def test_eigene_rolle_ohne_uebrige_rechte_ist_leer_statt_kaputt():
     assert perms.allow_admin_panel is False
 
 
-# --- voller Admin ---------------------------------------------------------------
+# --- full admin -----------------------------------------------------------------
 
 def test_voller_admin_haelt_jede_verwalten_seite_seines_profils():
     assert is_full_admin(permissions_for_system_role("admin", BEIDE), BEIDE) is True

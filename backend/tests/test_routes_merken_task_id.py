@@ -1,14 +1,13 @@
-"""Jeder eingereihte Auftrag merkt sich seine Celery-Nummer.
+"""Every queued job remembers its Celery id.
 
-Der Aufseher erkennt einen wartenden Auftrag nur über diese Nummer beim Broker. Ohne sie
-hält er einen Auftrag, der brav in der Schlange steht, nach zehn Minuten für verloren.
+The watchdog knows a waiting job at the broker only by this id, without it a properly queued job counts as lost after ten minutes.
 """
 
 import ast
 from pathlib import Path
 
 ROUTES = Path(__file__).resolve().parents[1] / "src" / "routes"
-# Einreihungen, die nicht zu einer Zeile in der Auftragstabelle gehören.
+# Enqueues that do not belong to a row in the job table.
 AUSNAHMEN = {
     ("admin/maintenance.py", "run_reindex_all_sources"),
     # The campus index has no row in the job table, its state lives in the settings.

@@ -5,14 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="only light">
-    <!-- Next.js wirft /campus-map/ auf /campus-map zurueck (kein Slash in der Adresse), sonst loesen sich die
-         relativen Pfade unten gegen die Domain-Wurzel statt gegen diesen Ordner auf. -->
+    <!-- Next.js redirects /campus-map/ to /campus-map, so without this base the relative paths resolve against the domain root. -->
     <base href="/campus-map/">
     <title>Campusplan – Technische Hochschule Lübeck</title>
-    <!-- Favicon, eigenes Asset statt Pfad ab Domain-Wurzel (dieses Fenster liegt jetzt unter kis.th-luebeck.de) -->
+    <!-- Favicon as own asset instead of a root path, since this page lives under kis.th-luebeck.de -->
     <!-- Only the bird, like the favicon in the rest of askFrancis (frontend/src/app/[locale]/icon.svg) -->
     <link rel="icon" type="image/svg+xml" href="assets/kis-vogel.svg">
-    <!-- Lokale Bibliotheken (vendor/) -->
+    <!-- Local libraries (vendor/) -->
     <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="vendor/sortablejs/Sortable.min.js"></script>
@@ -26,10 +25,10 @@
 
     <a href="#mapContainer" class="skip-link" data-i18n="skip.toMap">Direkt zur Karte</a>
 
-    <!-- Statusmeldungen für Screenreader (4.1.3) -->
+    <!-- Status messages for screen readers (4.1.3) -->
     <div id="a11yLive" class="sr-only" role="status" aria-live="polite"></div>
 
-    <!-- Titel -->
+    <!-- Title -->
     <header id="allcontent-title"
         class="w-100 py-2 pt-md-2 px-2 px-md-2 pb-md-2 d-flex align-items-center justify-content-between">
         <div class="py-2 px-2 d-flex align-items-center gap-3">
@@ -47,7 +46,7 @@
         </div>
 
         <div class="toolbox-menu" id="toolboxMenu">
-            <!-- Nur auf dem Smartphone sichtbar, klappt die Buttons als Menue auf -->
+            <!-- Visible only on phones, expands the buttons as a menu -->
             <button class="toolbox-btn toolbox-menu-btn" type="button" id="toolboxMenuBtn" aria-expanded="false"
                 aria-controls="toolbox" aria-label="Menü" data-i18n-aria-label="toolbox.menu" title="Menü" data-i18n-title="toolbox.menu">
                 <i class="fas fa-bars" aria-hidden="true"></i>
@@ -84,7 +83,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Einstellungen schließen" data-i18n-aria-label="settings.close"></button>
         </div>
         <div class="offcanvas-body p-3">
-            <!-- Downloads Sektion -->
+            <!-- Downloads section -->
             <div class="settings-section">
                 <h3 class="settings-section-title" data-i18n="settings.downloads">
                     Downloads
@@ -99,7 +98,7 @@
                 </a>
             </div>
 
-            <!-- Anzeige Sektion -->
+            <!-- Display section -->
             <div class="settings-section">
                 <h3 class="settings-section-title" data-i18n="settings.display">
                     Anzeige
@@ -116,7 +115,7 @@
                 </label>
             </div>
 
-            <!-- Filter Sektion -->
+            <!-- Filter section -->
             <div class="settings-section">
                 <h3 class="settings-section-title" data-i18n="settings.mapElements">
                     Kartenelemente
@@ -127,7 +126,7 @@
                 <div class="filter-section" id="filterOptions"></div>
             </div>
 
-            <!-- Reset Bereich -->
+            <!-- Reset area -->
             <div class="danger-zone">
                 <h3 class="danger-zone-title">
                     <i class="fas fa-sync-alt me-2" aria-hidden="true"></i><span data-i18n="reset.title">Fortschritt zurücksetzen</span>
@@ -142,7 +141,7 @@
         </div>
     </div>
 
-    <!-- Offcanvas Right für Gebäude-Details -->
+    <!-- Right offcanvas for building details -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="buildingInfoOffcanvas" aria-labelledby="buildingInfoLabel">
         <div class="offcanvas-header">
             <span class="sheet-handle" aria-hidden="true"></span>
@@ -159,7 +158,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Schließen" data-i18n-aria-label="common.close"></button>
         </div>
         <div class="offcanvas-body">
-            <!-- Gebäude & Legende (legend.js) -->
+            <!-- Buildings & legend (legend.js) -->
             <div id="legendView" class="legend-view" hidden>
                 <div class="legend-sticky">
                     <div class="legend-search" role="search">
@@ -185,7 +184,7 @@
         </div>
     </div>
 
-    <!-- Offcanvas Left für Badges -->
+    <!-- Left offcanvas for badges -->
     <div class="offcanvas offcanvas-start" tabindex="-1" id="badgesOffcanvas" aria-labelledby="badgesOffcanvasLabel">
         <div class="offcanvas-header">
             <h2 id="badgesOffcanvasLabel" class="offcanvas-title with-padding">
@@ -198,10 +197,10 @@
         </div>
     </div>
 
-    <!-- Container für dynamisch generierte Modals -->
+    <!-- Container for dynamically generated modals -->
     <div id="quizModalsContainer"></div>
 
-    <!-- Bestätigungs-Modal: Fortschritt zurücksetzen -->
+    <!-- Confirmation modal: reset progress -->
     <div class="modal fade" id="resetConfirmModal" tabindex="-1" aria-labelledby="resetConfirmLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -230,7 +229,7 @@
         </div>
     </div>
 
-    <!-- Map-Container -->
+    <!-- Map container -->
     <main id="mapContainer" tabindex="-1">
         <div id="lottieMap"></div>
         <div id="skipIntroHint" class="skip-intro-hint" aria-hidden="true"></div>

@@ -62,8 +62,8 @@ def test_pack_never_opens_a_second_batch():
     import re
     batches, _ = _pack_context_batches(
         _chunks_for_pack(), 700, _S2Q, _SRCS, {})
-    assert len(batches) == 1                          # es gibt keinen zweiten Weg mehr
-    assert re.findall(r'id="(\d+)"', batches[0]) == ["1"]  # nummeriert ab 1
+    assert len(batches) == 1                          # there is no second batch any more
+    assert re.findall(r'id="(\d+)"', batches[0]) == ["1"]  # numbered from 1
 
 
 def test_pack_media_source_gets_empty_page_set():

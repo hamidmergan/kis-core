@@ -9,7 +9,7 @@ export interface EditInput {
   type: ScheduleEntryType;
   title: string;
   description: string;
-  due_date: string;      // '' == leer
+  due_date: string;      // '' == empty
   due_time: string;      // '' == leer
   // Empty means no span, the appointment applies on its day only.
   end_date: string;
@@ -146,9 +146,7 @@ export function ScheduleEntryEditModal({
             </label>
           </div>
 
-          {/* Leer heisst kein Ende. Ein eigener Schalter dafuer waere ein Klick ohne
-              Gewinn, das leere Feld sagt dasselbe. Bei "nur Monat" gibt es kein Ende,
-              dort ist schon der Anfang keine Tagesangabe. */}
+          {/* Empty means no end, a separate switch would add nothing. "Month only" has no end, its start is no day either. */}
           {!monthOnly && (
             <div className="grid grid-cols-2 gap-2">
               <label className="block">

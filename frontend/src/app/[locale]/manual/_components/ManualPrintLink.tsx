@@ -5,7 +5,7 @@ import { FilePdf } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import LinkBusy from "@/components/ui/LinkBusy";
 
-/** Der Weg zur Druckansicht, oben rechts auf der Seite. */
+/** Link to the print view, top right of the page. */
 export default function ManualPrintLink() {
   const t = useTranslations("manual");
 

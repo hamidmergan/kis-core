@@ -1,4 +1,4 @@
-"""Kontext hält das Budget, eine Quelle je Seite, Textfragment aus dem besten Chunk."""
+"""Context keeps the budget, one source per page, text fragment from the best chunk."""
 from datetime import datetime
 
 from src.features.campus.services import retrieval

@@ -28,14 +28,14 @@ _ZWECK = "a slide deck for university teaching"
 
 
 def _fenster(provider_id: int | None) -> int:
-    """Das gemessene Fenster des Modells, 0 wenn es keines gibt."""
+    """The measured window of the model, 0 if there is none."""
     from src.services.model_limits import ensure_profile
 
     try:
         binding = binding_for("chat", provider_id)
         profil = ensure_profile(binding.provider, binding.model or "")
         return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - ohne Messung gilt das kleinste zugelassene Fenster
+    except Exception as e:  # noqa: BLE001 - without a measurement the smallest admitted window applies
         logger.warning("Präsentation: Modell nicht vermessbar ({})", e)
         return 0
 

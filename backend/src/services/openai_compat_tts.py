@@ -48,7 +48,7 @@ def _split_text(text: str, max_chars: int | None = None) -> list[str]:
             if pos != -1:
                 split_at = pos + 1
         if split_at == -1:
-            split_at = limit  # ein einzelnes Wort ist länger als die Grenze
+            split_at = limit  # a single word is longer than the limit
         chunks.append(remaining[:split_at])
         remaining = remaining[split_at:]
 

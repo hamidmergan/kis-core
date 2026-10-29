@@ -1,9 +1,4 @@
-"""Die Vertonung legt Anbieter und Stimmen einmal je Lauf fest, nie mitten im Lauf.
-
-Nutzerentscheid 27.09.2026: ist der gewaehlte Anbieter beim Start nicht da, spricht der ganze Podcast
-mit dem Rueckfall aus dem Adminbereich. Etappen und Wiederanlaeufe bleiben dabei, erst ein neuer Lauf
-entscheidet neu. Ton verschiedener Anbieter landet nie gemischt in einer Folge.
-"""
+"""Rendering fixes provider and voices once per run, never mid-run. If the chosen provider is down at start, the admin fallback speaks the whole podcast and only a new run decides anew (27.09.2026)."""
 
 from contextlib import contextmanager
 
@@ -26,7 +21,7 @@ ANBIETER = {
                                                     {"voice_id": "echo", "name": "Echo"},
                                                     {"voice_id": "nova", "name": "Nova"}]},
 }
-# So ordnet der Rueckfall die Stimmen zu, wenn der gewaehlte Anbieter beim Start fehlt.
+# How the fallback maps the voices when the chosen provider is missing at start.
 ERSATZ = {"anna": "onyx", "ben": "echo", "carl": "onyx", "nova": "nova"}
 
 LENA = Person(name="Lena", voice_id="anna", provider_id=3)
@@ -48,7 +43,7 @@ class _Db:
 
 
 class _Uhr:
-    """Eine Etappenuhr, die entweder sofort oder nie ablaeuft."""
+    """A stage clock that expires either at once or never."""
 
     def __init__(self, vorbei: bool):
         self.vorbei = vorbei
@@ -62,7 +57,7 @@ class _Uhr:
 
 @pytest.fixture
 def lauf(monkeypatch, lokal):
-    """Echter Auftragsordner auf der Platte, gefaelscht sind nur Anbieter, Datenbank und Montage."""
+    """Real job folder on disk; only providers, database and assembly are faked."""
     stand = {"unten": set(), "wahl": [], "gesprochen": [], "zahlen": {}, "meta": {}, "anbieter": []}
     monkeypatch.setattr(_render, "db", _Db())
     monkeypatch.setattr("src.database.get_provider", lambda pid: ANBIETER.get(pid))
@@ -70,7 +65,7 @@ def lauf(monkeypatch, lokal):
     monkeypatch.setattr(_render, "still_mine", lambda job, token: True)
     monkeypatch.setattr(_render, "attempt_failed", lambda job, meldung, **k: "waiting_retry")
     monkeypatch.setattr(_render, "continue_stage", lambda selbst, args, job: None)
-    # Der Client ist hier einfach die Nummer des Anbieters, so sieht man, wer sprach.
+    # The client is just the provider id, so the speaker is visible.
     monkeypatch.setattr(_render, "tts_client", lambda pid, user_id=None: pid)
 
     def vertonen(client, text, voice_id, sprache, tempo, *rest):
@@ -136,7 +131,7 @@ def test_ist_der_gewaehlte_da_bleibt_alles_wie_gewaehlt(lauf):
 
 @pytest.mark.parametrize("etappe, versuch", [(2, 0), (1, 1), (1, 0)])
 def test_etappen_und_wiederanlaeufe_wechseln_nicht_zurueck(lauf, monkeypatch, etappe, versuch):
-    """Die erste Etappe legt fest und schafft nichts, danach ist der gewaehlte Anbieter wieder da."""
+    """The first stage decides and produces nothing, then the chosen provider is back."""
     _auftrag([LENA, JONAS])
     lauf["unten"].add(3)
     monkeypatch.setattr(_render, "StageClock", lambda *a, **k: _Uhr(True))
@@ -161,12 +156,12 @@ def test_personen_eines_anbieters_werden_gemeinsam_entschieden(lauf):
 
 
 def test_ton_des_gewaehlten_wird_im_neuen_lauf_mit_rueckfall_neu_gesprochen(lauf):
-    """Gleicher Text, gleiche Stimmkennung, aber ein anderer Anbieter: der alte Ton darf nicht bleiben."""
+    """Same text and voice id but another provider: the old audio must not stay."""
     _auftrag([Person(name="Lena", voice_id="nova", provider_id=3)], texte=("Eins.",))
     _render.run_podcast_render(JOB, UID, "de", 1, 0)
     assert lauf["gesprochen"] == [(3, "nova")]
 
-    # So beginnt die Seite einen neuen Lauf, jetzt fehlt der gewaehlte Anbieter.
+    # How the page starts a new run, now the chosen provider is missing.
     store.delete_pin(UID, JOB)
     lauf["unten"].add(3)
     lauf["gesprochen"].clear()
@@ -239,7 +234,7 @@ def test_die_seite_zaehlt_den_ton_des_festgelegten_anbieters_als_vertont(lauf, m
 
 
 def test_die_seite_zaehlt_ton_mit_eigenem_tempo_als_vertont(lauf, monkeypatch):
-    """Die Seite verglich immer mit Tempo 1.0, bei 1.2 galt dann nichts als vertont."""
+    """The page always compared with speed 1.0, so at 1.2 nothing counted as rendered."""
     import src.routes.podcast.script as script_route
 
     params = _auftrag([LENA])
@@ -252,7 +247,7 @@ def test_die_seite_zaehlt_ton_mit_eigenem_tempo_als_vertont(lauf, monkeypatch):
 
 
 def _vor_der_festlegung_vertont():
-    """So sieht ein Podcast aus, der vor dem 28.09.2026 vertont wurde: der Anbieter fehlt im Fingerabdruck."""
+    """A podcast rendered before 28.09.2026: the provider is missing from the fingerprint."""
     _auftrag([LENA])
     store.save_voiced(UID, JOB, {"b0": {"text": "Eins.", "voice_id": "anna", "speed": 1.0},
                                  "b1": {"text": "Zwei.", "voice_id": "anna", "speed": 1.0}})
@@ -288,7 +283,7 @@ def test_die_seite_zaehlt_alten_ton_des_gewaehlten_als_vertont(lauf, monkeypatch
 
 
 def _starte_ueber_die_seite(monkeypatch, status: str) -> list:
-    """Startet die Vertonung wie der Knopf der Seite und merkt sich die Festlegung beim Einreihen."""
+    """Starts rendering like the page button and records the decision made on enqueue."""
     import src.routes.podcast.render as render_route
     import src.tasks.podcast_tasks as tasks
     import src.tasks.podcast_tasks._shared as shared
@@ -308,7 +303,7 @@ def _starte_ueber_die_seite(monkeypatch, status: str) -> list:
     return beim_start
 
 
-# So steht ein Lauf fest, in dem Lena und Jonas mit dem Rueckfall sprechen.
+# A fixed run in which Lena and Jonas speak with the fallback.
 FESTGELEGT = {"voices": {"3/anna": {"provider_id": 21, "voice_id": "onyx"},
                          "3/ben": {"provider_id": 21, "voice_id": "echo"}}, "fallback": True}
 
@@ -331,7 +326,7 @@ def test_fortsetzen_behaelt_die_festlegung_des_laufs(lokal, monkeypatch, status)
 
 @pytest.mark.parametrize("status", ["failed", "paused"])
 def test_fortsetzen_mit_geaenderter_besetzung_entscheidet_neu(lokal, monkeypatch, status):
-    """Eine neue Stimme hat im alten Lauf keinen Platz, also beginnt ein neuer."""
+    """A new voice has no place in the old run, so a new one starts."""
     _auftrag([LENA, Person(name="Carl", voice_id="carl", provider_id=4)])
     store.save_pin(UID, JOB, FESTGELEGT)
 
@@ -339,7 +334,7 @@ def test_fortsetzen_mit_geaenderter_besetzung_entscheidet_neu(lokal, monkeypatch
 
 
 def test_fortsetzen_nach_fehler_spricht_mit_dem_rueckfall_weiter(lauf, monkeypatch):
-    """Die erste Etappe legt den Rueckfall fest, danach scheitert der Auftrag und wird fortgesetzt."""
+    """The first stage fixes the fallback, then the job fails and is resumed."""
     _auftrag([LENA, JONAS])
     lauf["unten"].add(3)
     monkeypatch.setattr(_render, "StageClock", lambda *a, **k: _Uhr(True))
@@ -356,7 +351,7 @@ def test_fortsetzen_nach_fehler_spricht_mit_dem_rueckfall_weiter(lauf, monkeypat
 
 @pytest.fixture
 def echte_wahl(monkeypatch):
-    """Die echte Wahl des Anbieters, gefaelscht sind nur Datenbank und Erreichbarkeit."""
+    """The real provider choice; only database and reachability are faked."""
     unten: set[int] = set()
     anbieter = {pid: {**a, "enabled": True, "protocol": "openai_compat", "capabilities": ["tts"]}
                 for pid, a in ANBIETER.items()}
@@ -392,7 +387,7 @@ def test_der_rueckfall_meidet_die_stimme_einer_person_die_dort_bleibt(echte_wahl
 
 
 def test_gleiche_stimmkennung_bei_einem_anderen_anbieter_zaehlt_nicht(echte_wahl):
-    """Nova bei einem anderen Anbieter spricht dort, der Rueckfall behaelt seine eigene Nova."""
+    """Nova at another provider speaks there, the fallback keeps its own Nova."""
     lena = Person(name="Lena", voice_id="nova", provider_id=3)
     max_ = Person(name="Max", voice_id="nova", provider_id=4)
     echte_wahl.add(3)
@@ -404,7 +399,7 @@ def test_gleiche_stimmkennung_bei_einem_anderen_anbieter_zaehlt_nicht(echte_wahl
 
 
 class _S3Fehler(Exception):
-    """So meldet S3 einen Fehler, mit dem Code in der Antwort."""
+    """How S3 reports an error, with the code in the response."""
 
     def __init__(self, code: str):
         super().__init__(code)
@@ -445,7 +440,7 @@ class TestAblage:
         assert store.load_pin(UID, JOB) == {"voices": {}, "fallback": False}
         store.delete_pin(UID, JOB)
         assert store.load_pin(UID, JOB) is None
-        # Loeschen ohne Festlegung ist kein Fehler.
+        # Deleting without a decision is not an error.
         store.delete_pin(UID, JOB)
 
     @pytest.mark.parametrize("code", ["404", "NoSuchKey"])

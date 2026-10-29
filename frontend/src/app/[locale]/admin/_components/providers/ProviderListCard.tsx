@@ -183,8 +183,7 @@ function ProviderRow({
               {t("row.noApiKeyChip")}
             </span>
           )}
-          {/* Der Zustand steht hinter den Markern, sonst liest sich sein Strich
-              wie ein Trenner zwischen Name und Marker. */}
+          {/* The state comes after the markers, otherwise its stroke reads as a divider between name and markers. */}
           <StatusPill provider={provider} probing={probing} />
         </div>
         <div className="text-2xs font-mono text-muted truncate">

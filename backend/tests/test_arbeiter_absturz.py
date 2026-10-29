@@ -1,8 +1,4 @@
-"""Stirbt ein Arbeiter mitten im Auftrag, läuft der Auftrag neu an, aber nicht endlos.
-
-Lasttest 26.09.: bei Speichermangel schoss der Kernel Arbeiter ab, ein Podcast-Skript
-stand danach sofort auf "fehlgeschlagen", obwohl es nur neu hätte starten müssen.
-"""
+"""A worker dying mid-job restarts the job, but not endlessly (26.09.: an OOM kill marked a podcast script failed at once)."""
 
 from src import celery_app as app_modul
 from src.celery_app import celery_app
@@ -39,7 +35,7 @@ def test_ein_auftrag_der_den_arbeiter_immer_wieder_abschiesst_gibt_auf():
 
 
 def test_ein_gewollter_neuer_versuch_zaehlt_eigenstaendig():
-    """Celery-Retries tragen dieselbe Nummer, aber einen höheren Zähler."""
+    """Celery retries carry the same id but a higher counter."""
     r = _Redis()
     for _ in range(app_modul.MAX_STARTS):
         app_modul.start_allowed("t-1", 0, r=r)

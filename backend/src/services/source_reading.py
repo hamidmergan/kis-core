@@ -156,7 +156,7 @@ def _assemble(seiten: list[str]) -> tuple[str, list[tuple[int, int, int]]]:
     grenzen: list[tuple[int, int, int]] = []
     stelle = 0
     for nummer, roh in enumerate(seiten, start=1):
-        # Gestrippt, sonst zaehlt fuehrender Leerraum als Seiteninhalt mit.
+        # Stripped, else leading whitespace counts as page content.
         seite = roh.strip()
         if not seite:
             continue

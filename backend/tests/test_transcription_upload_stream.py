@@ -125,7 +125,7 @@ def test_content_not_matching_extension_is_rejected(env):
 
 @pytest.mark.parametrize("sekunden, schlange", [(96 * 60, ("long", 9)), (4 * 60, ("general", None)), (None, ("general", None))])
 def test_eine_lange_aufnahme_startet_in_der_langen_schlange(monkeypatch, env, sekunden, schlange):
-    """Lauf 13: Vorlesungen von 96 Minuten hielten schnelle Plätze minutenlang fest."""
+    """Run 13: 96-minute lectures held fast seats for minutes."""
     import src.tasks.general_tasks as gt
 
     gesendet = {}

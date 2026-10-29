@@ -1,7 +1,6 @@
-"""Stimmen bekommen einen Rückfall je Auftrag: die Wahl fällt einmal beim Start, nie mitten im Auftrag.
+"""Voices get a fallback per job: the choice is made once at start, never mid-job.
 
-Nutzerentscheid 27.09.2026: ist der gewählte Anbieter beim Start nicht da, läuft der ganze Auftrag mit
-dem Rückfall aus dem Adminbereich, sonst ganz mit dem gewählten.
+User decision 27.09.2026: if the chosen provider is down at start the whole job runs with the admin fallback, otherwise entirely with the chosen one.
 """
 import pytest
 
@@ -85,7 +84,7 @@ def test_ohne_passende_sprache_nimmt_er_die_erste_freie_stimme(welt):
     lambda w: w["unerreichbar"].add(21),
 ])
 def test_ein_unbrauchbarer_rueckfall_laesst_den_gewaehlten_stehen(welt, aenderung):
-    """Dann scheitert oder wartet der Auftrag wie heute, er springt nicht ins Leere."""
+    """Then the job fails or waits as today, it does not jump into the void."""
     welt["unerreichbar"].add(30)
     aenderung(welt)
     wahl = tjp.pick(30, ["anna"])
@@ -104,7 +103,7 @@ def test_der_name_der_stimme_kommt_vom_anbieter(welt):
 
 
 def test_schon_vergebene_stimmen_des_rueckfalls_bleiben_frei(welt):
-    """Podcast mit zwei Anbietern: die Person, die schon bei myLab spricht, behält ihre Stimme für sich."""
+    """Podcast with two providers: the person already speaking at myLab keeps their voice."""
     welt["unerreichbar"].add(30)
     assert tjp.pick(30, ["anna"], taken=["onyx"]).voices == ("echo",)
 
@@ -122,7 +121,7 @@ def test_ein_rueckfall_nur_mit_stimmen_ohne_kennung_zaehlt_nicht(welt):
     assert tjp.pick(30, ["anna"]).provider_id == 30
 
 
-# ─── Fehlt die Datei wirklich oder war nur das Lesen gestört ─────────────
+# ─── Is the file really missing or was only the read disturbed ───────────
 
 
 def test_nur_eine_fehlende_datei_gilt_als_fehlend():

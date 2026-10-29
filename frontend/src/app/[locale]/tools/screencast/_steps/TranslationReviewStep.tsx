@@ -58,10 +58,7 @@ export default function TranslationReviewStep({
         </div>
       )}
 
-      {/* Nur die Folienbilder. Der erkannte Folientext stand hier eine Zeit lang
-          daneben, das war überflüssig: seit Extraktion und Übersetzung dieselbe
-          Stelle im Code nutzen, sagt schon das Bild, ob der Text gefunden wurde.
-          Was bleibt, ist die Markierung nicht übersetzter Folien. */}
+      {/* Slide images only: the image already shows whether text was found, only the mark for untranslated slides stays. */}
       <div className="flex flex-wrap justify-center gap-2 mb-6">
         {slides.map((slide, i) => (
           <button

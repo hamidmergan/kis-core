@@ -1,4 +1,4 @@
-"""Was die Bild-Aufgaben nach dem Umbau 29.09.2026 an den Anbieter schicken."""
+"""What the image tasks send to the provider after the 29.09.2026 rework."""
 
 import base64
 import contextlib
@@ -112,7 +112,7 @@ def test_verstehen_schickt_die_anweisung_und_eine_laengengrenze(monkeypatch):
 
 
 def test_erzeugen_merkt_sich_beschreibung_und_text_fuers_modell(monkeypatch):
-    """Nutzerwunsch 29.09.: die Beschreibung soll zum Bild sichtbar und herunterladbar sein, auch im Verlauf."""
+    """Requested 29.09.: the description is shown with the image and downloadable, also in the history."""
     meta: dict = {}
     _umgebung(monkeypatch, _Client(_Antwort(200, _BILD)), meta)
     gt.run_image_generate.run.__func__(None, "job1", "Skizze. Subject: A red apple", "1024x1024", None, steps=28,
@@ -130,7 +130,7 @@ def test_bearbeiten_merkt_sich_die_anweisung(monkeypatch):
 
 
 def test_erzeugen_merkt_sich_stil_format_und_qualitaet(monkeypatch):
-    """Das Bild zeigt unter dem Prompt, womit es gemacht wurde, auch im Verlauf."""
+    """Below the prompt the image shows what it was made with, also in the history."""
     meta: dict = {}
     _umgebung(monkeypatch, _Client(_Antwort(200, _BILD)), meta)
     gt.run_image_generate.run.__func__(None, "job1", "Apfel", "1344x768", None, steps=28, titel="Apfel",
@@ -140,7 +140,7 @@ def test_erzeugen_merkt_sich_stil_format_und_qualitaet(monkeypatch):
 
 
 def test_bearbeiten_behaelt_die_vorlage_fuer_vorher_und_nachher(monkeypatch):
-    """Nutzerwunsch 30.09.: Vorher und Nachher soll immer zu sehen sein, auch bei älteren Bildern."""
+    """Requested 30.09.: before and after are always visible, also for older images."""
     meta: dict = {}
     dateien: dict = {}
     _umgebung(monkeypatch, _Client(_Antwort(200, headers={"content-type": "image/png"}, inhalt=_png())), meta, dateien)

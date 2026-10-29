@@ -65,7 +65,7 @@ export default function LinksSection({ workspaceUuid, links, onLinksChanged }: L
       );
       if (res.ok) onLinksChanged(links.filter((l) => l.id !== deleteConfirm.id));
     } catch {
-      /* Ein fehlgeschlagenes Loeschen laesst den Link stehen, das sagt genug. */
+      /* A failed delete leaves the link in place, that says enough. */
     } finally {
       setDeleting(false);
       setDeleteConfirm(null);

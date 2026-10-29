@@ -47,7 +47,7 @@ export function ShareModal({ open, workspaceUuid, isActive, onToggleActive, onCl
       .then((data) => {
         if (!cancelled && Array.isArray(data)) setLinks(data);
       })
-      .catch(() => { /* Ohne Links bleibt der Abschnitt leer und laesst trotzdem einen anlegen. */ });
+      .catch(() => { /* Without links the section stays empty but still allows creating one. */ });
     return () => { cancelled = true; };
   }, [open, workspaceUuid]);
 

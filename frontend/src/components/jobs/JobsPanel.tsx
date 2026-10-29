@@ -492,7 +492,7 @@ export default function JobsPanel() {
                           </span>
                         </div>
                       )}
-                      {/* "Fortsetzen" sitzt jetzt im Status-Abzeichen, hier bleibt nur das Oeffnen. */}
+                      {/* "Resume" now sits in the status badge, only open remains here. */}
                       {podcastJumpKind(job) === "open" && (
                         <div className="mt-2">
                           <a

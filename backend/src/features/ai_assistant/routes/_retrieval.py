@@ -118,7 +118,7 @@ def _context_budget() -> int:
 def _full_context_if_fits(source_ids: Optional[list[int]], max_chars: int) -> Optional[list[dict]]:
     """All chunks of the active sources, if together they fit the budget."""
     if not source_ids:
-        return None  # keine Auswahl -> nichts zu laden, der Suchweg uebernimmt
+        return None  # no selection -> nothing to load, the search path takes over
     all_chunks: list[dict] = []
     total = 0
     for sid in source_ids:

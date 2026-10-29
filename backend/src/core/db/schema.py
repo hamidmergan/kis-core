@@ -313,12 +313,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_training_asked_at TIMESTAMP WITH TIME ZONE")
             # Demo account: its active courses appear on everyone's start page.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
-            # Rundgang: haengt am Konto, nicht am Browser, sonst faengt jedes Geraet von vorn an.
+            # Tour: tied to the account, not the browser, else every device starts over.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen_at TIMESTAMP")
             # Own interfaces: when and which version of the disclaimer the person accepted.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_version INTEGER")
-            # Global KI-/Datenschutz-Hinweis beim ersten Login, gleich fuer TH-Konto, externen Zugang und Demo.
+            # Global AI/privacy notice at first login, same for TH account, external access and demo.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS global_consent_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS global_consent_version INTEGER")
             # The tools tour is gone, the tile overview explains every tool itself.
@@ -516,7 +516,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS access_code_id INTEGER "
                 "REFERENCES access_codes(id) ON DELETE SET NULL"
             )
-            # Wer war wann in wessen Konto, der Nachweis fuer den Datenschutz.
+            # Who was in whose account when, the record for data protection.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS impersonation_log (
                     id              SERIAL PRIMARY KEY,
@@ -533,8 +533,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS impersonation_log_started_idx "
                 "ON impersonation_log (started_at DESC)"
             )
-            # Anonym mit Absicht, kein Bezug zum meldenden Konto wird gespeichert,
-            # ausser die meldende Person kreuzt das freiwillig an.
+            # Anonymous by design, no link to the reporting account is stored unless the person opts in.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS feedback (
                     id         SERIAL PRIMARY KEY,
@@ -1660,7 +1659,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_schedule_entries (
                     id           SERIAL PRIMARY KEY,
-                    -- NULL heisst: der Eintrag gehoert keinem Workspace, sondern nur dem Nutzer.
+                    -- NULL: the entry belongs to no workspace, only to the user.
                     workspace_id INTEGER
                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
@@ -1836,7 +1835,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
             """)
-            # Temperatur und top_p je Anbieter, leer heisst nichts mitsenden.
+            # Temperature and top_p per provider, empty means send nothing.
             cur.execute("""
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_sampling JSONB NOT NULL DEFAULT '{}'::jsonb

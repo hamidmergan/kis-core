@@ -1,4 +1,4 @@
-"""Die Grenze pro Person gilt fuer jeden Dienst und haelt auch zwei gleichzeitige Starts auf."""
+"""The per-person limit applies to every service and also stops two simultaneous starts."""
 
 import ast
 import os
@@ -78,7 +78,7 @@ def test_unter_der_grenze_wird_angelegt(fake_db):
 
 
 def test_erst_sperren_dann_zaehlen_dann_anlegen(fake_db):
-    """Zwei Tabs derselben Person warten aufeinander, bevor sie zaehlen."""
+    """Two tabs of the same person wait for each other before counting."""
     log = fake_db(working=0)
     _crud.create_job("u1", 7, "summary", "a.pdf", limit=2)
     sqls = [sql for sql, _ in log]
@@ -125,7 +125,7 @@ def _ruft_auf(baum, name):
 
 
 def test_keine_route_legt_ungezaehlt_an():
-    """Jeder Dienst legt seinen Auftrag ueber die gezaehlte Stelle an, auch die Praesentation."""
+    """Every service creates its job through the counted spot, the presentation too."""
     direkt = []
     for datei in ROUTES.rglob("*.py"):
         baum = ast.parse(datei.read_text())
@@ -144,7 +144,7 @@ def test_praesentation_prueft_die_grenze_vor_dem_lesen():
 
 @pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="braucht die echte Datenbank")
 def test_zwei_gleichzeitige_starts_ueberschreiten_die_grenze_nicht():
-    """Zwei Tabs starten im selben Moment, bei Grenze 1 kommt nur einer durch."""
+    """Two tabs start at the same moment, with limit 1 only one gets through."""
     from src.core.db.pool import get_connection
 
     person = 900_000_000 + uuid.uuid4().int % 1_000_000
@@ -188,15 +188,15 @@ def _funktion(datei, name):
     ("jobs/_retry.py", "retry_job"),
 ])
 def test_wer_einen_wartenden_auftrag_fortsetzt_zaehlt_mit(datei, name):
-    """Lauf 15: ein geparkter Screencast zählte nicht, danach kamen zwei neue und dann das Vertonen, also drei."""
+    """Run 15: a parked screencast did not count, then two new ones and the render came, so three."""
     assert _ruft_auf(_funktion(datei, name), "enforce_open_jobs")
 
 
-# ─── Dienste mit Stimme zählen getrennt ───────────────────────────────────
+# ─── Services with voice count separately ─────────────────────────────────
 
 
 def test_ein_dienst_ohne_stimme_zaehlt_nur_seinesgleichen(fake_db):
-    """Lauf 15: Podcast und Text in Audio warteten auf Stimmen, Zusammenfassungen wurden bis zu 47 Mal abgewiesen."""
+    """Run 15: podcast and text-to-audio waited for voices, summaries were rejected up to 47 times."""
     log = fake_db(working=0)
     _crud.create_job("u1", 7, "summary", "a.pdf", limit=2)
     zaehlen = next((sql, p) for sql, p in log if sql.startswith("SELECT COUNT(*) FROM jobs"))

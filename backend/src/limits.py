@@ -165,7 +165,7 @@ PODCAST_TTS_PARALLELISM  = TTS_PROVIDER_MAX_CONCURRENT
 # Three at once, the value measured for the summary on 20.09. against the same providers.
 # A whole read phase can pass without a single job update, so a pulse reports in meanwhile.
 
-# --- Präsentation ------------------------------------------------------------
+# --- Presentation -------------------------------------------------------------
 PRAESENTATION_MAX_SLIDES = 30
 # The floor a usable outline needs: cover, one slide of content, closing.
 PRAESENTATION_MIN_SLIDES = 3
@@ -180,7 +180,7 @@ PRAESENTATION_WRITE_PARALLELISM = 3
 # Original text for a single slide. Reading is cheap, five slides share one call.
 PRAESENTATION_SLIDE_CONTEXT_CHARS = 15_000
 
-# --- Präsentation: reading every source into facts ---------------------------
+# --- Presentation: reading every source into facts ----------------------------
 # One call per source, so no source depends any more on its place in the list.
 # The least and most one source may bring to the pool.
 # The outline prompt carries the roles and the rules of a deck, so it needs more room
@@ -201,8 +201,8 @@ STAGE_TIME_LIMIT        = 1320   # 22 min, SIGKILL fallback, the watchdog picks 
 
 # Timeouts of the tutor tools, generous because an overrun throws everything away and starts over.
 # A local model needs up to 270 s for one call, a set is a chain of up to four calls.
-AIA_TOOL_SOFT_TIME_LIMIT        = 600    # 10 min, SoftTimeLimitExceeded -> Set sauber auf failed
-AIA_TOOL_TIME_LIMIT             = 720    # 12 min, SIGKILL als letzte Instanz
+AIA_TOOL_SOFT_TIME_LIMIT        = 600    # 10 min, SoftTimeLimitExceeded -> set cleanly marked failed
+AIA_TOOL_TIME_LIMIT             = 720    # 12 min, SIGKILL as last resort
 
 # How many packets one table may cost, measured against its own time limit.
 AIA_TABLE_MAX_PACKETS           = 10
@@ -228,7 +228,7 @@ AIA_SOURCE_MAX_CHARS                = 500_000
 AIA_TEXT_SOURCE_MAX_CHARS           = 4_000
 # Very large documents are rejected so the overview does not become front-heavy.
 AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..200)
-# Mehr nicht: ein Ueberblick teilt 60.000 Zeichen auf alle Quellen, bei 200 bleiben je 300 Zeichen.
+# No more: an overview splits 60,000 chars across all sources, at 200 that leaves 300 each.
 AIA_WORKSPACE_MAX_SOURCES_CAP          = 200
 
 # --- Web page as a source ---------------------------------------------------
@@ -290,50 +290,48 @@ AIA_WORKSPACE_MAX_MEMBERS              = 100     # max enrolled members per work
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
 
-# --- Material der Dienste Podcast, Praesentation, Zusammenfassung --------------
-# myLab bricht jeden Aufruf nach etwa 300 s ab (gemessen 20.09.). Lesen ist schnell,
-# 250k Zeichen in 12 s (gemessen 22.09.), Schreiben langsam, etwa 14 Token/s. Darum
-# plant ein Aufruf ueber dem ganzen nummerierten Text und schreibt dabei wenig, und
-# jeder Schreibaufruf schreibt aus dem Originaltext hoechstens SERVICE_WRITE_TOKENS.
-# Hochgeladen werden hoechstens so viele Zeichen, ueber alle Dateien zusammen.
+# --- Material of the podcast, presentation and summary services ---------------
+# myLab cuts every call at about 300 s (measured 20.09.). Reading is fast, 250k chars in
+# 12 s (measured 22.09.), writing slow, about 14 tokens/s. So one call plans over the whole
+# numbered text and writes little, and each write call writes at most SERVICE_WRITE_TOKENS.
+# Upload cap in characters, across all files together.
 SOURCES_MAX_TOTAL_CHARS  = 500_000
-# Was Auftrag und Antwortschema eines Planungsaufrufs im Fenster belegen.
+# What task and answer schema of a planning call occupy in the window.
 MAP_PROMPT_TOKENS        = 3_000
-# Deckel eines Planungsaufrufs, nur als Alarm. Eine Gliederung schreibt etwa 2.000 Token.
+# Cap of a planning call, only as an alarm; an outline writes about 2,000 tokens.
 MAP_OUTPUT_TOKENS        = 4_000
-# Darunter wird abgelehnt. 32k wie ein lokales Ollama tragen etwa 77.000 Zeichen je Aufruf,
-# groesseres Material geht ueber die Themen, die Schreibaufrufe kuerzen sich aufs Fenster.
+# Below this is refused. 32k (a local Ollama) carries about 77,000 chars per call, larger
+# material goes via the topics, write calls shrink to the window.
 MAP_MIN_WINDOW_TOKENS    = 32_768
-# Ein nie vermessenes Modell wird wie das kleinste zugelassene Fenster behandelt.
+# A model never measured counts as the smallest admitted window.
 MAP_UNMEASURED_WINDOW_TOKENS = 131_072
-# Themen je Teil, wenn der Text nicht in einen Planungsaufruf passt.
+# Topics per part when the text does not fit one planning call.
 MAP_MAX_TOPICS_PER_PART  = 25
-# Hoechstens so viele Themen insgesamt, so viele wie ein 128k-Fenster bei 500.000 Zeichen bildet
-# (2 Teile). Ein kleines Fenster schneidet in viele Teile, 174 Themen liessen gemma den Plan nie
-# fertig schreiben.
+# Topic cap in total, what a 128k window forms at 500,000 chars (2 parts); a small window
+# cuts many parts, and 174 topics never let gemma finish the plan.
 MAP_MAX_TOPICS_TOTAL     = 50
-# Themen, die jede Datei in der Themenstufe mindestens bekommt, sonst faellt eine hinten liegende weg.
+# Topics every file gets at least in the topic stage, else a file at the end drops out.
 MAP_MIN_TOPICS_PER_FILE  = 2
-# Stellen je Eintrag einer Gliederung, und wie weit ein Bereich wie "12-15" reichen darf.
+# Spots per outline entry, and how far a range like "12-15" may reach.
 MAP_MAX_REFS             = 60
 MAP_RANGE_MAX            = 40
-# Originaltext, den ein Schreibaufruf bekommt. Lesen kostet kaum Zeit, 150k Zeichen
-# sind etwa 50.000 Token und passen auch in ein 128k-Fenster.
+# Original text a write call gets; reading is cheap, 150k chars are about 50,000 tokens
+# and fit a 128k window.
 MAP_MATERIAL_MAX_CHARS   = 150_000
-# Ein Plan gibt jeder Datei mindestens ein Viertel ihres Gewichts im Material, sonst
-# wird er einmal nachgefordert. Dateien unter einem Zwanzigstel sind ausgenommen.
+# A plan gives every file at least a quarter of its weight in the material, else it is
+# requested once more; files under a twentieth are exempt.
 MAP_FILE_WEIGHT_FLOOR    = 0.25
 MAP_MIN_FILE_SHARE       = 0.05
-# Stuecke davor und danach, die jede Stelle mitbringt.
+# Pieces before and after that every spot brings along.
 MAP_PASSAGE_NEIGHBOURS   = 1
-# Kuerzer werden abgeschriebene Anfangsworte nie gesucht, sie stuenden an zu vielen Orten.
+# Copied opening words are never searched shorter than this, they would sit in too many places.
 MAP_ANKER_MIN_ZEICHEN    = 16
-# Verschoben wird nur, wenn so viel der abgeschriebenen Worte dort steht. Ein Inhaltsverzeichnis
-# traegt die Ueberschrift, aber nicht den Satz danach.
+# Moved only when this share of the copied words is there; a table of contents carries the
+# heading but not the sentence after it.
 MAP_ANKER_MIN_ANTEIL     = 0.8
-# Was ein Schreibaufruf hoechstens schreiben soll: (270 s - 15 s Lesen) mal 10 Token/s.
+# Most a write call should write: (270 s - 15 s reading) times 10 tokens/s.
 SERVICE_WRITE_TOKENS     = 2_500
-# Unsere Zeitgrenze je Aufruf, sie muss vor der des Anbieters greifen.
+# Our time limit per call, it must trigger before the provider's.
 SERVICE_CALL_TIMEOUT_SECONDS = 270
 
 # --- Summary tool -----------------------------------------------------------

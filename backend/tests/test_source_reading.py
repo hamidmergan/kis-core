@@ -1,4 +1,4 @@
-"""Prüft das Lesen einer Quelle: Seiten zusammensetzen, Stücke schneiden, Fundstellen."""
+"""Reading a source: assembling pages, cutting chunks, hits."""
 
 import pytest
 
@@ -15,7 +15,7 @@ from src.services.source_reading import (
 )
 
 
-# ── Seiten zusammensetzen ────────────────────────────────────────────────────
+# ── Assembling pages ────────────────────────────────────────────────────
 
 def test_eine_seite_ist_der_ganze_text():
     text, grenzen = _assemble(["Hallo Welt"])
@@ -43,7 +43,7 @@ def test_nur_leere_seiten_geben_leeren_text():
     assert _assemble(["", "  "]) == ("", [])
 
 
-# ── Seite einer Stelle ───────────────────────────────────────────────────────
+# ── Page of a passage ───────────────────────────────────────────────────────
 
 def test_die_stelle_findet_ihre_seite():
     grenzen = [(1, 0, 10), (2, 12, 20)]
@@ -54,7 +54,7 @@ def test_die_stelle_findet_ihre_seite():
 
 
 def test_eine_stelle_im_seitenumbruch_gehoert_zur_letzten_seite():
-    """Zwischen zwei Seiten steht die Leerzeile, die gehoert keiner Seite."""
+    """The blank line between two pages belongs to neither page."""
     grenzen = [(1, 0, 10), (2, 12, 20)]
     assert _seite_von(11, grenzen) == 2
 
@@ -63,7 +63,7 @@ def test_ohne_grenzen_gilt_seite_eins():
     assert _seite_von(5, []) == 1
 
 
-# ── Stücke ───────────────────────────────────────────────────────────────────
+# ── Chunks ───────────────────────────────────────────────────────────────────
 
 def test_stuecke_decken_den_ganzen_text_ohne_luecke():
     text, grenzen = _assemble([("wort " * 400).strip()])
@@ -85,7 +85,7 @@ def test_ein_kurzer_text_ist_ein_einziges_stueck():
     assert _pieces(text, grenzen) == [Piece(seite=1, von=0, bis=4)]
 
 
-# ── Hin und zurück durch den Auftragsordner ──────────────────────────────────
+# ── Round trip through the job folder ──────────────────────────────────
 
 def test_eine_quelle_kommt_unveraendert_zurueck():
     quelle = Source(dateiname="a.pdf", fassung="abc", text="Hallo",
@@ -97,7 +97,7 @@ def test_eine_beschaedigte_quelle_wird_nicht_zum_absturz():
     assert from_dict({}) == Source(dateiname="", fassung="", text="", stuecke=[], seiten=0)
 
 
-# ── Ganze Datei ──────────────────────────────────────────────────────────────
+# ── Whole file ──────────────────────────────────────────────────────────────
 
 def test_eine_textdatei_wird_gelesen_und_bekommt_ihre_pruefsumme(tmp_path):
     datei = tmp_path / "notiz.txt"
@@ -138,7 +138,7 @@ def test_ein_unbekanntes_format_wird_abgelehnt(tmp_path):
         read_file(str(datei), "bild.png")
 
 
-# ── Ein Text ohne Dokument dahinter ──────────────────────────────────────────
+# ── A text without a document behind it ──────────────────────────────────────────
 
 def test_aus_text_wird_derselbe_datensatz_wie_aus_einer_datei():
     quelle = from_text("Vorlesung.mp4", "Guten Morgen. Wir fangen an.")

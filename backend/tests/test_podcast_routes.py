@@ -78,7 +78,7 @@ def env(monkeypatch):
     monkeypatch.setattr(render_route.db, "set_job_celery_task_id", lambda *a, **k: None)
     monkeypatch.setattr(render_route.db, "update_job_status", lambda *a, **k: None)
 
-    # Ein Upload darf nichts anlegen. Schlaegt hier etwas an, ist genau das kaputt.
+    # An upload must not create anything; anything firing here means exactly that is broken.
     ablage.angelegt = []
     monkeypatch.setattr(start_route.db, "create_aia_source",
                         lambda **kw: ablage.angelegt.append(kw.get("filename")))
@@ -157,7 +157,7 @@ class TestSkriptUndVertonung:
         assert [l["id"] for l in antwort.json()["lines"]] == ["b0", "b1"]
 
     def test_behaelt_einen_noch_leeren_beitrag(self, env):
-        """Ein frisch angelegter Beitrag ist leer, das Speichern darf ihn nicht wegraeumen."""
+        """A freshly added line is empty, saving must not drop it."""
         client, jobs, _g, _a = env
         self._job(jobs)
         antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [
@@ -172,7 +172,7 @@ class TestSkriptUndVertonung:
         assert client.put(f"/podcast/{UUID}/script", json={"lines": []}).status_code == 422
 
     def test_weist_zu_viele_beitraege_mit_meldung_ab(self, env):
-        """Frueher verschwand der 251. Beitrag still, jetzt sagt es die Oberflaeche."""
+        """The 251st line used to vanish silently, now the UI says so."""
         from src.limits import PODCAST_MAX_LINES
 
         client, jobs, _g, _a = env
@@ -191,7 +191,7 @@ class TestSkriptUndVertonung:
         assert client.put(f"/podcast/{UUID}/script", json={"lines": zeilen}).status_code == 200
 
     def test_weist_ein_zu_langes_skript_ab(self, env):
-        """Dieselbe Zeichengrenze wie bei Text zu Sprache, Screencast und Uebersetzen."""
+        """Same character limit as text to speech, screencast and translation."""
         from src.limits import PODCAST_MAX_CHARS
 
         client, jobs, _g, _a = env
@@ -216,7 +216,7 @@ class TestSkriptUndVertonung:
         ]}).status_code == 409
 
     def test_gibt_den_fortschritt_als_objekt_zurueck(self, env):
-        """In der Datenbank steht der Fortschritt als Text, die Seite braucht ein Objekt."""
+        """The database stores progress as text, the page needs an object."""
         client, jobs, _g, _a = env
         self._job(jobs, status="success")
         jobs[UUID]["progress"] = json.dumps({"step": "done", "fertig": [0, 1]})
@@ -273,7 +273,7 @@ class TestFremderAuftrag:
 
 
 class TestBesetzungAendern:
-    """Die Besetzung nach dem Start: was gespeichert wird und was abgewiesen wird."""
+    """The cast after start: what is saved and what is rejected."""
 
     def _job(self, jobs, status="success"):
         jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "podcast", "status": status,
@@ -338,7 +338,7 @@ class TestBesetzungAendern:
         assert stand.instructions == "Kurz halten."
 
     def test_verteilt_beitraege_einer_entfernten_person_per_modulo(self, env):
-        """Kappen auf 0 gäbe den ganzen Rest des Gesprächs einer Stimme."""
+        """Capping at 0 would give the whole rest of the conversation to one voice."""
         client, jobs, _g, _a = env
         self._job(jobs)
         self._vorher(personen=4)
@@ -349,7 +349,7 @@ class TestBesetzungAendern:
         assert client.put(f"/podcast/{UUID}/params", json=zwei).status_code == 200
 
         from src.features.podcast import store
-        # Amira war 2 und wird 0, Tom war 3 und wird 1.
+        # Amira was 2 and becomes 0, Tom was 3 and becomes 1.
         assert [l.speaker for l in store.load_lines(7, UUID)] == [0, 1, 0, 1]
 
     def test_zieht_alles_auf_die_erste_person_wenn_nur_eine_bleibt(self, env):

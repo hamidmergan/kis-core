@@ -67,7 +67,7 @@ PERM_SET_USERS_PENDING = "settings.nutzer.pending"
 PERM_SET_USERS_WHITELIST = "settings.nutzer.whitelist"
 PERM_SET_USERS_ALL = "settings.nutzer.users"
 PERM_SET_USERS_ROLES = "settings.nutzer.roles"
-# Sich als jemand anderes anmelden, um ein gemeldetes Problem selbst zu sehen.
+# Log in as someone else to see a reported problem oneself.
 PERM_SET_USERS_IMPERSONATE = "settings.nutzer.impersonate"
 PERM_SET_USERS_FEEDBACK = "settings.nutzer.feedback"
 PERM_SET_USERS_EVALUATION = "settings.nutzer.evaluation"
@@ -152,7 +152,7 @@ PERMISSION_GROUPS: dict[str, tuple[str, ...]] = {
     group: keys for _, group, keys in MATRIX_LAYOUT
 }
 
-# Welcher Schluessel zu welchem Modul gehoert, alles Uebrige gilt als immer da.
+# Which key belongs to which module, everything else counts as always present.
 KEY_MODULE: dict[str, str] = {
     **{k: MODULE_AIA for k in AIA_KEYS},
     PERM_SET_AIA_SOURCES: MODULE_AIA,
@@ -170,7 +170,7 @@ KEY_MODULE: dict[str, str] = {
 
 
 def keys_for_modules(modules) -> tuple[str, ...]:
-    """Der Katalog dieses Profils, in Katalog-Reihenfolge."""
+    """The catalogue of this profile, in catalogue order."""
     aktiv = frozenset(modules)
     return tuple(
         k for k in ALL_PERMISSION_KEYS if KEY_MODULE.get(k) in (None, *aktiv)
@@ -178,7 +178,7 @@ def keys_for_modules(modules) -> tuple[str, ...]:
 
 
 def matrix_layout_for(modules) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
-    """Die Rechtematrix dieses Profils, leer gewordene Gruppen fallen raus."""
+    """The permission matrix of this profile, groups left empty drop out."""
     erlaubt = set(keys_for_modules(modules))
     gefiltert = []
     for chapter, group, keys in MATRIX_LAYOUT:
@@ -206,7 +206,7 @@ ROLE_ONLY_KEYS: tuple[str, ...] = (PERM_AIA_LANGUAGE_LEVEL,)
 
 STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k not in ROLE_ONLY_KEYS)
 
-# Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
+# Teachers read their modules' numbers on the module itself, not in the settings.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
     "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,

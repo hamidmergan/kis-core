@@ -1,6 +1,6 @@
 "use client";
 
-/** Anonymes Feedback-Formular für eingeloggte Personen, erreichbar über Fußzeile und Startseiten-Hinweis. */
+/** Anonymous feedback form for logged-in users, reached via footer and start page hint. */
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -52,7 +52,7 @@ export default function FeedbackPage() {
       const url = new URL(document.referrer);
       if (url.origin === window.location.origin) setPagePath(url.pathname);
     } catch {
-      /* kein gueltiger Referrer, dann bleibt page_path leer */
+      /* no valid referrer, page_path stays empty */
     }
   }, []);
 

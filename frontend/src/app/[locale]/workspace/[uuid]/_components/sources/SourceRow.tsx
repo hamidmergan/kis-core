@@ -361,11 +361,7 @@ export function SourceRow({
                               onClick={() => { onMenuOpen(false); onSummarize(src.uuid); }}
                             />
                           )}
-                          {/* Zustand und Nachholen stehen zusammen im Menue, damit die
-                              Zeile selbst ruhig bleibt. Nachholen heisst: die Quelle
-                              laeuft komplett neu durch, diesmal mit Texterkennung.
-                              showOcrWarning traegt den Admin-Schalter schon mit, der
-                              Eintrag ist also nie eine Sackgasse. */}
+                          {/* State and redo sit together in the menu to keep the row calm. Redo reprocesses the source with OCR; showOcrWarning already includes the admin switch, so the entry is never a dead end. */}
                           {showOcrWarning && (
                             <>
                               <div className="my-1" style={{ height: 1, backgroundColor: "var(--border)" }} />

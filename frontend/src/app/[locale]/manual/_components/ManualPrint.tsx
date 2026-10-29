@@ -13,7 +13,7 @@ type PrintGroup = {
   articles: { slug: string; title: string; markdown: string }[];
 };
 
-/** Das ganze Handbuch am Stueck, mit Inhalt vorweg und Seitenumbruch je Artikel. */
+/** The whole manual in one piece, contents first and a page break per article. */
 export default function ManualPrintView({
   groups,
   sizes,
@@ -28,12 +28,12 @@ export default function ManualPrintView({
     checkAuthStatus().then((s) => setIsAdmin(s.is_admin ?? false));
   }, []);
 
-  // Ohne Adminrecht faellt die Verwaltungs-Gruppe weg, wie im Menue.
+  // Without admin rights the administration group is dropped, as in the menu.
   const sichtbar = groups.filter((g) => isAdmin || !g.adminOnly);
 
   return (
     <div className="relative px-4 sm:px-6 lg:px-8 pt-10 pb-20">
-      {/* Kopf und Fuss der Seite gehoeren nicht ins PDF. */}
+      {/* Page header and footer do not belong in the PDF. */}
       <style>{`
         @media print {
           header, footer, .manual-print-hide { display: none !important; }

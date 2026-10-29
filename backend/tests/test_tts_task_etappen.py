@@ -1,4 +1,4 @@
-"""Text zu Sprache arbeitet in Etappen und ueberspringt fertige Stuecke."""
+"""Text to speech works in stages and skips finished chunks."""
 
 import json
 
@@ -12,7 +12,7 @@ UID = 7
 
 
 class _Ablage:
-    """Auftragsordner als dict, wie die echte Ablage nach Namen befragt."""
+    """Job folder as a dict, queried by name like the real storage."""
 
     def __init__(self, vorhanden=()):
         self.dateien = {name: b"alt" for name in vorhanden}
@@ -27,7 +27,7 @@ class _Ablage:
 
 
 class _Client:
-    """Zaehlt, fuer welche Texte der Anbieter wirklich gerufen wurde."""
+    """Counts which texts the provider was actually called for."""
 
     def __init__(self):
         self.gesprochen = []

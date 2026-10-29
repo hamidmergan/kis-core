@@ -1,4 +1,4 @@
-"""Die Anweisung an Podcast, Präsentation und Zusammenfassung: Thema engt ein, Stil formt, Unsinn fällt weg."""
+"""The instruction for podcast, presentation and summary: topic narrows, style shapes, nonsense is dropped."""
 
 import asyncio
 import json
@@ -14,7 +14,7 @@ def _quelle(name: str, text: str = "Ein Satz. " * 50) -> Source:
                   stuecke=[Piece(seite=1, von=0, bis=len(text))])
 
 
-# ── Der Weg selbst ───────────────────────────────────────────────────────────
+# ── The path itself ───────────────────────────────────────────────────────────
 
 class TestWeg:
     def test_liest_die_drei_wege(self):
@@ -135,7 +135,7 @@ class TestPodcast:
         assert gespeichert[0].instruction_unmatched
 
 
-# ── Präsentation ─────────────────────────────────────────────────────────────
+# ── Presentation ─────────────────────────────────────────────────────────────
 
 class TestPraesentation:
     def test_ein_thema_verlangt_keine_folien_je_datei(self):
@@ -203,7 +203,7 @@ class TestPraesentation:
         assert neu.title == "Zitierstile" and neu.stellen == [1]
 
 
-# ── Zusammenfassung ──────────────────────────────────────────────────────────
+# ── Summary ──────────────────────────────────────────────────────────
 
 class TestZusammenfassung:
     def test_ein_thema_verlangt_nicht_jede_datei(self):

@@ -18,14 +18,14 @@ def test_hybrid_zaehlt_beide_wege():
 
 def test_dense_laesst_reine_stichworttreffer_weg():
     scores, kw_ids = _rrf_fuse(VEC, KW, rrf_k=60, mode="dense")
-    assert set(scores) == {1, 2}   # Chunk 3 kam nur ueber das Stichwort
+    assert set(scores) == {1, 2}   # chunk 3 came only via keyword
     assert scores[1] == pytest.approx(1 / 61)
     assert scores[2] == pytest.approx(1 / 62)
 
 
 def test_keyword_laesst_reine_vektortreffer_weg():
     scores, kw_ids = _rrf_fuse(VEC, KW, rrf_k=60, mode="keyword")
-    assert set(scores) == {2, 3}   # Chunk 1 kam nur ueber den Vektor
+    assert set(scores) == {2, 3}   # chunk 1 came only via vector
 
 
 def test_kw_hit_meldet_nur_echte_stichworttreffer():

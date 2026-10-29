@@ -56,9 +56,9 @@ def test_complete_answer_maps_one_to_one():
 def test_truncated_answer_is_not_taken_as_finished():
     """The answer breaks off in entry 3, then the fragment must not count as a result."""
     client = _client([
-        ("1. one\n2. two\n3. thr", "length"),   # abgeschnitten in Eintrag 3
-        ("1. one", "stop"),                     # erste Hälfte neu (1 Eintrag)
-        ("1. two\n2. three", "stop"),           # zweite Hälfte neu (2 Einträge)
+        ("1. one\n2. two\n3. thr", "length"),   # cut off in entry 3
+        ("1. one", "stop"),                     # first half again (1 entry)
+        ("1. two\n2. three", "stop"),           # second half again (2 entries)
     ])
     out = client.translate_batch(["eins", "zwei", "drei"], "DE", "EN")
     assert out == ["one", "two", "three"]
@@ -69,9 +69,9 @@ def test_truncated_answer_is_not_taken_as_finished():
 def test_single_item_truncation_retries_with_more_room():
     """A single text cannot be split, so give it more room."""
     client = _client([
-        ("", "length"),     # Blockaufruf, Budget zu knapp
-        ("", "length"),     # Einzelaufruf, immer noch zu knapp
-        ("one", "stop"),    # Einzelaufruf mit vollem Budget
+        ("", "length"),     # batch call, budget too tight
+        ("", "length"),     # single call, still too tight
+        ("one", "stop"),    # single call with full budget
     ])
     assert client.translate_batch(["eins"], "DE", "EN") == ["one"]
 
@@ -107,7 +107,7 @@ def test_partial_list_is_fully_retranslated_individually(monkeypatch):
     # One worker keeps the single calls in order, so the replies can be listed.
     monkeypatch.setattr("src.services.llm_translation_client._BATCH_PARALLELISM", 1)
     client = _client([
-        ("1. one\n3. three", "stop"),  # Eintrag 2 fehlt, die Nummern taugen nichts mehr
+        ("1. one\n3. three", "stop"),  # entry 2 missing, the numbers are useless now
         ("one", "stop"), ("two", "stop"), ("three", "stop"),
     ])
     assert client.translate_batch(["eins", "zwei", "drei"], "DE", "EN") == ["one", "two", "three"]
@@ -123,8 +123,8 @@ def test_result_length_always_matches_input():
 def test_long_single_text_is_halved_instead_of_failing():
     """A long text has no batch to split, so the text itself is halved."""
     client = _client([
-        ("angefangen", "length"),   # erster Aufruf, Budget zu knapp
-        ("angefangen", "length"),   # zweiter Aufruf mit vollem Budget
+        ("angefangen", "length"),   # first call, budget too tight
+        ("angefangen", "length"),   # second call with full budget
         ("first half", "stop"),
         ("second half", "stop"),
     ])

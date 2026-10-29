@@ -1,8 +1,6 @@
-"""Ist das Material ausgeschöpft, bekommt die Person Wiederholungen statt eines gescheiterten Satzes.
+"""When the material is used up the person gets repeats instead of a failed set.
 
-Lasttest 26.09.: Testpersonen erzeugten viele Kartensätze aus derselben kleinen Folie. Das Modell
-lieferte nur noch Karten, die sie schon hatten, alle wurden aussortiert, der Satz scheiterte ohne
-Erklärung.
+Load test 26.09.: many card sets from the same small slide, the model only returned known cards, all were dropped and the set failed without explanation.
 """
 
 import pytest

@@ -1,8 +1,8 @@
-"""PDFs aus mehreren Fäden zugleich lesen, ohne dass der Prozess abstürzt.
+"""Reading PDFs from several threads at once without crashing the process.
 
-pdfium ist nicht threadsicher. Seit das Lesen außerhalb der Ereignisschleife läuft, lasen
-mehrere Fäden eines Backend-Prozesses gleichzeitig, und der Prozess starb mit einem
-Speicherzugriffsfehler (Lauf 4 des Lasttests am 26.09., nachgestellt mit Exit 139).
+pdfium is not thread-safe: once reading moved off the event loop, several threads of one
+backend process read concurrently and the process died with a segfault (load test 26.09.,
+run 4, reproduced with exit 139).
 """
 
 import subprocess

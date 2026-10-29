@@ -1,7 +1,6 @@
-"""Jedes erzeugte Bild braucht einen Platz beim Anbieter, sonst stauen sich die Bilder dort.
+"""Every generated image needs a seat at the provider, else images pile up there.
 
-Lasttest 26.09.: myLab malt genau ein Bild zur Zeit, etwa 11 s je Bild. Bis zu 24 Bilder
-gleichzeitig liefen in die 300 s Grenze, 92 von rund 110 Präsentationsbildern fehlten.
+Load test 26.09.: myLab paints one image at a time (11 s), 24 in parallel hit the 300 s limit and 92 of 110 images were missing.
 """
 
 import base64
@@ -52,7 +51,7 @@ class _Redis:
 
 @pytest.fixture
 def voll(monkeypatch):
-    """Der einzige Bildplatz bei myLab ist besetzt, gewartet wird nicht."""
+    """The only image seat at myLab is taken, no waiting."""
     r = _Redis()
     r.zadd("kis:provider-slots:21:image", {"besetzt": 1.0})
     monkeypatch.setattr(provider_slots, "_redis", lambda: r)

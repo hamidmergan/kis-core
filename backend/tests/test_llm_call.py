@@ -47,7 +47,7 @@ def test_ein_passender_aufruf_geht_durch():
 
 
 def test_eine_absage_bleibt_eine_absage():
-    """Kein Kuerzen, kein zweiter Versuch: die Groesse stellt der Admin ein."""
+    """No trimming, no second attempt: the admin sets the size."""
     anbieter = _Anbieter(1_000)
     with pytest.raises(RuntimeError):
         llm_call.create_logged(_Client(anbieter), model="m", messages=_nachrichten(5000))

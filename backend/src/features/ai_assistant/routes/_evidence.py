@@ -250,11 +250,11 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
         elif d > max_distance:
             break                        # off topic for everyone, evidence or not
         elif h.get("literal"):
-            pass                         # nennt die Zahl der Aussage woertlich, das IST die Stelle
+            pass                         # names the statement's number verbatim, that IS the spot
         elif d > primary_d + _MULTI_CHIP_MAX_DELTA:
-            continue                     # merklich weiter weg als der beste Treffer
+            continue                     # noticeably farther off than the best hit
         elif pins and not any(carries_pin(p, h.get("content") or "") for p in pins):
-            continue                     # belegt nur das Thema, nicht die Aussage
+            continue                     # backs only the topic, not the statement
         c = _attribution_chip(qnum, h, line,
                               (transcript_by_source or {}).get(h.get("source_id")))
         if not c:
@@ -351,7 +351,7 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                 seen_targets = set(chips)
                 for cl in _clauses(sent):
                     if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
-                        break            # voll, sonst haengt die Klausel einen vierten an
+                        break            # full, else the clause appends a fourth
                     ccands = _figure_first(sent, _line_candidates(
                         cl, search_one, context_chunks, seen_pages_by_source, scope_ids,
                         literal_lookup=literal_lookup, corpus=corpus), corpus)
@@ -541,7 +541,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                 for idx in blk:
                     for ccands in clause_cands_by_idx.get(idx, []):
                         if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
-                            break        # voll, sonst haengt die Klausel einen vierten an
+                            break        # full, else the clause appends a fourth
                         ccands = _figure_first(block_text, ccands, evidence_corpus)
                         cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                                  guarantee_dist=guarantee, line=block_text,

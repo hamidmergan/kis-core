@@ -1,4 +1,4 @@
-"""Welche Module diese Anlage ueberhaupt hat, gesetzt einmal in der .env."""
+"""Which modules this installation has at all, set once in the .env."""
 
 from functools import lru_cache
 
@@ -11,11 +11,11 @@ MODULE_TOOLS = "tools"
 
 
 class ModuleConfigError(ValueError):
-    """MODULES enthaelt einen Namen, den es nicht gibt."""
+    """MODULES contains a name that does not exist."""
 
 
 def parse_modules(raw: str) -> frozenset[str]:
-    """Liest den MODULES-Wert, leer bedeutet alle Module."""
+    """Reads the MODULES value, empty means all modules."""
     teile = [t.strip().lower() for t in (raw or "").split(",")]
     gewaehlt = [t for t in teile if t]
     if not gewaehlt:
@@ -30,7 +30,7 @@ def parse_modules(raw: str) -> frozenset[str]:
 
 @lru_cache(maxsize=1)
 def active_modules() -> frozenset[str]:
-    """Das Profil dieser Anlage, einmal gelesen und gemerkt."""
+    """The profile of this installation, read once and cached."""
     from src.dependencies import get_settings
 
     gewaehlt = parse_modules(get_settings().modules)

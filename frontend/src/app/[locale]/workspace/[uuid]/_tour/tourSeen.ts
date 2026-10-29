@@ -9,7 +9,7 @@
 export async function ladeTourGesehen(): Promise<boolean> {
   try {
     const res = await fetch("/api/me", { credentials: "include" });
-    if (!res.ok) return true; // Im Zweifel nicht einladen, das ist die leisere Störung.
+    if (!res.ok) return true; // When in doubt do not invite, the quieter disruption.
     const daten = await res.json();
     return daten.tour_seen_at !== null && daten.tour_seen_at !== undefined;
   } catch {
@@ -26,6 +26,6 @@ export async function merkeTourGesehen(seen: boolean): Promise<void> {
       body: JSON.stringify({ seen }),
     });
   } catch {
-    /* Der Rundgang lief trotzdem, das Merken ist die Zugabe. */
+    /* The tour ran anyway, remembering it is the extra. */
   }
 }

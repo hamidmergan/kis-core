@@ -121,7 +121,7 @@ class TestRegen:
 
 
 class TestFaktennummern:
-    """Die Gliederung zeigt auf den Vorrat, damit jede Folie nur ihre Fakten sieht."""
+    """The outline points to the pool so every slide sees only its facts."""
 
 
 

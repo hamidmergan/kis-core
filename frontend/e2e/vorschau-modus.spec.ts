@@ -21,7 +21,7 @@ const STREIFEN = '[data-tour="preview-banner"]';
 const QUELLE_HINZU = '[data-tour="add-source"]';
 const HINWEIS = '[data-tour="staff-note"]';
 
-/** Der Schalter sitzt in den Einstellungen, das Fenster schliesst sich beim Umschalten selbst. */
+/** The switch sits in the settings, the popup closes itself on toggling. */
 async function vorschauUmschalten(page: import("@playwright/test").Page) {
   await page.locator(ZAHNRAD).click();
   await page.locator(SCHALTER).click();
@@ -38,7 +38,7 @@ test.describe("Eigentümer schaut auf die Studierenden-Seite", () => {
     await vorschauUmschalten(page);
 
     await expect(page.locator(STREIFEN)).toBeVisible();
-    // So sehen es Studierende wirklich: der Knopf ist weg, nicht markiert.
+    // What students really see: the button is gone, not marked.
     await expect(page.locator(QUELLE_HINZU)).toHaveCount(0);
     await expect(page.locator(".owner-preview")).toHaveCount(0);
 
@@ -66,7 +66,7 @@ test.describe("Eingeschriebener schaut auf die Lehrenden-Seite", () => {
     const kurs = await (await admin.post("/api/ai-assistant/workspaces", {
       form: { title: "E2E Vorschau Kurs" },
     })).json();
-    // Ein frischer Kurs ist aus, und die Demo zeigt nur eingeschaltete Kurse.
+    // A fresh course is off, and the demo only lists active courses.
     await admin.patch(`/api/ai-assistant/workspaces/${kurs.uuid}`, { data: { is_active: true } });
 
     try {
@@ -77,7 +77,7 @@ test.describe("Eingeschriebener schaut auf die Lehrenden-Seite", () => {
       await page.click('button[type="submit"]');
       await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
 
-      // Über die Demo beitreten, dann steht der Kurs dem Tester offen.
+      // Enroll via the demo, then the course is open to the tester.
       const beitritt = await page.request.post("/api/ai-assistant/demo/enroll", {
         data: { workspace_uuid: kurs.uuid },
       });
@@ -85,19 +85,17 @@ test.describe("Eingeschriebener schaut auf die Lehrenden-Seite", () => {
 
       await page.goto(`/de/workspace/${kurs.uuid}`, { waitUntil: "domcontentloaded" });
 
-      // Im Demo-Kurs ist die Lehrenden-Vorschau von Anfang an an.
+      // In the demo course the staff preview is on from the start.
       await expect(page.locator(STREIFEN)).toBeVisible();
       await expect(page.locator(".owner-preview").first()).toHaveAttribute("inert", "");
 
-      // Genau der Punkt der Sache: sichtbar, aber nicht bedienbar. Jedes
-      // Lehrenden-Bedienelement einzeln, sonst deckt ein Treffer die anderen zu.
+      // The whole point: visible but not usable. Each staff control on its own, or one hit masks the others.
       for (const knopf of [QUELLE_HINZU, HINWEIS]) {
         await expect(page.locator(knopf)).toBeVisible();
         await expect(page.locator(knopf).locator("xpath=ancestor::*[@inert]")).toHaveCount(1);
       }
 
-      // Schmal faellt die Panel-Kopfzeile weg, die Knoepfe ruecken in eine
-      // eigene Zeile. Auch die muss gesperrt bleiben.
+      // On narrow screens the panel header goes and the buttons move to their own row, which must stay locked too.
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole("button", { name: "Materialien", exact: true }).click();
       await expect(page.locator(QUELLE_HINZU)).toBeVisible();
@@ -127,13 +125,13 @@ test.describe("Studierende in einem normalen Kurs", () => {
     await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
 
     await page.goto(`/de/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
-    // Erst wenn die Topbar steht, ist ein fehlender Knopf echt und kein Ladezustand.
+    // Only once the topbar is there is a missing button real and not a loading state.
     await page.locator(ZAHNRAD).waitFor({ timeout: 30_000 });
     const modul = await (await page.request.get(`/api/ai-assistant/workspaces/${WORKSPACE}`)).json();
     test.skip(!!modul.can_manage, "Hier verwaltet das Konto das Modul mit, dann steht ihm die Vorschau zu.");
 
     await expect(page.locator(QUELLE_HINZU)).toHaveCount(0);
-    // Auch hinter dem Zahnrad steht die Zeile nicht.
+    // The row is not behind the gear either.
     await page.locator(ZAHNRAD).click();
     await expect(page.locator(SCHALTER)).toHaveCount(0);
   });

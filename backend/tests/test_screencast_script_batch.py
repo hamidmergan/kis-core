@@ -82,8 +82,8 @@ def test_trailing_delimiter_is_tolerated():
 def test_missing_delimiter_falls_back_to_one_call_per_slide():
     """Instead of shifting, every slide is generated individually, which cannot go wrong."""
     client = ScriptClient([
-        "Skript A und Skript B zusammen\n|||\nSkript C",  # ein Trenner zu wenig
-        "Skript A und Skript B zusammen\n|||\nSkript C",  # Wiederholung, wieder falsch
+        "Skript A und Skript B zusammen\n|||\nSkript C",  # one separator short
+        "Skript A und Skript B zusammen\n|||\nSkript C",  # retry, wrong again
         "Skript A",
         "Skript B",
         "Skript C",
@@ -95,11 +95,11 @@ def test_missing_delimiter_falls_back_to_one_call_per_slide():
 def test_failed_single_slide_only_costs_that_slide():
     """If a slide fails in individual mode it stays empty, the others do not."""
     client = ScriptClient([
-        "nur ein Teil",           # Stapel, Versuch 1
-        "nur ein Teil",           # Stapel, Versuch 2
-        "Skript A",               # Folie 1 einzeln
-        RuntimeError("Anbieter weg"),  # Folie 2 einzeln
-        "Skript C",               # Folie 3 einzeln
+        "nur ein Teil",           # batch, attempt 1
+        "nur ein Teil",           # batch, attempt 2
+        "Skript A",               # slide 1 alone
+        RuntimeError("Anbieter weg"),  # slide 2 alone
+        "Skript C",               # slide 3 alone
     ])
     scripts = client.generate_scripts_batch(_slides(3), add_greeting=False, add_closing=False)
     assert scripts[0] == "Skript A"

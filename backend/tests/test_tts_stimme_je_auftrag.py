@@ -1,7 +1,6 @@
-"""Text in Audio legt Anbieter und Stimme beim ersten Lauf fest, danach wechseln sie nie mehr.
+"""Text-to-audio fixes provider and voice on the first run, afterwards they never change.
 
-Nutzerentscheid 27.09.2026: ist der gewählte Anbieter beim Start nicht da, läuft der ganze Auftrag mit
-dem Rückfall aus dem Adminbereich. Etappen, Wiederanläufe und Neuversuche bleiben bei dieser Wahl.
+User decision 27.09.2026: if the chosen provider is down at start the whole job runs with the admin fallback; stages, restarts and retries keep this choice.
 """
 
 import json
@@ -20,7 +19,7 @@ FESTGELEGT = {"voice_id": "onyx", "voice_label": "Onyx", "speed": 1.0, "provider
 
 
 class _Sprecher:
-    """Merkt sich, bei welchem Anbieter mit welcher Stimme gesprochen wurde."""
+    """Remembers which provider spoke with which voice."""
 
     def __init__(self):
         self.gesprochen = []
@@ -76,7 +75,7 @@ def test_ist_der_gewaehlte_da_bleibt_name_und_stimme_wie_gewaehlt(welt, monkeypa
 
 
 def test_eine_festgelegte_stimme_gilt_auch_gegen_veraltete_argumente(welt):
-    """Eine nach Absturz neu zugestellte erste Etappe trägt noch die gewählte Stimme in sich."""
+    """A first stage redelivered after a crash still carries the chosen voice."""
     _db, ablage, sprecher, _task, gefragt = welt
     ablage.dateien["tts_params.json"] = json.dumps(FESTGELEGT).encode()
 
@@ -100,7 +99,7 @@ def test_die_naechste_etappe_bekommt_die_festgelegte_stimme(welt, monkeypatch):
 
 
 def test_stuecke_eines_alten_laufs_halten_die_stimme_der_argumente(welt):
-    """Nie zwei Stimmen in einer Datei: was schon gesprochen ist, bestimmt den Rest."""
+    """Never two voices in one file: what is already spoken decides the rest."""
     _db, ablage, sprecher, _task, gefragt = welt
     ablage.dateien["chunk_000.mp3"] = b"alt"
 
@@ -150,7 +149,7 @@ def test_der_neuversuch_von_hand_spricht_mit_der_festgelegten_stimme(welt, monke
 
 
 class _Aussetzer(Exception):
-    """Ein kurzer Fehler der Ablage, die Datei ist trotzdem da."""
+    """A brief storage error, the file is there anyway."""
 
     response = {"Error": {"Code": "SlowDown"}}
 
@@ -164,7 +163,7 @@ def _gewaehlter_ist_da(monkeypatch, gefragt):
 
 
 def test_ein_kurzer_ablagefehler_ueberschreibt_die_festgelegte_stimme_nie(welt, monkeypatch):
-    """Eine neu zugestellte erste Etappe scheitert lieber, als mit alten Argumenten eine zweite Stimme festzulegen."""
+    """A redelivered first stage rather fails than fixing a second voice from old arguments."""
     _db, ablage, sprecher, _task, gefragt = welt
     ablage.dateien["tts_params.json"] = json.dumps(FESTGELEGT).encode()
     _gewaehlter_ist_da(monkeypatch, gefragt)
@@ -198,7 +197,7 @@ def test_fehlt_die_datei_gilt_die_festlegung_aus_dem_fortschritt(welt, monkeypat
     assert json.loads(ablage.dateien["tts_params.json"]) == FESTGELEGT
 
 
-# ─── Annahme des Auftrags ──────────────────────────────────────────────────
+# ─── Accepting the job ─────────────────────────────────────────────────────
 
 
 class _Request:
@@ -236,7 +235,7 @@ async def _senden():
 
 
 async def test_ein_nicht_erreichbarer_anbieter_mit_rueckfall_nimmt_den_auftrag_an(annahme):
-    """Die Wahl selbst fällt erst beim Start, bis dahin steht im Ordner die Wahl der Person."""
+    """The choice itself is made only at start, until then the folder holds the person's choice."""
     _stand, abgelegt, eingereiht = annahme
 
     antwort = await _senden()
@@ -289,7 +288,7 @@ async def test_ist_der_gewaehlte_da_fragt_er_den_rueckfall_gar_nicht(annahme, mo
 
 
 async def test_die_annahme_sieht_den_gewaehlten_mit_den_augen_der_wahl(annahme):
-    """Eine eigene frische Probe könnte dem Blick der Wahl widersprechen und ohne Grund ablehnen."""
+    """A fresh probe of its own could contradict the choice's view and reject without reason."""
     stand, _abgelegt, eingereiht = annahme
     stand["da"], stand["rueckfall"] = True, False
 

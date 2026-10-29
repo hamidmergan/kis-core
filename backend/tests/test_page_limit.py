@@ -1,4 +1,4 @@
-"""Die Seitengrenze gilt fuer Materialien und fuer die Werkzeuge gleichermassen."""
+"""The page limit applies equally to materials and tools."""
 
 import pytest
 from fastapi import HTTPException
@@ -7,7 +7,7 @@ from src.utils import file_validation
 
 
 def _pptx(pfad, folien: int) -> str:
-    """Eine echte Praesentation mit der gewuenschten Zahl leerer Folien."""
+    """A real presentation with the requested number of empty slides."""
     from pptx import Presentation
 
     p = Presentation()
@@ -24,7 +24,7 @@ def test_zaehlt_die_folien_einer_praesentation(tmp_path):
 
 @pytest.mark.parametrize("ext", [".txt", ".md", ".docx", ".mp3"])
 def test_formate_ohne_seiten_liefern_nichts(tmp_path, ext):
-    """Ohne Seitenzahl gibt es nichts zu begrenzen, das ist kein Fehler."""
+    """Without a page count there is nothing to limit, that is not an error."""
     datei = tmp_path / f"x{ext}"
     datei.write_text("egal")
     assert file_validation.count_pages(ext, str(datei)) is None

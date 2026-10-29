@@ -1,4 +1,4 @@
-"""Nur die Router des gewaehlten Profils sind eingehaengt."""
+"""Only the routers of the chosen profile are mounted."""
 from src.app import create_app
 from src.modules import MODULE_AIA, MODULE_TOOLS
 

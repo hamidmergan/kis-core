@@ -15,7 +15,7 @@ LANG = (
 )
 
 
-# ── Welche Chunks taugen ──────────────────────────────────────────────────────
+# ── Which chunks qualify ──────────────────────────────────────────────────────
 
 def test_langer_fliesstext_taugt():
     assert _taugt_als_quelle(LANG) is True
@@ -115,7 +115,7 @@ def test_codezaun_faellt_weg(roh):
 # ── The write path ────────────────────────────────────────────────────────────
 
 def test_schreibbarer_pfad_wird_angenommen(tmp_path):
-    _pruefe_schreibbar(tmp_path / "neu.json")     # legt nichts an, wirft nur nicht
+    _pruefe_schreibbar(tmp_path / "neu.json")     # creates nothing, just does not raise
 
 
 def test_fehlendes_verzeichnis_faellt_auf(tmp_path):

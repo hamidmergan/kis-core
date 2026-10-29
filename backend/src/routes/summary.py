@@ -81,7 +81,7 @@ async def summarize(
     enforce_open_jobs(user_id, locale, "summary")
     enforce_tool_burst(user_id, "summary", locale)
 
-    # Beide Wege enden im selben Datensatz, aus dem Workspace kommt nur die Datei.
+    # Both paths end in the same record, the workspace supplies only the file.
     if mode == "module":
         from src.services import workspace_sources as arbeitsraum
         gelesen = await asyncio.to_thread(arbeitsraum.read_workspace,

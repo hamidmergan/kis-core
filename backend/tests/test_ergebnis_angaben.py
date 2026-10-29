@@ -180,7 +180,7 @@ def test_screencast_mit_allsprachiger_stimme_nennt_die_zielsprache(lokal, monkey
 
 
 def test_bilder_bringen_anbieter_prompt_und_einstellungen_mit(lokal):
-    """Nutzerwunsch 07.10.2026: auch Bilder bekommen das i mit Anbieter, Art und Prompt."""
+    """User request 07.10.2026: images also get the info icon with provider, kind and prompt."""
     from src.services.job_statistik import angaben_lesen
     from src.storage import save_result_meta
 

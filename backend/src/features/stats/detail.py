@@ -13,7 +13,7 @@ VERLAUF_SEITE = 50
 # How many recent online-sessions the Verlauf shows.
 SITZUNGEN_ANZAHL = 20
 
-# Chat-Vorschau: Aufsicht braucht den Wortlaut, nicht nur "Nachricht gesendet".
+# Chat preview: supervision needs the wording, not just "message sent".
 VORSCHAU_LAENGE = 140
 
 
@@ -177,7 +177,7 @@ def workspace_detail(uuid: str) -> dict | None:
             )
             personen = cur.fetchall()
 
-            # Werkzeuge und letzte Aktivitaet bleiben eigene Abfragen, beide je Person gruppiert.
+            # Tools and last activity stay separate queries, both grouped per person.
             cur.execute(
                 """SELECT p.user_id, s.tool, COUNT(*) AS n
                    FROM aia_exercise_progress p
@@ -197,7 +197,7 @@ def workspace_detail(uuid: str) -> dict | None:
             for zeilen in werkzeuge_je_person.values():
                 zeilen.sort(key=lambda x: x["answered"], reverse=True)
 
-            # Presence ist plattformweit, hier zaehlt nur Aktivitaet in diesem Modul.
+            # Presence is platform-wide, here only activity in this module counts.
             cur.execute(
                 """SELECT user_id, MAX(wann) AS zuletzt FROM (
                        SELECT user_id, created_at AS wann FROM aia_messages
@@ -255,7 +255,7 @@ def workspace_detail(uuid: str) -> dict | None:
 
 
 def user_verlauf(user_id: int, vor: str | None = None) -> dict:
-    """Chat, Werkzeuge, Uebungen und Beitritte gemischt, neueste zuerst, Sitzungen separat."""
+    """Chat, tools, exercises and joins mixed, newest first, sessions separately."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             grenze = "AND wann < %(vor)s" if vor else ""
@@ -293,7 +293,7 @@ def user_verlauf(user_id: int, vor: str | None = None) -> dict:
                 for r in cur.fetchall()
             ]
 
-            # 500 Stunden reichen, um die letzten Sitzungen zu bilden, ohne die ganze Historie zu laden.
+            # 500 hours suffice to build the last sessions without loading the whole history.
             cur.execute(
                 """SELECT day, hour FROM user_presence
                     WHERE user_id = %s ORDER BY day DESC, hour DESC LIMIT 500""",
@@ -315,7 +315,7 @@ def _vorschau(text: str | None) -> str | None:
 
 
 def _sitzungen(zeilen: list[dict]) -> list[dict]:
-    """Fasst zusammenhaengende Stunden je Tag zu einer Sitzung zusammen."""
+    """Merges consecutive hours per day into one session."""
     nach_tag: dict[str, list[int]] = {}
     for r in zeilen:
         nach_tag.setdefault(str(r["day"]), []).append(r["hour"])

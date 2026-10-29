@@ -61,7 +61,7 @@ export function InlineRename({
         className="w-full text-sm font-semibold rounded-md px-2 py-1 bg-background outline-none border-2"
         style={{ borderColor: fehler ? "var(--error-border)" : "var(--kb)", color: "var(--foreground)" }}
       />
-      {/* Fehlerzeile in der Optik, die das Umbenennen einer Quelle schon benutzt. */}
+      {/* Error line in the style already used for renaming a source. */}
       {fehler && (
         <p className="text-xs mt-1 rounded-md px-2 py-1"
           style={{ backgroundColor: "var(--error-bg)", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}>

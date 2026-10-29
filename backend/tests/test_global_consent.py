@@ -45,7 +45,7 @@ def _build_client(role: str) -> TestClient:
 
 @pytest.mark.parametrize("role", ["staff", "admin", "user"])
 def test_without_consent_every_role_is_blocked(role, monkeypatch):
-    """TH-Konto, externer Zugang oder Demo - die Rolle entscheidet hier nicht, nur der Haken."""
+    """TH account, external access or demo - the role does not matter here, only the checkbox."""
     import src.dependencies_rbac as rbac
     monkeypatch.setattr(rbac, "has_global_consent", lambda user_id: False)
     r = _build_client(role).get("/translate")

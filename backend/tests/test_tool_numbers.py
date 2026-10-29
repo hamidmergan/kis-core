@@ -1,4 +1,4 @@
-"""Der gemeinsame Vorrat der einstellbaren Zahlen, jedes Werkzeug traegt hier ein."""
+"""The shared pool of configurable numbers, every tool registers here."""
 
 import pytest
 
@@ -8,7 +8,7 @@ from src.services import tool_numbers as tn
 
 @pytest.fixture
 def eingestellt(monkeypatch):
-    """Der Adminbereich als Woerterbuch, leer heisst nichts eingestellt."""
+    """The admin panel as a dict, empty means nothing set."""
     werte: dict[str, str] = {}
     monkeypatch.setattr("src.database.get_setting",
                         lambda key, default="": werte.get(key, default))
@@ -16,7 +16,7 @@ def eingestellt(monkeypatch):
 
 
 class TestDerVorrat:
-    """Was eingetragen ist, muss in sich stimmen, sonst faellt es erst im Betrieb auf."""
+    """Registered entries must be consistent, else it only shows up in production."""
 
     def test_kein_schluessel_kommt_zweimal_vor(self):
         schluessel = [n.key for n in tn.NUMBERS]
@@ -45,7 +45,7 @@ class TestDerVorrat:
 
 
 class TestLesen:
-    """Ohne brauchbaren Eintrag gilt der Wert aus dem Code, nie eine Null."""
+    """Without a usable entry the code default applies, never zero."""
 
     def test_ohne_eintrag_gilt_der_standard(self, eingestellt):
         for n in tn.NUMBERS:

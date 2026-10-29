@@ -66,10 +66,9 @@ async function alsGastImDemoKurs(
   })).json();
   await admin.patch(`/api/ai-assistant/workspaces/${kurs.uuid}`, { data: { is_active: true } });
   try {
-    // Bewusst ein anderes Konto: dem Eigentümer bietet die Karte seinen
-    // eigenen Kurs nicht als Demo an, das wäre auch sinnlos.
+    // Deliberately another account: the card never offers owners their own course as demo.
     await anmelden(page, "b", "b");
-    // Der Merker haengt am Konto, also ueber die API zuruecksetzen.
+    // The mark hangs on the account, so reset it through the API.
     await page.request.post("/api/me/tour-seen", { data: { seen: false } });
     await ablauf(kurs);
   } finally {
@@ -98,7 +97,7 @@ async function zurueckKlicken(page: import("@playwright/test").Page) {
 }
 
 async function tourOeffnen(page: import("@playwright/test").Page, locale: "de" | "en") {
-  // Der Rundgang startet ueber die Adresse, im Kopfmenue haengt derselbe Weg.
+  // The tour starts via the URL, the header menu takes the same route.
   await page.goto(`/${locale}/workspace/${WORKSPACE}?tour=1`, { waitUntil: "domcontentloaded" });
   await page.locator(POPOVER).waitFor({ timeout: 30_000 });
 }
@@ -109,7 +108,7 @@ test("der Rundgang läuft von vorn bis hinten durch", async ({ page }) => {
   await expect(page.locator(POPOVER)).toBeVisible();
   await expect(page.locator(POPOVER)).toContainText("Lehrenden- und Studierenden-Ansicht");
 
-  // Durchklicken bis zum Ende, jeder Schritt muss einen sichtbaren Anker haben.
+  // Click through to the end, every step must have a visible anchor.
   const gesehen: string[] = [];
   for (let i = 0; i < 12; i++) {
     const titelFeld = page.locator(".driver-popover-title");
@@ -121,18 +120,18 @@ test("der Rundgang läuft von vorn bis hinten durch", async ({ page }) => {
     const beschriftung = (await weiter.first().textContent())?.trim();
     await weiter.first().click();
     if (beschriftung === "Fertig") break;
-    // Ein Schritt oeffnet die PDF, das dauert einen Moment.
+    // One step opens the PDF, which takes a moment.
     await page.waitForTimeout(800);
   }
 
-  // Mindestens die vier Schritte, die immer da sind: Vorschau, Quellen, Quelle, Chat.
+  // At least the four steps that are always there: preview, sources, source, chat.
   expect(gesehen.length).toBeGreaterThanOrEqual(4);
   expect(gesehen).toContain("Die Materialien des Kurses");
   await expect(page.locator(POPOVER)).toHaveCount(0);
 });
 
 test("ein fehlender Anker bricht den Rundgang nicht", async ({ page }) => {
-  // Der Anker faellt weg, sobald er auftaucht, sonst gewinnt der Start das Rennen.
+  // Drop the anchor as soon as it appears, otherwise the tour start wins the race.
   await page.addInitScript(() => {
     new MutationObserver(() => {
       document.querySelector('[data-tour="chat-input"]')?.removeAttribute("data-tour");
@@ -152,30 +151,28 @@ test.describe("Einstieg von der Startseite", () => {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test("Einladung auf der Startseite führt in den Rundgang", async ({ page, baseURL }) => {
-  // Der Demo-Kurs wird hier selbst eingerichtet, sonst würde der Test nur
-  // überspringen und damit gar nichts belegen.
+  // The demo course is set up here, otherwise the test would just skip and prove nothing.
   await alsGastImDemoKurs(page, baseURL, "E2E Rundgang Kurs", async () => {
     await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator('[data-tour="tour-invite"]')).toBeVisible();
     await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Starten", exact: true }).click();
 
-    // Der Beitritt läuft im Hintergrund, danach steht der Kurs offen.
+    // Enrollment runs in the background, then the course is open.
     await page.waitForURL(/\/workspace\/.*tour=1/, { timeout: 30_000 });
     await expect(page.locator(POPOVER)).toBeVisible({ timeout: 30_000 });
   });
 });
 
 test("ein Abbruch mittendrin lässt die Einladung stehen", async ({ page, baseURL }) => {
-  // Wer den Rundgang wegklickt, hat ihn nicht gesehen: nur "Später" auf der
-  // Startseite und die letzte Station nehmen die Einladung weg.
+  // Dismissing the tour is not seeing it: only "Später" on the start page and the last station remove the invitation.
   await alsGastImDemoKurs(page, baseURL, "E2E Abbruch Kurs", async () => {
     await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
     await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Starten", exact: true }).click();
     await page.waitForURL(/\/workspace\/.*tour=1/, { timeout: 30_000 });
     await expect(page.locator(POPOVER)).toBeVisible({ timeout: 30_000 });
 
-    // Eine Station weiter und dann raus, so sieht ein ungeduldiger Abbruch aus.
+    // One station on and then out, that is what an impatient abort looks like.
     const stand = await page.locator(".driver-popover-progress-text").textContent();
     await weiterKlicken(page);
     await page.waitForFunction(
@@ -214,13 +211,13 @@ test.describe("Merker am Konto", () => {
     let konto = await (await page.request.get("/api/me")).json();
     expect(konto.tour_seen_at).not.toBeNull();
 
-    // Ohne Speicher im Browser: frischer Kontext, der Merker muss trotzdem stehen.
+    // Without browser storage: fresh context, the mark must still be set.
     await page.context().clearCookies();
     await anmelden(page, "b", "b");
     konto = await (await page.request.get("/api/me")).json();
     expect(konto.tour_seen_at).not.toBeNull();
 
-    // Und wieder freischalten, damit man den Rundgang erneut angeboten bekommt.
+    // And unlock again so the tour is offered once more.
     await page.request.post("/api/me/tour-seen", { data: { seen: false } });
     konto = await (await page.request.get("/api/me")).json();
     expect(konto.tour_seen_at).toBeNull();
@@ -233,7 +230,7 @@ test.describe("Rundgang im Demo-Modul", () => {
     const kurs = kurse.find((k: { owned: boolean }) => !k.owned);
     test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
 
-    // Denselben Weg nehmen wie die Einladung auf der Startseite: beitreten, dann rein.
+    // Same route as the start page invitation: enroll, then enter.
     await page.request.post("/api/ai-assistant/demo/enroll", { data: { workspace_uuid: kurs.uuid } });
     await page.request.post("/api/me/tour-seen", { data: { seen: false } });
     await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
@@ -244,9 +241,8 @@ test.describe("Rundgang im Demo-Modul", () => {
     for (let i = 0; i < 20; i++) {
       const stand = await page.locator(".driver-popover-progress-text").textContent();
       titel.push(((await page.locator(".driver-popover-title").textContent()) ?? "").trim());
-      // Ein Schritt ohne Anker bekommt von driver.js ein leeres Hilfs-Element,
-      // ein Schritt mit Anker traegt dagegen sein data-tour. Genau daran haengt
-      // dieser Test: eine Station, deren Anker verschwunden ist, faellt auf.
+      // driver.js gives a step without anchor an empty helper element, a step with anchor
+      // carries its data-tour; that is how a station whose anchor vanished shows up here.
       const zeigtAufAnker = await page
         .locator(".driver-active-element")
         .evaluateAll((els) => els.some((e) => e.hasAttribute("data-tour")));
@@ -269,11 +265,11 @@ test.describe("Rundgang im Demo-Modul", () => {
     expect(titel).toContain("Das Glossar");
     expect(titel).toContain("Zugang zum Modul");
     expect(titel).toContain("Video mit Transkript");
-    // Begruessung und Schluss stehen bewusst in der Mitte, alles dazwischen zeigt auf etwas.
+    // Welcome and finish are centered on purpose, everything between points at something.
     expect(ohneZiel).toEqual(["Willkommen im Demo-Modul", "Jetzt bist du dran"]);
     await expect(page.locator(POPOVER)).toHaveCount(0);
 
-    // Bis zum Schluss durchgeklickt, das und nur das setzt den Merker.
+    // Clicked through to the end, that and only that sets the mark.
     expect((await (await page.request.get("/api/me")).json()).tour_seen_at).not.toBeNull();
     await page.request.post("/api/me/tour-seen", { data: { seen: false } });
   });
@@ -288,8 +284,7 @@ test.describe("Rundgang im Demo-Modul", () => {
     const kapitel: string[] = (detail.chapters ?? []).map((c: { uuid: string }) => c.uuid);
     test.skip(kapitel.length === 0, "Der Demo-Kurs hat keine Kapitel.");
 
-    // Alle Kapitel zu, so wie jemand die Liste beim letzten Besuch hinterlassen
-    // haben kann. Die Zeile der PDF steht dann gar nicht auf der Seite.
+    // All chapters collapsed, as someone may have left the list; the PDF row is then not on the page at all.
     await page.addInitScript(
       ([schluessel, wert]) => { localStorage.setItem(schluessel, wert); },
       [`kis-chapters-closed-${kurs.uuid}`, JSON.stringify(kapitel)] as const,
@@ -311,7 +306,7 @@ test.describe("Rundgang im Demo-Modul", () => {
         .catch(() => {});
     }
 
-    // Der Rundgang hat das Kapitel aufgeklappt und zeigt auf den Haken der PDF.
+    // The tour has expanded the chapter and points at the PDF's checkbox.
     await expect(
       page.getByRole("button", { name: "Kapitel zuklappen" }).filter({ hasText: "Einheit 1" }),
     ).toHaveCount(1);
@@ -320,7 +315,7 @@ test.describe("Rundgang im Demo-Modul", () => {
       .locator('[data-tour="source-check"]');
     await expect(haken).toHaveClass(/driver-active-element/);
     await expect(haken).toBeInViewport();
-    // Und nur diese eine PDF ist angehakt, so wie der Text der Station es sagt.
+    // And only this one PDF is checked, as the station text says.
     await expect(haken).toHaveAttribute("aria-label", "Material abwählen");
     await expect(page.locator('[data-tour="source-check"][aria-label="Material abwählen"]')).toHaveCount(1);
   });
@@ -345,8 +340,7 @@ test.describe("Rundgang im Demo-Modul", () => {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     };
 
-    // Station 3 steht sofort, Station 8 oeffnet erst die PDF. Beide Male darf
-    // der zweite Klick keine Station ueberspringen, sonst fehlt deren Vorbereitung.
+    // Station 3 is instant, station 8 first opens the PDF; neither time may the second click skip a station, or its setup is missing.
     await doppelklick();
     await expect(stand).toHaveText("Schritt 2 von 17");
     await page.waitForTimeout(700);
@@ -372,12 +366,12 @@ test.describe("Rundgang im Demo-Modul", () => {
     test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
 
     await page.request.post("/api/ai-assistant/demo/enroll", { data: { workspace_uuid: kurs.uuid } });
-    // Schmal genug fuer die eine Spalte, dort liegen die Bereiche uebereinander.
+    // Narrow enough for the single column, where the panels stack on top of each other.
     await page.setViewportSize({ width: 700, height: 900 });
     await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
     await page.locator(POPOVER).waitFor({ timeout: 30_000 });
 
-    // Bis zur Chat-Station klicken, die Station davor schiebt das Studio nach vorn.
+    // Click to the chat station, the one before brings the studio to the front.
     for (let i = 0; i < 20; i++) {
       const titel = ((await page.locator(".driver-popover-title").textContent()) ?? "").trim();
       if (titel.startsWith("Francis")) break;
@@ -407,7 +401,7 @@ test.describe("Rundgang im Demo-Modul", () => {
     await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
     await page.locator(POPOVER).waitFor({ timeout: 30_000 });
 
-    // Bis zu den Notizen, die das Studio ueber das Transkript schieben.
+    // On to the notes, which push the studio over the transcript.
     for (let i = 0; i < 20; i++) {
       const titel = ((await page.locator(".driver-popover-title").textContent()) ?? "").trim();
       if (titel === "Die Notizen") break;
@@ -425,11 +419,10 @@ test.describe("Rundgang im Demo-Modul", () => {
 
     await zurueckKlicken(page);
 
-    // Ohne eigenes Vorbereiten bliebe das Studio vorn und der Rundgang zeigte
-    // auf die Notiz im verdeckten Bereich, die auf dem Telefon niemand sieht.
+    // Without its own setup the studio would stay in front and the tour would point at a note hidden on the phone.
     await expect(page.locator(".driver-popover-title")).toHaveText("Abschnitt als Notiz");
     await expect(page.locator('[data-tour="studio-panel"]')).toBeHidden();
-    // Das Symbol gibt es je Absatz, gemeint ist das eine, auf das gezeigt wird.
+    // The icon exists per paragraph, meant is the one being pointed at.
     const notizSymbol = page.locator('[data-tour="transcript-note"].driver-active-element');
     await expect(notizSymbol).toHaveCount(1);
     await expect(notizSymbol).toBeVisible();
@@ -440,8 +433,7 @@ test.describe("Rundgang-Link ohne vorherige Einschreibung", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("tritt selbst bei, statt die Person abzuweisen", async ({ page, baseURL }) => {
-    // Ein eigener Wegwerf-Kurs, damit dieser Test von keiner Voreinschreibung
-    // im geteilten Demo-Kurs abhaengt und keine hinterlaesst.
+    // A throwaway course of its own, so this test neither depends on nor leaves an enrollment in the shared demo course.
     const admin = await playwrightRequest.newContext({ baseURL });
     expect((await admin.post("/auth/login", { data: OWNER })).ok()).toBeTruthy();
     const demoZurueck = await demoKontoUebernehmen(admin, OWNER.username);
@@ -453,7 +445,7 @@ test.describe("Rundgang-Link ohne vorherige Einschreibung", () => {
     try {
       await anmelden(page, "b", "b");
 
-      // Bewusst NICHT vorher beigetreten: genau das soll der Aufruf selbst erledigen.
+      // Deliberately NOT enrolled beforehand: the call itself is meant to do that.
       await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
       await expect(page.locator(POPOVER)).toBeVisible({ timeout: 30_000 });
 
@@ -489,15 +481,15 @@ test.describe("Rundgang für Studierende", () => {
       await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
       await page.locator(POPOVER).waitFor({ timeout: 30_000 });
 
-      // Das Auge fuehrt auf die Lehrenden-Seite, die diese Person nie bekommt.
+      // The eye leads to the staff side, which this person never gets.
       await expect(page.locator('[data-tour="preview-toggle"]')).toHaveCount(0);
       await expect(page.locator('[data-tour="add-source"]')).toHaveCount(0);
-      // Zugang vergeben duerfen nur Besitz und Tutoren, das Zeichen fehlt hier.
+      // Only owners and tutors may grant access, the icon is missing here.
       await expect(page.locator('[data-tour="share"]')).toHaveCount(0);
-      // Zwei Stationen weniger als bei Lehrenden, Hochladen und Freigeben fallen weg.
+      // Two stations fewer than for staff, upload and share are gone.
       await expect(page.locator(".driver-popover-progress-text")).toHaveText("Schritt 1 von 15");
 
-      // Der Hinweis steht als zweite Station, ein Klick reicht dorthin.
+      // The note is the second station, one click gets there.
       const stand = await page.locator(".driver-popover-progress-text").textContent();
       await weiterKlicken(page);
       await page

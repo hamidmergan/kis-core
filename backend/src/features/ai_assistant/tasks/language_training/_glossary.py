@@ -30,7 +30,7 @@ def _terms_used(workspace_id: int, user_id: int, tool: str) -> set[str]:
     """Comparison forms of the terms this person already had in this tool."""
     try:
         gehabt = db.glossary_terms_used(workspace_id, user_id, tool)
-    except Exception as exc:  # noqa: BLE001 - ein Satz ohne Filter ist besser als keiner
+    except Exception as exc:  # noqa: BLE001 - a set without filter beats none
         logger.warning("Glossar: gehabte Begriffe nicht lesbar, es wird frei gezogen: {}", exc)
         return set()
     return {schluessel for schluessel in (normalize(t) for t in gehabt) if schluessel}
@@ -139,7 +139,7 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         cards = data.get("cards") or []
         title = (data.get("title") or "").strip()
-    except Exception as exc:  # noqa: BLE001 - eine feste Frage ist besser als ein Fehlschlag
+    except Exception as exc:  # noqa: BLE001 - a fixed question beats a failure
         logger.warning("Karteikarten aus dem Glossar: Aufruf fehlgeschlagen, feste "
                        "Formulierung greift: {}", exc)
         return fallback, ""

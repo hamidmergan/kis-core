@@ -1,8 +1,7 @@
-"""Das Lesen einer hochgeladenen Quelle hält das Backend nicht an.
+"""Reading an uploaded source does not stall the backend.
 
-Lasttest 26.09.: 20 Leute starteten Zusammenfassung, Podcast und Präsentation mit PDFs.
-Jede Datei wurde im selben Faden gelesen, der auch die Seiten ausliefert, und die Seiten
-der anderen blieben stehen.
+Load test 26.09.: 20 people started summary, podcast and presentation with PDFs; every file
+was read on the thread that also serves pages, and everyone else's pages froze.
 """
 
 import asyncio

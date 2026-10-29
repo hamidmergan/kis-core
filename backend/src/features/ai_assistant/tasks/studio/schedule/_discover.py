@@ -12,7 +12,7 @@ from src.services.upstream_errors import is_provider_refusal
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
 
 
-# So viele Zeichen gehen je Anfrage raus.
+# Characters sent per request.
 _MAX_CHARS_PER_CALL = 100000
 _MAX_BLOCKS_PER_CALL = 120
 # A single block that is out of line must not blow up the request.
@@ -207,7 +207,7 @@ def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[in
     for i, batch in enumerate(batches):
         try:
             found.update(_discover_batch(client, model, batch))
-        except Exception as e:  # noqa: BLE001 - der Zeitplan entsteht auch ohne diese Suche
+        except Exception as e:  # noqa: BLE001 - the schedule is built even without this search
             if "429" in str(e) or is_provider_refusal(e):
                 logger.warning("Terminsuche: Anfrage {}/{} abgewiesen, Quelle wird abgebrochen: {}",
                                i + 1, len(batches), e)

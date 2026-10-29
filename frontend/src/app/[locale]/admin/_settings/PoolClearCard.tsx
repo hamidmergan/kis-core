@@ -73,9 +73,7 @@ export default function PoolClearCard() {
         <p className="text-sm font-medium text-foreground">{t("title")}</p>
         <p className="text-xs text-muted mt-1">{t("description")}</p>
       </div>
-      {/* Die Zahl steht direkt hinter dem Namen. An den rechten Rand geschoben
-          stand sie so weit weg, dass man beim Lesen nicht mehr wusste, zu
-          welcher Zeile sie gehoert. */}
+      {/* The number sits right after the name; pushed to the right edge it was too far away to tell which row it belongs to. */}
       <div className="grid gap-2 sm:grid-cols-2">
         {POOL_TOOLS.map((tool) => (
           <div key={tool} className="flex items-center gap-1.5">

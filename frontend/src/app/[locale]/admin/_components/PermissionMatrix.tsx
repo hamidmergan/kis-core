@@ -239,8 +239,7 @@ export default function PermissionMatrix() {
         </p>
       )}
 
-      {/* Waagerecht scrollen, aber die Funktionsspalte bleibt stehen. Ohne sie
-          weiß bei zehn Rollen niemand mehr, in welcher Zeile er klickt. */}
+      {/* Horizontal scroll with a sticky function column; with ten roles nobody knows which row they click otherwise. */}
       <div className="overflow-x-auto border border-border-soft rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -448,8 +447,7 @@ function GroupRows({
               const on = col.permissions.has(key);
               return (
                 <td key={`sys-${col.key}`} className="px-3 py-2 text-center">
-                  {/* Systemrollen sind fest. Kein Kästchen, nur ein Haken oder
-                      nichts, damit gar nicht erst jemand draufklickt. */}
+                  {/* System roles are fixed: a check mark or nothing instead of a checkbox, so nobody tries to click. */}
                   <span
                     className="inline-flex items-center justify-center text-muted"
                     title={lockedLabel}

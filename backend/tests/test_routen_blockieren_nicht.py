@@ -1,9 +1,8 @@
-"""Keine Route hält den Faden an, der die Seiten für alle ausliefert.
+"""No route blocks the thread that serves pages for everyone.
 
-Eine `async def`-Route läuft direkt in der Ereignisschleife. Wartet sie auf nichts,
-macht sie ihre ganze Arbeit dort, jeder Datenbank- und Speicherzugriff hält dann alle
-anderen Anfragen dieses Prozesses an. Lasttest 26.09.: bei 20 Leuten luden Seiten ewig.
-Eine normale `def`-Route lässt FastAPI in seinem Fadenpool laufen.
+An `async def` route that awaits nothing does all its work on the event loop and stalls every
+other request of the process (load test 26.09.: pages hung for 20 people); a plain `def` route
+runs in FastAPI's thread pool.
 """
 
 import ast

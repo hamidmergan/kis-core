@@ -1,4 +1,4 @@
-"""Die Angaben neben der fertigen Präsentation: Vorlage, Anweisung, Bildstil und wer schrieb und malte."""
+"""The details beside the finished presentation: template, instruction, image style and who wrote and painted."""
 
 from src.features.praesentation import store
 from src.features.praesentation.angaben import angaben

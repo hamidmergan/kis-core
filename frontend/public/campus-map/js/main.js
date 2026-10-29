@@ -1,13 +1,12 @@
 let cachedCampusMapSvg = '';
 
-// Animationen-Einstellung
+// Animation setting
 const ANIMATIONS_STORAGE_KEY = 'animations_enabled';
 
 function areAnimationsEnabled() {
     const stored = localStorage.getItem(ANIMATIONS_STORAGE_KEY);
     if (stored !== null) return stored === 'true';
-    // Ohne eigene Wahl in den Einstellungen gilt die Systemeinstellung
-    // „Bewegung reduzieren“: dann kein Intro-Zoom und keine Animationen.
+    // Without an explicit setting, follow the system "reduce motion" preference: no intro zoom, no animations.
     return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
@@ -16,14 +15,14 @@ function applyAnimationsPreference() {
     document.body.classList.toggle('no-animations', !areAnimationsEnabled());
 }
 
-// So früh wie möglich anwenden (verhindert Flicker beim Laden)
+// Apply as early as possible to avoid flicker on load.
 if (document.body) {
     applyAnimationsPreference();
 } else {
     document.addEventListener('DOMContentLoaded', applyAnimationsPreference, { once: true });
 }
 
-// Quiz-Inhalt rendern – Dispatcher nach Typ
+// Render quiz content, dispatched by type.
 function renderQuizBody(quiz) {
     if (quiz.content.type === 'memory') return renderMemoryBody(quiz);
     if (quiz.content.type === 'sort') return renderSortBody(quiz);
@@ -34,7 +33,7 @@ function renderQuizBody(quiz) {
     return renderChoiceBody(quiz);
 }
 
-// Kreuzworträtsel – Container; Grid + Hinweise werden in initCrossword befüllt
+// Crossword container; grid and clues are filled in initCrossword.
 function renderCrosswordBody(quiz) {
     return `
         <div class="quiz-container crossword-container" data-quiz-id="${quiz.id}" data-quiz-type="crossword">
@@ -61,7 +60,7 @@ function renderCrosswordBody(quiz) {
     `;
 }
 
-// Image Hotspot – User klickt auf Stellen im Bild
+// Image hotspot: the user clicks spots in the image.
 function renderHotspotBody(quiz) {
     const c = quiz.content;
     return `
@@ -82,7 +81,7 @@ function renderHotspotBody(quiz) {
     `;
 }
 
-// Wortsuche – Container; Grid wird in initWordSearch befüllt
+// Word search container; grid is filled in initWordSearch.
 function renderWordSearchBody(quiz) {
     return `
         <div class="quiz-container wordsearch-container" data-quiz-id="${quiz.id}" data-quiz-type="wordsearch">
@@ -103,7 +102,7 @@ function renderWordSearchBody(quiz) {
     `;
 }
 
-// Bilder-Grid (mehrere Bilder auswählen) – nutzt dieselbe Auswertungslogik wie Checkbox
+// Image grid (multi-select); uses the same evaluation logic as checkbox.
 function renderImageGridBody(quiz) {
     const c = quiz.content;
     const cols = c.columns || 3;
@@ -130,7 +129,7 @@ function renderImageGridBody(quiz) {
     `;
 }
 
-// Single/Multi Choice mit modernem Card-Styling
+// Single/multi choice with card styling.
 function renderChoiceBody(quiz) {
     const c = quiz.content;
     const inputType = c.type === 'radio' ? 'radio' : 'checkbox';
@@ -157,7 +156,7 @@ function renderChoiceBody(quiz) {
     `;
 }
 
-// Sortier-Quiz (Items werden in initSortQuiz gemischt + per SortableJS verschiebbar)
+// Sort quiz; items are shuffled in initSortQuiz and dragged via SortableJS.
 function renderSortBody(quiz) {
     return `
         <div class="quiz-container sort-container" data-quiz-id="${quiz.id}" data-quiz-type="sort">
@@ -172,7 +171,7 @@ function renderSortBody(quiz) {
     `;
 }
 
-// Memory-Spielfeld (Karten werden in initMemoryGame gemischt + befüllt)
+// Memory board; cards are shuffled and filled in initMemoryGame.
 function renderMemoryBody(quiz) {
     const total = quiz.content.pairs.length;
     return `
@@ -189,7 +188,7 @@ function renderMemoryBody(quiz) {
     `;
 }
 
-// Template-Funktion für Quiz-Modals
+// Template function for quiz modals.
 function generateQuizModals() {
     const container = document.getElementById('quizModalsContainer');
     quizModals.forEach(quiz => {
@@ -211,7 +210,7 @@ function generateQuizModals() {
 }
 generateQuizModals();
 
-// --- Quiz-Engine: Auswahl, Auswertung, Reset ---
+// --- Quiz engine: selection, evaluation, reset ---
 function updateQuizOptionStates(container) {
     container.querySelectorAll('.quiz-option').forEach(opt => {
         const input = opt.querySelector('input');
@@ -308,14 +307,14 @@ function resetQuiz(container) {
     container.querySelector('.quiz-reset-btn').style.display = 'none';
 }
 
-// --- Sortier-Quiz (Drag & Drop) ---
+// --- Sort quiz (drag and drop) ---
 function initSortQuiz(container) {
     const quizId = container.dataset.quizId;
     const quiz = quizModals.find(q => q.id === quizId);
     if (!quiz?.content?.items) return;
 
     const correctItems = quiz.content.items;
-    // Reihenfolge mischen — sicherstellen, dass NICHT die Ausgangsreihenfolge rauskommt
+    // Shuffle, making sure the result is not the original order.
     let shuffledIdx;
     do {
         shuffledIdx = correctItems.map((_, i) => i);
@@ -341,7 +340,7 @@ function initSortQuiz(container) {
         </li>
     `).join('');
 
-    // Vorhandene Sortable-Instanz zerstören (bei Neu-Mischen)
+    // Destroy an existing Sortable instance on reshuffle.
     if (container._sortable) {
         try { container._sortable.destroy(); } catch (e) {}
         container._sortable = null;
@@ -395,7 +394,7 @@ function moveSortItem(item, direction) {
         if (next) list.insertBefore(next, item);
     }
     item.classList.remove('sort-bump');
-    // Reflow erzwingen, damit die Animation neu startet
+    // Force a reflow so the animation restarts.
     void item.offsetWidth;
     item.classList.add('sort-bump');
     const container = item.closest('.sort-container');
@@ -418,7 +417,7 @@ function evaluateSortQuiz(container) {
         }
     });
 
-    // Sortable während Auswertung deaktivieren
+    // Disable Sortable during evaluation.
     if (container._sortable) {
         container._sortable.option('disabled', true);
     }
@@ -441,7 +440,7 @@ function evaluateSortQuiz(container) {
     }
 }
 
-// --- Kreuzworträtsel (crossword-layout-generator + eigenes UI) ---
+// --- Crossword (crossword-layout-generator + custom UI) ---
 function initCrossword(container) {
     const quiz = quizModals.find(q => q.id === container.dataset.quizId);
     if (!quiz?.content?.words || typeof generateLayout === 'undefined') {
@@ -476,7 +475,7 @@ function renderCrosswordGrid(container, layout) {
     const grid = container.querySelector('.crossword-grid');
     grid.style.gridTemplateColumns = `repeat(${layout.cols}, var(--cw-cell-size, 38px))`;
 
-    // Zellgröße dynamisch an Modal-Breite anpassen (verhindert Horizontal-Scroll auf Desktop)
+    // Fit the cell size to the modal width to avoid horizontal scroll on desktop.
     const fitCellSize = () => {
         const wrapper = grid.closest('.crossword-grid-wrapper');
         if (!wrapper || !wrapper.clientWidth) return;
@@ -486,7 +485,7 @@ function renderCrosswordGrid(container, layout) {
         const wrapperCs = getComputedStyle(wrapper);
         const gridCs = getComputedStyle(grid);
         const gap = parseFloat(gridCs.columnGap) || 0;
-        // verfügbare Breite minus wrapper-padding, grid-padding und Puffer (4)
+        // Available width minus wrapper padding, grid padding and a 4px buffer.
         const available = wrapper.clientWidth
             - parseFloat(wrapperCs.paddingLeft) - parseFloat(wrapperCs.paddingRight)
             - parseFloat(gridCs.paddingLeft) - parseFloat(gridCs.paddingRight) - 4;
@@ -495,12 +494,12 @@ function renderCrosswordGrid(container, layout) {
         grid.style.setProperty('--cw-cell-size', size + 'px');
     };
     requestAnimationFrame(fitCellSize);
-    // Bei Resize neu rechnen
+    // Recompute on resize.
     if (container._crosswordResize) window.removeEventListener('resize', container._crosswordResize);
     container._crosswordResize = fitCellSize;
     window.addEventListener('resize', container._crosswordResize);
 
-    // Position-Map: "row,col" → number (clue-Nummer)
+    // Position map: "row,col" → clue number.
     const numberMap = {};
     layout.result.forEach(word => {
         if (word.startx === undefined || word.starty === undefined) return;
@@ -510,9 +509,7 @@ function renderCrosswordGrid(container, layout) {
         }
     });
 
-    // Pro Feld: welche Wörter laufen hindurch? Daraus entsteht der Name,
-    // den Screenreader vorlesen ("6 waagerecht, Buchstabe 2 von 9"), und
-    // der Verweis auf den zugehörigen Hinweis (aria-describedby).
+    // Per cell: which words pass through it; this yields the screen reader name ("6 across, letter 2 of 9") and the aria-describedby link to the clue.
     const quizId = container.dataset.quizId || 'cw';
     const cellWords = {};
     layout.result.forEach(word => {
@@ -571,13 +568,13 @@ function setupCrosswordInput(container) {
     const layout = container._crosswordLayout;
     if (!layout) return;
 
-    // Zellen-Map: "row,col" → DOM-Element
+    // Cell map: "row,col" → DOM element.
     const cellMap = {};
     container.querySelectorAll('.cw-cell:not(.cw-cell-empty)').forEach(cell => {
         cellMap[`${cell.dataset.row},${cell.dataset.col}`] = cell;
     });
 
-    // Pro Zelle merken: welche Wörter laufen durch sie hindurch + Position
+    // Per cell: remember which words pass through it and at which position.
     const cellWords = new Map();
     layout.result.forEach(word => {
         if (word.startx === undefined) return;
@@ -591,7 +588,7 @@ function setupCrosswordInput(container) {
         }
     });
 
-    // Highlight des aktiven Wortes
+    // Highlight the active word.
     function highlightActiveWord() {
         container.querySelectorAll('.cw-cell.cw-cell-active').forEach(c => c.classList.remove('cw-cell-active'));
         container.querySelectorAll('.cw-clue.cw-clue-active').forEach(li => li.classList.remove('cw-clue-active'));
@@ -632,13 +629,13 @@ function setupCrosswordInput(container) {
         input.addEventListener('focus', () => {
             const info = cellWords.get(cell);
             if (!info) return;
-            // Falls Zelle nur in einer Richtung liegt, automatisch umschalten
+            // If the cell belongs to one direction only, switch to it.
             if (info.across && !info.down) container._crosswordDir = 'across';
             else if (info.down && !info.across) container._crosswordDir = 'down';
             highlightActiveWord();
         });
 
-        // Erneutes Klicken auf bereits fokussierte Kreuzungszelle → Richtung toggeln
+        // Clicking an already focused crossing cell toggles the direction.
         input.addEventListener('mousedown', () => {
             const info = cellWords.get(cell);
             if (info?.across && info?.down && document.activeElement === input) {
@@ -652,7 +649,7 @@ function setupCrosswordInput(container) {
             e.target.value = val;
             cell.classList.remove('cw-cell-incorrect', 'cw-cell-correct');
             if (val) {
-                // Nächste LEERE Zelle entlang der aktuellen Richtung finden
+                // Find the next EMPTY cell along the current direction.
                 let next = getNeighborCell(cell, container._crosswordDir, 1);
                 while (next) {
                     const nextInput = next.querySelector('.cw-cell-input');
@@ -677,7 +674,7 @@ function setupCrosswordInput(container) {
                 }
                 return;
             }
-            // Pfeiltasten zum Navigieren (wechseln auch die Richtung)
+            // Arrow keys navigate and also switch the direction.
             const dirMap = { ArrowRight: ['across', 1], ArrowLeft: ['across', -1], ArrowDown: ['down', 1], ArrowUp: ['down', -1] };
             if (dirMap[e.key]) {
                 e.preventDefault();
@@ -690,7 +687,7 @@ function setupCrosswordInput(container) {
         });
     });
 
-    // Klick auf einen Hinweis: zur ersten Zelle des Wortes springen + Richtung setzen
+    // Clicking a clue jumps to the word's first cell and sets the direction.
     container.querySelectorAll('.cw-clue').forEach(li => {
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => {
@@ -776,14 +773,14 @@ function initHotspotQuiz(container) {
         feedback.innerHTML = '';
     }
 
-    // Debug-Modus: Zonen als gestrichelte Kreise einblenden
+    // Debug mode: show zones as dashed circles.
     if (quiz?.content?.debug) {
         hotspots.forEach((h, i) => {
             const zone = document.createElement('div');
             zone.className = 'hotspot-debug-zone';
             zone.style.left = `${h.x}%`;
             zone.style.top = `${h.y}%`;
-            // Durchmesser = 2 * radius % der Bildbreite
+            // Diameter = 2 * radius in % of the image width.
             zone.style.width = `${h.radius * 2}%`;
             zone.style.aspectRatio = '1 / 1';
             zone.title = `[${i}] ${h.label || ''} (x:${h.x}, y:${h.y}, r:${h.radius})`;
@@ -806,7 +803,7 @@ function handleHotspotClick(overlay, evt) {
 
     const found = container._hotspotFound || new Set();
 
-    // Klick auf bereits gefundenen Bereich → ignorieren
+    // Ignore clicks on an already found zone.
     for (let i = 0; i < hotspots.length; i++) {
         if (!found.has(i)) continue;
         const h = hotspots[i];
@@ -814,7 +811,7 @@ function handleHotspotClick(overlay, evt) {
         if (Math.sqrt(dx * dx + dy * dy) <= h.radius) return;
     }
 
-    // Treffer auf neuen Hotspot suchen
+    // Check for a hit on a new hotspot.
     let hitIdx = -1;
     for (let i = 0; i < hotspots.length; i++) {
         if (found.has(i)) continue;
@@ -859,7 +856,7 @@ function completeHotspotQuiz(container) {
     if (addCompletedQuizId(quizId)) showBadgeNotification();
 }
 
-// --- Wortsuche (Wordfind.js + eigenes Click/Drag-UI) ---
+// --- Word search (Wordfind.js + custom click/drag UI) ---
 const WORDSEARCH_COLORS = [
     '#c8e6c9', '#ffe0b2', '#c5cae9', '#f8bbd0', '#b2dfdb',
     '#d1c4e9', '#ffccbc', '#fff9c4', '#b3e5fc', '#d7ccc8'
@@ -935,14 +932,12 @@ function initWordSearch(container) {
     container._wsTotal = c.words.length;
     container._wsHinted = new Set();
 
-    // Grid rendern
+    // Render the grid.
     const gridEl = container.querySelector('.wordsearch-grid');
     const actualWidth = puzzle[0].length;
     const actualHeight = puzzle.length;
     gridEl.style.gridTemplateColumns = `repeat(${actualWidth}, 1fr)`;
-    // Zeilen-Wrapper mit display:contents – die Zellen bleiben dadurch direkte
-    // Grid-Items (Layout unveraendert), das Raster bekommt aber die von
-    // role="grid" geforderte Zeilen-/Zellenstruktur.
+    // Row wrappers with display:contents keep the cells direct grid items (layout unchanged) while giving the grid the row/cell structure required by role="grid".
     gridEl.innerHTML = puzzle.map((row, r) =>
         `<div class="wordsearch-row" role="row">` + row.map((letter, col) =>
             `<div class="wordsearch-cell" role="gridcell" tabindex="-1" data-row="${r}" data-col="${col}" aria-label="${t('ws.cell', { letter: letter.toUpperCase(), r: r + 1, c: col + 1 })}">${letter.toUpperCase()}</div>`
@@ -950,7 +945,7 @@ function initWordSearch(container) {
     ).join('');
     gridEl.setAttribute('aria-label', t('ws.gridLabel'));
 
-    // Wortliste rendern – (SEARCH)-Zusatz nur, wenn Anzeige ≠ Suche
+    // Render the word list; add (SEARCH) only when display differs from the search term.
     const wordsEl = container.querySelector('.wordsearch-words');
     wordsEl.innerHTML = c.words.map(w => {
         const search = w.search.toUpperCase();
@@ -959,11 +954,11 @@ function initWordSearch(container) {
         return `<span class="wordsearch-word" data-search="${search}">${displayLabel}</span>`;
     }).join('');
 
-    // Fortschritt
+    // Progress
     const progressEl = container.querySelector('.wordsearch-progress');
     progressEl.textContent = t('quiz.found', { n: 0, total: c.words.length });
 
-    // Feedback zurücksetzen
+    // Reset feedback.
     const feedback = container.querySelector('.quiz-feedback');
     feedback.className = 'quiz-feedback';
     feedback.innerHTML = '';
@@ -1016,7 +1011,7 @@ function setupWordSearchInteraction(container) {
     const onDown = (e) => {
         const cell = getCellFromPoint(e.clientX, e.clientY);
         if (!cell) return;
-        // Drag auch auf bereits gefundenen Zellen erlauben (Wörter können sich kreuzen)
+        // Allow dragging over already found cells (words may cross).
         e.preventDefault();
         isDragging = true;
         startCell = cell;
@@ -1073,7 +1068,7 @@ function checkWordSearchSelection(container, selectedCells) {
             container._wsColorIdx++;
 
             selectedCells.forEach(cell => {
-                // Bereits gefundene Schnittzellen behalten ihre ursprüngliche Farbe
+                // Already found crossing cells keep their original color.
                 if (!cell.classList.contains('found-locked')) {
                     cell.style.backgroundColor = color;
                     cell.classList.add('found-locked');
@@ -1113,13 +1108,13 @@ function showWordsearchHint(container) {
 
     let candidate;
     if (missing.length === 1) {
-        // Letztes verbleibendes Wort: immer dieses anzeigen
+        // Last remaining word: always show this one.
         candidate = missing[0];
     } else {
         if (!container._wsHinted) container._wsHinted = new Set();
-        // Bereits gehintete in diesem Zyklus rausfiltern
+        // Filter out words already hinted in this cycle.
         let pool = missing.filter(w => !container._wsHinted.has(w));
-        // Wenn alle missing schon gehintet wurden: Zyklus zurücksetzen
+        // If all missing words were hinted, reset the cycle.
         if (pool.length === 0) {
             container._wsHinted.clear();
             pool = missing;
@@ -1139,12 +1134,12 @@ function showWordsearchHint(container) {
     const firstPos = cells[0];
     const firstCell = grid.querySelector(`.wordsearch-cell[data-row="${firstPos.row}"][data-col="${firstPos.col}"]`);
     if (!firstCell) return;
-    // Reflow erzwingen, damit die Animation neu startet
+    // Force a reflow so the animation restarts.
     void firstCell.offsetWidth;
     firstCell.classList.add('hint-flash');
     setTimeout(() => firstCell.classList.remove('hint-flash'), 3000);
 
-    // Auch das passende Wort in der Liste kurz hervorheben
+    // Briefly highlight the matching word in the list too.
     const wordEl = container.querySelector(`.wordsearch-word[data-search="${candidate}"]`);
     if (wordEl) {
         wordEl.classList.remove('hint-pulse');
@@ -1154,7 +1149,7 @@ function showWordsearchHint(container) {
     }
 }
 
-// --- Memory-Spiel ---
+// --- Memory game ---
 function initMemoryGame(container) {
     const quizId = container.dataset.quizId;
     const quiz = quizModals.find(q => q.id === quizId);
@@ -1173,9 +1168,7 @@ function initMemoryGame(container) {
     }
 
     const grid = container.querySelector('.memory-grid');
-    // <button> statt <div>: damit sind die Karten ohne Zusatzcode per Tab
-    // erreichbar und reagieren von Haus aus auf Enter und Leertaste.
-    // Innen <span>, weil <button> nur Phrasing-Content enthalten darf.
+    // <button> instead of <div>: cards are tabbable and react to Enter/Space without extra code; inner <span> because <button> allows only phrasing content.
     const deckHTML = deck.map((card, i) => `
         <button type="button" class="memory-card" data-pair-id="${card.pairId}"
                 data-card-label="${card.label}"
@@ -1195,7 +1188,7 @@ function initMemoryGame(container) {
     const isReshuffle = grid.children.length > 0;
 
     if (isReshuffle) {
-        // Sichtbares Feedback beim Neu-Mischen: kurzes Fade + Icon-Spin
+        // Visible feedback on reshuffle: short fade and icon spin.
         container.dataset.memoryBusy = '1';
         container.classList.add('shuffling');
         setTimeout(() => {
@@ -1224,7 +1217,7 @@ function handleMemoryCardClick(card) {
     if (container.dataset.memoryBusy === '1') return;
     if (card.classList.contains('matched') || card.classList.contains('flipped')) return;
 
-    // Bei dritter Karte: vorheriges nicht-passendes Paar zurückdrehen
+    // On the third card, flip the previous non-matching pair back.
     const pending = container.querySelectorAll('.memory-card.flipped:not(.matched)');
     if (pending.length >= 2) {
         pending.forEach(c => c.classList.remove('flipped'));
@@ -1236,8 +1229,7 @@ function handleMemoryCardClick(card) {
     if (flipped.length === 2) {
         const [a, b] = flipped;
         if (a.dataset.pairId === b.dataset.pairId) {
-            // Kurze Sperre, damit die Flip-Animation der zweiten Karte abschließen kann,
-            // bevor die Match-Pulse-Animation startet
+            // Short lock so the second card's flip finishes before the match pulse starts.
             container.dataset.memoryBusy = '1';
             setTimeout(() => {
                 a.classList.add('matched');
@@ -1250,7 +1242,7 @@ function handleMemoryCardClick(card) {
                 if (matched === total) completeMemoryGame(container);
             }, 350);
         }
-        // Kein Match: Karten bleiben offen, bis Spieler die dritte Karte klickt
+        // No match: cards stay open until the player clicks a third card.
     }
 }
 
@@ -1320,7 +1312,7 @@ document.head.appendChild(filterStyleEl);
 const filterState = {};
 
 function updateFilterStyles() {
-    // Ohne sichtbare Quizze ist auch das Badge-Icon überflüssig
+    // Without visible quizzes the badge icon is pointless too.
     const badgeBtn = document.getElementById('toolboxBadgesBtn');
     if (badgeBtn) badgeBtn.hidden = filterState['Studierende_mit_Fragen'] === false;
 
@@ -1340,11 +1332,8 @@ function updateFilterStyles() {
     layoutMapLegends();
 }
 
-// Legenden der Kartenebenen (Barrierefreiheit, WC, Aufzüge, Info, …) liegen in
-// ihrer Ebene und werden mit ihr ein- und ausgeblendet. Die sichtbaren
-// Legenden rücken hier lückenlos zusammen (Masonry): in der Reihenfolge
-// data-legend-row/-order kommt jede Legende in die aktuell kürzeste Spalte.
-// Spaltenanzahl = Anzahl der unterschiedlichen data-legend-x im SVG.
+// Layer legends (accessibility, WC, elevators, info, …) live in their layer and toggle with it.
+// Visible legends pack without gaps (masonry): in data-legend-row/-order each goes into the shortest column; column count = distinct data-legend-x values in the SVG.
 const LEGEND_GAP = 6;
 
 function layoutMapLegends() {
@@ -1370,22 +1359,22 @@ function layoutMapLegends() {
         });
 }
 
-// Filter-UI initialisieren
+// Initialize the filter UI.
 function initFilters() {
     const container = document.getElementById('filterOptions');
     if (!container) return;
 
-    // Bestehende Filter löschen, um Duplikate zu vermeiden
+    // Remove existing filters to avoid duplicates.
     container.innerHTML = '';
 
-    // Gespeicherte Einstellungen laden
+    // Load saved settings.
     const savedSettings = localStorage.getItem('filter_settings_v3');
     const savedState = savedSettings ? JSON.parse(savedSettings) : {};
 
     filters.forEach((filter, index) => {
         const key = Array.isArray(filter.id) ? filter.id.join(',') : filter.id;
 
-        // Zustand wiederherstellen oder Standardwert nutzen
+        // Restore the state or use the default.
         if (savedState.hasOwnProperty(key)) {
             filterState[key] = savedState[key];
         } else {
@@ -1423,7 +1412,7 @@ function initFilters() {
                 labelEl.classList.remove('active');
             }
 
-            // Einstellungen speichern
+            // Save settings.
             localStorage.setItem('filter_settings_v3', JSON.stringify(filterState));
 
             updateFilterStyles();
@@ -1433,16 +1422,16 @@ function initFilters() {
         container.appendChild(div);
     });
 
-    // "Alle einblenden" Button Logik
+    // "Show all" button logic.
     let toggleAllBtn = document.getElementById('toggleAllBtn');
     if (toggleAllBtn) {
-        // Event-Listener bereinigen durch Klonen
+        // Clear event listeners by cloning.
         const newBtn = toggleAllBtn.cloneNode(true);
         toggleAllBtn.parentNode.replaceChild(newBtn, toggleAllBtn);
         toggleAllBtn = newBtn;
 
         toggleAllBtn.addEventListener('click', () => {
-            // Prüfen, ob aktuell alles sichtbar ist
+            // Check whether everything is currently visible.
             const allVisible = filters.every(filter => {
                 const key = Array.isArray(filter.id) ? filter.id.join(',') : filter.id;
                 return filterState[key] === true;
@@ -1455,7 +1444,7 @@ function initFilters() {
                 filterState[key] = newState;
             });
 
-            // UI aktualisieren
+            // Update the UI.
             document.querySelectorAll('#filterOptions input').forEach(cb => {
                 cb.checked = newState;
                 if (newState) {
@@ -1479,7 +1468,7 @@ function updateToggleAllButton() {
     const toggleAllBtn = document.getElementById('toggleAllBtn');
     if (!toggleAllBtn) return;
 
-    // Prüfen, ob alles sichtbar ist
+    // Check whether everything is visible.
     const allVisible = filters.every(filter => {
         const key = Array.isArray(filter.id) ? filter.id.join(',') : filter.id;
         return filterState[key] === true;
@@ -1497,7 +1486,7 @@ function updateToggleAllButton() {
 let interactionType = null;
 
 function buildSelector({ exactMatches = [] }) {
-    // genau die IDs selektieren
+    // Select exactly these ids.
     return exactMatches
         .map(id => `#${id}`)
         .join(', ');
@@ -1508,12 +1497,12 @@ const clickableSelectorMap = buildSelector(CLICKABLE_Geb_CONFIG.lottieMap);
 const styleTag = document.createElement('style');
 
 styleTag.textContent = `
-/* Map-Ebene: nur unsere inkl.-Selectoren, exkl. Klassen aus excludeMatches */
+/* Map layer: only our include selectors, minus classes from excludeMatches */
 #lottieMap svg ${clickableSelectorMap},
 #lottieMap svg ${clickableSelectorMap} * {
   pointer-events: all !important; cursor: pointer !important;
 }
-/* Gebäude-Beschriftungen liegen über den Flächen – Events durchreichen */
+/* Building labels sit above the shapes, pass events through */
 #lottieMap svg g#Gebaeudebezeichnung,
 #lottieMap svg g#Gebaeudebezeichnung * {
   pointer-events: none !important;
@@ -1521,21 +1510,21 @@ styleTag.textContent = `
   `;
 document.head.appendChild(styleTag);
 
-//JSON-Lader - Verhindert doppeltes Caching
-let jsonCache = new Map(); // Globale Cache-Verwaltung
+// JSON loader; avoids double caching.
+let jsonCache = new Map(); // Global cache
 
 async function loadJSON(url) {
-    // 1. Prüfe ob bereits im Cache
+    // 1. Check the cache first.
     if (jsonCache.has(url)) {
         return jsonCache.get(url);
     }
 
-    // 2. Lade mit optimierten Headers
+    // 2. Fetch with cache-friendly headers.
     const r = await fetch(url, {
-        cache: 'force-cache', // Browser-Cache nutzen
+        cache: 'force-cache', // Use the browser cache
         headers: {
             'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'max-age=3600' // 1 Stunde Cache
+            'Cache-Control': 'max-age=3600' // 1 hour cache
         }
     });
 
@@ -1548,16 +1537,14 @@ async function loadJSON(url) {
 }
 
 /**
- * Baut den HTML-Inhalt für das Offcanvas komplett neu auf
- * und schreibt ihn in #buildingInfoContent.
- * @param {Object} b – ein Gebäude-Objekt mit den Feldern:
- *    title, images?, description?, featureSections?, openingHours?
+ * Rebuilds the offcanvas HTML and writes it into #buildingInfoContent.
+ * @param {Object} b – building object with title, images?, description?, featureSections?, openingHours?
  */
 function renderBuildingOffcanvas(b) {
     let html = "";
 
 
-    // 2) Bild(er) (Einzelbild oder Carousel)
+    // 2) Image(s): single image or carousel.
     if (b.images?.length === 1) {
         html += `
       <div class="mb-3">
@@ -1591,7 +1578,7 @@ function renderBuildingOffcanvas(b) {
       </div>`;
     }
 
-    // 3) Beschreibung + Icon nebeneinander (3/4 Text, 1/4 Icon)
+    // 3) Description and icon side by side (3/4 text, 1/4 icon).
     if (b.description || b.icon) {
         html += `
       <div class="content-group mb-3 px-sm-0 px-md-4">
@@ -1613,7 +1600,7 @@ function renderBuildingOffcanvas(b) {
       </div>`;
     }
 
-    // 4) Feature-Sektionen
+    // 4) Feature sections
     if (b.featureSections) {
         b.featureSections.forEach(sec => {
             html += `
@@ -1628,7 +1615,7 @@ function renderBuildingOffcanvas(b) {
         });
     }
 
-    // 5) Öffnungszeiten
+    // 5) Opening hours
     if (b.openingHours?.slots) {
         html += `
       <div class="content-group mb-3 px-sm-0 px-md-4 building-hours-container"
@@ -1646,7 +1633,7 @@ function renderBuildingOffcanvas(b) {
       </div>`;
     }
 
-    // 6) Link-Button (ganz unten)
+    // 6) Link button at the bottom
     if (b.link) {
         html += `
       <div class="content-group mb-3 px-sm-0 px-md-4">
@@ -1657,17 +1644,15 @@ function renderBuildingOffcanvas(b) {
       </div>`;
     }
 
-    // 7) Rendern
+    // 7) Render
     document.getElementById('buildingInfoContent').innerHTML = html;
 }
 
 /**
- * Holt das passende Objekt aus campusBuildings, rendert es
- * mit renderBuildingOffcanvas() und zeigt das Offcanvas an.
- * @param {string} id – die SVG-ID des angeklickten Gebäudes
+ * Looks up the building in campusBuildings, renders it via renderBuildingOffcanvas() and shows the offcanvas.
+ * @param {string} id – SVG id of the clicked building
  * @param {Object} [opts]
- * @param {boolean} [opts.fromLegend] – aus der Legende geöffnet: Zurück-Knopf
- *    und „Auf Karte zeigen“ einblenden (siehe legend.js)
+ * @param {boolean} [opts.fromLegend] – opened from the legend: show the back button and "show on map" (see legend.js)
  */
 function openBuildingInfo(id, opts = {}) {
     const b = campusBuildings.find(x => x.id === id);
@@ -1681,8 +1666,7 @@ function openBuildingInfo(id, opts = {}) {
     renderBuildingOffcanvas(b);
     window.campusLegend?.onDetailShown(id, opts.fromLegend);
 
-    // Panel schon offen (Wechsel aus der Legende): kein shown-Ereignis,
-    // also das Karussell hier starten
+    // Panel already open (switch from the legend): no shown event, so start the carousel here.
     if (panel.classList.contains('show')) {
         startBuildingCarousel();
         if (typeof enhanceBuildingCarousel === 'function') window.setTimeout(enhanceBuildingCarousel, 0);
@@ -1703,12 +1687,12 @@ function startBuildingCarousel() {
     });
     inst.cycle();
 
-    // Für den nächsten Wechsel alle Transition-Dauern auf 0 setzen
+    // Set all transition durations to 0 for the next slide change.
     const disableOnce = () => {
-        // sofort vor Bootstrap-Handler aktiv
+        // Active immediately, before the Bootstrap handler.
         el.classList.add('no-anim');
         const onSlid = () => {
-            el.classList.remove('no-anim');   // Auto-Wechsel wieder mit Fade
+            el.classList.remove('no-anim');   // Auto slide fades again
             el.removeEventListener('slid.bs.carousel', onSlid);
         };
         el.addEventListener('slid.bs.carousel', onSlid);
@@ -1720,17 +1704,16 @@ function startBuildingCarousel() {
     prev?.addEventListener('pointerdown', disableOnce);
     next?.addEventListener('pointerdown', disableOnce);
 
-    // Optional: Tastatur
+    // Optional: keyboard
     el.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') disableOnce();
     });
 }
 
 /**
- * Öffnet ein Bootstrap-Modal mit Lazy-Load für ein iframe.
- * @param {string} id          Die Overlay-ID 
- * @param {string} [modalId]   Modal-ID. 
- * Wenn nicht gesetzt (oder leer), wird aus `id` automatisch `id + '_modal'` abgeleitet.
+ * Opens a Bootstrap modal and lazy-loads its iframe.
+ * @param {string} id          overlay id
+ * @param {string} [modalId]   modal id; defaults to `id + '_modal'`
  */
 function openTarget(id, modalId) {
     const mId = modalId && modalId.trim() ? modalId : `${id}_modal`;
@@ -1742,18 +1725,17 @@ function openTarget(id, modalId) {
 
 
 function runIntroZoom(svg, orig, durationMs = 3000) {
-    // Mobile-Erkennung
+    // Mobile detection
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
         window.innerWidth <= 768;
 
-    // Für Mobile: längere Dauer (2 Sekunden)
+    // Mobile uses its own duration.
     const actualDuration = isMobile ? 3000 : durationMs;
 
     let cancelled = false;
     const start = performance.now();
     (function anim(now) {
-        // Beim Überspringen bleibt das SVG dasselbe – ohne Abbruch würde
-        // der laufende Zoom den Endzustand gleich wieder überschreiben.
+        // On skip the SVG stays the same; without cancelling, the running zoom would overwrite the final state.
         if (cancelled) return;
         const t = Math.min(1, (now - start) / actualDuration);
         const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -1761,13 +1743,13 @@ function runIntroZoom(svg, orig, durationMs = 3000) {
         let z, centerX, centerY;
 
         if (isMobile) {
-            // Für Mobile: von 0.5x auf 2.0x (200%) zoomen
+            // Mobile: zoom from 0.5x to 2.8x.
             z = 0.5 + 2.3 * ease;
-            // Andere Koordinate für Mobile (z.B. etwas nach rechts und oben)
-            centerX = orig.width * 0.62; // 60% von der Breite
-            centerY = orig.height * 0.42; // 40% von der Höhe
+            // Mobile centers slightly right and up.
+            centerX = orig.width * 0.62; // 62% of the width
+            centerY = orig.height * 0.42; // 42% of the height
         } else {
-            // Für Desktop: Standard-Verhalten (von 0.5x auf 1.0x in die Mitte)
+            // Desktop: zoom from 0.5x to 1.0x into the center.
             z = 0.5 + 0.5 * ease;
             centerX = orig.width / 2;
             centerY = orig.height / 2;
@@ -1783,17 +1765,17 @@ function runIntroZoom(svg, orig, durationMs = 3000) {
 
         if (t < 1) requestAnimationFrame(anim);
         else {
-            // Nach dem Intro-Zoom: nur bei extremen Werten korrigieren
+            // After the intro zoom, correct only extreme values.
             setTimeout(() => {
                 const vb = svg.viewBox.baseVal;
                 const currentZoom = orig.width / vb.width;
                 if (currentZoom > 4.0) {
-                    // Nur bei extremem Zoom (>4x) auf maxZoom begrenzen
+                    // Clamp to maxZoom only for extreme zoom (>4x).
                     const newW = orig.width / 3.5;
                     const newH = orig.height / 3.5;
                     vb.width = newW;
                     vb.height = newH;
-                    // Zentrierung beibehalten
+                    // Keep the center.
                     const centerX = vb.x + vb.width / 2;
                     const centerY = vb.y + vb.height / 2;
                     vb.x = centerX - newW / 2;
@@ -1841,7 +1823,7 @@ function setupZoomPan() {
         document.querySelector('#lottieMap svg'),
     ].filter(Boolean);
     const orig = svgs.map(svg => {
-        // Verwende die tatsächliche Karten-Größe (1920x1080) als Referenz
+        // Use the real map size (1920x1080) as reference.
         return { width: 1920, height: 1080 };
     });
     const minZoom = 1, maxZoom = 3.5;
@@ -1856,7 +1838,7 @@ function setupZoomPan() {
             const curr = oW / vb.width;
             let nz = curr * scaleAmt;
 
-            // Erlaube Zoom von 1.0x bis 3.5x (einheitlich für alle Geräte)
+            // Allow zoom from 1.0x to 3.5x on all devices.
             nz = Math.min(3.5, Math.max(1.0, nz));
 
             const newW = oW / nz, newH = oH / nz;
@@ -1967,15 +1949,14 @@ function setupZoomPan() {
         if (!['mouse', 'touch', 'pen'].includes(e.pointerType) || interactionType !== 'tap') {
             return;
         }
-        // Die Zoom-Schaltflächen liegen im Kartencontainer, sind aber keine Kartenelemente
+        // The zoom buttons sit in the map container but are not map elements.
         if (e.target.closest && e.target.closest('.map-controls')) return;
 
         activateMapTarget(e.target, e);
         interactionType = null;
     });
 
-    // Zoom-Logik nach außen geben: Die Schaltflächen in a11y.js brauchen sie
-    // als Alternative zu Mausrad und Pinch (2.5.1 Zeigergesten).
+    // Expose the zoom logic: the buttons in a11y.js need it as an alternative to wheel and pinch (WCAG 2.5.1 pointer gestures).
     window.mapZoomControls = {
         zoomIn: () => doZoom(1.3, window.innerWidth / 2, window.innerHeight / 2),
         zoomOut: () => doZoom(1 / 1.3, window.innerWidth / 2, window.innerHeight / 2),
@@ -1988,8 +1969,7 @@ function setupZoomPan() {
                 vb.height = orig[i].height;
             });
         },
-        // Verschiebt den Ausschnitt, bis das Element sichtbar ist (Tastaturfokus
-        // bei hineingezoomter Karte). Nicht gezoomt: nichts zu tun.
+        // Pans until the element is visible (keyboard focus on a zoomed-in map); nothing to do when not zoomed.
         panToElement: (el) => {
             const svg = svgs[0];
             if (!svg || !el) return;
@@ -2007,9 +1987,7 @@ function setupZoomPan() {
             vb.y += dy / scale;
             clamp(vb, orig[0].width, orig[0].height);
         },
-        // Fliegt zum Element (Legende: „Auf Karte zeigen“). region ist der
-        // freie Teil des Bildschirms (ohne Kopfzeile/Panel), dort landet das
-        // Element mittig. Hineingezoomt wird nur, nie heraus.
+        // Flies to the element (legend "show on map"); region is the free part of the screen (without header/panel) where the element is centered. Only zooms in, never out.
         flyToElement: (el, { region, zoom = 2, animate = true, duration = 700 } = {}) => {
             const svg = svgs[0];
             if (!svg || !el) return Promise.resolve();
@@ -2025,8 +2003,7 @@ function setupZoomPan() {
             };
             const c = toSvg(box.left + box.width / 2, box.top + box.height / 2, svg.getScreenCTM());
 
-            // Zielausschnitt berechnen: erst Größe, dann so verschieben,
-            // dass das Element in der Mitte der freien Fläche liegt
+            // Compute the target viewport: size first, then shift so the element is centered in the free area.
             const nz = Math.min(maxZoom, Math.max(minZoom, zoom, orig[0].width / vb.width));
             vb.width = orig[0].width / nz;
             vb.height = orig[0].height / nz;
@@ -2037,8 +2014,7 @@ function setupZoomPan() {
             const s = p.matrixTransform(ctm);
             vb.x -= (area.left + area.width / 2 - s.x) / ctm.a;
             vb.y -= (area.top + area.height / 2 - s.y) / ctm.d;
-            // Liegt das Element am Kartenrand, nicht über den Rand hinaus
-            // schieben (sonst bleibt ein leerer weißer Streifen stehen)
+            // Near the map edge, do not pan past it (would leave an empty white strip).
             const edge = svg.getScreenCTM();
             const mapL = edge.e, mapR = edge.e + orig[0].width * edge.a;
             const mapT = edge.f, mapB = edge.f + orig[0].height * edge.d;
@@ -2080,28 +2056,24 @@ function setupZoomPan() {
 }//setupZoomPan
 
 /**
- * Führt die Aktion aus, die zu einem Kartenelement gehört.
- *
- * Maus/Touch (pointerup) und Tastatur (Enter/Leertaste in a11y.js) rufen
- * beide hier herein, damit sie garantiert dasselbe tun und nicht
- * auseinanderlaufen können.
- *
- * @param {Element} target - das angetippte bzw. fokussierte SVG-Element
- * @param {Event}  [evt]   - das auslösende Event, falls vorhanden
+ * Runs the action that belongs to a map element.
+ * Mouse/touch (pointerup) and keyboard (Enter/Space in a11y.js) both call this so they never diverge.
+ * @param {Element} target - the tapped or focused SVG element
+ * @param {Event}  [evt]   - the triggering event, if any
  */
 function activateMapTarget(target, evt) {
     if (!target) return;
 
-    // 1) Spezieller Logo-Fall (kein Child-Loop)
+    // 1) Special case logo (no child loop).
     const logoEl = document.getElementById('Logo');
     if (logoEl && logoEl.contains(target)) {
         window.open('https://www.th-luebeck.de/', '_blank');
         return;
     }
 
-    // 2) Alle anderen clickGroups wie gehabt
+    // 2) All other clickGroups as before.
     for (const { containerId, prefix, modalSuffix, handler } of clickGroups) {
-        if (containerId === 'Logo') continue; // Logo haben wir schon behandelt
+        if (containerId === 'Logo') continue; // Logo handled above
 
         const containerEl = document.getElementById(containerId);
         if (!containerEl) continue;
@@ -2109,15 +2081,15 @@ function activateMapTarget(target, evt) {
         if (containerEl.contains(target)) {
             if (evt) evt.stopPropagation();
 
-            // ID aus containerId ableiten
+            // Derive the id from containerId.
             let itemId;
             if (prefix) {
-                // Für Frage-X: "Frage-5" → "Frage5"
+                // For Frage-X: "Frage-5" → "Frage5"
                 itemId = containerId.replace('-', '');
                 const modalId = `${itemId}${modalSuffix}`;
                 handler(itemId, modalId);
             } else {
-                // Für andere Container: Alle direkten Kinder durchgehen
+                // Other containers: walk all direct children.
                 for (const child of containerEl.children) {
                     if (child.contains(target)) {
                         if (child.id) {
@@ -2132,7 +2104,7 @@ function activateMapTarget(target, evt) {
         }
     }
 
-    // 3) Gebäude-Offcanvas danach
+    // 3) Building offcanvas last.
     const elGeb = target.closest(clickableSelectorMap);
     if (elGeb) {
         const gebId = elGeb.id;
@@ -2142,11 +2114,8 @@ function activateMapTarget(target, evt) {
     }
 }
 
-// Seitenverhältnis der Karte: Auf Laptop-Bildschirmen, die etwas breiter als
-// 16:9 sind, füllt die Karte die volle Breite (keine weißen Ränder links/rechts)
-// und wird nur oben beschnitten – dort liegt ohnehin die Kopfzeile, unten
-// bleibt das Logo ganz. Große Bildschirme und schmalere Fenster zeigen die
-// Karte weiterhin vollständig (mit Rand).
+// Map aspect ratio: on laptop screens slightly wider than 16:9 the map fills the full width (no white side bars) and is cropped only at the top, under the header, so the logo at the bottom stays intact.
+// Large screens and narrower windows still show the whole map with margins.
 const MAP_FILL_MAX_WIDTH = 1800;
 const MAP_FILL_MAX_RATIO = 2.1;
 
@@ -2166,44 +2135,36 @@ function applyMapAspectRatio() {
 window.addEventListener('resize', applyMapAspectRatio);
 
 // ============================================================
-// Karte laden und Intro abspielen
+// Load the map and play the intro
 // ============================================================
 //
-// Das Intro läuft direkt auf campus_map_v2.svg (früher: eigene Lottie-
-// Animation, danach Wechsel auf die SVG). So zeigt das Intro immer genau die
-// aktuelle Karte – neue Gebäude, Icons und Größen sind automatisch dabei, und
-// am Ende springt nichts mehr.
+// The intro runs directly on campus_map_v2.svg (formerly a separate Lottie animation, then a switch to the SVG), so it always shows the current map with no jump at the end.
 
 const INTRO_DURATION_MS = 5000;
-// Zeitpunkte stammen aus dem früheren Lottie-Intro (25 Bilder/s = 40 ms)
+// Timings come from the former Lottie intro (25 fps = 40 ms).
 const introFrame = n => n * 40;
 
-// Reihenfolge, in der die Bereiche erscheinen (Bild im alten Intro)
+// Order in which the areas appear (frame in the old intro).
 const INTRO_BEREICHE = {
     Bereich_E: 18, Bereich_A: 21, Bereich_B: 38, Bereich_F: 48,
     Bereich_G: 61, Bereich_D: 76, Interimsbau: 76, Bereich_C: 78, Bereich_MFC: 90
 };
 
-// Ebenen, die nicht einzeln animiert werden: Sie blenden am Ende gemeinsam ein
-// (Straßen, Beschriftungen, Buttons, Quizfiguren, Legenden …). Neue Ebenen in
-// der SVG landen automatisch hier.
+// Layers not animated individually fade in together at the end (streets, labels, buttons, quiz figures, legends, …); new SVG layers land here automatically.
 const INTRO_EIGENE_ANIMATION = ['Hg', 'Logo', 'Bereiche', 'Gebaeude', 'Kaffee', 'Bushaltestellen', 'Fahrradstationen'];
 
 /**
- * Spielt das Intro auf der fertigen Karte ab.
- * @returns {{finish: Function}} – finish() springt sofort ans Ende
+ * Plays the intro on the rendered map.
+ * @returns {{finish: Function}} – finish() jumps straight to the end
  */
 function runMapIntro(svg) {
     const animationen = [];
 
-    // Gruppen mit eigenem transform-Attribut (z. B. skalierte Icons) dürfen
-    // keine CSS-Transformation bekommen – die würde das Attribut ersetzen.
-    // Deshalb wird dort ein innerer Wrapper animiert.
+    // Groups with their own transform attribute (e.g. scaled icons) must not get a CSS transform, which would replace the attribute; an inner wrapper is animated instead.
     const ziel = el => {
         if (!el.hasAttribute('transform')) return el;
         const innen = document.createElementNS(svg.namespaceURI, 'g');
-        // Nur Gruppen können Kinder-<g> tragen; z. B. <text> bekommt stattdessen
-        // einen Wrapper drumherum (sonst wird sein Inhalt nicht gezeichnet).
+        // Only groups can hold child <g>; e.g. <text> gets a wrapper around it instead (otherwise its content is not drawn).
         if (el.tagName.toLowerCase() !== 'g') {
             el.replaceWith(innen);
             innen.appendChild(el);
@@ -2217,13 +2178,12 @@ function runMapIntro(svg) {
         if (!el || !el.animate) return;
         el.style.transformBox = 'fill-box';
         el.style.transformOrigin = origin;
-        // fill 'backwards': vor dem Start unsichtbar, danach wieder der
-        // normale Zustand (keine Inline-Transformation bleibt hängen)
+        // fill 'backwards': invisible before start, normal state afterwards (no inline transform remains).
         animationen.push(el.animate(keyframes, { delay, duration, easing, fill: 'backwards' }));
     };
     const kinder = id => Array.from(svg.querySelectorAll(`g#${id} > *`));
 
-    // 1) Bereiche erscheinen nacheinander, die Buchstaben springen kurz auf
+    // 1) Areas appear one after another, their letters pop briefly.
     const bereiche = [];
     Object.entries(INTRO_BEREICHE).forEach(([id, bild]) => {
         const g = svg.querySelector(`g#${id}`);
@@ -2238,8 +2198,7 @@ function runMapIntro(svg) {
         });
     });
 
-    // 2) Gebäude wachsen in ihrem Bereich nacheinander hoch. Der Bereich wird
-    //    über die Lage bestimmt – so sind neue Gebäude ohne Pflege dabei.
+    // 2) Buildings grow up one by one within their area; the area is derived from position, so new buildings need no maintenance.
     const bereichVon = el => {
         const b = el.getBBox();
         const x = b.x + b.width / 2, y = b.y + b.height / 2;
@@ -2247,14 +2206,13 @@ function runMapIntro(svg) {
             .filter(({ box }) => x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height)
             .sort((p, q) => p.box.width * p.box.height - q.box.width * q.box.height);
         if (drin.length) return drin[0];
-        // außerhalb aller Bereiche: der nächstgelegene
+        // Outside all areas: take the nearest.
         return bereiche.slice().sort((p, q) => {
             const d = ({ box }) => Math.hypot(box.x + box.width / 2 - x, box.y + box.height / 2 - y);
             return d(p) - d(q);
         })[0];
     };
-    // Sonstiges in der Bereiche-Ebene (z. B. Beschriftung „Campuswiese“)
-    // erscheint zusammen mit dem Bereich, in dem es liegt
+    // Other items in the areas layer (e.g. the "Campuswiese" label) appear with the area they lie in.
     if (bereiche.length) {
         kinder('Bereiche')
             .filter(el => !(el.id in INTRO_BEREICHE))
@@ -2273,7 +2231,7 @@ function runMapIntro(svg) {
         ], bereich.start + 40 + nr * 60, 360);
     });
 
-    // 3) Icons fallen ein: zuerst die Cafés, dann Bus und Fahrrad
+    // 3) Icons drop in: cafés first, then bus and bike.
     const einfallen = (el, delay) => animiere(ziel(el), [
         { opacity: 0, transform: 'translateY(-40px) scale(0.6)' },
         { opacity: 1, transform: 'translateY(4px) scale(1.05)', offset: 0.7 },
@@ -2283,7 +2241,7 @@ function runMapIntro(svg) {
     [...kinder('Bushaltestellen'), ...kinder('Fahrradstationen')]
         .forEach((el, i) => einfallen(el, introFrame(60) + i * 80));
 
-    // 4) Logo, dann alle übrigen Ebenen blenden ein
+    // 4) Logo, then all remaining layers fade in.
     animiere(svg.querySelector('g#Logo'),
         [{ opacity: 0 }, { opacity: 0.5, offset: 0.7 }, { opacity: 1 }],
         introFrame(84), introFrame(17), 'linear');
@@ -2297,17 +2255,17 @@ function runMapIntro(svg) {
     return { finish: () => animationen.forEach(a => { try { a.finish(); } catch (e) { } }) };
 }
 
-/** Setzt die Kartenansicht auf den Endzustand des Intros. */
+/** Sets the map view to the intro's final state. */
 function jumpToFinalZoom(svg) {
     if (!svg) return;
     const vb = svg.viewBox.baseVal;
     const orig = { width: 1920, height: 1080 };
 
-    // Mobile-Erkennung
+    // Mobile detection
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
         window.innerWidth <= 768;
 
-    // Mobile: 2.8x Zoom (wie im Intro: 0.5 + 2.3 * 1), Desktop: normale Größe
+    // Mobile: 2.8x zoom (as in the intro: 0.5 + 2.3 * 1), desktop: normal size.
     const finalZoom = isMobile ? 2.8 : 1.0;
     const centerX = isMobile ? orig.width * 0.62 : orig.width / 2;
     const centerY = isMobile ? orig.height * 0.42 : orig.height / 2;
@@ -2318,7 +2276,7 @@ function jumpToFinalZoom(svg) {
     vb.y = centerY - vb.height / 2;
 }
 
-/** Fügt die Karte ein und verdrahtet Hover, Logo, Zoom/Pan und Filter. */
+/** Inserts the map and wires hover, logo, zoom/pan and filters. */
 function insertCampusSVG() {
     const container = document.getElementById('lottieMap');
     container.innerHTML = cachedCampusMapSvg || `<p>${t('map.unavailable')}</p>`;
@@ -2331,12 +2289,12 @@ function insertCampusSVG() {
 
     document.getElementById('Button_Pausen')?.remove();
 
-    // Frage-Elemente basierend auf Completion-Status einfärben
+    // Color the question markers by completion status.
     if (typeof window.colorQuizElements === 'function') {
         window.colorQuizElements();
     }
 
-    // Hover-Effekt für alle anklickbaren Elemente
+    // Hover effect for all clickable elements.
     const kinderIds = id => Array.from(svg.querySelectorAll(`g#${id} > g`)).map(el => el.id);
     const hoverSelectors = [
         '#lottieMap svg g#Logo:hover',
@@ -2348,8 +2306,7 @@ function insertCampusSVG() {
         })
     ].join(',\n');
     const hoverStyle = document.createElement('style');
-    // Safari wendet CSS-Funktionsfilter (brightness()) nicht auf innere SVG-Elemente an,
-    // url(#…)-SVG-Filter dagegen schon.
+    // Safari does not apply CSS filter functions (brightness()) to inner SVG elements, but url(#…) SVG filters work.
     const dimFilter = document.createElementNS(svg.namespaceURI, 'filter');
     dimFilter.setAttribute('id', 'thl-hover-dim');
     dimFilter.setAttribute('color-interpolation-filters', 'sRGB');
@@ -2365,7 +2322,7 @@ function insertCampusSVG() {
     hoverStyle.textContent = `${hoverSelectors} { filter: url(#thl-hover-dim); }`;
     document.head.appendChild(hoverStyle);
 
-    // Logo vollständig klickbar machen (auch die Lücken zwischen den Buchstaben)
+    // Make the whole logo clickable, including the gaps between letters.
     const logoGroup = svg.querySelector('g#Logo');
     if (logoGroup) {
         const bbox = logoGroup.getBBox();
@@ -2390,8 +2347,8 @@ async function initAnimations() {
     if (mapInitialized) return;
     mapInitialized = true;
 
-    // Nach einem Sprachwechsel (Seiten-Reload) das Intro nicht erneut zeigen.
-    // Direktlink (?show=… / ?info=…): ohne Intro gleich zum Ziel
+    // No intro again after a language switch (page reload).
+    // Direct link (?show=… / ?info=…): skip the intro and go straight to the target.
     // In the modal (?intro=0, sent by askFrancis): no intro, only in a tab of its own
     const params = new URLSearchParams(window.location.search);
     const hasDirectLink = params.has('show') || params.has('info');
@@ -2410,7 +2367,7 @@ async function initAnimations() {
 
     if (!animationsOn) {
         jumpToFinalZoom(svg);
-        // ein Frame Pause, damit die Karte Maße hat (Hinfliegen misst das Ziel)
+        // Wait one frame so the map has dimensions (flying measures the target).
         if (hasDirectLink) requestAnimationFrame(() => window.campusLegend?.openFromUrl());
         return;
     }
@@ -2418,14 +2375,14 @@ async function initAnimations() {
     const intro = runMapIntro(svg);
     const zoom = runIntroZoom(svg, { width: 1920, height: 1080 }, 3000);
 
-    // Skip-Hinweis
+    // Skip hint
     const skipHint = document.getElementById('skipIntroHint');
     const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     let introVorbei = false;
     if (skipHint) {
-        // Überspringen nur per Klick/Tippen – die Leertaste öffnet die Suche (legend.js).
+        // Skip only by click/tap; Space opens the search (legend.js).
         skipHint.textContent = isTouchDevice ? t('intro.skipTap') : t('intro.skipClick');
-        // Nach kurzer Verzögerung einblenden, damit Animation Zeit hat zu starten
+        // Show after a short delay so the animation has time to start.
         setTimeout(() => { if (!introVorbei) skipHint.classList.add('visible'); }, 400);
     }
 
@@ -2433,8 +2390,7 @@ async function initAnimations() {
         introVorbei = true;
         clearTimeout(introTimeout);
         skipHint?.classList.remove('visible');
-        // Die Überspringen-Handler gelten nur während des Intros. Bleiben
-        // sie aktiv, geht der erste Klick nach dem Intro verloren.
+        // The skip handlers apply only during the intro; left active, they would swallow the first click afterwards.
         window.removeEventListener('touchstart', onFirstPointer, { capture: true });
         document.removeEventListener('touchstart', onFirstPointer, { capture: true });
         window.removeEventListener('pointerdown', onFirstPointer, { capture: true });
@@ -2449,21 +2405,15 @@ async function initAnimations() {
 
     const introTimeout = setTimeout(introBeenden, INTRO_DURATION_MS);
 
-    // Überspringen per Tap/Klick. Klick ist nötig, weil in Cross-Origin-iframes
-    // (z.B. train-on.net) keine keydown-Events ankommen, solange das iframe
-    // keinen Fokus hat. pointerdown statt mousedown, weil setupZoomPan() auf
-    // dem mapContainer einen pointerdown-Handler mit preventDefault() hat –
-    // das unterdrückt per Spec mousedown/click. Capture-Phase auf document
-    // feuert VOR dem Container-Handler.
+    // Skip by tap/click: cross-origin iframes (e.g. train-on.net) get no keydown while unfocused.
+    // pointerdown instead of mousedown because setupZoomPan() calls preventDefault() on pointerdown, which per spec suppresses mousedown/click; capture phase on document fires BEFORE the container handler.
     function onFirstPointer(e) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         ueberspringen();
 
-        // Die Karte liegt schon während des Intros darunter: Das Loslassen
-        // desselben Tipps/Klicks würde sonst das Element an dieser Stelle
-        // öffnen. Also das zugehörige pointerup/click einmalig verschlucken.
+        // The map already lies underneath during the intro; the matching pointerup/click would open the element there, so swallow it once.
         const schlucken = ev => { ev.stopPropagation(); ev.stopImmediatePropagation(); };
         ['pointerup', 'click'].forEach(typ => document.addEventListener(typ, schlucken, { capture: true, once: true }));
         setTimeout(() => ['pointerup', 'click'].forEach(typ => document.removeEventListener(typ, schlucken, { capture: true })), 800);
@@ -2474,12 +2424,12 @@ async function initAnimations() {
     document.addEventListener('pointerdown', onFirstPointer, { passive: false, capture: true });
 }//initAnimations
 
-// 4) DOMContentLoaded: initAnimations + Overlays + Rest
+// 4) DOMContentLoaded: initAnimations, overlays and the rest.
 document.addEventListener('DOMContentLoaded', async () => {
     const el = document.getElementById("footer-container");
-    if (el) el.remove(); // sofort weg, Inhalt wird nie aufgebaut
+    if (el) el.remove(); // remove at once, content is never built
 
-    // Karte laden und Intro starten
+    // Load the map and start the intro.
     initAnimations();
 
     const offcanvasEl = document.getElementById('buildingInfoOffcanvas');
@@ -2488,28 +2438,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 }); //DOMContentLoaded
 
 
-// Funktion um Accordion-Toggle zu verwalten
+// Manages the accordion toggle.
 function setupAccordionToggle(modal) {
     const infoIconContainer = modal.querySelector('.info-icon-trigger');
     const infoIcon = modal.querySelector('.info-icon-trigger .fas.fa-info-circle');
     const collapseElement = modal.querySelector('#campusInfosOverlay');
 
     if (infoIcon && collapseElement && infoIconContainer) {
-        // Alle Event-Listener komplett entfernen durch Klonen des Elements
+        // Remove all event listeners by cloning the element.
         const newContainer = infoIconContainer.cloneNode(true);
         infoIconContainer.parentNode.replaceChild(newContainer, infoIconContainer);
 
-        // Neue Referenzen holen
+        // Get fresh references.
         const freshContainer = modal.querySelector('.info-icon-trigger');
         const freshCollapseElement = modal.querySelector('#campusInfosOverlay');
 
-        // Funktion zum Aktualisieren der UI
+        // Updates the UI.
         function updateUI() {
             if (freshCollapseElement.classList.contains('show')) {
                 freshContainer.innerHTML = `<div class="campus-accordion-close"><i class="fas fa-info-circle campus-info-icon"></i><span>${t('common.close')}</span></div>`;
                 freshContainer.style.padding = '10px 12px';
 
-                // Event-Listener für das neue Icon hinzufügen
+                // Add the listener for the new icon.
                 const newIcon = freshContainer.querySelector('.fas.fa-info-circle');
                 if (newIcon) {
                     newIcon.addEventListener('click', function (e) {
@@ -2525,7 +2475,7 @@ function setupAccordionToggle(modal) {
                     });
                 }
 
-                // Event-Listener für den "Schließen"-Text hinzufügen
+                // Add the listener for the "close" text.
                 const closeText = freshContainer.querySelector('span');
                 if (closeText) {
                     closeText.addEventListener('click', function (e) {
@@ -2541,11 +2491,11 @@ function setupAccordionToggle(modal) {
                     });
                 }
             } else {
-                // Accordion ist geschlossen - nur Icon anzeigen
+                // Accordion closed: show only the icon.
                 freshContainer.innerHTML = '<i class="fas fa-info-circle campus-info-icon"></i>';
                 freshContainer.style.padding = '10px';
 
-                // Event-Listener für das neue Icon hinzufügen
+                // Add the listener for the new icon.
                 const newIcon = freshContainer.querySelector('.fas.fa-info-circle');
                 if (newIcon) {
                     newIcon.addEventListener('click', function (e) {
@@ -2563,55 +2513,54 @@ function setupAccordionToggle(modal) {
             }
         }
 
-        // Bootstrap-Attribute entfernen
+        // Remove Bootstrap attributes.
         freshContainer.removeAttribute('data-bs-toggle');
         freshContainer.removeAttribute('data-bs-target');
         freshContainer.removeAttribute('aria-expanded');
 
-        // Event-Listener für das Icon hinzufügen
+        // Add the listener for the icon.
         const iconElement = freshContainer.querySelector('.fas.fa-info-circle');
         if (iconElement) {
             iconElement.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Einfaches Toggle der show-Klasse
+                // Simply toggle the show class.
                 if (freshCollapseElement.classList.contains('show')) {
-                    // Schließen
+                    // Close
                     freshCollapseElement.classList.remove('show');
                 } else {
-                    // Öffnen
+                    // Open
                     freshCollapseElement.classList.add('show');
                 }
 
-                // UI sofort aktualisieren
+                // Update the UI immediately.
                 updateUI();
             });
         }
 
-        // Initiale UI setzen
+        // Set the initial UI.
         updateUI();
     }
 }
 
 // ========================================
-// Quiz-Fortschritt & Marker-Einfärbung
+// Quiz progress and marker coloring
 // ========================================
 
 const COMPLETED_QUIZZES_STORAGE_KEY = 'quiz_completed_ids';
 
-// Globale Variable für Quiz-Fortschritt
+// Global quiz progress state.
 let completedQuizzesCount = 0;
 
-// Hilfsfunktion für Local Storage Management
+// localStorage helper.
 function getCompletedQuizIds() {
     const stored = localStorage.getItem(COMPLETED_QUIZZES_STORAGE_KEY);
     const ids = stored ? JSON.parse(stored) : [];
     return ids.map(id => String(id));
 }
 
-// Globale Funktion zum Einfärben der Frage-Marker basierend auf Quiz-Completion.
-// Map: SVG-Marker-ID auf der Karte → Quiz-ID im quizModals-Array
+// Colors the question markers by quiz completion; map: SVG marker id → quiz id in quizModals.
 window.colorQuizElements = function () {
     const completedIds = getCompletedQuizIds();
 
@@ -2682,7 +2631,7 @@ function addCompletedQuizId(quizId) {
 
         completedQuizzesCount++;
 
-        // Frage-Elemente neu einfärben
+        // Recolor the question markers.
         if (typeof window.colorQuizElements === 'function') {
             window.colorQuizElements();
         }
@@ -2706,20 +2655,20 @@ function initCompletedQuizzesCounter() {
 document.addEventListener('DOMContentLoaded', function () {
     initCompletedQuizzesCounter();
 
-    // Badge-Button Event-Listener
+    // Badge button listener.
     const badgeBtn = document.getElementById('toolboxBadgesBtn');
     if (badgeBtn) {
         badgeBtn.addEventListener('click', function () {
             // Render Badges
             renderBadgesOverview();
 
-            // Öffne Offcanvas
+            // Open the offcanvas.
             const badgesOffcanvas = new bootstrap.Offcanvas(document.getElementById('badgesOffcanvas'));
             badgesOffcanvas.show();
         });
     }
 
-    // Menue-Button (nur Smartphone): klappt Sprache, Badges und Einstellungen auf
+    // Menu button (phone only): expands language, badges and settings.
     const menu = document.getElementById('toolboxMenu');
     const menuBtn = document.getElementById('toolboxMenuBtn');
     if (menu && menuBtn) {
@@ -2728,7 +2677,7 @@ document.addEventListener('DOMContentLoaded', function () {
             menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
         };
         menuBtn.addEventListener('click', () => setMenuOpen(!menu.classList.contains('open')));
-        // Nach der Auswahl eines Eintrags schliessen
+        // Close after an entry is chosen.
         document.getElementById('toolbox').addEventListener('click', e => {
             if (e.target.closest('button')) setMenuOpen(false);
         });
@@ -2743,12 +2692,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Kein blur() nach dem Schließen der Panels: Tastaturnutzer verlören sonst
-    // ihre Position (Fokus auf <body>). Den Fokusrahmen nach Mausklicks
-    // unterdrückt bereits :focus-visible im CSS. Den Fokus auf den
-    // Badges-Button zurückzugeben übernimmt a11y.js.
+    // No blur() after closing the panels: keyboard users would lose their position (focus on <body>); :focus-visible already hides the ring after mouse clicks, and a11y.js returns focus to the badges button.
 
-    // Animationen-Toggle
+    // Animations toggle
     const animationsToggle = document.getElementById('animationsToggle');
     if (animationsToggle) {
         const enabled = areAnimationsEnabled();
@@ -2764,7 +2710,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Reset Progress Button – öffnet das Bestätigungs-Modal
+    // Reset progress button opens the confirmation modal.
     const resetProgressBtn = document.getElementById('resetProgressBtn');
     const resetConfirmModalEl = document.getElementById('resetConfirmModal');
     if (resetProgressBtn && resetConfirmModalEl) {
@@ -2773,7 +2719,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Bestätigen-Button im Modal: führt den Reset aus
+    // Confirm button in the modal performs the reset.
     const confirmResetBtn = document.getElementById('confirmResetBtn');
     if (confirmResetBtn) {
         confirmResetBtn.addEventListener('click', function () {
@@ -2785,7 +2731,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Accordion-Toggle für die Campus-Info im jeweiligen Modal verdrahten
+// Wire the accordion toggle for the campus info in each modal.
 document.addEventListener('shown.bs.modal', (e) => {
     setupAccordionToggle(e.target);
 });

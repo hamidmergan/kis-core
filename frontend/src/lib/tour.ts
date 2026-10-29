@@ -19,7 +19,7 @@ export async function findeRundgangKurs(): Promise<DemoKurs | null> {
     const res = await fetch("/api/ai-assistant/demo/workspaces", { credentials: "include" });
     if (!res.ok) return null;
     const kurse: DemoKurs[] = await res.json();
-    // Den eigenen Kurs als Demo anzubieten waere sinnlos, da ist man schon drin.
+    // Offering one's own course as demo is pointless, one is already in it.
     return kurse.find((k) => !k.owned) ?? null;
   } catch {
     return null;
@@ -37,7 +37,7 @@ export async function rundgangZiel(kurs: DemoKurs): Promise<string> {
         body: JSON.stringify({ workspace_uuid: kurs.uuid }),
       });
     } catch {
-      /* Ohne Beitritt landet man auf der Sperrseite, das sagt mehr als ein stiller Abbruch. */
+      /* Without joining one lands on the blocked page, which says more than a silent abort. */
     }
   }
   return `/workspace/${kurs.uuid}?tour=1`;

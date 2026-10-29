@@ -1,4 +1,4 @@
-"""Orte in Antworten: Gebäudecodes und Namen zählen, Wortteile nicht."""
+"""Places in answers: building codes and names count, word fragments do not."""
 from src.features.campus.services.place_match import annotate_buildings, find_places, show_param
 
 ORTE = [
@@ -35,7 +35,7 @@ def test_codes_mit_und_ohne_trenner():
 def test_nummern_auch_roemisch():
     assert [k["id"] for k in find_places("Das ZDL sitzt im MFC VII.", ORTE)] == ["MFC_7"]
     assert [k["id"] for k in find_places("Im MFCVII, zweiter Stock.", ORTE)] == ["MFC_7"]
-    # Kleingeschrieben oder nach einbuchstabigem Code ist es ein Wort, kein Gebäude.
+    # Lowercase or after a one-letter code it is a word, not a building.
     assert find_places("Das mfc vii stimmt so nicht.", ORTE) == []
     assert find_places("Kurs zu AI und Daten.", ORTE) == []
     assert find_places("Im MFC VIII ist es nicht.", ORTE) == []

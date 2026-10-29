@@ -48,7 +48,7 @@ def tool_output_language(workspace_id) -> tuple[str, str]:
         try:
             workspace = db.get_aia_workspace_by_id(workspace_id) or {}
             code = workspace.get("diagnosis_language") or DEFAULT_DIAGNOSIS_LANGUAGE
-        except Exception:  # noqa: BLE001 - der Standard ist eine brauchbare Antwort
+        except Exception:  # noqa: BLE001 - the default is a usable answer
             pass
     if code not in TRANSCRIPT_LANGUAGES:
         # Then the code falls back too, otherwise the rule sits under a dead key.

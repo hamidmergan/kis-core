@@ -1,4 +1,4 @@
-"""Der Aufseher: faellige Auftraege starten, haengende einsammeln, geparkte verfallen lassen."""
+"""The watchdog: start due jobs, collect hanging ones, expire parked ones."""
 
 import pytest
 
@@ -113,7 +113,7 @@ def _broker(monkeypatch, waiting=(), taken=()):
 
 
 def test_ein_auftrag_der_nur_in_der_schlange_wartet_gilt_nicht_als_haengend(umgebung, monkeypatch):
-    """Lasttest 26.09.: 20 Leute, alle Plätze voll, nach 10 Minuten Warten war der Auftrag tot."""
+    """Load test 26.09.: 20 people, all seats full, after 10 minutes of waiting the job was dead."""
     db, anlaeufe, abgeschossen, _ = umgebung
     db.haengend = [_wartend("t-1")]
     _broker(monkeypatch, waiting={"t-1"})
@@ -135,7 +135,7 @@ def test_ein_gerade_abgeholter_wartender_auftrag_bleibt_in_ruhe(umgebung, monkey
 
 
 def test_die_naechste_etappe_in_der_schlange_gilt_nicht_als_haengend(umgebung, monkeypatch):
-    """Eine Etappe reiht sich neu ein und die Zeile bleibt auf running, auch während sie ansteht."""
+    """A stage re-queues itself and the row stays on running, also while it is queued."""
     db, anlaeufe, _, _ = umgebung
     db.haengend = [_wartend("t-2", status="running")]
     _broker(monkeypatch, waiting={"t-2"})
@@ -166,7 +166,7 @@ def test_ist_der_broker_nicht_lesbar_bleiben_wartende_auftraege_in_ruhe(umgebung
 
 
 def test_ein_laufender_auftrag_ohne_lebenszeichen_bleibt_haengend(umgebung, monkeypatch):
-    """Ein abgeholter Auftrag liegt immer unquittiert beim Broker, das entlastet ihn nicht."""
+    """A fetched job always sits unacked at the broker, that does not relieve it."""
     db, anlaeufe, _, _ = umgebung
     db.haengend = [_wartend("t-1", status="running")]
     _broker(monkeypatch, taken={"t-1"})
@@ -187,7 +187,7 @@ def test_ein_leerer_broker_ist_eine_antwort_und_kein_unbekannt(umgebung, monkeyp
 
 
 def test_der_aufseher_holt_verwaiste_plaetze_zurueck_und_fuellt_nach(monkeypatch):
-    """Ohne diesen Takt startet der Topf nur neu, wenn gerade ein Auftrag endet."""
+    """Without this tick the pool only restarts when a job happens to end."""
     from src.features.ai_assistant.scheduling import reaper, service
     ablauf = []
     monkeypatch.setattr(watchdog_tasks.broker_state, "snapshot", lambda: "stand")

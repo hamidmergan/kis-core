@@ -1,4 +1,4 @@
-"""Fakes fuer die Fakten-Wege des Podcasts, kein Modell und kein Auftragsordner noetig."""
+"""Fakes for the podcast fact paths, no model and no job folder needed."""
 
 import asyncio
 import json
@@ -14,7 +14,7 @@ class FakeAntwort:
 
 
 class FakeAsyncClient:
-    """Die asynchrone Tuer des Chat-Clients, sie antwortet je Datei statt der Reihe nach."""
+    """The async door of the chat client, it answers per file instead of in order."""
 
     def __init__(self, je_datei: dict, dauer: float = 0.0) -> None:
         self._je_datei = {name: list(werte) for name, werte in je_datei.items()}

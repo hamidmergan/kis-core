@@ -27,7 +27,7 @@ SPECIFIC_SHARE = 0.20
 # Even a tiny window must still allow one request.
 MIN_CONTEXT_CHARS = 2000
 
-# Obergrenze fuer kurze Hilfsaufrufe, denkende Modelle brauchen Platz.
+# Cap for short helper calls, thinking models need room.
 PRECALL_MAX_TOKENS = 1000
 
 # Ceiling for the chat answer, chosen from 5670 measured answers.
@@ -47,7 +47,7 @@ _PROBE_MAX_TOKENS = 99_999_999
 _PROBE_FRAGE = "Antworte nur mit: ok"
 # Room enough for a thinking model to show its thinking.
 _PROBE_ANTWORT_TOKENS = 400
-# Ein grosses Denk-Modell braucht auch fuer diese Winzprobe deutlich laenger als 30s.
+# A large thinking model needs well over 30 s even for this tiny probe.
 _PROBE_READ_TIMEOUT = 120.0
 
 # The switches that turn thinking off, in the order they are tried.
@@ -97,7 +97,7 @@ def parse_window(text: str | None) -> int | None:
     return min(sinnvoll) if sinnvoll else None
 
 
-# ── Token in Zeichen ────────────────────────────────────────────────────────
+# ── Tokens to characters ────────────────────────────────────────────────────
 
 def context_chars(window_tokens: int, share: float) -> int:
     """Character budget for a window of this size, computed conservatively."""
@@ -126,7 +126,7 @@ def _measure_window(call) -> tuple[int, str]:
     """Window size by probe, or unknown, it is never guessed."""
     try:
         call(messages=[{"role": "user", "content": "hi"}], max_tokens=_PROBE_MAX_TOKENS)
-    except Exception as e:  # noqa: BLE001 — die Absage IST das Messergebnis
+    except Exception as e:  # noqa: BLE001 — the refusal IS the measurement
         fenster = parse_window(str(e))
         if fenster:
             return fenster, QUELLE_GEMESSEN
@@ -135,7 +135,7 @@ def _measure_window(call) -> tuple[int, str]:
 
 
 def _measure_thinking(call) -> bool:
-    """Does the model think before answering? Im Zweifel ja, das ist die sichere Seite."""
+    """Does the model think before answering? When in doubt yes, the safe side."""
     try:
         antwort = call(
             messages=[{"role": "user", "content": _PROBE_FRAGE}],
@@ -143,8 +143,8 @@ def _measure_thinking(call) -> bool:
             temperature=0.0,
         )
     except Exception as e:  # noqa: BLE001
-        # Eine Zeitueberschreitung auf "Antworte nur mit: ok" IST der Beleg fuers Denken.
-        # Ein faelschlich gesetzter Schalter kostet nichts, ein fehlender kostet die Antwort.
+        # A timeout on "Antworte nur mit: ok" IS the proof of thinking; a wrongly set switch
+        # costs nothing, a missing one costs the answer.
         logger.info("Denkprobe fehlgeschlagen, gilt vorsichtshalber als denkend: {}",
                     str(e)[:200])
         return True
@@ -161,7 +161,7 @@ def _measure_switch(call) -> str:
                 temperature=0.0,
                 extra_body=dict(THINK_OFF_SWITCHES[name]),
             )
-        except Exception as e:  # noqa: BLE001 — abgelehnt heisst nur: naechster Schalter
+        except Exception as e:  # noqa: BLE001 — refused only means: next switch
             logger.debug("Schalter {} abgelehnt: {}", name, str(e)[:150])
             continue
         if not _thought(antwort):
@@ -190,7 +190,7 @@ def fit_messages(messages: list[dict], budget_chars: int) -> list[dict]:
         zuviel = gesamt - budget_chars
         ziel = max(boden, len(inhalt) - zuviel)
         if ziel >= len(inhalt):
-            break  # nichts mehr zu holen, alle sind auf dem Boden
+            break  # nothing left to take, all are at the floor
         kopie[index]["content"] = _kuerze_mitte(inhalt, ziel)
         neu = sum(len(m.get("content") or "") for m in kopie)
         if neu >= gesamt:
@@ -219,7 +219,7 @@ def measure_provider_model(base_url: str, api_key: str, model: str) -> ModelProf
     client = OpenAI(
         api_key=api_key or "not-needed",
         base_url=base_url,
-        # Kuerzer als im Betrieb, aber lang genug, dass ein Denk-Modell die Probe schafft.
+        # Shorter than in operation, but long enough for a thinking model to pass the probe.
         timeout=httpx.Timeout(connect=10.0, read=_PROBE_READ_TIMEOUT, write=10.0, pool=10.0),
         max_retries=0,
     )
@@ -267,7 +267,7 @@ def stored_profile(provider_id: int, model: str) -> ModelProfile | None:
     from src import database as db
     try:
         row = db.get_model_limit(provider_id, model)
-    except Exception as e:  # noqa: BLE001 — ohne Messung wird eben vorsichtig gerechnet
+    except Exception as e:  # noqa: BLE001 — without a measurement we simply calculate cautiously
         logger.debug("Modellvermessung nicht lesbar: {}", e)
         return None
     if not row:
@@ -318,7 +318,7 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
             thinks=profil.thinks,
             think_off=profil.think_off,
         )
-    except Exception as e:  # noqa: BLE001 — gemessen ist gemessen, auch ungespeichert
+    except Exception as e:  # noqa: BLE001 — measured is measured, even unsaved
         logger.warning("Modellvermessung nicht speicherbar: {}", e)
     logger.info(
         "Modell {} vermessen: Fenster {} ({}), denkt={}, Schalter={!r}",

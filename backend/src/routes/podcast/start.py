@@ -80,10 +80,10 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
 
 async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: str,
                          user_id: int, locale: str) -> list:
-    """Die Quellen eines Laufs, hochgeladen oder aus einem Workspace geholt.
+    """A run's sources, uploaded or fetched from a workspace.
 
-    Beide Wege enden im selben Datensatz. Aus dem Workspace kommt nur die Datei, sonst
-    nichts: kein Index, keine Abschnitte, keine Suche.
+    Both paths end in the same record; the workspace supplies only the file, no index,
+    sections or search.
     """
     from src.services import sources as quellen, workspace_sources as arbeitsraum
 

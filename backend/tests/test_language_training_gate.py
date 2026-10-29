@@ -16,7 +16,7 @@ KARTEIKARTEN_SATZ = {"id": 2, "workspace_id": 7, "user_id": LERNENDER, "tool": "
 
 @pytest.fixture
 def trainer_nicht_bereit(monkeypatch):
-    """Workspace da, Lernender eingeschrieben, Trainer fuer diese Person nicht bereit."""
+    """Workspace exists, learner enrolled, trainer not ready for this person."""
     monkeypatch.setattr(exercises.db, "get_aia_workspace", lambda uuid: WORKSPACE)
     monkeypatch.setattr(exercises.db, "is_student_enrolled", lambda ws_id, uid: True)
     monkeypatch.setattr(exercises.db, "is_language_training_ready", lambda uid: False)

@@ -36,10 +36,9 @@ _LISTEN = ("cards", "bars", "steps", "levels", "figures", "symbols")
 
 
 def material_je_folie(rows: list[OutlineRow], karte, alle: list[OutlineRow]) -> dict[str, str]:
-    """Je Folie die Stellen aus dem Originaltext, auf denen sie ruht, mit ihren Nachbarn.
+    """Per slide the original-text spots it rests on, with their neighbours.
 
-    Eine Zeile ohne Stellen ist eine Agenda oder ein Schluss, sie ruht auf allem. Sie
-    bekommt deshalb den Plan des ganzen Decks statt einzelner Stellen.
+    A row without spots (agenda, closing) rests on everything and gets the whole deck's plan instead.
     """
     from src.limits import MAP_PASSAGE_NEIGHBOURS
 

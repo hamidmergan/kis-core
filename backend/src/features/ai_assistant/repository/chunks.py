@@ -81,7 +81,7 @@ def _term_idf(cur, workspace_id: int, terms: list[str]) -> list[tuple[str, float
         )
         for row in cur.fetchall():
             _IDF_CACHE[(workspace_id, str(row["w"]).lower())] = (jetzt, float(row["df"] or 0))
-        if len(_IDF_CACHE) > 20000:      # Deckel, damit das Gedaechtnis nicht waechst
+        if len(_IDF_CACHE) > 20000:      # cap so the cache does not grow
             _IDF_CACHE.clear()
 
     out: list[tuple[str, float]] = []
@@ -373,7 +373,7 @@ def hybrid_search_chunks(
                 if ilike_rows:
                     kw_rows = kw_rows + ilike_rows
 
-            # Tippfehlertoleranter Rueckfall ueber Trigramme, erst ab vier Zeichen.
+            # Typo-tolerant fallback via trigrams, from four characters on.
             fuzzy_words = [w for w in words if len(w) >= 4]
             if fuzzy and fuzzy_words:
                 best_sim = "GREATEST(" + ", ".join(["word_similarity(%s, c.content)"] * len(fuzzy_words)) + ")"

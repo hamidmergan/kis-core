@@ -1,4 +1,4 @@
-"""Die Grenze zaehlt laufende Auftraege ueber alle Werkzeuge, geparkte nicht mit."""
+"""The limit counts running jobs across all tools, parked ones excluded."""
 
 import pytest
 from fastapi import HTTPException
@@ -8,7 +8,7 @@ from src.services import open_jobs
 
 @pytest.fixture
 def zaehler(monkeypatch):
-    """Gibt zurueck, wie viele Auftraege gerade arbeiten."""
+    """Returns how many jobs are currently working."""
     stand = {"n": 0, "grenze": 5}
     monkeypatch.setattr(open_jobs.db, "count_working_jobs", lambda uid, voice=None: stand["n"])
     monkeypatch.setattr(open_jobs, "max_open_jobs", lambda: stand["grenze"])
@@ -34,7 +34,7 @@ def test_minus_eins_laesst_alles_durch(zaehler):
 
 
 def test_die_abfrage_zaehlt_keine_wartenden(monkeypatch):
-    """Der Status awaiting_user darf in der Abfrage gar nicht vorkommen."""
+    """The status awaiting_user must not appear in the query at all."""
     import inspect
     from src.features.jobs.repository import _queries
 
@@ -44,7 +44,7 @@ def test_die_abfrage_zaehlt_keine_wartenden(monkeypatch):
 
 
 def test_praesentation_zaehlung_zaehlt_kein_fortsetzen(monkeypatch):
-    """Fortsetzen (awaiting_user/paused) liegt still, gilt fuer die Ein-Auftrag-Regel nicht als aktiv."""
+    """Continue (awaiting_user/paused) is idle and does not count as active for the one-job rule."""
     import inspect
     from src.features.jobs.repository import _queries
 

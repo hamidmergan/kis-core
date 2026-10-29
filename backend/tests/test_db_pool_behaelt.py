@@ -1,9 +1,6 @@
-"""Der Verbindungspool behält freie Verbindungen, statt jede nach der Anfrage zu schließen.
+"""The connection pool keeps idle connections instead of closing each after the request.
 
-Lasttest mit großen Dateien am 26.09.: psycopg2 hält nur minconn=1 freie Verbindung vor und
-schließt jede weitere. Unter Last baute jeder Prozess ständig Verbindungen auf und ab, unter der
-Sperre des Pools. Postgres lief auf 117 %, und der Hauptfaden des Backends wartete, bis keine
-Seite mehr antwortete.
+Load test 26.09.: psycopg2 keeps only minconn=1 idle, every process opened and closed connections under the pool lock, Postgres ran at 117 % and the backend main thread stalled.
 """
 
 import psycopg2.pool

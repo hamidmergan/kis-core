@@ -10,7 +10,7 @@ from src.limits import SUMMARY_CALL_TIMEOUT_SECONDS
 
 @pytest.fixture(autouse=True)
 def _leerer_adminbereich(monkeypatch):
-    """Ohne Eintrag gilt der Wert aus limits.py, die geteilte Datenbank bleibt aussen vor."""
+    """Without an entry the value from limits.py applies, the shared database stays out of it."""
     monkeypatch.setattr("src.database.get_setting", lambda key, default="": default)
 
 
@@ -38,7 +38,7 @@ async def test_der_aufrufer_setzt_modell_und_zeitgrenze():
 
 
 async def test_die_zeitgrenze_kommt_aus_dem_adminbereich(monkeypatch):
-    """Eine Aenderung im Adminbereich wirkt beim naechsten Aufruf, ohne Neustart."""
+    """A change in the admin panel takes effect on the next call, without restart."""
     monkeypatch.setattr("src.database.get_setting", lambda key, default="": "120")
     client = FakeClient(["ok"])
 

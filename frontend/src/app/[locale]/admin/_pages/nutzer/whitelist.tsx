@@ -23,8 +23,7 @@ export default function WhitelistPage() {
         hint={enabled.value === false ? t("warningOff") : undefined}
         label={t("toggleAria")}
       />
-      {/* Eigener Scrollrahmen: die Zeile aus Eingabefeld und Knopf wird bei
-          110 % auf einem sehr schmalen Telefon knapp. */}
+      {/* Own scroll frame: the input-plus-button row gets tight at 110 % on a very narrow phone. */}
       <div className="overflow-x-auto">
         <WhitelistTab adminEmail={email} />
       </div>

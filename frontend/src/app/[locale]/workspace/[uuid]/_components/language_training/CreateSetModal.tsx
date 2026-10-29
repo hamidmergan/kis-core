@@ -102,7 +102,7 @@ export function CreateSetModal({
         setFlashcardSets(fertig);
         setFlashcardSetId((prev) => prev ?? fertig[0]?.id ?? null);
       })
-      .catch(() => { /* dann bleibt nur der Weg ueber die Quellen */ })
+      .catch(() => { /* then only the sources path remains */ })
       .finally(() => { if (!cancelled) setFlashcardSetsLoading(false); });
     return () => { cancelled = true; };
   }, [isVocabulary, workspaceUuid]);
@@ -135,7 +135,7 @@ export function CreateSetModal({
         setTopics(data.topics);
         setTopicId((prev) => prev ?? data.topics[0]?.id ?? null);
       })
-      .catch(() => { /* der Erstellen-Knopf bleibt gesperrt */ })
+      .catch(() => { /* the create button stays disabled */ })
       .finally(() => { if (!cancelled) setTypesLoading(false); });
     return () => { cancelled = true; };
   }, [isGrammar, workspaceUuid, reload]);
@@ -203,10 +203,7 @@ export function CreateSetModal({
           )}
         </div>
 
-        {/* Flashcard set choice, cloze from cards only. Ein Auswahlfeld statt
-            einer zweiten Kaestchen-Liste: sonst sieht der gewaehlte Satz
-            genauso aus wie der gewaehlte Weg darueber, obwohl er eine Ebene
-            tiefer liegt. */}
+        {/* Flashcard set choice, cloze from cards only. A select instead of a second checkbox list, so the chosen set does not look like the chosen path above it. */}
         {isVocabulary && mode === "cards" && (
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.flashcardSetHeading")}</div>
@@ -356,9 +353,7 @@ export function CreateSetModal({
         {isGrammar && (
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.formatHeading")}</div>
-            {/* Kaestchen aus dem Bestand, damit sie aussehen wie ueberall sonst.
-                Alle vier an heisst gemischt, dafuer braucht es keinen eigenen
-                Auswahlpunkt. */}
+            {/* Existing checkboxes so they look like everywhere else. All four on means mixed, no separate option needed. */}
             {lockedKinds ? (
               <div className="mb-3">
                 <p className="text-xs">{lockedKinds.map((k) => t(`createModal.format.${k}`)).join(", ")}</p>

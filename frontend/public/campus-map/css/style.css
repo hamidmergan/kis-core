@@ -5,7 +5,7 @@
         --transition-normal: all 0.3s ease;
         --color-primary: #4B5459;
         --color-gray: #8D939E;
-        /* Barrierefreiheit: gepruefte Kontrastwerte gegen Weiss (WCAG 2.1 AA) */
+        /* Accessibility: contrast values checked against white (WCAG 2.1 AA) */
         --color-gray-text: #6A7078;
         --color-accent: #8C9B39;
         --color-accent-text: #67732A;
@@ -16,17 +16,17 @@
         --hover-lift: translateY(-2px);
         color-scheme: only light;
 
-        /* Typography Scale - basiert auf p tag mit 1.2rem */
+        /* Typography scale based on the 1.2rem p tag */
         --font-size-base: 1.2rem;
-        /* 19.2px - Standard p tag */
+        /* 19.2px, default p tag */
         --font-size-large: 1.25rem;
-        /* 20px - Überschriften */
+        /* 20px, headings */
         --font-size-normal: 1rem;
-        /* 16px - Normale Texte */
+        /* 16px, body text */
         --font-size-small: 0.875rem;
-        /* 14px - Kleine Texte */
+        /* 14px, small text */
         --font-size-xsmall: 0.75rem;
-        /* 12px - Sehr klein */
+        /* 12px, very small */
     }
 
     *:not(.fa):not(.fas):not(.far):not(.fab):not(.fal):not(.fad):not(.ab-icon):not(.ab-item):not([class*="dashicons"]):not([class*="wp-"]):not(#wpadminbar *) {
@@ -44,8 +44,7 @@
         position: relative;
         width: 100vw;
         height: 100vh;
-        /* Mobil ist 100vh die Hoehe bei eingeklappter Browserleiste - die
-           Zoom-Knoepfe unten rechts laegen sonst hinter der Leiste. */
+        /* On mobile 100vh ignores the collapsed browser bar; the zoom buttons would hide behind it. */
         height: 100dvh;
         overflow: hidden;
         touch-action: none;
@@ -67,7 +66,7 @@
         display: flex;
     }
 
-    /* Abstand nach oben wie Bootstrap pt-1 statt pt-2, die Bootstrap-Klassen brauchen !important. */
+    /* Top padding like Bootstrap pt-1 instead of pt-2; the Bootstrap classes need !important. */
     #allcontent-title,
     #allcontent-title > div:first-child {
         padding-top: 0.25rem !important;
@@ -224,7 +223,7 @@
         }
     }
 
-    /* Globaler Animations-Schalter (Einstellung "Animationen") */
+    /* Global animation toggle ("Animations" setting) */
     body.no-animations,
     body.no-animations *,
     body.no-animations *::before,
@@ -244,7 +243,7 @@
         transition: none !important;
     }
 
-    /* Icon für Einstellungs-Karten (statt <img>) */
+    /* Icon for settings cards (instead of <img>) */
     .filter-icon-fa {
         width: 40px;
         height: 40px;
@@ -377,7 +376,7 @@
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Verhindert Abschneiden des letzten Elements durch Browser-Chrome auf Mobile */
+    /* Keeps the mobile browser chrome from clipping the last element */
     .offcanvas {
         max-height: 100dvh;
     }
@@ -402,7 +401,7 @@
         align-items: center;
     }
 
-    /* Wie die Zoom-Buttons unten rechts: weisse Flaeche, Rahmen, Schatten, leicht transparent. */
+    /* Like the zoom buttons bottom right: white, border, shadow, slightly transparent. */
     .toolbox-btn {
         background: #fff;
         border: 1.5px solid var(--color-primary);
@@ -454,7 +453,7 @@
         color: var(--color-primary);
     }
 
-    /* Sprachumschalter (Kopfzeile + Einstellungen) */
+    /* Language switch (header + settings) */
     .lang-switch {
         display: inline-flex;
         align-items: stretch;
@@ -467,7 +466,7 @@
         margin-right: 4px;
     }
 
-    /* In der Kopfzeile wie die Zoom-Buttons unten rechts. */
+    /* In the header, styled like the zoom buttons bottom right. */
     #toolbox .lang-switch {
         border: 1.5px solid var(--color-primary);
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
@@ -510,13 +509,13 @@
         outline-offset: 2px;
     }
 
-    /* Menue-Button und Beschriftungen gibt es nur auf dem Smartphone. */
+    /* Menu button and labels exist only on phones. */
     #toolboxMenuBtn,
     .toolbox-label {
         display: none;
     }
 
-    /* Smartphone: Sprache, Badges und Einstellungen liegen in einem aufklappbaren Menue. */
+    /* Phone: language, badges and settings sit in a collapsible menu. */
     @media (max-width: 575px) {
         .toolbox-menu {
             position: relative;
@@ -784,7 +783,7 @@
         width: 100%;
     }
 
-    /* Modals auf Mobile: korrekte Höhe mit dynamischem Viewport */
+    /* Modals on mobile: correct height via dynamic viewport */
     @media (max-width: 767px) {
         .modal-dialog {
             max-height: 100dvh;
@@ -798,7 +797,7 @@
         }
     }
 
-    /* Landscape Optimierung für Smartphones */
+    /* Landscape tweaks for phones */
     @media (max-width: 896px) and (max-height: 430px) and (orientation: landscape) {
         #mapContainer {
             padding-top: 4vh !important;
@@ -827,7 +826,7 @@
         .badge-notification {
             top: 10px;
             right: 10px;
-            /* Direkt sichtbar */
+            /* Visible right away */
             left: 10px;
             width: auto;
             height: 50px;
@@ -1005,7 +1004,7 @@
         font-weight: 500;
     }
 
-    /* Mobile Anpassungen */
+    /* Mobile adjustments */
     @media (max-width: 768px) {
         .badge-card {
             padding: 16px;
@@ -1026,7 +1025,7 @@
         }
     }
 
-    /* Filter Übersicht Styles */
+    /* Filter overview styles */
     .filter-section {
         margin-bottom: 24px;
     }
@@ -1082,7 +1081,7 @@
         color: #212529;
     }
 
-    /* Download-Link in den Einstellungen (sieht aus wie eine Filter-Karte) */
+    /* Download link in settings, styled like a filter card */
     .download-card {
         text-decoration: none;
         color: inherit;
@@ -1309,7 +1308,7 @@
         margin-bottom: 0 !important;
     }
 
-    /* ===== Reset-Bestätigungs-Modal ===== */
+    /* ===== Reset confirmation modal ===== */
     #resetConfirmModal .modal-title {
         color: var(--color-primary);
         font-weight: 700;
@@ -1501,9 +1500,8 @@
         border-color: #3a4146;
     }
 
-    /* ===== Kreuzworträtsel ===== */
-    /* Optik wie die Wortsuche (Quiz 5): weiße Felder auf hellem Grund,
-       Türkis für das aktive Wort, Hinweise als weiße Kapseln. */
+    /* ===== Crossword ===== */
+    /* Looks like the word search (quiz 5): white cells on a light background, teal for the active word, clues as white pills. */
     .crossword-container {
         display: flex;
         flex-direction: column;
@@ -1791,7 +1789,7 @@
         pointer-events: none;
     }
 
-    /* ===== Wortsuche ===== */
+    /* ===== Word search ===== */
     .wordsearch-container {
         display: flex;
         flex-direction: column;
@@ -1918,7 +1916,7 @@
         }
     }
 
-    /* ===== Bilder-Grid (Multi-Select mit Bildern) ===== */
+    /* ===== Image grid (multi-select with images) ===== */
     .quiz-image-grid {
         display: grid;
         gap: 0.5rem;
@@ -1976,7 +1974,7 @@
         }
     }
 
-    /* ===== Sortier-Quiz (Drag & Drop) ===== */
+    /* ===== Sorting quiz (drag & drop) ===== */
     .sort-list {
         list-style: none;
         padding: 0;
@@ -2138,7 +2136,7 @@
         }
     }
 
-    /* ===== Memory-Spiel ===== */
+    /* ===== Memory game ===== */
     .memory-status {
         display: flex;
         justify-content: space-between;
@@ -2272,24 +2270,24 @@
     }
 
     /* ================================================================
-       Barrierefreiheit (WCAG 2.1 AA)
+       Accessibility (WCAG 2.1 AA)
        ================================================================ */
 
-    /* 2.4.7 Fokus sichtbar - durchgaengiger Indikator, 5.8:1 gegen Weiss */
+    /* 2.4.7 Focus visible: consistent indicator, 5.8:1 against white */
     *:focus-visible {
         outline: 3px solid var(--focus-ring);
         outline-offset: 2px;
         border-radius: 4px;
     }
 
-    /* Bedienelemente mit visuell verstecktem Input: Ring auf die Karte legen */
+    /* Controls with a visually hidden input: put the ring on the card */
     .quiz-option:has(input:focus-visible),
     .filter-card:has(input:focus-visible) {
         outline: 3px solid var(--focus-ring);
         outline-offset: 2px;
     }
 
-    /* Fallback fuer Browser ohne :has() */
+    /* Fallback for browsers without :has() */
     @supports not selector(:has(*)) {
         .quiz-option:focus-within,
         .filter-card:focus-within {
@@ -2298,7 +2296,7 @@
         }
     }
 
-    /* Fokus auf der Karte: Ring folgt der Elementform */
+    /* Focus on the map: ring follows the element shape */
     .campus-map-svg [tabindex]:focus-visible {
         outline: none;
     }
@@ -2314,8 +2312,7 @@
         z-index: 5;
     }
 
-    /* 1.3.1 Ueberschriftenstruktur korrigiert (h4/h5 -> h2/h3):
-       Groessen bleiben wie zuvor, nur die Ebenen stimmen jetzt. */
+    /* 1.3.1 Heading structure fixed (h4/h5 -> h2/h3): sizes unchanged, only the levels are correct now. */
     .offcanvas-title {
         font-size: 1.5rem;
     }
@@ -2338,7 +2335,7 @@
         margin-bottom: 0;
     }
 
-    /* Nur fuer Screenreader */
+    /* Screen readers only */
     .sr-only {
         position: absolute !important;
         width: 1px;
@@ -2371,7 +2368,7 @@
         top: 8px;
     }
 
-    /* Zoom-Schaltflaechen: Alternative zu Mausrad und Pinch (2.5.1) */
+    /* Zoom buttons: alternative to mouse wheel and pinch (2.5.1) */
     .map-controls {
         position: absolute;
         right: 12px;
@@ -2382,15 +2379,13 @@
         gap: 6px;
     }
 
-    /* Bewusst nicht groesser als die Kopfzeilen-Icons (36px); 32px liegen
-       weiterhin ueber der Mindest-Zielgroesse von 24px (2.5.8). */
+    /* Deliberately no larger than the header icons (36px); 32px still exceeds the 24px minimum target size (2.5.8). */
     .map-zoom-btn {
         width: 32px;
         height: 32px;
         border-radius: 8px;
-        /* Dunklerer Rahmen als bei den uebrigen Bedienelementen: Bei 80 %
-           Deckkraft mischt sich der Untergrund ein, --color-border-strong
-           faende dabei auf 2,45:1 ab. Mit --color-primary bleiben 4,6:1. */
+        /* Darker border than the other controls: at 80% opacity the background bleeds in,
+           --color-border-strong would drop to 2.45:1, --color-primary keeps 4.6:1. */
         border: 1.5px solid var(--color-primary);
         background: #fff;
         color: var(--color-primary);
@@ -2404,10 +2399,8 @@
         opacity: 0.8;
     }
 
-    /* Bei Interaktion voll deckend - dann ist auch der Fokusring ungetruebt.
-       Bewusst :focus statt :focus-visible: In diesem Stylesheet greifen
-       :focus-visible-Regeln an manchen Elementen nicht (siehe .toolbox-btn),
-       und ein voll deckender Button nach einem Mausklick stoert nicht. */
+    /* Fully opaque on interaction so the focus ring stays clean. :focus on purpose: :focus-visible
+       rules fail on some elements here (see .toolbox-btn), and an opaque button after a click is fine. */
     .map-zoom-btn:hover,
     .map-zoom-btn:focus {
         opacity: 1;
@@ -2424,7 +2417,7 @@
         }
     }
 
-    /* --- Memory: Karten sind jetzt <button> --- */
+    /* --- Memory: cards are now <button> --- */
     .memory-card {
         appearance: none;
         -webkit-appearance: none;
@@ -2441,7 +2434,7 @@
         display: block;
     }
 
-    /* --- Wortsuche: Zeilen sind reine ARIA-Struktur, kein Layout --- */
+    /* --- Word search: rows are pure ARIA structure, not layout --- */
     .wordsearch-row {
         display: contents;
     }
@@ -2451,12 +2444,12 @@
         outline-offset: -3px;
     }
 
-    /* Der Anker (erster Buchstabe) bleibt sichtbar, waehrend man das Wort aufzieht */
+    /* The anchor (first letter) stays visible while dragging out the word */
     .wordsearch-cell.ws-anchor {
         box-shadow: inset 0 0 0 3px var(--focus-ring);
     }
 
-    /* --- Bild-Hotspot: Tastaturraster ueber dem Bild --- */
+    /* --- Image hotspot: keyboard grid over the image --- */
     .hotspot-keyboard-grid {
         position: absolute;
         inset: 0;
@@ -2471,27 +2464,22 @@
         cursor: crosshair;
     }
 
-    /* Unsichtbar, bis der Fokus darauf liegt - die Maus-Variante bleibt
-       optisch unveraendert, Tastaturnutzer sehen aber, wo sie sind. */
+    /* Invisible until focused: the mouse variant looks unchanged, keyboard users still see where they are. */
     .hotspot-region:focus {
         outline: 3px solid var(--focus-ring);
         outline-offset: -3px;
         background: rgba(11, 94, 215, 0.12);
     }
 
-    /* Das Tastaturraster darf Mausklicks nicht abfangen: sonst wuerden
-       Klicks auf Rasterfelder gerundet statt punktgenau ausgewertet.
-       Fokussierbarkeit bleibt davon unberuehrt. */
+    /* The keyboard grid must not catch mouse clicks, or clicks on cells would be rounded instead of exact.
+       Focusability is unaffected. */
     .hotspot-keyboard-grid,
     .hotspot-region {
         pointer-events: none;
     }
 
-    /* Fokusring fuer Buttons mit weisser Schrift.
-       Ihr Outline erbte ueber currentColor die weisse Schriftfarbe und lag
-       damit unsichtbar auf hellem Grund. Der Ring wird deshalb als
-       Pseudo-Element gezeichnet: dessen Rahmenfarbe steht explizit fest und
-       haengt an keiner geerbten Farbe. */
+    /* Focus ring for buttons with white text: their outline inherited white via currentColor and was
+       invisible on light backgrounds, so the ring is a pseudo-element with an explicit border colour. */
     .toolbox-btn,
     .toggle-all-btn {
         position: relative;
@@ -2507,10 +2495,8 @@
         pointer-events: none;
     }
 
-    /* Der Schalter im Aus-Zustand war nur ein hellgrauer Streifen auf weiss
-       (1,26:1). Ein innenliegender Ring macht die Umrandung wahrnehmbar,
-       ohne das Layout zu veraendern - eine echte Border wuerde den Knopf
-       um die Rahmenbreite verschieben. */
+    /* The switch in its off state was only a light grey strip on white (1.26:1). An inset ring makes
+       the outline perceptible without changing layout; a real border would shift the knob. */
     .toggle-slider {
         box-shadow: inset 0 0 0 2px var(--color-border-strong);
     }
@@ -2519,13 +2505,13 @@
         box-shadow: inset 0 0 0 2px var(--color-accent-text);
     }
 
-/* Info-Schaltfläche im Quiz-Modal: Fokus sichtbar machen */
+/* Info button in the quiz modal: make focus visible */
 .info-icon-trigger:focus-visible {
     outline: 3px solid var(--focus-ring);
     outline-offset: 2px;
 }
 
-/* Pause-Button für das Bilderkarussell (WCAG 2.2.2) */
+/* Pause button for the image carousel (WCAG 2.2.2) */
 .carousel-pause-btn {
     position: absolute;
     right: 8px;
@@ -2551,9 +2537,8 @@
     outline-offset: 2px;
 }
 
-/* Container, die nur programmatisch fokussiert werden (Bootstrap setzt beim
-   Öffnen den Fokus auf das Panel, der Skip-Link auf die Karte): kein Rahmen
-   um die ganze Fläche – der Fokusring gehört an das Bedienelement. */
+/* Containers that are only focused programmatically (Bootstrap focuses the panel on open, the skip
+   link the map): no outline around the whole area, the focus ring belongs on the control. */
 .offcanvas:focus-visible,
 .modal:focus-visible,
 #mapContainer:focus-visible,
@@ -2562,17 +2547,17 @@
 }
 
 /* ============================================================
-   Gebäude & Legende (js/legend.js)
-   Bewusst schlicht, angelehnt an die Legende im gedruckten Campusplan:
-   Farbquadrat, Name, Gebäudenummer rechts – keine Farbbalken/Schatten.
+   Buildings & legend (js/legend.js)
+   Deliberately plain, modelled on the printed campus plan legend:
+   colour square, name, building number right, no colour bars or shadows.
    ============================================================ */
 
-/* Rechtes Panel schmaler als die linken (600px) – mehr Karte sichtbar */
+/* Right panel narrower than the left ones (600px), more map visible */
 #buildingInfoOffcanvas {
     --bs-offcanvas-width: 460px;
 }
 
-/* --- Kopfzeile des Panels --- */
+/* --- Panel header --- */
 #buildingInfoOffcanvas .offcanvas-header {
     position: relative;
     gap: 8px;
@@ -2606,7 +2591,7 @@
     cursor: pointer;
 }
 
-/* Trennstrich zwischen Zurück-Button und Titel */
+/* Divider between back button and title */
 .panel-back-btn::after {
     content: "";
     position: absolute;
@@ -2634,13 +2619,12 @@
     display: none;
 }
 
-/* Desktop: Karte hinter der Legende nur leicht abdunkeln, damit das
-   Hervorheben der Gebäude beim Überfahren sichtbar bleibt */
+/* Desktop: dim the map behind the legend only slightly so hover highlighting of buildings stays visible */
 body.legend-open .offcanvas-backdrop.show {
     opacity: .18;
 }
 
-/* --- Suche + Ansicht (bleiben beim Scrollen oben) --- */
+/* --- Search + view (stay on top while scrolling) --- */
 .legend-view[hidden] {
     display: none;
 }
@@ -2676,7 +2660,7 @@ body.legend-open .offcanvas-backdrop.show {
     border-radius: var(--border-radius-sm);
     background: #fff;
     color: #212529;
-    /* mind. 16px: sonst zoomt iOS beim Antippen in die Seite */
+    /* At least 16px, otherwise iOS zooms the page on tap */
     font-size: 16px;
     -webkit-appearance: none;
     appearance: none;
@@ -2690,8 +2674,7 @@ body.legend-open .offcanvas-backdrop.show {
     color: var(--color-gray-text);
 }
 
-/* Fokus dezent in der Hausfarbe (wie aktiver DE/EN-Schalter): Rahmen wird
-   dunkel und 2px stark – sichtbar, aber ohne den blauen Fokusring */
+/* Subtle focus in the house colour (like the active DE/EN switch): border turns dark and 2px, no blue focus ring */
 .legend-search-input:focus {
     outline: none;
     border-color: var(--color-primary);
@@ -2713,8 +2696,7 @@ body.legend-open .offcanvas-backdrop.show {
     display: none;
 }
 
-/* Hinweis unter dem Suchfeld: Leertaste öffnet dieses Panel
-   (nur mit Maus/Tastatur – auf Touch-Geräten gibt es keine Leertaste) */
+/* Hint under the search field: space bar opens this panel (mouse/keyboard only, touch devices have no space bar) */
 .legend-shortcut-hint {
     margin: 8px 0 0;
     color: var(--color-gray-text);
@@ -2749,7 +2731,7 @@ body.legend-open .offcanvas-backdrop.show {
     outline: 3px solid var(--focus-ring);
 }
 
-/* --- Inhalt --- */
+/* --- Content --- */
 .legend-results {
     padding: 0 0 24px;
 }
@@ -2766,7 +2748,7 @@ body.legend-open .offcanvas-backdrop.show {
     font-weight: 400;
 }
 
-/* Schnellzugriff – wie die kleinen Outline-Buttons der App */
+/* Quick access, like the app's small outline buttons */
 .legend-quick {
     display: flex;
     flex-wrap: wrap;
@@ -2805,7 +2787,7 @@ body.legend-open .offcanvas-backdrop.show {
     outline-offset: 2px;
 }
 
-/* Listenzeilen (Einrichtungen, Suchtreffer) */
+/* List rows (facilities, search results) */
 .legend-list {
     list-style: none;
     margin: 0;
@@ -2926,7 +2908,7 @@ button.legend-row:focus-visible {
     max-width: 50%;
 }
 
-/* Gebäudenummer wie im PDF: fett, rechtsbündig */
+/* Building number as in the PDF: bold, right-aligned */
 .legend-code {
     padding: 0;
     border: 0;
@@ -2937,7 +2919,7 @@ button.legend-row:focus-visible {
     white-space: nowrap;
 }
 
-/* bei mehreren Gebäuden einzeln antippbar */
+/* Tappable individually when there are several buildings */
 .legend-code-btn {
     min-width: 48px;
     height: 36px;
@@ -2959,7 +2941,7 @@ button.legend-row:focus-visible {
     outline-offset: 2px;
 }
 
-/* Abkürzungen (wie im PDF unten links) */
+/* Abbreviations (as in the PDF, bottom left) */
 .legend-abbr {
     margin: 18px 0 0;
     font-size: var(--font-size-small);
@@ -2979,14 +2961,14 @@ button.legend-row:focus-visible {
     color: var(--color-gray-text);
 }
 
-/* Ungefähre Treffer (Frage oder Tippfehler) */
+/* Approximate matches (question or typo) */
 .legend-fuzzy-hint {
     margin: 14px 0 0;
     color: var(--color-gray-text);
     font-size: var(--font-size-small);
 }
 
-/* Keine Treffer */
+/* No matches */
 .legend-empty {
     padding: 32px 8px;
     color: var(--color-gray-text);
@@ -3005,7 +2987,7 @@ button.legend-row:focus-visible {
     font-weight: 700;
 }
 
-/* „Auf Karte zeigen“ – wie der Link-Button unten in den Gebäude-Details */
+/* "Show on map", like the link button at the bottom of the building details */
 .building-actions {
     display: flex;
     justify-content: center;
@@ -3037,7 +3019,7 @@ button.legend-row:focus-visible {
     outline-offset: 2px;
 }
 
-/* Teilen-Icon links neben „Schließen“ + kleines Fenster darunter */
+/* Share icon left of "Close" plus a small popover below */
 .panel-icon-btn {
     display: inline-flex;
     align-items: center;
@@ -3102,7 +3084,7 @@ button.legend-row:focus-visible {
     color: #9a3412;
 }
 
-/* Linkfeld mit Kopier-Icon ganz rechts; Klick ins Feld kopiert auch */
+/* Link field with copy icon on the far right; clicking the field also copies */
 .share-pop-field {
     position: relative;
 }
@@ -3153,7 +3135,7 @@ button.legend-row:focus-visible {
     color: #198754;
 }
 
-/* Pin neben einem Treffer: direkt auf die Karte */
+/* Pin next to a result: straight to the map */
 .legend-item.has-pin {
     display: flex;
     align-items: center;
@@ -3188,7 +3170,7 @@ button.legend-row:focus-visible {
     outline-offset: -3px;
 }
 
-/* Mini-Lageplan oben in den Gebäude-Infos (öffnet die große Karte) */
+/* Mini map at the top of the building details (opens the big map) */
 .mini-map {
     position: relative;
     display: block;
@@ -3233,7 +3215,7 @@ button.legend-row:focus-visible {
     outline-offset: 2px;
 }
 
-/* --- Hervorhebung auf der Karte --- */
+/* --- Highlight on the map --- */
 .map-spotlight-ring {
     fill: var(--spot);
     fill-opacity: .12;
@@ -3262,7 +3244,7 @@ body.no-animations .map-spotlight-wave {
     animation: none !important;
 }
 
-/* --- Leiste nach „Auf Karte zeigen“ (Smartphone) --- */
+/* --- Bar after "Show on map" (phone) --- */
 .map-return-pill {
     position: fixed;
     left: 50%;
@@ -3345,12 +3327,12 @@ body.no-animations .map-spotlight-wave {
     outline-offset: -3px;
 }
 
-/* Zoom-Knöpfe weichen der Leiste nach oben aus */
+/* Zoom buttons move up out of the bar's way */
 body.map-pill-open .map-controls {
     bottom: calc(84px + env(safe-area-inset-bottom, 0px));
 }
 
-/* --- Smartphone: Panel als Bottom-Sheet --- */
+/* --- Phone: panel as bottom sheet --- */
 @media (max-width: 767px) {
     #buildingInfoOffcanvas.offcanvas-end {
         top: auto;
@@ -3405,7 +3387,7 @@ body.map-pill-open .map-controls {
     }
 }
 
-/* Schließen-X in Modals/Offcanvas mit gleichem Hover-Hintergrund wie die anderen Icon-Buttons */
+/* Close X in modals/offcanvas with the same hover background as the other icon buttons */
 .btn-close {
     box-sizing: border-box;
     width: 36px;
@@ -3420,7 +3402,7 @@ body.map-pill-open .map-controls {
     background-color: rgba(75, 84, 89, 0.1);
 }
 
-/* Punkte unten im Gebäude-Karussell: dezent, aktives Bild etwas kräftiger */
+/* Dots below the building carousel: subtle, active image a bit stronger */
 #carouselBuilding .carousel-indicators {
     margin-bottom: 6px;
 }

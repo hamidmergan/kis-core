@@ -23,8 +23,7 @@ export function ExerciseNav({
         className="disabled:opacity-30">
         <CaretLeft size={18} weight="bold" />
       </IconButton>
-      {/* Feste Breite und Ziffern gleicher Laufweite: die Pfeile duerfen beim
-          Blaettern nicht wandern, wenn aus der 9 eine 10 wird. */}
+      {/* Fixed width and tabular digits: the arrows must not shift when 9 becomes 10. */}
       <span className="text-sm font-semibold text-center tabular-nums" style={{ minWidth: 60 }}>
         {index + 1} / {total}
       </span>

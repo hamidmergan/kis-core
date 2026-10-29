@@ -1,4 +1,4 @@
-"""Der Abgleich holt nur Geändertes, löscht Verschwundenes und hält die Obergrenze."""
+"""The sync fetches only changed pages, deletes vanished ones and keeps the cap."""
 from datetime import datetime
 
 import pytest

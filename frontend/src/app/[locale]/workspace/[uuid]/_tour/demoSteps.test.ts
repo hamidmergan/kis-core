@@ -26,7 +26,7 @@ describe("Lehrende, die selbst Module anlegen dürfen", () => {
 
 describe("Studierende ohne das Recht Module anzulegen", () => {
   it("bekommen die Stationen zum Hochladen und Freigeben gar nicht erst", () => {
-    // Ohne Lehrenden-Vorschau gibt es weder Plus noch Freigabe-Zeichen, beide Stationen zeigten ins Leere.
+    // Without the teacher preview there is no plus and no share icon, both steps would point at nothing.
     expect(schluessel(false)).not.toContain("hochladen");
     expect(schluessel(false)).not.toContain("freigeben");
     expect(demoSchritte(false)).toHaveLength(DEMO_SCHRITTE.length - 2);
@@ -73,7 +73,7 @@ describe("Aufbau der Schritte", () => {
 
 describe("Die Statistik im Studio", () => {
   it("spricht Lehrende und Studierende getrennt an", () => {
-    // Beide sehen dort nur die eigenen Zahlen, gesagt werden muss es der lehrenden Seite.
+    // Both see only their own numbers there, only the teacher side needs telling.
     expect(schluessel(true)).toContain("statistik");
     expect(schluessel(false)).toContain("statistikStudi");
   });
@@ -81,8 +81,7 @@ describe("Die Statistik im Studio", () => {
 
 describe("Der Hinweis oben rechts", () => {
   it("steht bei beiden Fassungen direkt hinter der Begrüßung", () => {
-    // Das Info-Zeichen sitzt in der Kopfleiste, mitten in der Materialliste
-    // sprang der Rundgang dafür nach oben rechts und gleich wieder zurück.
+    // The info icon sits in the header; placed mid-list, the tour jumped to the top right and straight back.
     expect(schluessel(true)[1]).toBe("hinweis");
     expect(schluessel(false)[1]).toBe("hinweisStudi");
   });
@@ -90,11 +89,7 @@ describe("Der Hinweis oben rechts", () => {
 
 describe("Zurück auf dem Smartphone", () => {
   it("jede Station mit Ziel holt ihren Bereich selbst nach vorn", () => {
-    // Auf dem Telefon bleiben alle drei Bereiche gebaut und werden nur
-    // unsichtbar geschaltet, das Ziel steht also auch im verdeckten Bereich
-    // noch auf der Seite. Ohne eigenes Vorbereiten zeigt der Rundgang beim
-    // Zurückgehen auf eine unsichtbare Stelle im falschen Bereich.
-    // Ausgenommen sind Ziele in der Kopfleiste, die kein Bereich je verdeckt.
+    // On the phone all three panels stay mounted and are only hidden, so without preparation going back points at an invisible spot in the wrong panel; header targets are never hidden and are exempt.
     const ohneVorbereitung = [...demoSchritte(true), ...demoSchritte(false)]
       .filter((s) => s.ziel && !s.vorbereiten && !s.imKopf)
       .map((s) => s.key);

@@ -66,7 +66,7 @@ def test_staff_allowed_for_tool(staff_client):
 
 
 def test_global_abgeschaltetes_werkzeug_ist_gesperrt(monkeypatch, staff_client):
-    """Der Admin-Schalter muss auch die Route sperren, nicht nur das Menue."""
+    """The admin switch must lock the route too, not just the menu."""
     from src import dependencies_rbac
     monkeypatch.setattr(dependencies_rbac, "is_released_now", lambda key: False)
     r = staff_client.get("/translate")

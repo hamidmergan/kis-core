@@ -1,4 +1,4 @@
-"""Prüft das Messen beim Auswählen: dieselbe Zahl wie beim Start, dieselben Absagen."""
+"""Measuring at selection time: same number as at start, same rejections."""
 
 import io
 
@@ -18,7 +18,7 @@ def _datei(name: str, inhalt: bytes) -> UploadFile:
     return UploadFile(file=io.BytesIO(inhalt), filename=name)
 
 
-# ── Eine hochgeladene Datei ──────────────────────────────────────────────────
+# ── An uploaded file ──────────────────────────────────────────────────
 
 async def test_die_messung_zaehlt_wie_der_start():
     inhalt = ("Ein Satz über das Messen.\n\n" * 400).encode()
@@ -42,7 +42,7 @@ async def test_eine_leere_datei_wird_schon_beim_messen_abgelehnt():
     assert fehler.value.status_code == 400
 
 
-# ── Eine Quelle aus dem Workspace ────────────────────────────────────────────
+# ── A source from the workspace ────────────────────────────────────────────
 
 def _miss(monkeypatch, *, sources_, quelle, text="Ein Satz."):
     monkeypatch.setattr(ws, "db", _Db(workspace=_raum(), sources=sources_))
@@ -76,7 +76,7 @@ def test_wer_nicht_in_den_raum_darf_misst_auch_nichts(monkeypatch):
     assert fehler.value.status_code == 403
 
 
-# ── Die Pfade der Dienste ────────────────────────────────────────────────────
+# ── The service paths ────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("dienst", ["podcast", "praesentation", "summary", "screencast", "pages"])
 def test_jeder_dienst_hat_alle_messpfade(dienst):

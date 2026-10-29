@@ -106,7 +106,7 @@ describe("fullOrder", () => {
 
 describe("movedVisible", () => {
   it("tauscht mit dem sichtbaren Nachbarn, ein versteckter Anbieter bleibt an seiner Stelle", () => {
-    // 2 ist abgeschaltet und daher nicht sichtbar; 3 soll trotzdem an 1 vorbeiziehen.
+    // 2 is disabled and so not visible; 3 should still move past 1.
     expect(movedVisible([1, 2, 3], [1, 3], 3, -1)).toEqual([3, 2, 1]);
   });
 

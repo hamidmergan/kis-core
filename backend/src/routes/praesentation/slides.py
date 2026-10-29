@@ -105,7 +105,7 @@ def _stellen_der_folie(user_id: int, job_uuid: str, row: OutlineRow) -> str:
 
 
 def _material(user_id: int, job_uuid: str) -> str:
-    """Das Material des Laufs als ein Block, aus sources.json."""
+    """The run's material as one block, from sources.json."""
     from src.services import sources as quellen
 
     return quellen.as_block(quellen.load_sources(user_id, job_uuid))

@@ -1,23 +1,19 @@
 /**
- * Barrierefreiheit (WCAG 2.1 AA)
+ * Accessibility (WCAG 2.1 AA).
  *
- * Ergänzt die Karte und die Quizze um das, was reine Maus-/Touch-Bedienung
- * nicht abdeckt:
- *   - Tastaturbedienung und Namen für die interaktiven SVG-Elemente (2.1.1, 4.1.2)
- *   - Zoom-Schaltflächen als Alternative zu Mausrad und Pinch (2.5.1)
- *   - Live-Regionen, damit Statusmeldungen angesagt werden (4.1.3)
+ * Adds what pure mouse/touch use lacks to the map and quizzes:
+ *   - keyboard operation and names for the interactive SVG elements (2.1.1, 4.1.2)
+ *   - zoom buttons as alternative to wheel and pinch (2.5.1)
+ *   - live regions so status messages are announced (4.1.3)
  *
- * Wird nach main.js geladen und von dort angestoßen.
+ * Loaded after main.js and triggered from there.
  */
 
 // ============================================================
-// Namen für Kartenelemente
+// Names for map elements
 // ============================================================
 
-/**
- * Beschriftungen der Quick-Access-Buttons auf der Karte.
- * Die Reihenfolge hier ist zugleich die Tab-Reihenfolge der Links.
- */
+/** Labels of the quick-access buttons on the map; this order is also the tab order of the links. */
 const MAP_BUTTON_LABELS = {
     Button_Studium: t('map.btn.Button_Studium'),
     Button_Speiseplan: t('map.btn.Button_Speiseplan'),
@@ -27,11 +23,7 @@ const MAP_BUTTON_LABELS = {
     Button_Innenstadt: t('map.btn.Button_Innenstadt')
 };
 
-/**
- * Zwei Haltestellen-Paare tragen in config.js denselben Titel (je eine pro
- * Fahrtrichtung). Gleichlautende Namen sind für Screenreader nicht
- * unterscheidbar, deshalb hängen wir die Richtung aus der ID an.
- */
+/** Two bus-stop pairs share a title in config.js (one per direction), so the direction from the ID is appended for screen readers. */
 const BUS_RICHTUNG = {
     Bus_Bessemer_Straße_Sereetz: t('map.towards', { place: 'Sereetz' }),
     Bus_Bessemer_Straße_Bornkamp: t('map.towards', { place: 'Bornkamp' }),
@@ -39,10 +31,7 @@ const BUS_RICHTUNG = {
     Bus_Technische_Hochschule_Grillenweg: t('map.towards', { place: 'Grillenweg' })
 };
 
-/**
- * Anzeigenamen der Elementarten. Die Schlüssel (meta.art) bleiben deutsch,
- * weil an ihnen Sortierung und Rollen hängen.
- */
+/** Display names of element types; the keys (meta.art) stay German because sorting and roles depend on them. */
 const MAP_ART_LABELS = {
     'Gebäude': t('map.type.building'),
     'Café': t('map.type.cafe'),
@@ -52,7 +41,7 @@ const MAP_ART_LABELS = {
     'Link': t('map.type.link')
 };
 
-/** Karten-Element-ID -> Quiz-ID (dieselbe Zuordnung wie in colorQuizElements). */
+/** Map element ID -> quiz ID (same mapping as in colorQuizElements). */
 const MAP_QUIZ_IDS = {
     'Frage': 'Frage', 'Frage-2': 'Frage2', 'Frage-3': 'Frage3',
     'Frage-4': 'Frage4', 'Frage-5': 'Frage5', 'Frage-6': 'Frage6',
@@ -61,12 +50,10 @@ const MAP_QUIZ_IDS = {
 };
 
 /**
- * Baut den Index aller bedienbaren Kartenelemente auf.
+ * Builds the index of all operable map elements.
  *
- * Bewusst nur Elemente, die auch wirklich etwas auslösen: Die Übergänge
- * zwischen den Gebäuden stehen zwar in CLICKABLE_Geb_CONFIG, haben aber
- * keinen Eintrag in campusBuildings – ein Klick darauf tut nichts. Solche
- * Elemente würden als leere Tab-Stationen nur im Weg stehen.
+ * Only elements that actually trigger something: building passages are in CLICKABLE_Geb_CONFIG
+ * but have no campusBuildings entry, so they would just be empty tab stops.
  *
  * @returns {Map<string, {name: string, art: string, neuesFenster: boolean}>}
  */
@@ -103,11 +90,7 @@ function buildMapLabelIndex() {
     return index;
 }
 
-/**
- * Setzt den vollständigen Namen für ein Kartenelement zusammen.
- * Screenreader lesen role="button" selbst vor, deshalb steht die Art
- * (Gebäude, Café, …) und nicht das Wort „Schaltfläche“ im Namen.
- */
+/** Builds the full name of a map element; screen readers announce role="button" themselves, so the name carries the type (building, café, …) instead. */
 function mapElementLabel(id, meta) {
     if (meta.art === 'Quiz') {
         const geloest = typeof getCompletedQuizIds === 'function'
@@ -117,32 +100,26 @@ function mapElementLabel(id, meta) {
     if (meta.art === 'Link') {
         return `${meta.name} ${t('map.newWindow')}`;
     }
-    // „Gebäude E.5“ statt „Gebäude: Gebäude E.5“
+    // "Gebäude E.5" instead of "Gebäude: Gebäude E.5"
     const art = MAP_ART_LABELS[meta.art] || meta.art;
     if (meta.name.startsWith(art)) return meta.name;
     return `${art}: ${meta.name}`;
 }
 
 // ============================================================
-// Tab-Reihenfolge auf der Karte (2.4.3)
+// Tab order on the map (2.4.3)
 // ============================================================
 //
-// Im SVG stehen die Elemente in ihrer Zeichenreihenfolge –
-// für Tab ergibt das Sprünge quer über die Karte. Umsortieren lässt sich das
-// DOM nicht (die Reihenfolge bestimmt, was obenauf gezeichnet wird). Deshalb:
-//   - nur das erste Element der Karte ist per Tab erreichbar (tabindex 0),
-//     alle anderen haben tabindex -1,
-//   - Tab / Umschalt+Tab innerhalb der Karte springen nach MAP_TAB_ORDER,
-//   - am Anfang bzw. Ende geht der Fokus normal aus der Karte heraus.
+// SVG elements sit in drawing order, which makes Tab jump across the map; the DOM
+// cannot be reordered (order decides what is drawn on top). Therefore:
+//   - only the first map element is reachable by Tab (tabindex 0), all others have tabindex -1,
+//   - Tab / Shift+Tab inside the map follow MAP_TAB_ORDER,
+//   - at the start or end the focus leaves the map normally.
 
-/** Reihenfolge der Gruppen beim Durchtabben. */
+/** Group order when tabbing through. */
 const MAP_GRUPPEN_REIHENFOLGE = ['Gebäude', 'Quiz', 'Café', 'Fahrradstation', 'Bushaltestelle', 'Link'];
 
-/**
- * Sortierschlüssel innerhalb einer Gruppe.
- * Gebäude: nach Campusbereich (A–G) und Nummer, also A.1, B.59, B.60 … G.3;
- * Gebäude ohne Bereichskennung (MFC, GründerCube) danach.
- */
+/** Sort key within a group: buildings by campus area (A–G) and number (A.1, B.59, B.60 … G.3), those without an area code (MFC, GründerCube) last. */
 function mapSortKey(id, meta) {
     if (meta.art === 'Gebäude') {
         const m = id.match(/_([A-G])_(\d+)([a-z]?)$/);
@@ -154,14 +131,14 @@ function mapSortKey(id, meta) {
         return String(nr).padStart(3, '0');
     }
     if (meta.art === 'Link') {
-        // Reihenfolge aus MAP_BUTTON_LABELS, das Logo zum Schluss
+        // Order from MAP_BUTTON_LABELS, the logo last
         const pos = Object.keys(MAP_BUTTON_LABELS).indexOf(id);
         return String(pos < 0 ? 999 : pos).padStart(3, '0');
     }
     return meta.name;
 }
 
-/** IDs aller Kartenelemente in Tab-Reihenfolge. */
+/** IDs of all map elements in tab order. */
 let mapTabOrder = [];
 
 function buildMapTabOrder(index) {
@@ -174,7 +151,7 @@ function buildMapTabOrder(index) {
         .map(([id]) => id);
 }
 
-/** Die aktuell bedienbaren Kartenelemente (eingeblendet), in Tab-Reihenfolge. */
+/** The currently operable (visible) map elements in tab order. */
 function mapTabElements() {
     const svg = document.querySelector('#lottieMap svg');
     if (!svg) return [];
@@ -183,7 +160,7 @@ function mapTabElements() {
         .filter(el => el && el.dataset.a11ySichtbar === 'true');
 }
 
-/** Nur das erste bedienbare Element bleibt ein normaler Tab-Stopp. */
+/** Only the first operable element stays a regular tab stop. */
 function updateMapTabStops() {
     const elemente = mapTabElements();
     document.querySelectorAll('#lottieMap [data-a11y-id]').forEach(el => el.setAttribute('tabindex', '-1'));
@@ -205,16 +182,14 @@ function handleMapTab(e) {
         return;
     }
 
-    // Rand der Karte erreicht: Der Browser soll normal weitertabben. Dabei
-    // darf er nicht auf dem Einstiegselement (tabindex 0) landen, das im DOM
-    // irgendwo zwischen den anderen liegt – also kurz herausnehmen.
+    // Map edge reached: let the browser tab on normally, but it must not land on the entry element (tabindex 0) somewhere mid-DOM, so remove it briefly.
     const einstieg = elemente[0];
     if (einstieg && einstieg !== aktuell) {
         einstieg.setAttribute('tabindex', '-1');
         window.setTimeout(() => einstieg.setAttribute('tabindex', '0'), 0);
     }
     if (e.shiftKey && pos === 0) {
-        // Von ganz vorne zurück: vor die Karte, also auf den letzten Zoom-Button
+        // Backwards from the very first: before the map, i.e. the last zoom button
         const zoom = document.querySelectorAll('.map-controls button');
         if (zoom.length) {
             e.preventDefault();
@@ -223,10 +198,7 @@ function handleMapTab(e) {
     }
 }
 
-/**
- * Hält das fokussierte Element im sichtbaren Ausschnitt. Ist die Karte
- * hineingezoomt, kann der Fokus sonst außerhalb des Bildes landen (2.4.7).
- */
+/** Keeps the focused element in view; when zoomed in, focus could otherwise land outside the image (2.4.7). */
 function keepMapFocusInView(e) {
     const el = e.target.closest && e.target.closest('[data-a11y-id]');
     if (el && window.mapZoomControls && window.mapZoomControls.panToElement) {
@@ -269,36 +241,30 @@ function zeigeKartenFokus(e) {
 }
 
 // ============================================================
-// Tastatur- und ARIA-Schicht auf der Karte
+// Keyboard and ARIA layer on the map
 // ============================================================
 
 let mapLabelIndex = null;
 
-/**
- * Macht die interaktiven SVG-Gruppen fokussierbar, benennt sie und
- * verdrahtet Enter/Leertaste auf dieselbe Aktion wie ein Klick.
- * Wird aufgerufen, sobald das Karten-SVG im DOM steht.
- */
+/** Makes the interactive SVG groups focusable, names them and wires Enter/Space to the click action; called once the map SVG is in the DOM. */
 function setupMapAccessibility() {
     const svg = document.querySelector('#lottieMap svg');
     if (!svg) return;
 
     mapLabelIndex = buildMapLabelIndex();
 
-    // Die Karte als benannter Bereich – sonst ist sie im Screenreader namenlos.
+    // The map as a named region, otherwise it is nameless in screen readers.
     const container = document.getElementById('mapContainer');
     if (container) {
         container.setAttribute('aria-label', t('map.containerLabel'));
     }
-    // Bewusst kein <title> im SVG: Browser zeigen es als Hover-Tooltip über der
-    // ganzen Karte an. Der zugängliche Name kommt allein aus aria-label.
+    // Deliberately no <title> in the SVG: browsers show it as a hover tooltip over the whole map, aria-label alone names it.
     svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label', t('map.svgLabel'));
-    // Chrome macht das SVG sonst als scrollbaren Bereich selbst zum Tab-Stopp –
-    // ein leerer Halt zwischen Zoom-Buttons und erstem Gebäude.
+    // Otherwise Chrome makes the SVG itself a tab stop as a scrollable area, an empty stop between zoom buttons and first building.
     svg.setAttribute('tabindex', '-1');
 
-    // Gruppen benennen, damit die Elemente im Screenreader sortiert wirken
+    // Name the groups so the elements appear sorted in screen readers
     const gruppenNamen = {
         Gebaeude: t('map.group.buildings'),
         Kaffee: t('map.group.cafes'),
@@ -318,7 +284,7 @@ function setupMapAccessibility() {
     mapLabelIndex.forEach((meta, id) => {
         const el = svg.querySelector(`#${CSS.escape(id)}`);
         if (!el) return;
-        // Links öffnen eine Website und werden auch als Link angesagt
+        // Links open a website and are announced as links
         el.setAttribute('role', meta.art === 'Link' ? 'link' : 'button');
         el.setAttribute('tabindex', '-1');
         el.setAttribute('aria-label', mapElementLabel(id, meta));
@@ -330,7 +296,7 @@ function setupMapAccessibility() {
     svg.addEventListener('focusin', keepMapFocusInView);
     svg.addEventListener('focusin', zeigeKartenFokus);
 
-    // Enter und Leertaste lösen dieselbe Aktion aus wie ein Klick.
+    // Enter and Space trigger the same action as a click.
     svg.addEventListener('keydown', e => {
         if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
         const ziel = e.target.closest('[data-a11y-id]');
@@ -340,9 +306,7 @@ function setupMapAccessibility() {
         activateMapTarget(ziel);
     });
 
-    // Escape auf der Karte beendet die Tastaturauswahl: Der Fokus geht auf den
-    // Kartenbereich selbst (ohne Rahmen), der nächste Tab beginnt wieder vorn
-    // bei den Zoom-Buttons.
+    // Escape on the map ends keyboard selection: focus goes to the map area itself (no ring), the next Tab starts at the zoom buttons again.
     if (container && !container._a11yEscape) {
         container._a11yEscape = e => {
             if (e.key !== 'Escape' || e.target === container) return;
@@ -355,13 +319,7 @@ function setupMapAccessibility() {
     syncMapA11yState();
 }
 
-/**
- * Hält Fokussierbarkeit und Namen aktuell.
- *
- * Ausgeblendete Kartenelemente (Einstellungen -> Kartenelemente) dürfen keine
- * Tab-Stationen bleiben: Ihre Kinder stehen auf display:none, das Element
- * selbst bliebe sonst als unsichtbarer Fokuspunkt zurück.
- */
+/** Keeps focusability and names current; hidden map elements (settings -> map elements) have display:none children and would remain invisible focus stops. */
 function syncMapA11yState() {
     const svg = document.querySelector('#lottieMap svg');
     if (!svg || !mapLabelIndex) return;
@@ -384,10 +342,10 @@ function syncMapA11yState() {
 }
 
 // ============================================================
-// Zoom-Schaltflächen (2.5.1: Alternative zu Mausrad und Pinch)
+// Zoom buttons (2.5.1: alternative to wheel and pinch)
 // ============================================================
 
-/** Baut die Zoom-Bedienelemente in den Kartencontainer. */
+/** Builds the zoom controls into the map container. */
 function setupMapZoomControls() {
     const container = document.getElementById('mapContainer');
     if (!container || container.querySelector('.map-controls')) return;
@@ -406,9 +364,7 @@ function setupMapZoomControls() {
         <button type="button" class="map-zoom-btn" data-zoom="out" aria-label="${t('map.zoomOut')}">
             <i class="fas fa-minus" aria-hidden="true"></i>
         </button>`;
-    // Im DOM vor der Karte: So sind die Zoom-Buttons per Tab direkt nach dem
-    // Kopfbereich erreichbar und nicht erst nach allen Kartenelementen.
-    // Die Position auf dem Bildschirm regelt das CSS.
+    // Before the map in the DOM, so the zoom buttons follow the header in tab order instead of all map elements; CSS handles the screen position.
     container.insertBefore(gruppe, container.firstChild);
 
     gruppe.addEventListener('click', e => {
@@ -426,14 +382,10 @@ function setupMapZoomControls() {
 }
 
 // ============================================================
-// Statusmeldungen (4.1.3)
+// Status messages (4.1.3)
 // ============================================================
 
-/**
- * Sagt eine Statusmeldung über die Live-Region an.
- * Der Umweg über das kurze Leeren erzwingt die Ansage auch dann,
- * wenn derselbe Text zweimal hintereinander kommt.
- */
+/** Announces a status message via the live region; clearing it briefly forces the announcement even for a repeated text. */
 function announce(text) {
     const region = document.getElementById('a11yLive');
     if (!region || !text) return;
@@ -447,14 +399,12 @@ window.setupMapZoomControls = setupMapZoomControls;
 window.announce = announce;
 
 // ============================================================
-// Verdrahtung mit main.js
+// Wiring with main.js
 // ============================================================
 //
-// main.js ruft diese Funktionen an mehreren Stellen auf. Statt jede
-// Aufrufstelle anzufassen, hängen wir uns einmal an die Funktionen selbst –
-// das hält die Barrierefreiheits-Logik an einem Ort.
+// main.js calls these functions in several places; wrapping the functions once keeps the accessibility logic in one place.
 
-/** setupZoomPan() läuft, sobald das Karten-SVG im DOM steht. */
+/** setupZoomPan() runs once the map SVG is in the DOM. */
 if (typeof window.setupZoomPan === 'function') {
     const zoomPanBasis = window.setupZoomPan;
     window.setupZoomPan = function () {
@@ -465,7 +415,7 @@ if (typeof window.setupZoomPan === 'function') {
     };
 }
 
-/** Ein- und Ausblenden von Kartenelementen ändert, was fokussierbar sein darf. */
+/** Showing or hiding map elements changes what may be focusable. */
 if (typeof window.updateFilterStyles === 'function') {
     const filterBasis = window.updateFilterStyles;
     window.updateFilterStyles = function () {
@@ -475,7 +425,7 @@ if (typeof window.updateFilterStyles === 'function') {
     };
 }
 
-/** Gelöste Quizze bekommen den Zusatz „bereits gelöst“ in den Namen. */
+/** Solved quizzes get an "already solved" suffix in their name. */
 if (typeof window.colorQuizElements === 'function') {
     const quizFarbenBasis = window.colorQuizElements;
     window.colorQuizElements = function () {
@@ -486,14 +436,10 @@ if (typeof window.colorQuizElements === 'function') {
 }
 
 // ============================================================
-// Quiztypen, die von Haus aus nur Maus/Touch kennen
+// Quiz types that natively only support mouse/touch
 // ============================================================
 
-/**
- * Memory: Die Karten sind seit Phase 3 <button> und damit von selbst
- * bedienbar. Hier bleibt, den Zustand vorzulesen – verdeckt, aufgedeckt,
- * Paar gefunden – und gefundene Paare aus dem Tab-Weg zu nehmen.
- */
+/** Memory: cards are <button> and operable by themselves; this reads out the state (hidden, flipped, matched) and removes matched pairs from the tab path. */
 function enhanceMemoryQuiz(container) {
     const grid = container.querySelector('.memory-grid');
     if (!grid) return;
@@ -518,23 +464,20 @@ function enhanceMemoryQuiz(container) {
 
     aktualisiere();
 
-    // Die Klassen werden an mehreren Stellen und teils zeitversetzt gesetzt
-    // (Flip-Animation). Ein Beobachter trifft alle Wege zuverlässig.
+    // Classes are set in several places and partly delayed (flip animation); an observer catches all paths.
     if (grid._a11yObserver) grid._a11yObserver.disconnect();
     let letzterStand = -1;
     let aufgedeckt = new Set();
     grid._a11yObserver = new MutationObserver(() => {
         aktualisiere();
 
-        // Fokus bleibt beim Umdrehen auf der Karte; die Namensänderung allein
-        // lesen Screenreader nicht zuverlässig vor – deshalb ansagen.
+        // Focus stays on the card when flipping; screen readers do not reliably read the name change, so announce it.
         const offen = new Set([...grid.querySelectorAll('.memory-card.flipped:not(.matched)')]);
         const neu = [...offen].filter(k => !aufgedeckt.has(k));
         aufgedeckt = offen;
         if (neu.length) {
             let text = t('memory.turned', { names: neu.map(k => k.dataset.cardLabel || t('memory.image')).join(', ') });
-            // Kein Paar: Die beiden Karten bleiben offen, bis die nächste
-            // Karte aufgedeckt wird (so ist es in main.js gelöst).
+            // No pair: both cards stay open until the next card is flipped (as main.js does it).
             const [a, b] = [...offen];
             if (offen.size === 2 && a.dataset.pairId !== b.dataset.pairId) {
                 text += t('memory.noPair');
@@ -553,12 +496,10 @@ function enhanceMemoryQuiz(container) {
 }
 
 /**
- * Wortsuche: Ersetzt die Ziehgeste durch Anker + Cursor.
+ * Word search: replaces the drag gesture with anchor + cursor.
  *
- * Pfeiltasten bewegen den Cursor, Enter setzt den ersten Buchstaben,
- * ein zweites Enter bestätigt das Wort, Escape bricht ab. Anders als beim
- * Ziehen mit der Maus zählt nur eine exakt gerade Linie – das ist mit der
- * Tastatur vorhersehbarer als die Toleranzlogik der Mausvariante.
+ * Arrow keys move the cursor, Enter sets the first letter, a second Enter confirms the word, Escape cancels.
+ * Unlike mouse dragging only an exactly straight line counts, which is more predictable on a keyboard.
  */
 function enhanceWordSearch(container) {
     const grid = container.querySelector('.wordsearch-grid');
@@ -653,15 +594,10 @@ function enhanceWordSearch(container) {
 }
 
 /**
- * Bild-Hotspot: Legt ein unsichtbares Raster aus fokussierbaren Bereichen
- * über das Bild.
+ * Image hotspot: lays an invisible grid of focusable regions over the image.
  *
- * Die Bereiche tragen bewusst neutrale Namen ("Zeile 2, Spalte 3") – stünde
- * dort der Hotspot-Text, wäre das Rätsel für Screenreader-Nutzer gelöst,
- * bevor es beginnt.
- *
- * pointer-events:none in der CSS sorgt dafür, dass Mausklicks weiterhin
- * punktgenau am Overlay ankommen und nicht auf Rasterfelder gerundet werden.
+ * Regions carry neutral names ("row 2, column 3"); the hotspot text would give the puzzle away to screen reader users.
+ * pointer-events:none in the CSS keeps mouse clicks pixel-exact on the overlay instead of rounding to grid cells.
  */
 function enhanceHotspotQuiz(container) {
     const overlay = container.querySelector('.hotspot-overlay');
@@ -688,7 +624,7 @@ function enhanceHotspotQuiz(container) {
             b.style.height = `${100 / ZEILEN}%`;
             b.dataset.row = String(r);
             b.dataset.col = String(c);
-            // Roving tabindex: nur ein Feld ist Tab-Stopp, der Rest per Pfeiltasten
+            // Roving tabindex: one cell is the tab stop, the rest via arrow keys
             b.tabIndex = (r === 0 && c === 0) ? 0 : -1;
             b.setAttribute('aria-label', t('hotspot.region', { r: r + 1, c: c + 1 }));
             raster.appendChild(b);
@@ -723,14 +659,14 @@ function enhanceHotspotQuiz(container) {
     raster.addEventListener('click', e => {
         const feld = e.target.closest('.hotspot-region');
         if (!feld) return;
-        // Sonst greift zusaetzlich der delegierte Overlay-Handler in main.js
+        // Otherwise the delegated overlay handler in main.js fires as well
         e.stopPropagation();
 
         const r = +feld.dataset.row, c = +feld.dataset.col;
         const x0 = c * 100 / SPALTEN, x1 = (c + 1) * 100 / SPALTEN;
         const y0 = r * 100 / ZEILEN, y1 = (r + 1) * 100 / ZEILEN;
 
-        // Schneidet ein noch nicht gefundener Hotspot dieses Feld?
+        // Does a not yet found hotspot intersect this cell?
         const gefunden = container._hotspotFound || new Set();
         let treffer = null;
         hotspots.forEach((h, i) => {
@@ -740,8 +676,7 @@ function enhanceHotspotQuiz(container) {
             if (Math.hypot(h.x - nx, h.y - ny) <= h.radius) treffer = h;
         });
 
-        // Die eigentliche Auswertung macht weiterhin main.js – gleicher Code
-        // fuer Maus und Tastatur, inklusive Markern und Fortschritt.
+        // main.js still does the actual evaluation, same code for mouse and keyboard including markers and progress.
         const rect = overlay.getBoundingClientRect();
         const px = treffer ? treffer.x : (x0 + x1) / 2;
         const py = treffer ? treffer.y : (y0 + y1) / 2;
@@ -757,13 +692,13 @@ function enhanceHotspotQuiz(container) {
     });
 }
 
-// --- Anbindung an die Init-Funktionen aus main.js ---
+// --- Hooking into the init functions from main.js ---
 
 if (typeof window.initMemoryGame === 'function') {
     const basis = window.initMemoryGame;
     window.initMemoryGame = function (container) {
         const ergebnis = basis.apply(this, arguments);
-        // initMemoryGame baut beim Neumischen zeitversetzt auf (Fade-Animation)
+        // initMemoryGame rebuilds with a delay when reshuffling (fade animation)
         window.setTimeout(() => enhanceMemoryQuiz(container), 320);
         return ergebnis;
     };
@@ -788,21 +723,15 @@ if (typeof window.initHotspotQuiz === 'function') {
 }
 
 // ============================================================
-// Fokusführung beim Öffnen und Schließen (2.4.3)
+// Focus management on open and close (2.4.3)
 // ============================================================
 //
-// Bootstrap gibt den Fokus nach dem Schließen an das Element zurück, das
-// das Panel per data-bs-toggle geöffnet hat. Die Kartenelemente öffnen aber
-// programmatisch – Bootstrap kennt den Auslöser also nicht und der Fokus
-// fällt auf <body>. Für Tastaturnutzer hieße das: zurück an den Anfang und
-// erneut durch alle Kartenelemente tabben. Deshalb merken wir uns selbst,
-// von wo aus geöffnet wurde.
+// Bootstrap returns focus to the data-bs-toggle element that opened the panel, but map elements open
+// programmatically, so focus would fall to <body> and keyboard users would restart tabbing; we remember the opener ourselves.
 
 let letzterKartenFokus = null;
 
-// Wurde zuletzt mit Tastatur oder mit Maus/Touch bedient? Nach einem
-// Mausklick soll das Kartenelement beim Schließen keinen Fokusrahmen
-// bekommen – der ist nur für Tastaturnutzer sinnvoll.
+// Was the last input keyboard or mouse/touch? After a mouse click the map element should get no focus ring on close.
 let letzteEingabeTastatur = false;
 document.addEventListener('keydown', e => {
     if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) letzteEingabeTastatur = true;
@@ -822,19 +751,17 @@ function fokusZurueckGeben() {
     letzterKartenFokus = null;
     if (!letzteEingabeTastatur) return;
     if (!ziel || !document.contains(ziel)) return;
-    // Nur zurückgeben, wenn das Element noch bedienbar ist – es könnte
-    // inzwischen über die Einstellungen ausgeblendet worden sein.
+    // Return focus only if the element is still operable; it may have been hidden via settings meanwhile.
     if (ziel.dataset.a11ySichtbar !== 'true') return;
     ziel.focus();
 }
 
 document.addEventListener('hidden.bs.offcanvas', fokusZurueckGeben);
 
-// Das Badges-Panel wird per JavaScript geöffnet, Bootstrap kennt den Auslöser
-// nicht – ohne Hilfe landet der Fokus nach dem Schließen auf <body>.
+// The badges panel opens via JavaScript, Bootstrap does not know the trigger, so focus would land on <body> after closing.
 document.addEventListener('hidden.bs.offcanvas', e => {
     if (e.target.id !== 'badgesOffcanvas') return;
-    // Beim Ereignis steht der Fokus oft noch im gerade ausgeblendeten Panel
+    // At event time the focus is often still inside the panel just hidden
     const a = document.activeElement;
     if (!a || a === document.body || e.target.contains(a)) {
         const btn = document.getElementById('toolboxBadgesBtn');
@@ -842,9 +769,7 @@ document.addEventListener('hidden.bs.offcanvas', e => {
     }
 });
 
-// Auf dem Smartphone liegen Badges und Einstellungen im zugeklappten Menü.
-// Ihr Button ist dann unsichtbar und kann den Fokus nicht nehmen, also
-// bekommt ihn der Menü-Button.
+// On phones badges and settings sit in the collapsed menu; their button is invisible and cannot take focus, so the menu button gets it.
 document.addEventListener('hidden.bs.offcanvas', e => {
     if (e.target.id !== 'badgesOffcanvas' && e.target.id !== 'filterOffcanvas') return;
     const a = document.activeElement;
@@ -855,12 +780,10 @@ document.addEventListener('hidden.bs.offcanvas', e => {
 document.addEventListener('hidden.bs.modal', fokusZurueckGeben);
 
 // ============================================================
-// Sichtbarkeitsänderungen ansagen (4.1.3)
+// Announce visibility changes (4.1.3)
 // ============================================================
 //
-// Beim Ein- und Ausblenden von Kartenelementen ändert sich die Karte, ohne
-// dass sich der Fokus bewegt – ohne Ansage bleibt die Änderung für
-// Screenreader-Nutzer unbemerkt.
+// Showing or hiding map elements changes the map without moving focus; without an announcement screen reader users miss it.
 
 document.addEventListener('change', e => {
     const cb = e.target.closest && e.target.closest('#filterOptions input[type="checkbox"]');
@@ -878,7 +801,7 @@ document.addEventListener('change', e => {
 
 document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#toggleAllBtn')) return;
-    // Der Button-Zustand wird erst im Handler von main.js aktualisiert
+    // The button state is only updated in the main.js handler
     window.setTimeout(() => {
         const btn = document.getElementById('toggleAllBtn');
         if (!btn) return;
@@ -889,13 +812,11 @@ document.addEventListener('click', e => {
 });
 
 // ============================================================
-// Info-Schaltfläche im Quiz-Modal (2.1.1, 4.1.2)
+// Info button in the quiz modal (2.1.1, 4.1.2)
 // ============================================================
 //
-// Der Auslöser ist ein <div>, dessen Klick-Logik an Icon und „Schließen“-Text
-// hängt (und bei jedem Umschalten neu aufgebaut wird). Statt das umzubauen,
-// bekommt der Container Rolle, Fokus und Namen; Enter/Leertaste klicken das
-// jeweils vorhandene Icon.
+// The trigger is a <div> whose click logic hangs on icon and close text (rebuilt on every toggle); instead of
+// restructuring it, the container gets role, focus and name, and Enter/Space click the current icon.
 
 function enhanceInfoTrigger(modal) {
     const trigger = modal.querySelector('.info-icon-trigger');
@@ -928,20 +849,17 @@ function enhanceInfoTrigger(modal) {
     }
 }
 
-// Nach main.js: setupAccordionToggle klont den Container beim Öffnen,
-// deshalb erst danach (setTimeout) verstärken.
+// After main.js: setupAccordionToggle clones the container on open, so enhance only afterwards (setTimeout).
 document.addEventListener('shown.bs.modal', e => {
     window.setTimeout(() => enhanceInfoTrigger(e.target), 0);
 });
 
 // ============================================================
-// Fokus nach „Prüfen“ / „Nochmal versuchen“ (2.4.3)
+// Focus after "Check" / "Try again" (2.4.3)
 // ============================================================
 //
-// main.js blendet den gedrückten Button aus (display:none). Der Fokus fällt
-// dann auf <body>: Die Tastaturposition ist weg und Escape schließt das
-// Modal nicht mehr, weil Bootstrap es nur bei Fokus im Dialog hört. Deshalb
-// bekommt der jeweils andere, jetzt sichtbare Button den Fokus.
+// main.js hides the pressed button (display:none), so focus falls to <body> and Escape no longer closes the modal
+// (Bootstrap only listens with focus inside the dialog); the other, now visible button gets the focus.
 
 document.addEventListener('click', e => {
     const btn = e.target.closest && e.target.closest('.quiz-submit-btn, .quiz-reset-btn');
@@ -958,7 +876,7 @@ document.addEventListener('click', e => {
 });
 
 // ============================================================
-// Sortier-Quiz: Verschieben ansagen (4.1.3)
+// Sort quiz: announce moves (4.1.3)
 // ============================================================
 
 document.addEventListener('click', e => {
@@ -975,12 +893,10 @@ document.addEventListener('click', e => {
 });
 
 // ============================================================
-// Quiz-Dialoge: Frage als Beschreibung, Antworten als Gruppe (1.3.1)
+// Quiz dialogs: question as description, answers as group (1.3.1)
 // ============================================================
 //
-// Beim Öffnen sagt der Screenreader sonst nur „Quiz 3, Dialog“ – die Frage
-// selbst müsste man erst suchen. Und die Antwortmöglichkeiten wären lose
-// Kontrollkästchen ohne Bezug zur Frage.
+// Otherwise the screen reader only says "Quiz 3, dialog" on open and the answers are loose checkboxes unrelated to the question.
 
 document.addEventListener('show.bs.modal', e => {
     const modal = e.target;
@@ -998,20 +914,18 @@ document.addEventListener('show.bs.modal', e => {
 });
 
 // ============================================================
-// Bilderkarussell in der Gebäude-Info (2.2.2 Pausieren, Beenden)
+// Image carousel in the building info (2.2.2 pause, stop)
 // ============================================================
 //
-// Die Bilder wechseln alle 3 Sekunden von selbst. Dafür braucht es eine
-// Möglichkeit zum Anhalten. Außerdem stoppt der Wechsel, solange der
-// Tastaturfokus im Karussell ist (sonst wechselt das Bild unter der Hand),
-// und ein von Hand gewähltes Bild wird angesagt.
+// Images auto-advance every 3 seconds, so a pause control is needed; the carousel also stops while keyboard focus
+// is inside it, and a manually chosen image is announced.
 
 function enhanceBuildingCarousel() {
     const el = document.getElementById('carouselBuilding');
     if (!el || el.querySelector('.carousel-pause-btn') || typeof bootstrap === 'undefined') return;
     const inst = bootstrap.Carousel.getOrCreateInstance(el);
 
-    let angehalten = false;   // vom Nutzer per Button
+    let angehalten = false;   // by the user via button
     let fokusDrin = false;
 
     const btn = document.createElement('button');
@@ -1045,7 +959,7 @@ function enhanceBuildingCarousel() {
 
 document.addEventListener('shown.bs.offcanvas', e => {
     if (e.target.id !== 'buildingInfoOffcanvas') return;
-    // nach main.js, das im selben Ereignis das Karussell startet
+    // after main.js, which starts the carousel in the same event
     window.setTimeout(enhanceBuildingCarousel, 0);
 });
 

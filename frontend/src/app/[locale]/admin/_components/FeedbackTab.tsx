@@ -1,6 +1,6 @@
 "use client";
 
-/** Anonyme Rückmeldungen: kompakte Liste, ein Klick führt zu den Details. */
+/** Anonymous feedback: compact list, one click leads to the details. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

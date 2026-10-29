@@ -82,7 +82,7 @@ def test_neue_id_zaehlt_hinter_der_hoechsten():
 
 
 class TestMaterialUndVorrat:
-    """Die Rohquellen tragen nur ueber eine abgebrochene Etappe, der Vorrat traegt den Lauf."""
+    """Raw sources only carry over an aborted stage, the pool carries the run."""
 
     def _quellen(self):
         return [{"source_id": "doc_01", "filename": "a.pdf", "content": "Text A"}]

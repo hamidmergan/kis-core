@@ -1,4 +1,4 @@
-"""Aus einer Seite wird Markdown mit Überschriften, Menü und Fußzeile fallen weg."""
+"""A page becomes Markdown with headings, menu and footer are dropped."""
 from src.features.campus.services import extract
 
 SEITE = """<html><head><title>Wohnen – Hochschule</title></head><body>

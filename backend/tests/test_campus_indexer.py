@@ -1,4 +1,4 @@
-"""Der Indexer bettet nur ein, was sich geändert hat."""
+"""The indexer embeds only what changed."""
 from src.features.campus.services import indexer
 
 

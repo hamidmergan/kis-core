@@ -1,4 +1,4 @@
-"""Der Fortschritt zeigt Beitraege nur der Reihe nach, auch wenn sie verkehrt fertig werden."""
+"""Progress shows contributions only in order, even if they finish out of order."""
 
 import threading
 from contextlib import contextmanager

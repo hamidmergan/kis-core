@@ -82,8 +82,7 @@ export function FlashcardsLearnView({
   // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
-  // Eine schon bewertete Karte liegt gleich auf der Antwortseite: wer
-  // zurueckblaettert, will die Bewertung sehen und aendern, nicht erneut raten.
+  // An already rated card opens on the answer side: paging back is for seeing and changing the rating, not guessing again.
   useEffect(() => {
     const offen = items[index];
     setFlipped(Boolean(!isVocab && offen && answeredRef.current.has(offen.id)));
@@ -91,7 +90,7 @@ export function FlashcardsLearnView({
   }, [index, items, isVocab]);
 
   function answer(correct: boolean) {
-    // Dieselbe Bewertung nochmal ist nichts Neues, eine andere ersetzt die alte.
+    // The same rating again is nothing new, a different one replaces the old.
     if (!card || results[card.id] === correct) return;
     answeredRef.current.add(card.id);
     setResults((r) => ({ ...r, [card.id]: correct }));
@@ -102,7 +101,7 @@ export function FlashcardsLearnView({
     onAnswer(card.id, correct, neuerDurchgang);
   }
 
-  /** Welche Seite oben liegt, entscheidet der Effekt am Index. */
+  /** Which side is up is decided by the effect on the index. */
   function goTo(next: number) {
     setIndex(next);
   }
@@ -377,15 +376,14 @@ export function FlashcardsLearnView({
                             )}
                           </div>
                           <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>
-                            {/* Das gelernte Wort steht fett, damit sofort sichtbar ist, worum es geht. */}
+                            {/* The learned word is bold so the topic is visible at once. */}
                             {splitExample(exampleSentence, [card.front, singular, plural, verbPresent, verbPast, verbPerfect]).map((seg, si) => (
                               seg.focus
                                 ? <strong key={si} className="font-bold">{seg.text}</strong>
                                 : <React.Fragment key={si}>{seg.text}</React.Fragment>
                             ))}
                           </p>
-                          {/* Kein Kasten, kein Aufklappen: nur eine schlichte Zeile, die beim
-                              naechsten Klick auf den Lautsprecher wieder verschwindet. */}
+                          {/* No box, no expand: a plain line that disappears on the next speaker click. */}
                           {failed && (
                             <p className="text-3xs mt-1.5" style={{ color: "var(--muted)" }}>{t("flashcardsLearn.speechFailed")}</p>
                           )}
@@ -432,9 +430,7 @@ export function FlashcardsLearnView({
                     </div>
                   </div>
                 </div>
-                {/* Zurueck und Weiter. Ein Vokabelbegriff wird nicht bewertet, er gilt
-                    als gesehen, sobald man ihn verlaesst. Zurueckblaettern aendert daran
-                    nichts, gesehen bleibt gesehen. */}
+                {/* Back and next. A vocabulary term is not rated, it counts as seen once left; paging back does not change that. */}
                 <ExerciseNav index={index} total={total}
                   onPrev={() => goTo(index - 1)} onNext={() => { answer(true); advance(); }}
                   backLabel={t("common.back")} nextLabel={t("flashcardsLearn.nextTerm")}
@@ -451,8 +447,8 @@ export function FlashcardsLearnView({
           </>;
         }
 
-        // ── Karteikarten: flip card ──
-        // Die Chips sitzen auf der Rueckseite, die Liste wird darum vor dem Bauen gebraucht.
+        // ── Flashcards: flip card ──
+        // The chips sit on the back, so the list is needed before building.
         const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
         const seenKeys = new Set<string>();
         const srcs = rawSrcs.filter((s) => {
@@ -462,8 +458,7 @@ export function FlashcardsLearnView({
           return true;
         });
         return <>
-          {/* Gescrollt wird aussen, zentriert innen: der Block waechst bei langem
-              Inhalt mit, statt oben abgeschnitten zu werden. */}
+          {/* Scroll outside, centre inside: the block grows with long content instead of being cut off at the top. */}
           <div className="flex-1 overflow-y-auto flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
             <div className="flex-1 w-full flex flex-col items-center justify-center gap-3" style={{ maxWidth: 560 }}>
             <div className="w-full" style={{ perspective: 1200, userSelect: "none" }}>
@@ -509,8 +504,7 @@ export function FlashcardsLearnView({
                 }}>
                   <span className="text-3xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{t("flashcardsLearn.answerLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
-                  {/* Quelle links, Chat rechts. Der Chip sitzt auf der Karte, weil er
-                      zur Antwort gehoert, und traegt darum die helle Fassung. */}
+                  {/* Source left, chat right. The chip sits on the card as part of the answer, hence the light variant. */}
                   <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
                     <div className="flex items-center gap-1 flex-wrap min-w-0" style={{ maxWidth: "60%" }}>
                       {srcs.map((s, si) => {
@@ -539,17 +533,13 @@ export function FlashcardsLearnView({
                 </div>
               </div>
             </div>
-            {/* Der Tipp steht UNTER der Karte und nicht auf ihr: die Karte dreht sich,
-                der Tipp gehoert aber zur Frage und nicht zur Rueckseite. Beim Umdrehen
-                ist er weg, dort steht die Antwort schon. */}
+            {/* The hint sits BELOW the card, not on it: it belongs to the question, not the back, and is gone once flipped. */}
             {showHint && !flipped && card.extras?.tip && (
               <div className="w-full" style={{ maxWidth: 560 }}>
                 <HintCard text={card.extras.tip} />
               </div>
             )}
-            {/* Bewertung. Beschriftet statt bloss zwei Kreise, und immer klickbar:
-                wer zurueckblaettert, soll seine Einschaetzung aendern koennen. Die
-                getroffene Wahl ist gefuellt, die andere tritt zurueck. */}
+            {/* Rating. Labelled instead of two bare circles and always clickable so paging back can change it; the chosen one is filled, the other recedes. */}
             <div className="w-full flex flex-wrap items-center justify-center gap-3 min-h-12">
               {flipped ? (
                 <div className="w-full flex items-center gap-2.5">
@@ -573,25 +563,21 @@ export function FlashcardsLearnView({
                 </button>
               )}
             </div>
-            {/* Umdrehen gehoert zur Karte und steht darum ueber dem Blaettern, nur
-                nicht in der Knopfzeile: es ist keine Bewertung. Gleiche Machart wie
-                "Antwort zeigen", btn-ghost bringt den 2px-Ring. */}
-            {/* Kein Platzhalter auf der Vorderseite: die leere Zeile fiel staerker
-                auf als das bisschen Versatz, das ihr Fehlen beim Umdrehen kostet. */}
+            {/* Flip belongs to the card and sits above paging but not in the button row: it is no rating. Same style as "show answer", btn-ghost brings the 2px ring. */}
+            {/* No placeholder on the front: the empty line stood out more than the slight shift its absence costs on flip. */}
             {flipped && (
               <button type="button" onClick={() => setFlipped(false)}
                 className="btn-ghost px-4 py-1.5 rounded-full text-xs font-semibold text-kb-dark transition-colors">
                 {t("common.showQuestion")}
               </button>
             )}
-            {/* Zurueck und Weiter stehen immer da. Wer eine Karte nicht bewerten will,
-                blaettert weiter und kommt spaeter zurueck. */}
+            {/* Back and next are always there; skip a card now and return later. */}
             <ExerciseNav index={index} total={total}
               onPrev={() => goTo(index - 1)} onNext={advance}
               backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
             </div>
 
-            {/* Steht hinter dem wachsenden Block und landet dadurch immer unten. */}
+            {/* Follows the growing block and therefore always lands at the bottom. */}
             <SetSourceLegend
               sources={exerciseSet.sources}
               items={exerciseSet.items}

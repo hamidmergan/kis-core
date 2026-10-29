@@ -1,4 +1,4 @@
-"""Jeder Client, der mit einem KI-Anbieter spricht, geht durch die Tür mit Platz und Rückfall."""
+"""Every client talking to an AI provider goes through the door with seat and fallback."""
 
 import ast
 import pathlib

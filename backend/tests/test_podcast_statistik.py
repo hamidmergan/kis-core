@@ -1,4 +1,4 @@
-"""Die Zahlen zum Podcast-Lauf: welchen Weg das Material nahm und was danach passierte."""
+"""The podcast run numbers: which path the material took and what happened after."""
 
 import pytest
 
@@ -51,7 +51,7 @@ class TestSchlussmeta:
     def test_ueberschreibt_die_zahlen_nicht(self, lokal):
         notiere(UID, JOB, "vertonung", {"beitraege": 21})
 
-        # So wie _render.py die Schlussmeta schreibt: erst laden, dann ergaenzen.
+        # As _render.py writes the final meta: load first, then extend.
         save_result_meta(UID, JOB, {
             **(load_result_meta(UID, JOB) or {}),
             "seconds": 167.0,
@@ -117,7 +117,7 @@ class TestJobzeile:
 
 
 class TestStatusabfrage:
-    """Auch der Einzelabruf eines Auftrags gibt die Zahlen nur an Admins."""
+    """Fetching a single job also gives the numbers to admins only."""
 
     def _job(self) -> dict:
         return {

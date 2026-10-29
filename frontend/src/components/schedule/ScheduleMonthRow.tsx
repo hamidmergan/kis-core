@@ -96,8 +96,7 @@ export default function ScheduleMonthRow({
       className="flex items-start gap-3 py-3.5"
       style={{ opacity: isPast ? 0.6 : 1 }}
     >
-      {/* Haken und Auge stehen uebereinander: erledigt und im Raster sichtbar sind
-          zwei getrennte Schalter fuer denselben Termin. */}
+      {/* Check and eye stacked: done and visible in the grid are two separate switches for the same entry. */}
       <span className="flex flex-col items-center gap-1.5 flex-shrink-0">
         <button
           type="button"
@@ -124,12 +123,12 @@ export default function ScheduleMonthRow({
         </IconButton>
       </span>
 
-      {/* Feste Höhe, sonst wird die Plakette ohne Tagesnummer niedriger als die anderen. */}
+      {/* Fixed height, otherwise the badge without a day number is shorter than the others. */}
       <div
         className="flex-shrink-0 w-12 min-h-[62px] rounded-lg py-1.5 flex flex-col justify-center text-center"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        {/* Die Kopfzeile tritt zurueck, sonst traegt die Plakette drei Zeilen im selben Gewicht. */}
+        {/* The header recedes, otherwise the badge carries three lines of the same weight. */}
         {marke && (
           <div className="text-3xs font-bold" style={{ color: "var(--muted-soft)" }}>
             {marke === "from" ? tPlan("fromMark") : tPlan("untilMark")}
@@ -138,7 +137,7 @@ export default function ScheduleMonthRow({
         <div className="text-3xs font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
           {month}
         </div>
-        {/* Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. */}
+        {/* If the source names only a month there is no day number here. */}
         {!monthOnly && (
           <div
             className="font-extrabold leading-none mt-0.5 text-base"
@@ -147,7 +146,7 @@ export default function ScheduleMonthRow({
             {date.getDate()}
           </div>
         )}
-        {/* Die Jahreszahl ist nur Beiwerk und darf nie nach Fehler aussehen. */}
+        {/* The year is secondary and must never look like an error. */}
         <div className="text-3xs font-bold mt-0.5" style={{ color: "var(--muted-soft)" }}>
           <YearLabel
             year={String(date.getFullYear())}
@@ -165,7 +164,7 @@ export default function ScheduleMonthRow({
         </Link>
       )}
 
-      {/* Nur eigene Termine lassen sich hier aendern, die anderen gehoeren einem Workspace. */}
+      {/* Only own entries can be edited here, the others belong to a workspace. */}
       {eigener && onEdit && onDelete && (
         <span className="flex items-center gap-1 flex-shrink-0">
           <IconButton onClick={onEdit} aria-label={tMonth("edit")} title={tMonth("edit")}>

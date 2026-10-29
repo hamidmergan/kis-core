@@ -3,7 +3,7 @@ import ManualNav from "../_components/ManualNav";
 import ManualPrintLink from "../_components/ManualPrintLink";
 import { readManualTree } from "../_lib/articles";
 
-/** Rahmen um alle Artikel, damit die Liste beim Wechsel stehen bleibt statt neu aufzubauen. */
+/** Frame around all articles so the list persists across navigation instead of remounting. */
 export default async function ManualReaderLayout({
   children,
   params,

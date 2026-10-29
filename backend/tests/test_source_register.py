@@ -9,7 +9,7 @@ from src.utils import file_validation
 
 
 def _seiten(monkeypatch, zahl: int, grenze: int) -> None:
-    """Die Seitenzahl der Datei und die erlaubte Zahl, beide kommen von aussen."""
+    """The file's page count and the allowed count, both come from outside."""
     monkeypatch.setattr(file_validation, "count_pages", lambda ext, path: zahl)
     monkeypatch.setattr(tool_limits, "max_source_pages", lambda: grenze)
 

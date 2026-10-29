@@ -51,7 +51,7 @@ export default function DemoModal({ open, onClose, items, busy, onJoin, onLeave 
             <span className="ml-auto text-xs text-muted-soft whitespace-nowrap">
               {t("sources", { n: m.source_count })}
             </span>
-            {/* Wer ueber einen richtigen Link drin sitzt, hat hier nichts zu tun. */}
+            {/* Whoever came in through a real link has nothing to do here. */}
             {m.joined && !m.via_demo && (
               <span className="text-xs text-muted-soft whitespace-nowrap">{t("alreadyIn")}</span>
             )}

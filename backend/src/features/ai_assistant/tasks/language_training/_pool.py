@@ -29,7 +29,7 @@ def pool_level(adaptive_suffix: str, user_id: int | None) -> str | None:
         return None
     try:
         return db.get_user_language_level(user_id)["language_level"] or None
-    except Exception:  # noqa: BLE001 - ohne Niveau ist der niveaulose Vorrat richtig
+    except Exception:  # noqa: BLE001 - without a level the level-free pool is right
         return None
 
 
@@ -93,9 +93,9 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
     offen = count
     genommen: list[dict] = []
     # Marker for what this order already has, the query knows nothing of it.
-    geholt: list = list(exclude_ids or [])  # Vorrats-ids, gehen als Ausschluss in die Abfrage
-    texte: set[str] = set()  # deren Vergleichsformen, gegen Doppler ueber Quellen hinweg
-    leer: set = set()        # Quellen, die weniger geliefert haben als bestellt
+    geholt: list = list(exclude_ids or [])  # pool ids, passed to the query as exclusions
+    texte: set[str] = set()  # their comparison forms, against duplicates across sources
+    leer: set = set()        # sources that delivered less than ordered
     # Two rounds: first an equal share per source, then the rest.
     for runde in (1, 2):
         for i, source_id in enumerate(source_ids):
@@ -137,7 +137,7 @@ def store(items: list[dict], ctx, tool: str, level, topic_id=None,
     nach_quelle: dict[int, list[dict]] = {}
     for item in items:
         if item.get("pool_item_id"):
-            continue  # kam schon aus dem Vorrat
+            continue  # already came from the pool
         quelle = (ctx.source_by_name or {}).get(item.get("source_label") or "")
         if not quelle or not quelle.get("id"):
             continue

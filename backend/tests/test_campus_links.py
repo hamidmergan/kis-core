@@ -1,4 +1,4 @@
-"""Der Linkgang findet Seiten ohne Sitemap, übergeht Kopien und bleibt unter der Startadresse."""
+"""The link walk finds pages without a sitemap, skips duplicates and stays under the start URL."""
 import pytest
 
 from src.features.campus.services import crawler, links

@@ -34,7 +34,7 @@ def db(monkeypatch):
     return fake
 
 
-# ── Erkennung ────────────────────────────────────────────────────────────────
+# ── Detection ────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("meldung", [
     "TTS API error (500): Internal Server Error",
@@ -44,9 +44,9 @@ def db(monkeypatch):
     "Client error '429 Too Many Requests' for url 'https://x'",
     "The read operation timed out",
     "connection timeout",
-    # Lauf 14: ein kurzer Aussetzer von myLab beendete ein Podcast-Skript endgültig.
+    # Run 14: a brief myLab hiccup ended a podcast script for good.
     "Connection error.",
-    # Lauf 11: die Namensauflösung fiel unter Last aus, Text in Audio scheiterte.
+    # Run 11: DNS resolution failed under load, text to audio failed.
     "[Errno -3] Temporary failure in name resolution",
 ])
 def test_dienst_ueberlastet_wird_erkannt(meldung):
@@ -98,7 +98,7 @@ def test_andere_fehler_kommen_weiter_wie_bisher(db):
 
 
 def test_ein_voller_anbieter_wird_als_voll_weitergereicht(db):
-    """Nur so wartet der Auftrag, statt einen seiner drei Anläufe zu verbrauchen."""
+    """Only then does the job wait instead of using up one of its three attempts."""
     _errors.handle_task_exception("j", RuntimeError("TTS API error (500): Internal Server Error"),
                                   task_label="TTS")
     assert db.busy is True

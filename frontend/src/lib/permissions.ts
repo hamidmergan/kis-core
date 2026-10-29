@@ -24,7 +24,7 @@ export const PERM = {
   usersWhitelist: "settings.nutzer.whitelist",
   usersAll: "settings.nutzer.users",
   usersRoles: "settings.nutzer.roles",
-  // Sich als jemand anderes anmelden, um ein gemeldetes Problem selbst zu sehen.
+  // Log in as somebody else to see a reported problem first-hand.
   usersImpersonate: "settings.nutzer.impersonate",
   usersFeedback: "settings.nutzer.feedback",
   usersEvaluation: "settings.nutzer.evaluation",
