@@ -377,7 +377,7 @@
       "body": "Deine Workspaces mit Materialien, Chat und Tools. Der Lernassistent antwortet nur aus den Unterlagen des jeweiligen Workspaces."
     },
     "stamp": {
-      "title": "Stempelkarte",
+      "title": "Catch Francis",
       "body": "Besuche die Stände in beliebiger Reihenfolge und sammle für jeden einen Stempel.",
       "from": "Freischaltung am {date}",
       "soon": "Bald verfügbar"
@@ -2098,7 +2098,7 @@
       },
       "event": {
         "label": "Event",
-        "sub": "Stände, Aufsteller, die Kacheln auf der Info-Seite und die Zahlen der Stempelkarte. Änderungen werden automatisch gespeichert.",
+        "sub": "Stände, Aufsteller, die Kacheln auf der Info-Seite und die Zahlen von Catch Francis. Änderungen werden automatisch gespeichert.",
         "tabs": {
           "stations": "Stände",
           "block": "Event-Block",
@@ -3052,7 +3052,7 @@
         "wartung": {
           "zugang": "Zugriff während der Wartung"
         },
-        "event": "Stände, Event-Block und Zahlen der Stempelkarte",
+        "event": "Stände, Event-Block und Zahlen von Catch Francis",
         "campus": "Infoassistent einrichten"
       }
     },
@@ -4944,7 +4944,7 @@
   "eventBlock": {
     "hidden": "Der Event-Block ist gerade ausgeblendet, weil er aus ist oder außerhalb des Zeitraums liegt.",
     "target": {
-      "stamp": "Stempelkarte",
+      "stamp": "Catch Francis",
       "info": "Info-Seite",
       "internal": "Interne Seite",
       "directLogin": "Direkt-Login mit Zugangscode"
@@ -5265,7 +5265,7 @@
       "scanHint": "Scanne den QR-Code oder gib den Code ein",
       "scanHintOnly": "Scanne den QR-Code",
       "png": "Als PNG",
-      "kicker": "Stempelkarte",
+      "kicker": "Catch Francis",
       "a4": "Als A4",
       "brand": "KIS - KInternationalisierung von Studiengängen"
     },
@@ -5280,18 +5280,18 @@
     },
     "reset": {
       "title": "Zurücksetzen",
-      "description": "Zum Testen der Stempelkarte und für den Start am Veranstaltungstag.",
-      "mineTitle": "Meine Stempelkarte",
+      "description": "Zum Testen von Catch Francis und für den Start am Veranstaltungstag.",
+      "mineTitle": "Meine Karte",
       "mineText": "Löscht die Stempel in diesem Browser, damit du die Karte noch einmal durchspielen kannst.",
       "mine": "Meine Karte zurücksetzen",
       "mineDone": "Deine Karte ist leer.",
-      "oneTitle": "Eine Stempelkarte",
-      "oneText": "Löscht die Stempel einer besuchenden Person. Lass dir dafür ihre Kartennummer zeigen, hinter dem Fragezeichen auf ihrer Stempelkarte.",
+      "oneTitle": "Eine Karte",
+      "oneText": "Löscht die Stempel einer besuchenden Person. Lass dir dafür ihre Kartennummer zeigen, hinter dem Fragezeichen auf ihrer Karte.",
       "onePlaceholder": "Kartennummer",
       "one": "Zurücksetzen",
       "oneDone": "Die Karte ist leer.",
       "oneNotFound": "Diese Kartennummer gibt es nicht.",
-      "allTitle": "Alle Stempelkarten",
+      "allTitle": "Alle Karten",
       "allText": "Löscht die Stempel aller Besucher. Die Auswertung beginnt bei null.",
       "all": "Alle Stempel löschen",
       "allDone": "Alle Stempel sind gelöscht.",
@@ -5356,7 +5356,7 @@
       "completeText": "Text bei voller Karte"
     },
     "raffle": {
-      "title": "Verlosung unter der vollen Stempelkarte",
+      "title": "Verlosung bei voller Karte",
       "active": "Aktiv. Wer alle Stempel hat, kann sich mit einer E-Mail-Adresse eintragen.",
       "disabled": "Deaktiviert. Der Kasten erscheint nicht.",
       "toggleAria": "Verlosung umschalten",

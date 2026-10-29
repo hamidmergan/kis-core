@@ -122,7 +122,7 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
         dangerouslySetInnerHTML={{ __html: KIS_LOGO_MARKUP }}
       />
       <text x={10 + LOGO_W + 3} y={10.6} fontFamily={SANS} fontSize="5" fontWeight="600" fill={PAPER} letterSpacing="0.3">
-        {t("kicker")}
+        {text(config.cardTexts.title) || t("kicker")}
       </text>
       {art && (
         <>

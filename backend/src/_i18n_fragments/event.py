@@ -22,8 +22,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The raffle is not active",
     },
     "event.raffleCardIncomplete": {
-        "de": "Die Stempelkarte ist noch nicht vollständig",
-        "en": "The stamp card is not complete yet",
+        "de": "Die Karte ist noch nicht vollständig",
+        "en": "The card is not complete yet",
     },
     "event.raffleEmailInvalid": {
         "de": "Bitte gib eine gültige E-Mail-Adresse ein",

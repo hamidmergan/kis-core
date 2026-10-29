@@ -377,7 +377,7 @@
       "body": "Your workspaces with materials, chat and tools. The learning assistant answers from each workspace's own documents only."
     },
     "stamp": {
-      "title": "Stamp card",
+      "title": "Catch Francis",
       "body": "Visit the stands in any order and collect a stamp at each one.",
       "from": "Available from {date}",
       "soon": "Available soon"
@@ -2098,7 +2098,7 @@
       },
       "event": {
         "label": "Event",
-        "sub": "Stands, posters, the tiles on the info page and the numbers of the stamp card. Changes are saved automatically.",
+        "sub": "Stands, posters, the tiles on the info page and the numbers of Catch Francis. Changes are saved automatically.",
         "tabs": {
           "stations": "Stands",
           "block": "Event block",
@@ -3052,7 +3052,7 @@
         "wartung": {
           "zugang": "Access during maintenance"
         },
-        "event": "Stands, event block and numbers of the stamp card",
+        "event": "Stands, event block and numbers of Catch Francis",
         "campus": "Set up the info assistant"
       }
     },
@@ -4944,7 +4944,7 @@
   "eventBlock": {
     "hidden": "The event block is hidden right now because it is off or outside its period.",
     "target": {
-      "stamp": "Stamp card",
+      "stamp": "Catch Francis",
       "info": "Info page",
       "internal": "Internal page",
       "directLogin": "Direct login with access code"
@@ -5265,7 +5265,7 @@
       "scanHint": "Scan the QR code or type in the code",
       "scanHintOnly": "Scan the QR code",
       "png": "As PNG",
-      "kicker": "Stamp card",
+      "kicker": "Catch Francis",
       "a4": "As A4",
       "brand": "KIS - KInternationalisierung von Studiengängen"
     },
@@ -5280,18 +5280,18 @@
     },
     "reset": {
       "title": "Reset",
-      "description": "For testing the stamp card and for a fresh start on the day of the event.",
-      "mineTitle": "My stamp card",
+      "description": "For testing Catch Francis and for a fresh start on the day of the event.",
+      "mineTitle": "My card",
       "mineText": "Removes the stamps in this browser so you can walk the card once more.",
       "mine": "Reset my card",
       "mineDone": "Your card is empty.",
-      "oneTitle": "One stamp card",
-      "oneText": "Removes the stamps of one visitor. Ask them for their card number, behind the question mark on their stamp card.",
+      "oneTitle": "One card",
+      "oneText": "Removes the stamps of one visitor. Ask them for their card number, behind the question mark on their card.",
       "onePlaceholder": "Card number",
       "one": "Reset",
       "oneDone": "The card is empty.",
       "oneNotFound": "That card number does not exist.",
-      "allTitle": "All stamp cards",
+      "allTitle": "All cards",
       "allText": "Removes the stamps of every visitor. The results start from zero.",
       "all": "Delete all stamps",
       "allDone": "All stamps are deleted.",
@@ -5356,7 +5356,7 @@
       "completeText": "Text on a full card"
     },
     "raffle": {
-      "title": "Raffle under the full stamp card",
+      "title": "Raffle on a full card",
       "active": "Active. Anyone with every stamp can enter an email address.",
       "disabled": "Disabled. The box does not appear.",
       "toggleAria": "Toggle raffle",
