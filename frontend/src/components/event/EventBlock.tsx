@@ -29,12 +29,12 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
   if (tiles.length === 0) return bleed ? null : <p className="text-sm text-foreground-soft">{t("noTiles")}</p>;
   const content = (
     <div className="flex flex-col items-center gap-8" data-testid="event-block">
-      <div className="max-w-3xl mx-auto text-center">
+      <div className="max-w-5xl mx-auto text-center">
         <h2 className="text-3xl @min-[40rem]:text-4xl font-semibold tracking-[-0.02em] leading-tight text-on-accent!">
           {text(block.heading)}
         </h2>
         {block.text.de || block.text.en ? (
-          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-on-accent/85 mt-3 text-balance">{text(block.text)}</p>
+          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-on-accent/85 mt-3">{text(block.text)}</p>
         ) : null}
       </div>
       <div className={`grid grid-cols-1 gap-4 @min-[64rem]:gap-6 w-full mx-auto ${GRID[tiles.length]}`}>
