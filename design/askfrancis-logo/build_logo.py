@@ -75,7 +75,7 @@ def svg(plate, francis_color):
     parts.append("</svg>")
     return "\n".join(parts)
 
-for fname, plate, fc in (("askfrancis-logo-plate.svg", True, BLACK), ("askfrancis-logo.svg", False, BLACK), ("askfrancis-logo-dark.svg", False, WHITE)):
+for fname, plate, fc in (("askfrancis-logo-white-plate.svg", True, BLACK), ("askfrancis-logo-transparent-black.svg", False, BLACK), ("askfrancis-logo-transparent-white.svg", False, WHITE)):
     open(f"{OUT}/{fname}", "w").write(svg(plate, fc))
     print(fname, "ok")
 print("text width %.2f, plate %.2f x %.2f, baseline %.2f" % (text_w, content_w + PAD_L + PAD_R, B + PAD_T + PAD_B, baseline))

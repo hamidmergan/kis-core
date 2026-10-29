@@ -2,7 +2,7 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs");
 const OUT = __dirname;
-const NAMES = ["askfrancis-logo-plate", "askfrancis-logo", "askfrancis-logo-dark"];
+const NAMES = ["askfrancis-logo-white-plate", "askfrancis-logo-transparent-black", "askfrancis-logo-transparent-white"];
 const WIDTHS = [256, 512, 1024, 2048];
 (async () => {
   const browser = await chromium.launch();

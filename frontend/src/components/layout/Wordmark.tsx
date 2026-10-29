@@ -10,7 +10,7 @@ export default function Wordmark({ size = "md", className = "" }: { size?: keyof
   const s = SIZES[size];
   return (
     <span className={`${s.plate} ${className}`.trim()}>
-      <Image src="/logos/askfrancis-logo.svg" alt={BRAND_NAME} width={125} height={24} className={`${s.img} w-auto`} priority />
+      <Image src="/logos/askfrancis-logo-transparent-black.svg" alt={BRAND_NAME} width={125} height={24} className={`${s.img} w-auto`} priority />
     </span>
   );
 }
