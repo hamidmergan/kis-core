@@ -7,7 +7,7 @@ import uharfbuzz as hb
 
 OUT = __import__("os").path.dirname(__import__("os").path.abspath(__file__))
 BIRD = "/Users/hamidmergan/Projects/kis-thl/frontend/public/logos/kis-vogel.svg"
-GREEN, BLACK, WHITE = "#7dc5ac", "#0D1F2D", "#ffffff"
+GREEN, BLACK, WHITE = "#7dc5ac", "#000000", "#ffffff"
 
 # Geometry at header size: 18 px text, 24 px bird, 0.8 em overlap, plate padding 5/8/5/10, radius 8.
 F, B, OVERLAP, LS = 18.0, 24.0, 0.8 * 18, -0.01 * 18

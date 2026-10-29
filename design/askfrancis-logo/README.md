@@ -1,6 +1,6 @@
 # askFrancis logo
 
-Name in Geist SemiBold as outlines, bird from `frontend/public/logos/kis-vogel.svg`, ask in the bird's green, Francis in the text colour.
+Name in Geist SemiBold as outlines, bird from `frontend/public/logos/kis-vogel.svg`, ask in the bird's green, Francis in black.
 
 - `askfrancis-logo-plate.svg` with white plate, for coloured grounds such as the blue header
 - `askfrancis-logo.svg` without plate, for light grounds

@@ -659,6 +659,19 @@ me-tpc:hover .mm-src-chip {
     opacity: 0.8;
   }
 
+  /* White plate behind the transparent logo, so the ground around the mark is set here and not in the file. */
+  .logo-plate {
+    display: inline-flex;
+    align-items: center;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    padding: 0.3125rem 0.5rem 0.3125rem 0.625rem;
+  }
+  .logo-plate--sm {
+    border-radius: 0.4375rem;
+    padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+  }
+
   /* Expand mark: no border, the hint is the mark itself, which gets stronger on
      hover. Opacity sits on the svg so ring and dot lighten together. */
   .chip-toggle svg {
