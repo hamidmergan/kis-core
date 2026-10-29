@@ -242,13 +242,17 @@ def withdraw_allowed(visitor_hash: str) -> bool:
         r = _redis()
         eigener = int(r.incr(_withdraw_key(visitor_hash)))
         r.expire(_withdraw_key(visitor_hash), 3600, nx=True)
+        if eigener > EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR:
+            # A browser over its own limit does not eat into everyone's, so one cannot lock the rest out alone.
+            r.close()
+            return False
         alle = int(r.incr(_withdraw_key("all")))
         r.expire(_withdraw_key("all"), 3600, nx=True)
         r.close()
     except Exception as fehler:
         logger.warning("Event raffle withdraw Redis error: {}", fehler)
         return True
-    return eigener <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR and alle <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL
+    return alle <= EVENT_RAFFLE_WITHDRAW_MAX_PER_HOUR_ALL
 
 
 # --- wrong codes --------------------------------------------------------------
