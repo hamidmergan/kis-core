@@ -4977,8 +4977,8 @@
       },
       "platform": {
         "tag": "Die Plattform",
-        "title": "Lernplattform für Studierende und Lehrende",
-        "body": "Das Werkzeug des Projekts. Sie ist nicht auf internationale Studierende beschränkt und in jedem Fach nutzbar.",
+        "title": "askFrancis, Lernplattform für Studierende und Lehrende",
+        "body": "askFrancis ist das Werkzeug des Projekts. Es ist nicht auf internationale Studierende beschränkt und in jedem Fach nutzbar.",
         "rows": {
           "students": {
             "label": "Für Studierende",
@@ -5002,13 +5002,17 @@
           "q": "Was ist KIS?",
           "a": "KIS steht für Kinternationalisierung von Studiengängen. Es ist ein gefördertes Pilotprojekt an der THL, das internationale Studierende beim Start in ein deutschsprachiges Fachstudium unterstützen soll. Zugleich ist KIS ein Transferprojekt: Was im Pilot entsteht, soll auf weitere Studiengänge und andere Hochschulen übertragbar sein."
         },
+        "platform": {
+          "q": "Was ist askFrancis?",
+          "a": "askFrancis ist die Plattform, die im Projekt KIS entsteht. Der Name kommt vom Lernassistenten Francis, dem du Fragen zu deinen Unterlagen stellst. Für Lehrende gibt es daneben Dienste wie Übersetzung, Podcast oder Screencast."
+        },
         "how": {
-          "q": "Wie läuft die Arbeit mit der Plattform ab?",
+          "q": "Wie läuft die Arbeit mit askFrancis ab?",
           "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
-          "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. Die Plattform wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
+          "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. askFrancis wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
         },
         "who": {
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",

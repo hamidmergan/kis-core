@@ -575,7 +575,7 @@
       "collectionText": "Every shared page under one link, currently {count, plural, =1 {1 page} other {# pages}}.",
       "collectionShareTitle": "Share overview",
       "collectionShareOn": "Share overview",
-      "collectionShareNote": "Once shared, everyone with a askFrancis account and the link sees all your shared pages at a glance, without an account only the pages shared with everyone. Every shared page then leads back to the overview.",
+      "collectionShareNote": "Once shared, everyone with an askFrancis account and the link sees all your shared pages at a glance, without an account only the pages shared with everyone. Every shared page then leads back to the overview.",
       "collectionShareOffNote": "If you switch to private, the link to the overview stops working. Your pages stay shared, just without a way to the overview.",
       "collectionLinkAria": "Link to the overview",
       "collectionView": "Shared pages",
@@ -633,11 +633,11 @@
       "wordcloudAria": "Word cloud",
       "loadFailed": "The page could not be loaded.",
       "shareModalTitle": "Share page",
-      "shareNote": "When shared, everyone with a askFrancis account and the link sees the preview. Only you can edit.",
+      "shareNote": "When shared, everyone with an askFrancis account and the link sees the preview. Only you can edit.",
       "sharedPublic": "Shared with all",
       "audienceInternal": "With askFrancis account",
       "audiencePublic": "Anyone with the link",
-      "sharePublicNote": "Anyone with the link sees the preview, even without a askFrancis account. Whoever has the link can pass it on. Only you can edit it.",
+      "sharePublicNote": "Anyone with the link sees the preview, even without an askFrancis account. Whoever has the link can pass it on. Only you can edit it.",
       "linkAria": "Link to the page",
       "shareOffNote": "If you switch to private, the link stops working.",
       "workspaceNote": "Copy the link and add it as material in your workspace via the plus.",
@@ -4977,8 +4977,8 @@
       },
       "platform": {
         "tag": "The platform",
-        "title": "Learning platform for students and teachers",
-        "body": "The project's tool. It is not limited to international students and can be used in any subject.",
+        "title": "askFrancis, learning platform for students and teachers",
+        "body": "askFrancis is the project's tool. It is not limited to international students and can be used in any subject.",
         "rows": {
           "students": {
             "label": "For students",
@@ -5002,13 +5002,17 @@
           "q": "What is KIS?",
           "a": "KIS stands for Kinternationalisierung von Studiengängen, the internationalisation of degree programmes. It is a funded pilot project at THL meant to support international students starting a degree taught in German. At the same time, KIS is a transfer project: what is developed in the pilot is meant to be transferable to other degree programmes and other universities."
         },
+        "platform": {
+          "q": "What is askFrancis?",
+          "a": "askFrancis is the platform built in the KIS project. The name comes from the learning assistant Francis, who answers your questions about your materials. Teachers also have services such as translation, podcast or screencast."
+        },
         "how": {
-          "q": "How does working with the platform work?",
+          "q": "How do you work with askFrancis?",
           "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
           "q": "What is the current status?",
-          "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. The platform is being tested and developed further, some functions may still change."
+          "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. askFrancis is being tested and developed further, some functions may still change."
         },
         "who": {
           "q": "Who can use the platform, and can I try it?",
@@ -5145,7 +5149,7 @@
           "lead": "Your material becomes a learning page with pictures, tables and charts that you can share and add to a workspace.",
           "p1": "The AI itself picks which forms fit the material, such as pictures, tables or a mind map",
           "p2": "Every text, picture and label can be edited afterwards",
-          "p3": "Share by link, with or without a askFrancis account",
+          "p3": "Share by link, with or without an askFrancis account",
           "alt": "Pages overview with one finished learning page"
         }
       }

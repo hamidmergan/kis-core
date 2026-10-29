@@ -6,7 +6,7 @@ import Band from "./Band";
 import { SectionHeading } from "./InfoSections";
 
 const GROUPS = [
-  { key: "project", items: ["what", "how", "state"] },
+  { key: "project", items: ["what", "platform", "how", "state"] },
   { key: "use", items: ["who"] },
   { key: "francis", items: ["sources", "names"] },
   { key: "data", items: ["dsgvo", "hosting"] },
