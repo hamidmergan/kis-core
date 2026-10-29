@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
+import Wordmark from "@/components/layout/Wordmark";
 import Modal from "@/components/ui/Modal";
 import { InlineRename } from "@/components/ui/InlineRename";
 import { gruppiere, type GruppenKey } from "../_gruppen";
@@ -90,9 +91,9 @@ export default function ChatVerlauf({
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
       <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
-        {/* The logo leads to the tiles, like the logo in the header of the other pages. */}
+        {/* The wordmark leads to the tiles, like the one in the header of the other pages. */}
         <Link href="/services" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center logo-link" data-testid="campus-home">
-          <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
+          <Wordmark size="sm" />
         </Link>
         {toggle}
       </div>

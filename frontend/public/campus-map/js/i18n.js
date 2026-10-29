@@ -36,10 +36,10 @@ function detectLang() {
 const CURRENT_LANG = detectLang();
 document.documentElement.lang = CURRENT_LANG;
 
-// ?partner=kis: KIS zeigt die Karte auf einer eigenen Seite und setzt sein Logo vor den Titel.
+// ?partner=kis: askFrancis shows the map on a page of its own and puts its name before the title.
 if (new URLSearchParams(window.location.search).get('partner') === 'kis') {
     document.documentElement.classList.add('partner-kis');
-    // KIS passes its own addresses; only web links are accepted.
+    // askFrancis passes its own addresses; only web links are accepted.
     const params = new URLSearchParams(window.location.search);
     const setPartnerLink = (id, name) => {
         const el = document.getElementById(id);
@@ -69,7 +69,7 @@ const UI_STRINGS = {
         'page.title': 'Campusplan – Technische Hochschule Lübeck',
         'skip.toMap': 'Direkt zur Karte',
         'header.title': 'Campusplan',
-        'partner.home': 'KIS Startseite',
+        'partner.home': 'askFrancis Startseite',
         'toolbox.settings': 'Einstellungen',
         'toolbox.badges': 'Badges',
         'toolbox.menu': 'Menü',
@@ -262,7 +262,7 @@ const UI_STRINGS = {
         'page.title': 'Campus Map – Technische Hochschule Lübeck',
         'skip.toMap': 'Skip to map',
         'header.title': 'Campus Map',
-        'partner.home': 'KIS home page',
+        'partner.home': 'askFrancis home page',
         'toolbox.settings': 'Settings',
         'toolbox.badges': 'Badges',
         'toolbox.menu': 'Menu',

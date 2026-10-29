@@ -18,7 +18,7 @@ from src.limits import (
     WEB_PAGE_TIMEOUT_SECONDS,
 )
 
-USER_AGENT = "KIS-Lernplattform/1.0"
+USER_AGENT = "askFrancis/1.0"
 _ACCEPT = "text/html, application/xhtml+xml, application/pdf, text/plain;q=0.8"
 _ALLOWED_PORTS = (None, 80, 443)
 # Names that never need a lookup to be known as the own machine.

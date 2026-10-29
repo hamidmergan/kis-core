@@ -23,7 +23,7 @@ export default function CollectionView({ code }: { code: string }) {
 
   useEffect(() => {
     api.getCollection(code).then(setData).catch((e) => {
-      // A link for KIS accounts only, after the login the person lands here again.
+      // A link for askFrancis accounts only, after the login the person lands here again.
       if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/u/${code}`)}`);
       else setGone(true);
     });

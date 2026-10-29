@@ -8,7 +8,7 @@ import { campusApi } from "@/lib/campus/api";
 import { getPathname } from "@/i18n/navigation";
 import { mapLink } from "@/lib/campus/mapLink";
 
-/** A KIS page as a full address, because the map runs in a frame on another origin. */
+/** An askFrancis page as a full address, because the map runs in a frame on another origin. */
 function absolute(href: string, locale: string): string {
   return window.location.origin + getPathname({ href, locale });
 }

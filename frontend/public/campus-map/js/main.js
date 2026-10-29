@@ -2392,7 +2392,7 @@ async function initAnimations() {
 
     // Nach einem Sprachwechsel (Seiten-Reload) das Intro nicht erneut zeigen.
     // Direktlink (?show=… / ?info=…): ohne Intro gleich zum Ziel
-    // Im Modal (?intro=0, kommt von KIS): kein Intro, nur im eigenen Tab
+    // In the modal (?intro=0, sent by askFrancis): no intro, only in a tab of its own
     const params = new URLSearchParams(window.location.search);
     const hasDirectLink = params.has('show') || params.has('info');
     const introDisabled = params.get('intro') === '0';

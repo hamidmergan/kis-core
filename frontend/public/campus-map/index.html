@@ -10,7 +10,7 @@
     <base href="/campus-map/">
     <title>Campusplan – Technische Hochschule Lübeck</title>
     <!-- Favicon, eigenes Asset statt Pfad ab Domain-Wurzel (dieses Fenster liegt jetzt unter kis.th-luebeck.de) -->
-    <!-- Nur der Vogel, wie das Favicon im Rest von KIS (frontend/src/app/[locale]/icon.svg) -->
+    <!-- Only the bird, like the favicon in the rest of askFrancis (frontend/src/app/[locale]/icon.svg) -->
     <link rel="icon" type="image/svg+xml" href="assets/kis-vogel.svg">
     <!-- Lokale Bibliotheken (vendor/) -->
     <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet" />
@@ -33,14 +33,11 @@
     <header id="allcontent-title"
         class="w-100 py-2 pt-md-2 px-2 px-md-2 pb-md-2 d-flex align-items-center justify-content-between">
         <div class="py-2 px-2 d-flex align-items-center gap-3">
-            <!-- Nur sichtbar, wenn KIS die Karte mit ?partner=kis einbettet -->
+            <!-- Only visible when askFrancis embeds the map with ?partner=kis -->
             <div class="partner-brand">
-                <a class="partner-home" id="partnerHome" href="#" target="_top" data-i18n-aria-label="partner.home" aria-label="KIS Startseite">
-                    <!-- Auf dem Smartphone nur der Vogel, das ganze Logo waere zu breit -->
-                    <picture>
-                        <source media="(max-width: 575px)" srcset="assets/kis-vogel.svg" width="154" height="78">
-                        <img class="partner-logo" src="assets/kis-logo.svg" alt="" width="228" height="78">
-                    </picture>
+                <a class="partner-home" id="partnerHome" href="#" target="_top" data-i18n-aria-label="partner.home" aria-label="askFrancis Startseite">
+                    <!-- The platform has no logo any more, the name stands as a wordmark before the title -->
+                    <span class="partner-logo" aria-hidden="true">askFrancis</span>
                 </a>
             </div>
             <h1 class="title-heading mb-0">

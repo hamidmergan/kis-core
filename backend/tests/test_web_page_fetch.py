@@ -253,7 +253,7 @@ def test_abruf_schickt_eigenen_user_agent_und_folgt_nicht_selbst(dns):
         return httpx.Response(200, headers={"content-type": "text/plain"}, content=b"ok")
 
     wpf.fetch_page("https://example.org/", transport=_client(handler))
-    assert gesehen["ua"] == "KIS-Lernplattform/1.0"
+    assert gesehen["ua"] == "askFrancis/1.0"
     assert gesehen["cookie"] is None
 
 

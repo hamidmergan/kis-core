@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { GearSix, Eye, ShareNetwork, CaretLeft } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
+import Wordmark from "@/components/layout/Wordmark";
 import { useHasStartTiles } from "@/hooks/useHasStartTiles";
 import { SettingsMenu } from "./SettingsMenu";
 import { ShareModal } from "./ShareModal";
@@ -162,7 +162,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </div>
   ) : null;
 
-  // A module has no blue bar any more, so the way back home hangs on the logo here.
+  // A module has no blue bar any more, so the way back home hangs on the wordmark here.
   const logo = (
     <Link
       href="/services"
@@ -170,7 +170,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       title={tHeader("homeAria")}
       className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
     >
-      <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
+      <Wordmark size="sm" />
       {process.env.NODE_ENV === "development" && (
         <span className="text-2xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
           DEV
@@ -179,7 +179,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </Link>
   );
 
-  // The logo leads home to the tiles, so the module list needs a link of its own.
+  // The wordmark leads home to the tiles, so the module list needs a link of its own.
   const toListLabel = t("toList", { label: "Workspaces" });
   const backToListWide = !hasStartTiles ? null : (
     <Link

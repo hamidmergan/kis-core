@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -14,6 +13,7 @@ import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
 import HeaderPublicControls from "@/components/layout/HeaderPublicControls";
 import HeaderSettingsMenu from "@/components/layout/HeaderSettingsMenu";
+import Wordmark from "@/components/layout/Wordmark";
 import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart";
 import { useOpenFeedback } from "@/hooks/useOpenFeedback";
 
@@ -114,15 +114,15 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   return (
     <header style={{ backgroundColor: "var(--header-bg)", borderBottom: "1px solid var(--border)" }} className="py-3 compact-on-short">
       <div className="px-4 sm:px-6 flex items-center justify-between">
-        {/* The page title is the h1, the logo is only a link. */}
+        {/* The page title is the h1, the wordmark is only a link. */}
         <div className="flex items-center gap-2">
-          {/* Signed in, the logo leads to the tiles, the landing page is for visitors. */}
+          {/* Signed in, the wordmark leads to the tiles, the landing page is for visitors. */}
           <Link
             href={hasSession ? "/services" : "/"}
             aria-label={t("homeAria")}
             className="logo-link flex items-center"
           >
-            <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-8 w-auto" priority />
+            <Wordmark className="text-white" />
           </Link>
           {process.env.NODE_ENV === "development" && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>

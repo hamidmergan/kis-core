@@ -44,16 +44,15 @@ def default_config() -> dict:
         "outro_link_url": "",
         "contact_email": "hamid.mergan@th-luebeck.de",
         "questions": [
-            # Breit zuerst (Trichtertechnik), dann die Bereichsfrage, dann je Bereich
-            # spezifisch, zum Schluss offen und die beiden Gesamturteile.
-            {"id": "zurechtgefunden", "type": "choice", "text": "Hast du dich auf KIS zurechtgefunden?",
+            # Broad first (funnel technique), then the area question, then specific per area, open questions and the two overall verdicts last.
+            {"id": "zurechtgefunden", "type": "choice", "text": "Hast du dich auf askFrancis zurechtgefunden?",
              "options": _JA_NEIN},
             {"id": "unklar", "type": "text", "text": "Was war unklar?",
              "show_if": {"question_id": "zurechtgefunden", "in": ["Eher nein", "Nein"]}},
-            {"id": "intuitiv", "type": "choice", "text": "Fandest du KIS intuitiv zu bedienen?",
+            {"id": "intuitiv", "type": "choice", "text": "Fandest du askFrancis intuitiv zu bedienen?",
              "options": _JA_NEIN},
 
-            {"id": "bereich", "type": "multi", "text": "Welchen Bereich von KIS hast du bisher genutzt?",
+            {"id": "bereich", "type": "multi", "text": "Welchen Bereich von askFrancis hast du bisher genutzt?",
              "options": [_LERNASSISTENT, _INFOASSISTENT, _DIENSTE]},
 
             {"id": "la-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Lernassistenten?",
@@ -74,9 +73,9 @@ def default_config() -> dict:
              "show_if": {"question_id": "bereich", "in": [_DIENSTE]}},
 
             {"id": "gestoert", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert?"},
-            {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, KIS regelmäßig zu nutzen?",
+            {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, askFrancis regelmäßig zu nutzen?",
              "options": _JA_NEIN},
-            {"id": "empfehlen", "type": "choice", "text": "Würdest du KIS weiterempfehlen?",
+            {"id": "empfehlen", "type": "choice", "text": "Würdest du askFrancis weiterempfehlen?",
              "options": _JA_NEIN},
         ],
     }

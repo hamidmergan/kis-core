@@ -7,7 +7,7 @@ import httpx
 from src.limits import CAMPUS_FETCH_TIMEOUT_SECONDS, CAMPUS_PAGE_MAX_BYTES
 from src.services.web_page_fetch import LinkError, validate_url
 
-_USER_AGENT = "KIS-Infoassistent/1.0 (+sitemap crawl)"
+_USER_AGENT = "askFrancis-Infoassistent/1.0 (+sitemap crawl)"
 _MAX_HOPS = 5
 _HTML_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "application/xml", "text/xml", "application/json")
 

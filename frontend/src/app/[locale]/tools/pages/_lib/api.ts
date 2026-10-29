@@ -1,7 +1,7 @@
 import { backendApi, parseDetail, genericErrorMessage } from "@/lib/api";
 import type { Collection, Languages, OwnPage, Page, PagesList, SharedPage } from "./types";
 
-/** The calls of the pages tool, all through the session cookie like the rest of KIS. */
+/** The calls of the pages tool, all through the session cookie like the rest of askFrancis. */
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -33,7 +33,7 @@ export const suggestImage = (uuid: string) =>
 export const imageState = (uuid: string, name: string) =>
   backendApi.fetch(`/pages/${uuid}/images/${name}/state`).then((r) => json<{ state: "pending" | "done" | "failed" }>(r));
 export const getLanguages = (uuid: string) => backendApi.fetch(`/pages/${uuid}/languages`).then((r) => json<Languages>(r));
-/** ``isPublic`` opens the link without a KIS account, left out it stays as it was. */
+/** ``isPublic`` opens the link without an askFrancis account, left out it stays as it was. */
 export const setShare = (uuid: string, on: boolean, isPublic?: boolean) =>
   send(`/pages/${uuid}/share`, "PUT", { on, public: isPublic }).then((r) =>
     json<{ shared: boolean; public: boolean; code: string | null; collection: { code: string; count: number } }>(r));
@@ -41,7 +41,7 @@ export const setCollectionShare = (on: boolean) =>
   send("/pages/collection-share", "PUT", { on }).then((r) => json<{ shared: boolean }>(r));
 export const deletePage = (uuid: string) => send(`/jobs/${uuid}`, "DELETE").then((r) => json<unknown>(r));
 export const retryPage = (uuid: string) => send(`/jobs/${uuid}/retry`, "POST").then((r) => json<unknown>(r));
-/** A link only a KIS account may open was opened without one. */
+/** A link only an askFrancis account may open was opened without one. */
 export class LoginNeeded extends Error {}
 
 /** A link that may be open to anyone, a 401 goes back to the view instead of straight to the login. */
@@ -62,7 +62,7 @@ export function imageBase(source: { uuid: string } | { code: string }): string {
   return "uuid" in source ? `/api/pages/${source.uuid}/images` : `/api/pages/shared/${source.code}/images`;
 }
 
-/** The link others open, on this very KIS. */
+/** The link others open, on this very askFrancis. */
 export function shareUrl(code: string): string {
   return `${window.location.origin}/p/${code}`;
 }

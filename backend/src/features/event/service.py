@@ -70,10 +70,10 @@ def default_config() -> dict:
             ),
             _station(
                 "platform", "M3XD", "platform",
-                ("KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung",
-                 "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."),
-                ("KIS platform", "AI technical-language trainer and translation",
-                 "Here you saw how the KIS platform translates materials and helps with technical vocabulary."),
+                ("askFrancis", "KI-Fachsprachen-Trainer und Übersetzung",
+                 "Hier hast du gesehen, wie askFrancis Materialien übersetzt und beim Fachwortschatz hilft."),
+                ("askFrancis", "AI technical-language trainer and translation",
+                 "Here you saw how askFrancis translates materials and helps with technical vocabulary."),
             ),
             _station(
                 "dafl", "W7NC", "translation",
@@ -97,8 +97,8 @@ def default_config() -> dict:
             "until": "2026-11-13",
             "heading": _text("Tag der Lehre am 13.11.2026", "Tag der Lehre on 13 November 2026"),
             "text": _text(
-                "KIS wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
-                "KIS is presented. Try it right away or collect stamps at all stands.",
+                "askFrancis wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
+                "askFrancis is presented. Try it right away or collect stamps at all stands.",
             ),
             "tiles": [
                 {
@@ -106,8 +106,8 @@ def default_config() -> dict:
                     "icon": "francis",
                     "title": _text("Demozugang", "Demo access"),
                     "body": _text(
-                        "Teste die KIS-Plattform mit einem Demo-Konto.",
-                        "Try the KIS platform with a demo account.",
+                        "Teste askFrancis mit einem Demo-Konto.",
+                        "Try askFrancis with a demo account.",
                     ),
                     "button": _text("Ausprobieren", "Try it"),
                     "target": {"kind": "directLogin", "accessCode": "KIS-DEMO-0000"},

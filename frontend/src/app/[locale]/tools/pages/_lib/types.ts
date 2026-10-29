@@ -152,7 +152,7 @@ export interface PageCard {
   created_at: string | null;
   updated_at: string | null;
   shared: boolean;
-  /** The link opens without a KIS account. */
+  /** The link opens without an askFrancis account. */
   public: boolean;
   code: string | null;
   /** What the page was made with, for the owner's info icon. */
@@ -179,7 +179,7 @@ export interface OwnPage {
   edited: boolean;
   limits: Limits;
   shared: boolean;
-  /** The link opens without a KIS account. */
+  /** The link opens without an askFrancis account. */
   public: boolean;
   code: string | null;
   collection: string;

@@ -79,7 +79,7 @@ def wie_vorlage(breite: int, hoehe: int, groesse: str) -> str:
     return f"{_auf16(b * faktor)}x{_auf16(h * faktor)}"
 
 
-# klein refuses sources beyond 8:1, KIS pads anything beyond 4:1 onto a white ground and cuts the band out again.
+# klein refuses sources beyond 8:1, askFrancis pads anything beyond 4:1 onto a white ground and cuts the band out again.
 _MAX_VERHAELTNIS = 4
 
 

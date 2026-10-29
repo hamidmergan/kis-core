@@ -1,4 +1,4 @@
-/* A page from Pages, drawn from page.json. Everything is scoped to .kis-page, the colours come from the KIS tokens. */
+/* A page from Pages, drawn from page.json. Everything is scoped to .kis-page, the colours come from the askFrancis tokens. */
 
 .kis-page {
   --pg-ink: var(--foreground);

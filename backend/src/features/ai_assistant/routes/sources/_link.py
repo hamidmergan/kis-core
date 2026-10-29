@@ -43,7 +43,7 @@ _PAGE_PATH = re.compile(r"^/(?:[a-z]{2}/)?(?:p/(?P<code>[A-Za-z0-9]{%d})|tools/p
 
 
 def _page_of_link(raw: str) -> dict | None:
-    """The page a pasted link names, None when it is no link to a page in KIS."""
+    """The page a pasted link names, None when it is no link to a page in askFrancis."""
     match = _PAGE_PATH.match(urlsplit(raw.strip()).path)
     if not match:
         return None

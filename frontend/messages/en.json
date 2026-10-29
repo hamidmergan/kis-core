@@ -331,12 +331,12 @@
   },
   "pending": {
     "title": "Account not yet activated",
-    "body1": "KIS is currently in a test phase. Your account was recognized but is not yet activated for use.",
-    "body2": "If you need access to KIS, please contact:",
+    "body1": "askFrancis is currently in a test phase. Your account was recognized but is not yet activated for use.",
+    "body2": "If you need access to askFrancis, please contact:",
     "backToLogin": "Back to sign in"
   },
   "login": {
-    "welcome": "Welcome to KIS",
+    "welcome": "Welcome to askFrancis",
     "title": "Sign in",
     "formAria": "Sign-in form",
     "username": "User name or mail address",
@@ -581,7 +581,7 @@
       "collectionText": "Every shared page under one link, currently {count, plural, =1 {1 page} other {# pages}}.",
       "collectionShareTitle": "Share overview",
       "collectionShareOn": "Share overview",
-      "collectionShareNote": "Once shared, everyone with a KIS account and the link sees all your shared pages at a glance, without an account only the pages shared with everyone. Every shared page then leads back to the overview.",
+      "collectionShareNote": "Once shared, everyone with a askFrancis account and the link sees all your shared pages at a glance, without an account only the pages shared with everyone. Every shared page then leads back to the overview.",
       "collectionShareOffNote": "If you switch to private, the link to the overview stops working. Your pages stay shared, just without a way to the overview.",
       "collectionLinkAria": "Link to the overview",
       "collectionView": "Shared pages",
@@ -639,11 +639,11 @@
       "wordcloudAria": "Word cloud",
       "loadFailed": "The page could not be loaded.",
       "shareModalTitle": "Share page",
-      "shareNote": "When shared, everyone with a KIS account and the link sees the preview. Only you can edit.",
+      "shareNote": "When shared, everyone with a askFrancis account and the link sees the preview. Only you can edit.",
       "sharedPublic": "Shared with all",
-      "audienceInternal": "With KIS account",
+      "audienceInternal": "With askFrancis account",
       "audiencePublic": "Anyone with the link",
-      "sharePublicNote": "Anyone with the link sees the preview, even without a KIS account. Whoever has the link can pass it on. Only you can edit it.",
+      "sharePublicNote": "Anyone with the link sees the preview, even without a askFrancis account. Whoever has the link can pass it on. Only you can edit it.",
       "linkAria": "Link to the page",
       "shareOffNote": "If you switch to private, the link stops working.",
       "workspaceNote": "Copy the link and add it as material in your workspace via the plus.",
@@ -2453,14 +2453,14 @@
         "hideKey": "Hide key",
         "apiKeyHint": "Leave empty if the endpoint needs no key.",
         "apiKeyEditHint": "Leaving empty keeps the existing key.",
-        "probeHint": "After save, KIS verifies the endpoint is reachable. Whether each feature actually works is tested per row under “Features”.",
+        "probeHint": "After save, askFrancis verifies the endpoint is reachable. Whether each feature actually works is tested per row under “Features”.",
         "fixedCapabilitiesHint": "Protocol-fixed: {caps}",
         "deeplFreeDetected": "DeepL Free key detected (suffix :fx) → api-free.deepl.com.",
         "deeplProDetected": "DeepL Pro key detected → api.deepl.com.",
-        "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
-        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com.",
+        "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. askFrancis will auto-route to api-free.deepl.com.",
+        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. askFrancis will auto-route to api.deepl.com.",
         "fieldConcurrency": "Simultaneous calls",
-        "concurrencyHint": "How many calls KIS sends to this provider at the same time. Empty means no limit. The chat with the learning assistant does not count, image analysis counts with the LLM.",
+        "concurrencyHint": "How many calls askFrancis sends to this provider at the same time. Empty means no limit. The chat with the learning assistant does not count, image analysis counts with the LLM.",
         "concurrencyNoLimit": "no limit",
         "concurrencyBucket": {
           "llm": "LLM",
@@ -2598,7 +2598,7 @@
       },
       "windows": {
         "title": "Context window in tokens",
-        "help": "This many tokens the model can read at once. KIS measures it itself. If the measurement fails, the field stays empty and the system assumes a cautious default. A number you enter is never overwritten by a measurement. Clear the field and KIS measures again.",
+        "help": "This many tokens the model can read at once. askFrancis measures it itself. If the measurement fails, the field stays empty and the system assumes a cautious default. A number you enter is never overwritten by a measurement. Clear the field and askFrancis measures again.",
         "empty": "unknown",
         "fieldLabel": "Context window of {model}",
         "measuring": "measuring…",
@@ -3118,7 +3118,7 @@
         "now": "now",
         "colSince": "since",
         "sinceMinutes": "{n} min",
-        "cumulativeHint": "Everyone who ever used KIS, added up."
+        "cumulativeHint": "Everyone who ever used askFrancis, added up."
       },
       "models": {
         "onlyChat": "Only chat is recorded so far. Pre-calls, exercises, ingestion, transcription and speech are missing from these numbers.",
@@ -4565,7 +4565,7 @@
       "createAria": "Create {label}",
       "emptyTitle": "No {label} yet.",
       "emptyText": "Use the button above to add one.",
-      "welcomeTitle": "Welcome to KIS",
+      "welcomeTitle": "Welcome to askFrancis",
       "enroll": "Enroll",
       "enrollEyebrow": "Enrollment",
       "enrollOwnerRole": "Lecturer",
@@ -4671,12 +4671,12 @@
     }
   },
   "welcomeModal": {
-    "title": "Welcome to KIS",
+    "title": "Welcome to askFrancis",
     "cta": "Get started"
   },
   "consent": {
     "title": "Before you start",
-    "body": "KIS is an AI platform. Your input is processed by AI systems to provide you with the services. Details are in the <link>privacy policy</link>.",
+    "body": "askFrancis is an AI platform. Your input is processed by AI systems to provide you with the services. Details are in the <link>privacy policy</link>.",
     "dataProtection": "Your data is processed in accordance with GDPR.",
     "checkbox": "I have read the notice and agree.",
     "cta": "Continue"
@@ -4751,8 +4751,8 @@
     }
   },
   "layoutMeta": {
-    "title": "KIS",
-    "description": "KIS - Services of TH Lübeck",
+    "title": "askFrancis",
+    "description": "askFrancis - Services of TH Lübeck",
     "author": "Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck"
   },
@@ -4776,7 +4776,7 @@
     },
     "providerStatus": {
       "title": "AI provider availability",
-      "hint": "Each provider gets a short real request with the model KIS uses there.",
+      "hint": "Each provider gets a short real request with the model askFrancis uses there.",
       "loadError": "Could not load.",
       "empty": "No provider set up.",
       "statusActive": "answers",
@@ -4808,7 +4808,7 @@
     "noMatch": "No article matches this filter."
   },
   "invite": {
-    "welcome": "Welcome to KIS",
+    "welcome": "Welcome to askFrancis",
     "title": "Set up your account",
     "username": "Username",
     "copyUsername": "Copy username",
@@ -4837,7 +4837,7 @@
     "retry": "Reload"
   },
   "accessCode": {
-    "welcome": "Welcome to KIS",
+    "welcome": "Welcome to askFrancis",
     "title": "Redeem access",
     "intro": "Use the access code from your invitation to create your own account here.",
     "code": "Access code",
@@ -5150,7 +5150,7 @@
           "lead": "Your material becomes a learning page with pictures, tables and charts that you can share and add to a workspace.",
           "p1": "The AI itself picks which forms fit the material, such as pictures, tables or a mind map",
           "p2": "Every text, picture and label can be edited afterwards",
-          "p3": "Share by link, with or without a KIS account",
+          "p3": "Share by link, with or without a askFrancis account",
           "alt": "Pages overview with one finished learning page"
         }
       }
@@ -5218,7 +5218,7 @@
     "star": "Star",
     "lightbulb": "Idea",
     "qrCode": "QR code",
-    "platform": "KIS platform",
+    "platform": "askFrancis",
     "campus": "Info assistant"
   },
   "eventAdmin": {

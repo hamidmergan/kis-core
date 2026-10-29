@@ -110,7 +110,7 @@ def _memory_from_host() -> int | None:
 
 @dataclass(frozen=True)
 class Capacity:
-    """What the machine offers and what KIS derives from it."""
+    """What the machine offers and what askFrancis derives from it."""
 
     cores: float
     memory_bytes: int
