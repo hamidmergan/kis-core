@@ -28,7 +28,7 @@ export interface PosterArt {
 const LOGO_FILES = {
   thl: "/logos/logo-thl.jpg",
   isy: "/logos/isy-logo.png",
-  francis: "/logos/askfrancis-logo-transparent-black.svg",
+  francis: "/logos/ask-francis-logo-transparent-black.svg",
 } as const;
 let logoCache: Promise<Pick<PosterArt, "thl" | "isy" | "francis">> | null = null;
 
@@ -83,8 +83,9 @@ export const ISY_W = (LOGO_IMG_H * 634) / 523;
 export const PLATE_W = PLATE_PAD * 3 + THL_W + ISY_W;
 const KIS_H = 6;
 const KIS_W = (KIS_H * KIS_LOGO_VIEWBOX.w) / KIS_LOGO_VIEWBOX.h;
-const FRANCIS_H = 6;
-const FRANCIS_W = (FRANCIS_H * 124.86) / 24;
+// Same width as the old logo with bird, the flatter wordmark gets the height that follows from it.
+const FRANCIS_W = (6 * 124.86) / 24;
+const FRANCIS_H = (FRANCIS_W * 13.36) / 98.4;
 // Two white plates on the accent bar: askFrancis on the left, KIS, THL and ISy side by side on the right.
 // Space between plate edge and logo, wider than the gap between logos.
 const EDGE_PAD = 4;
