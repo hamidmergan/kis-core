@@ -255,7 +255,7 @@ async def extract_glossary_from_selection(
             db.bulk_create_glossary_entries(source["id"], user_id, [entry])
             return {
                 "added": 1,
-                "message": t("ai.glossary.added", locale, count=1),
+                "message": t("ai.glossary.addedOne", locale),
                 "entries": [entry],
             }
 
@@ -313,7 +313,8 @@ async def extract_glossary_from_selection(
         count = len(new_entries)
         return {
             "added": count,
-            "message": t("ai.glossary.added", locale, count=count),
+            # A single term needs the singular, the message has no plural rules.
+            "message": t("ai.glossary.addedOne", locale) if count == 1 else t("ai.glossary.added", locale, count=count),
             "entries": new_entries,
         }
     except (json.JSONDecodeError, ValueError):

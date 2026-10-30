@@ -554,8 +554,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "No new worthwhile terms found in the selection.",
     },
     "ai.glossary.added": {
-        "de": "{count} Begriffe zum Glossary hinzugefügt.",
+        "de": "{count} Begriffe zum Glossar hinzugefügt.",
         "en": "{count} terms added to the glossary.",
+    },
+    "ai.glossary.addedOne": {
+        "de": "1 Begriff zum Glossar hinzugefügt.",
+        "en": "1 term added to the glossary.",
     },
     # Maintenance mode
     "maintenance.message": {
