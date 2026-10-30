@@ -127,7 +127,7 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
             </button>
           </div>
         )}
-        <p className="mb-8 flex items-start gap-2 rounded-lg border border-warn-border bg-warn-bg px-3 py-2.5 text-sm text-warn-strong">
+        <p className="mb-8 flex items-start gap-2 text-sm text-warn-strong">
           <Info size={14} className="mt-0.5 flex-shrink-0 text-warn" aria-hidden="true" />
           {tDemo("hinweis")}
         </p>
