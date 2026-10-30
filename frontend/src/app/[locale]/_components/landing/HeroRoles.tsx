@@ -23,8 +23,8 @@ export default function HeroRoles() {
         <div className="flex flex-col gap-5 @min-[48rem]:[grid-area:head] @min-[48rem]:self-end">
           <h1 className={`${H1} text-4xl @min-[40rem]:text-5xl @min-[80rem]:text-6xl text-balance`}>
             {t.rich("title", {
-              ask: (chunks) => <span className="text-brand-mint">{chunks}</span>,
-              francis: (chunks) => <span className="text-foreground">{chunks}</span>,
+              ask: (chunks) => <span className="font-extrabold text-kb dark:text-foreground">{chunks}</span>,
+              francis: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               br: () => <br />,
             })}
           </h1>

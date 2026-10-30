@@ -5046,7 +5046,7 @@
     },
     "heroAlt": "Workspace with materials, chat and studio",
     "hero": {
-      "title": "<ask>ask</ask><francis>Francis</francis><br></br>AI platform for teaching and studying",
+      "title": "<ask>ASK</ask> <francis>Francis</francis><br></br>AI platform for teaching and studying",
       "lead": "The material of a course is at the centre. The learning assistant Francis answers from it alone.",
       "alt": "Workspace with materials, chat and studio",
       "teachers": {

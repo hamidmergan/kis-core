@@ -5046,7 +5046,7 @@
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "hero": {
-      "title": "<ask>ask</ask><francis>Francis</francis><br></br>KI-Plattform für Lehre und Studium",
+      "title": "<ask>ASK</ask> <francis>Francis</francis><br></br>KI-Plattform für Lehre und Studium",
       "lead": "Das Material einer Lehrveranstaltung steht im Mittelpunkt. Der Lernassistent Francis antwortet ausschließlich daraus.",
       "alt": "Workspace mit Materialien, Chat und Studio",
       "teachers": {
