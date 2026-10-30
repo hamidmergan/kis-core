@@ -112,7 +112,7 @@ async function useLocale(page: Page, locale: string) {
 async function closeWelcome(page: Page) {
   const willkommen = page
     .locator("[role=dialog]")
-    .filter({ hasText: /Willkommen bei askFrancis|Welcome to askFrancis/ });
+    .filter({ hasText: /Willkommen bei ASK Francis|Welcome to ASK Francis/ });
   if (await willkommen.count()) {
     await willkommen.locator("button[aria-label]").first().click();
     await expect(willkommen).toHaveCount(0);

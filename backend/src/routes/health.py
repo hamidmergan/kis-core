@@ -6,7 +6,7 @@ router = APIRouter(tags=["health"])
 
 # Shipped default for the first-login welcome dialog, editable in Admin -> System.
 DEFAULT_WELCOME_MODAL_TEXT = (
-    "askFrancis ist die KI-Plattform des Pilotprojekts KIS an der TH Lübeck, für "
+    "ASK Francis ist die KI-Plattform des Pilotprojekts KIS an der TH Lübeck, für "
     "Lehre und Studium.\n\nWir sind noch in einer frühen Testphase. Die Rechenkapazität für "
     "die KI ist aktuell begrenzt, bei vielen gleichzeitigen Anfragen kann eine "
     "Antwort etwas auf sich warten lassen. Bitte hab in solchen Momenten etwas Geduld."

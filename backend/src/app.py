@@ -123,7 +123,7 @@ def create_app(modules=None) -> FastAPI:
     aktiv = frozenset(modules) if modules is not None else active_modules()
 
     application = FastAPI(
-        title="askFrancis",
+        title="ASK Francis",
         lifespan=lifespan,
         dependencies=[Depends(verify_auth)],
         docs_url="/docs" if not settings.production else None,

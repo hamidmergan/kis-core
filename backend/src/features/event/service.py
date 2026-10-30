@@ -83,10 +83,10 @@ def default_config() -> dict:
             ),
             _station(
                 "platform", "M3XD", "platform",
-                ("askFrancis", "KI-Fachsprachen-Trainer und Übersetzung",
-                 "Hier hast du gesehen, wie askFrancis Materialien übersetzt und beim Fachwortschatz hilft."),
-                ("askFrancis", "AI technical-language trainer and translation",
-                 "Here you saw how askFrancis translates materials and helps with technical vocabulary."),
+                ("ASK Francis", "KI-Fachsprachen-Trainer und Übersetzung",
+                 "Hier hast du gesehen, wie ASK Francis Materialien übersetzt und beim Fachwortschatz hilft."),
+                ("ASK Francis", "AI technical-language trainer and translation",
+                 "Here you saw how ASK Francis translates materials and helps with technical vocabulary."),
             ),
             _station(
                 "dafl", "W7NC", "translation",
@@ -110,8 +110,8 @@ def default_config() -> dict:
             "until": "2026-11-13",
             "heading": _text("Tag der Lehre am 13.11.2026", "Tag der Lehre on 13 November 2026"),
             "text": _text(
-                "askFrancis wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
-                "askFrancis is presented. Try it right away or collect stamps at all stands.",
+                "ASK Francis wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
+                "ASK Francis is presented. Try it right away or collect stamps at all stands.",
             ),
             "tiles": [
                 {
@@ -119,8 +119,8 @@ def default_config() -> dict:
                     "icon": "francis",
                     "title": _text("Demozugang", "Demo access"),
                     "body": _text(
-                        "Teste askFrancis mit einem Demo-Konto.",
-                        "Try askFrancis with a demo account.",
+                        "Teste ASK Francis mit einem Demo-Konto.",
+                        "Try ASK Francis with a demo account.",
                     ),
                     "button": _text("Ausprobieren", "Try it"),
                     "target": {"kind": "directLogin", "accessCode": "KIS-DEMO-0000"},
@@ -179,12 +179,12 @@ def default_task_card() -> dict:
 # Names every purpose the addresses serve and the right to withdraw, as consent needs before it is given.
 CONSENT_DE = (
     "Ich willige ein, dass meine E-Mail-Adresse für die Verlosung genutzt wird und dass ich zur Mitwirkung "
-    "an der Weiterentwicklung von askFrancis kontaktiert werde, etwa für Tests oder Befragungen. Die Adresse "
+    "an der Weiterentwicklung von ASK Francis kontaktiert werde, etwa für Tests oder Befragungen. Die Adresse "
     "wird nach dem Pilotprojekt gelöscht. Ich kann die Einwilligung jederzeit widerrufen."
 )
 CONSENT_EN = (
     "I agree that my email address is used for the raffle and that I may be contacted to take part in the "
-    "further development of askFrancis, for example for tests or surveys. The address is deleted after the "
+    "further development of ASK Francis, for example for tests or surveys. The address is deleted after the "
     "pilot project. I can withdraw my consent at any time."
 )
 

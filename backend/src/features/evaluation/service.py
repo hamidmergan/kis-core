@@ -45,14 +45,14 @@ def default_config() -> dict:
         "contact_email": "hamid.mergan@th-luebeck.de",
         "questions": [
             # Broad first (funnel technique), then the area question, then specific per area, open questions and the two overall verdicts last.
-            {"id": "zurechtgefunden", "type": "choice", "text": "Hast du dich auf askFrancis zurechtgefunden?",
+            {"id": "zurechtgefunden", "type": "choice", "text": "Hast du dich auf ASK Francis zurechtgefunden?",
              "options": _JA_NEIN},
             {"id": "unklar", "type": "text", "text": "Was war unklar?",
              "show_if": {"question_id": "zurechtgefunden", "in": ["Eher nein", "Nein"]}},
-            {"id": "intuitiv", "type": "choice", "text": "Fandest du askFrancis intuitiv zu bedienen?",
+            {"id": "intuitiv", "type": "choice", "text": "Fandest du ASK Francis intuitiv zu bedienen?",
              "options": _JA_NEIN},
 
-            {"id": "bereich", "type": "multi", "text": "Welchen Bereich von askFrancis hast du bisher genutzt?",
+            {"id": "bereich", "type": "multi", "text": "Welchen Bereich von ASK Francis hast du bisher genutzt?",
              "options": [_LERNASSISTENT, _INFOASSISTENT, _DIENSTE]},
 
             {"id": "la-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Lernassistenten?",
@@ -73,9 +73,9 @@ def default_config() -> dict:
              "show_if": {"question_id": "bereich", "in": [_DIENSTE]}},
 
             {"id": "gestoert", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert?"},
-            {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, askFrancis regelmäßig zu nutzen?",
+            {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, ASK Francis regelmäßig zu nutzen?",
              "options": _JA_NEIN},
-            {"id": "empfehlen", "type": "choice", "text": "Würdest du askFrancis weiterempfehlen?",
+            {"id": "empfehlen", "type": "choice", "text": "Würdest du ASK Francis weiterempfehlen?",
              "options": _JA_NEIN},
         ],
     }
