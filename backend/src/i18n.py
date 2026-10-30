@@ -365,7 +365,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Invalid translation provider",
     },
     "glossary.notProvided": {
-        "de": "Kein Glossary vorhanden",
+        "de": "Kein Glossar vorhanden",
         "en": "No glossary provided",
     },
     "screencast.noSlides": {
@@ -534,7 +534,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Glossary extract feedback (returned in response body, not detail)
     "ai.glossary.full": {
-        "de": "Glossary voll ({current} / {max}) - entferne Begriffe um neue hinzuzufügen.",
+        "de": "Glossar voll ({current} / {max}) - entferne Begriffe um neue hinzuzufügen.",
         "en": "Glossary full ({current} / {max}) - remove terms to add new ones.",
     },
     "ai.glossary.noTextSelected": {
@@ -546,7 +546,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "No worthwhile terms found in the selection.",
     },
     "ai.glossary.alreadyKnown": {
-        "de": "Die erkannten Begriffe sind bereits im Glossary.",
+        "de": "Die erkannten Begriffe sind bereits im Glossar.",
         "en": "The detected terms are already in the glossary.",
     },
     "ai.glossary.noNewTerms": {
