@@ -20,12 +20,6 @@ export const TOOL_ROUTES = [
 
 export type ToolKey = (typeof TOOL_ROUTES)[number]["key"];
 
-/** Who a start page group addresses: teaching staff, students, or both. */
-export type Audience = "lehrende" | "studierende";
-
-/** The tools group addresses teaching staff only for now. */
-export const TOOLS_AUDIENCE: readonly Audience[] = ["lehrende"];
-
 export type HomeTarget =
   | { kind: "aia"; href: "/workspace" }
   | { kind: "tool"; key: ToolKey; href: string };

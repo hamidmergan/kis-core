@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
+import type { HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
-import HoverTooltip from "@/components/ui/HoverTooltip";
 import { useEventTasks, useTaskCardMinimized } from "@/lib/event/tasks";
 import { TaskCard, TaskGiftButton } from "@/components/event/TaskCard";
 import type { Text2 } from "@/lib/event/types";
@@ -13,24 +12,6 @@ import { StartTile } from "./StartTile";
 import { StampButton } from "./StampButton";
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
-
-/** Who a group addresses, shown once next to its heading. Each tag has its own hover explanation. */
-function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
-  return (
-    <span className="flex gap-1">
-      {tags.map((tag) => (
-        <HoverTooltip key={tag.label} text={tag.hint} tapToOpen>
-          <span
-            className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
-            style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
-          >
-            {tag.label}
-          </span>
-        </HoverTooltip>
-      ))}
-    </span>
-  );
-}
 
 /** The services page, and the home page with greeting and event cards for accounts without the learning assistant. */
 export default function StartOverview({
@@ -60,8 +41,6 @@ export default function StartOverview({
   const showTasks = home && tasks.visible;
   const headingClass = "text-sm font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
-  const audienceTags = (audience: readonly Audience[]) =>
-    audience.map((a) => ({ label: t(`audience.${a}`), hint: t(`audienceHint.${a}`) }));
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
@@ -91,11 +70,12 @@ export default function StartOverview({
 
           {ordered.length > 0 && (
             <section className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                {/* Reached from the header button, the group heading is the page title. */}
-                {home ? <h2 className={headingClass}>{t("groups.tools")}</h2> : <h1 className={headingClass}>{t("groups.tools")}</h1>}
-                <AudienceTags tags={audienceTags(TOOLS_AUDIENCE)} />
-              </div>
+              {/* Reached from the header button, the group heading is the page title in the style of the workspace list. */}
+              {home ? (
+                <h2 className={headingClass}>{t("groups.tools")}</h2>
+              ) : (
+                <h1 className="text-xl md:text-2xl font-bold mb-4">{t("groups.tools")}</h1>
+              )}
               <div className={gridClass}>
                 {ordered.map((z) => (
                   <StartTile

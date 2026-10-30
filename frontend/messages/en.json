@@ -359,16 +359,8 @@
   },
   "startOverview": {
     "groups": {
-      "tools": "Services",
+      "tools": "Services for teachers",
       "event": "Tag der Lehre"
-    },
-    "audience": {
-      "lehrende": "Teachers",
-      "studierende": "Students"
-    },
-    "audienceHint": {
-      "lehrende": "Available to teachers.",
-      "studierende": "Students work in the workspaces their teachers have invited them to."
     },
     "stamp": {
       "title": "Catch Francis",
