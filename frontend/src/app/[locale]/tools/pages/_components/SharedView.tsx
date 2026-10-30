@@ -20,7 +20,7 @@ export default function SharedView({ code }: { code: string }) {
 
   useEffect(() => {
     api.getShared(code, lang).then(setData).catch((e) => {
-      // A link for askFrancis accounts only, after the login the person lands here again.
+      // A link for ASK Francis accounts only, after the login the person lands here again.
       if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/p/${code}`)}`);
       else setGone(true);
     });

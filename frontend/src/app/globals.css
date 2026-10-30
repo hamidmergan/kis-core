@@ -120,9 +120,9 @@
   --kb-darker:    #00293d;
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
-  /* Mint of the askFrancis logo, the "ask" in the wordmark. */
+  /* Mint, from the earlier logo, still used as an accent colour. */
   --brand-mint:   #7dc5ac;
-  /* Red of the beak in the askFrancis logo. */
+  /* Red, from the earlier logo, still used as an accent colour. */
   --brand-red:    #e4003a;
   /* Ball in front of the chat waiting line. */
   --warte-kugel:  var(--kb);

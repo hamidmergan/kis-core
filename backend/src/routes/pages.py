@@ -428,7 +428,7 @@ def drop_page_language(job_uuid: str, key: str, current_user: dict = Depends(get
 
 class ShareBody(BaseModel):
     on: bool
-    # True opens the link without an askFrancis account, None keeps what the page had.
+    # True opens the link without an ASK Francis account, None keeps what the page had.
     public: bool | None = None
 
 
@@ -462,7 +462,7 @@ _NOINDEX = {"X-Robots-Tag": "noindex, nofollow, noarchive"}
 
 
 def _logged_in(user: dict) -> bool:
-    """A session that counts as an askFrancis account, an expired test access does not."""
+    """A session that counts as an ASK Francis account, an expired test access does not."""
     if not user.get("user_id"):
         return False
     ablauf = user.get("access_expires_at")
@@ -473,7 +473,7 @@ def _logged_in(user: dict) -> bool:
 
 
 def _shared(code: str, user: dict, locale: str) -> tuple[dict, dict]:
-    """The page behind a link, 401 when only an askFrancis account may read it and the reader has none."""
+    """The page behind a link, 401 when only an ASK Francis account may read it and the reader has none."""
     row = repo.shared_page(code) if _CODE.match(code) else None
     page = load_page(row["user_id"], row["job_uuid"])[0] if row and row["status"] == "success" else None
     if not row or page is None:
@@ -519,7 +519,7 @@ def shared_collection(code: str, response: Response, current_user: dict = Depend
         raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
     if not daten or not (daten["enabled"] or own):
         raise HTTPException(status_code=404, detail=t("pages.collectionNotFound", locale), headers=_NOINDEX)
-    # Nothing open to show, the login may reveal the pages meant for askFrancis accounts.
+    # Nothing open to show, the login may reveal the pages meant for ASK Francis accounts.
     if not angemeldet and not daten["pages"]:
         raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
     karten = []

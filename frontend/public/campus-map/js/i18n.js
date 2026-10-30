@@ -35,10 +35,10 @@ function detectLang() {
 const CURRENT_LANG = detectLang();
 document.documentElement.lang = CURRENT_LANG;
 
-// ?partner=kis: askFrancis shows the map on a page of its own and puts its name before the title.
+// ?partner=kis: ASK Francis shows the map on a page of its own and puts its name before the title.
 if (new URLSearchParams(window.location.search).get('partner') === 'kis') {
     document.documentElement.classList.add('partner-kis');
-    // askFrancis passes its own addresses; only web links are accepted.
+    // ASK Francis passes its own addresses; only web links are accepted.
     const params = new URLSearchParams(window.location.search);
     const setPartnerLink = (id, name) => {
         const el = document.getElementById(id);

@@ -60,7 +60,7 @@ TEMPLATE = Template(
     sections=PAGES_SECTIONS,
 )
 
-# How the pictures look, a calm style in the colours of askFrancis, overridable in the prompt table.
+# How the pictures look, a calm style in the colours of ASK Francis, overridable in the prompt table.
 IMAGE_STYLE = (
     "Editorial illustration, flat shapes with subtle paper grain, calm deep blue (#004261) and "
     "soft mist grey palette with a single warm amber accent. Clean, modern, generous negative "

@@ -39,7 +39,7 @@ from src.services.source_reading import Source
 
 # What the answer of a planning call calls its passage or topic numbers.
 REFS = "refs"
-# The first words of an entry's text, copied, so askFrancis finds the passage itself.
+# The first words of an entry's text, copied, so ASK Francis finds the passage itself.
 ANFANG = "start"
 
 STELLEN = "stellen"

@@ -5,6 +5,6 @@ import SharedView from "../../tools/pages/_components/SharedView";
 
 export default function SharedPagePage() {
   const { code } = useParams<{ code: string }>();
-  // The view asks for the login itself, only when the owner keeps the link to askFrancis accounts.
+  // The view asks for the login itself, only when the owner keeps the link to ASK Francis accounts.
   return <SharedView code={code} />;
 }

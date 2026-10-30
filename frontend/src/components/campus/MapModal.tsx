@@ -16,7 +16,7 @@ export default function MapModal({ open, onClose, mapUrl, show }: Props) {
   const from = usePathname();
   const frame = useRef<HTMLIFrameElement>(null);
   const src = mapLink(mapUrl, locale, show, undefined, true);
-  // The new tab stays inside askFrancis, the page there embeds the same widget and links back to this page.
+  // The new tab stays inside ASK Francis, the page there embeds the same widget and links back to this page.
   const pageHref = getPathname({ href: { pathname: "/campusmap", query: { ...(show ? { show } : {}), from } }, locale });
   return (
     <Modal

@@ -2349,7 +2349,7 @@ async function initAnimations() {
 
     // No intro again after a language switch (page reload).
     // Direct link (?show=… / ?info=…): skip the intro and go straight to the target.
-    // In the modal (?intro=0, sent by askFrancis): no intro, only in a tab of its own
+    // In the modal (?intro=0, sent by ASK Francis): no intro, only in a tab of its own
     const params = new URLSearchParams(window.location.search);
     const hasDirectLink = params.has('show') || params.has('info');
     const introDisabled = params.get('intro') === '0';

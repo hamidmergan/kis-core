@@ -149,7 +149,7 @@ def set_collection_share(user_id: int, on: bool) -> bool:
 def collection(code: str, only_public: bool = False) -> dict | None:
     """The owner behind a collection link and every page they share, None for an unknown link.
 
-    ``only_public`` leaves out what only an askFrancis account may read.
+    ``only_public`` leaves out what only an ASK Francis account may read.
     """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
