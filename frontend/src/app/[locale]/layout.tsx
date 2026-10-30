@@ -64,7 +64,8 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <MaintenanceGuard />
           <ConsentGuard />
-          <main className="flex-1">
+          {/* The content fills at least one screen, so the footer only appears after scrolling. */}
+          <main className="flex-1 min-h-dvh">
             <LayoutShell hasSession={hasSession}>{children}</LayoutShell>
           </main>
           <FooterWrapper hasSession={hasSession} />
