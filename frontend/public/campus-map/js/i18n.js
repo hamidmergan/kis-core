@@ -35,22 +35,6 @@ function detectLang() {
 const CURRENT_LANG = detectLang();
 document.documentElement.lang = CURRENT_LANG;
 
-// ?partner=kis: ASK Francis shows the map on a page of its own and puts its name before the title.
-if (new URLSearchParams(window.location.search).get('partner') === 'kis') {
-    document.documentElement.classList.add('partner-kis');
-    // ASK Francis passes its own addresses; only web links are accepted.
-    const params = new URLSearchParams(window.location.search);
-    const setPartnerLink = (id, name) => {
-        const el = document.getElementById(id);
-        const value = params.get(name) || '';
-        if (el && /^https?:\/\//i.test(value)) el.href = value;
-        else if (el) el.hidden = true;
-    };
-    document.addEventListener('DOMContentLoaded', () => {
-        setPartnerLink('partnerHome', 'home');
-    });
-}
-
 // true if this page was reloaded by a language switch
 const CAME_FROM_LANG_SWITCH = (() => {
     try {
@@ -68,7 +52,6 @@ const UI_STRINGS = {
         'page.title': 'Campusplan – Technische Hochschule Lübeck',
         'skip.toMap': 'Direkt zur Karte',
         'header.title': 'Campusplan',
-        'partner.home': 'ASK Francis Startseite',
         'toolbox.settings': 'Einstellungen',
         'toolbox.badges': 'Badges',
         'toolbox.menu': 'Menü',
@@ -261,7 +244,6 @@ const UI_STRINGS = {
         'page.title': 'Campus Map – Technische Hochschule Lübeck',
         'skip.toMap': 'Skip to map',
         'header.title': 'Campus Map',
-        'partner.home': 'ASK Francis home page',
         'toolbox.settings': 'Settings',
         'toolbox.badges': 'Badges',
         'toolbox.menu': 'Menu',

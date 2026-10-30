@@ -58,34 +58,12 @@
         margin: 0;
     }
 
-    .partner-brand {
-        display: none;
-    }
-
-    .partner-kis .partner-brand {
-        display: flex;
-    }
-
     /* Top padding like Bootstrap pt-1 instead of pt-2; the Bootstrap classes need !important. */
     #allcontent-title,
     #allcontent-title > div:first-child {
         padding-top: 0.25rem !important;
     }
 
-
-    .partner-home {
-        display: block;
-    }
-
-    .partner-logo {
-        display: block;
-        height: 1.25rem;
-        width: auto;
-    }
-
-    .partner-home {
-        text-decoration: none;
-    }
 
     .title-sub {
         display: block;
