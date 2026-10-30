@@ -25,6 +25,7 @@ frontend/node_modules
 frontend/.next/
 frontend/.next-verify/
 frontend/.next-prod/
+frontend/.next-manual/
 frontend/out/
 frontend/tsconfig.tsbuildinfo
 
