@@ -11,6 +11,8 @@ FONT = "/Users/hamidmergan/Projects/kis-thl/frontend/node_modules/next/dist/next
 BLUE, BLACK, WHITE = "#004261", "#000000", "#ffffff"
 
 # Geometry at header size: 18 px text, letter spacing -0.02 em, plate padding 5/10/5/10, radius 8.
+# Display scale of the standalone files, so a viewer opens them at about 1000 px wide; the viewBox stays at header size.
+VIEW = 10.0
 F, LS = 18.0, -0.02 * 18
 PAD_T, PAD_R, PAD_B, PAD_L, RADIUS = 5.0, 10.0, 5.0, 10.0, 8.0
 # ASK carries the weight, Francis stays lighter, the space between takes the regular width.
@@ -60,7 +62,7 @@ def svg(plate, ask_color, francis_color):
     ox, oy = (PAD_L, PAD_T) if plate else (0.0, 0.0)
     w = ink_w + (PAD_L + PAD_R if plate else 0)
     h = ink_h + (PAD_T + PAD_B if plate else 0)
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" width="{fmt(w)}" height="{fmt(h)}">']
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" width="{fmt(w * VIEW)}" height="{fmt(h * VIEW)}">']
     if plate:
         parts.append(f'<rect width="{fmt(w)}" height="{fmt(h)}" rx="{fmt(RADIUS)}" fill="{WHITE}"/>')
     for color, keep in ((ask_color, True), (francis_color, False)):
