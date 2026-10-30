@@ -102,6 +102,7 @@ import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
 import EvaluationPage from "../_pages/nutzer/evaluation";
 
 import EventStationsPage from "../_pages/event/stations";
+import EventLandingPage from "../_pages/event/landing";
 import EventBlockPage from "../_pages/event/block";
 import EventStatsPage from "../_pages/event/stats";
 import EventTasksPage from "../_pages/event/tasks";
@@ -236,6 +237,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "block", labelKey: "block", Component: EventBlockPage },
       { slug: "tasks", labelKey: "tasks", Component: EventTasksPage },
       { slug: "stats", labelKey: "stats", Component: EventStatsPage },
+      { slug: "landing", labelKey: "landing", Component: EventLandingPage },
     ],
   },
   // System also carries the two platform-wide cards.

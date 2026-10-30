@@ -2087,6 +2087,7 @@
         "sub": "Stands, posters, the tiles on the info page and the numbers of Catch Francis. Changes are saved automatically.",
         "tabs": {
           "stations": "Stands",
+          "landing": "Landing page",
           "block": "Event block",
           "stats": "Results",
           "tasks": "Task card",
@@ -5273,6 +5274,14 @@
       "kicker": "Catch Francis",
       "a4": "As A4",
       "brand": "KIS - KInternationalisierung von Studiengängen"
+    },
+    "landing": {
+      "title": "Landing page poster",
+      "description": "A poster with a QR code that takes visitors straight to the KIS landing page.",
+      "headline": "Discover askFrancis",
+      "scanHint": "Scan the QR code and get started",
+      "png": "As PNG",
+      "a4": "As A4"
     },
     "stats": {
       "title": "Results",

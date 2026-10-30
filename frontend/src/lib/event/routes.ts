@@ -9,3 +9,8 @@ export const ROUTES = {
 export function stationQrUrl(origin: string, stationId: string): string {
   return `${origin}${ROUTES.stamp}?stand=${encodeURIComponent(stationId)}`;
 }
+
+/** The public landing page the landing poster leads to. */
+export function landingUrl(origin: string): string {
+  return `${origin}/`;
+}

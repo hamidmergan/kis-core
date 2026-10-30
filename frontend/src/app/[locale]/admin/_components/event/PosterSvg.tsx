@@ -22,10 +22,15 @@ export interface PosterArt {
   qr: string;
   thl: string;
   isy: string;
+  francis: string;
 }
 
-const LOGO_FILES = { thl: "/logos/logo-thl.jpg", isy: "/logos/isy-logo.png" } as const;
-let logoCache: Promise<Pick<PosterArt, "thl" | "isy">> | null = null;
+const LOGO_FILES = {
+  thl: "/logos/logo-thl.jpg",
+  isy: "/logos/isy-logo.png",
+  francis: "/logos/askfrancis-logo-transparent-black.svg",
+} as const;
+let logoCache: Promise<Pick<PosterArt, "thl" | "isy" | "francis">> | null = null;
 
 function toDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -37,11 +42,11 @@ function toDataUrl(blob: Blob): Promise<string> {
 }
 
 /** The partner logos as data URLs, a poster SVG with outside image links would come out blank in PNG export. */
-function loadLogos(): Promise<Pick<PosterArt, "thl" | "isy">> {
+function loadLogos(): Promise<Pick<PosterArt, "thl" | "isy" | "francis">> {
   logoCache ??= Promise.all(
     Object.values(LOGO_FILES).map((src) => fetch(src).then((r) => r.blob()).then(toDataUrl)),
   )
-    .then(([thl, isy]) => ({ thl, isy }))
+    .then(([thl, isy, francis]) => ({ thl, isy, francis }))
     .catch((e) => {
       logoCache = null;
       throw e;
@@ -76,6 +81,46 @@ export const PLATE_PAD = 2;
 export const THL_W = (LOGO_IMG_H * 473) / 166;
 export const ISY_W = (LOGO_IMG_H * 634) / 523;
 export const PLATE_W = PLATE_PAD * 3 + THL_W + ISY_W;
+const KIS_H = 6;
+const KIS_W = (KIS_H * KIS_LOGO_VIEWBOX.w) / KIS_LOGO_VIEWBOX.h;
+const FRANCIS_H = 6;
+const FRANCIS_W = (FRANCIS_H * 124.86) / 24;
+// Two white plates on the accent bar: askFrancis on the left, KIS, THL and ISy side by side on the right.
+// Space between plate edge and logo, wider than the gap between logos.
+const EDGE_PAD = 4;
+const RIGHT_PLATE_W = EDGE_PAD * 2 + PLATE_PAD * 2 + KIS_W + THL_W + ISY_W;
+const BAR_EDGE = 2;
+const BAR_H = 16;
+const PLATE_Y = 2;
+const PLATE_H = BAR_H - PLATE_Y * 2;
+const RIGHT_PLATE_X = POSTER_MM.w - BAR_EDGE - RIGHT_PLATE_W;
+const logoY = (h: number) => PLATE_Y + (PLATE_H - h) / 2;
+
+/** The accent bar at the top of every poster. */
+export function PosterHeader({ art }: { art: PosterArt | null }) {
+  return (
+    <>
+      <rect width={POSTER_MM.w} height={BAR_H} fill={ACCENT} />
+      {art && (
+        <>
+          <rect x={BAR_EDGE} y={PLATE_Y} width={FRANCIS_W + EDGE_PAD * 2} height={PLATE_H} rx={1.5} fill={PAPER} />
+          <image href={art.francis} x={BAR_EDGE + EDGE_PAD} y={logoY(FRANCIS_H)} width={FRANCIS_W} height={FRANCIS_H} />
+          <rect x={RIGHT_PLATE_X} y={PLATE_Y} width={RIGHT_PLATE_W} height={PLATE_H} rx={1.5} fill={PAPER} />
+          <svg
+            x={RIGHT_PLATE_X + EDGE_PAD}
+            y={logoY(KIS_H)}
+            width={KIS_W}
+            height={KIS_H}
+            viewBox={`${KIS_LOGO_VIEWBOX.x} ${KIS_LOGO_VIEWBOX.y} ${KIS_LOGO_VIEWBOX.w} ${KIS_LOGO_VIEWBOX.h}`}
+            dangerouslySetInnerHTML={{ __html: KIS_LOGO_MARKUP }}
+          />
+          <image href={art.thl} x={RIGHT_PLATE_X + EDGE_PAD + PLATE_PAD + KIS_W} y={logoY(LOGO_IMG_H)} width={THL_W} height={LOGO_IMG_H} />
+          <image href={art.isy} x={RIGHT_PLATE_X + EDGE_PAD + PLATE_PAD * 2 + KIS_W + THL_W} y={logoY(LOGO_IMG_H)} width={ISY_W} height={LOGO_IMG_H} />
+        </>
+      )}
+    </>
+  );
+}
 
 export function nameLines(name: string): string[] {
   if (name.length <= 18) return [name];
@@ -112,25 +157,7 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
       data-testid="poster-svg"
     >
       <rect width={POSTER_MM.w} height={POSTER_MM.h} fill={PAPER} />
-      <rect width={POSTER_MM.w} height={16} fill={ACCENT} />
-      <svg
-        x={10}
-        y={4}
-        width={LOGO_W}
-        height={LOGO_H}
-        viewBox={`${KIS_LOGO_VIEWBOX.x} ${KIS_LOGO_VIEWBOX.y} ${KIS_LOGO_VIEWBOX.w} ${KIS_LOGO_VIEWBOX.h}`}
-        dangerouslySetInnerHTML={{ __html: KIS_LOGO_MARKUP }}
-      />
-      <text x={10 + LOGO_W + 3} y={10.6} fontFamily={SANS} fontSize="5" fontWeight="600" fill={PAPER} letterSpacing="0.3">
-        {text(config.cardTexts.title) || t("kicker")}
-      </text>
-      {art && (
-        <>
-          <rect x={POSTER_MM.w - 10 - PLATE_W} y={2} width={PLATE_W} height={12} rx={1.5} fill={PAPER} />
-          <image href={art.thl} x={POSTER_MM.w - 10 - PLATE_W + PLATE_PAD} y={4.5} width={THL_W} height={LOGO_IMG_H} />
-          <image href={art.isy} x={POSTER_MM.w - 10 - PLATE_W + PLATE_PAD + THL_W + PLATE_PAD} y={4.5} width={ISY_W} height={LOGO_IMG_H} />
-        </>
-      )}
+      <PosterHeader art={art} />
       <circle cx={74} cy={36} r={15} fill={ACCENT} />
       <Icon x={63} y={25} width={22} height={22} color={PAPER} weight="bold" />
       {lines.map((line, i) => (

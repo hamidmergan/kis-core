@@ -2087,6 +2087,7 @@
         "sub": "Stände, Aufsteller, die Kacheln auf der Info-Seite und die Zahlen von Catch Francis. Änderungen werden automatisch gespeichert.",
         "tabs": {
           "stations": "Stände",
+          "landing": "Startseite",
           "block": "Event-Block",
           "stats": "Auswertung",
           "tasks": "Aufgabenkarte",
@@ -5273,6 +5274,14 @@
       "kicker": "Catch Francis",
       "a4": "Als A4",
       "brand": "KIS - KInternationalisierung von Studiengängen"
+    },
+    "landing": {
+      "title": "Aufsteller Startseite",
+      "description": "Ein Aufsteller mit QR-Code, der Besucher direkt zur Startseite von KIS führt.",
+      "headline": "Entdecke askFrancis",
+      "scanHint": "Scanne den QR-Code und leg direkt los",
+      "png": "Als PNG",
+      "a4": "Als A4"
     },
     "stats": {
       "title": "Auswertung",
