@@ -149,8 +149,8 @@ test.describe("Handbuch-Bilder", () => {
         await useLocale(page, locale);
         await page.goto(`${prefix(locale)}/login`, { waitUntil: "domcontentloaded" });
         await page.waitForSelector("#username");
-        // The card alone, without the welcome heading above it and its empty space.
-        await page.locator(".max-w-sm > div").last().screenshot({ path: shot(locale, "sign-in") });
+        // The sign-in column alone, without Francis on the left and its empty space.
+        await page.locator("form").first().locator("xpath=..").screenshot({ path: shot(locale, "sign-in") });
       });
     }
   });
@@ -501,8 +501,8 @@ test.describe("Handbuch-Bilder", () => {
       await answer.hover();
       await answer.getByTitle(LABELS[locale].showAllCitations).click();
       await page.waitForTimeout(800);
-      // The row below the answer: source count left, buttons right.
-      await answer.locator("div.justify-between").first().screenshot({
+      // The row below the answer: buttons left, source count right.
+      await answer.locator("button[aria-pressed]").locator("xpath=../..").screenshot({
         path: shot(locale, "citations-toggle"),
       });
     });
