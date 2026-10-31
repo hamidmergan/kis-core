@@ -588,7 +588,17 @@ export function TranscriptPanel({
 
   const sourceCues = sourceLang ? cues[sourceLang] : undefined;
   const targetCues = targetLang ? cues[targetLang] : undefined;
-  if (!sourceCues && !targetCues) return null;
+  if (!sourceCues && !targetCues) {
+    // A ready recording without any track is a video without sound.
+    if (langInfo?.available.length === 0) {
+      return (
+        <div className="px-4 py-3 text-xs" style={{ color: "var(--muted)" }}>
+          {t("transcriptNoAudio")}
+        </div>
+      );
+    }
+    return null;
+  }
 
   // A target track only counts when it has a different language.
   const hasSourceTrack = !!sourceCues;

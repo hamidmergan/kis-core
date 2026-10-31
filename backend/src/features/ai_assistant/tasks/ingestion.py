@@ -279,17 +279,26 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
                 whisper_client = resolve_whisper_client()
                 logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
+                from src.services.openai_compat_llm._chunking import NoAudioTrackError
+                no_audio = False
                 try:
                     segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
                         media_path, cache_key=source_uuid
                     )
+                except NoAudioTrackError:
+                    # A silent video stays playable, it just has no text.
+                    logger.info("KI Tutor: source {} has no audio track, ready without text", source_uuid)
+                    segments, no_audio = [], True
                 finally:
                     if normalized_path:
                         os.unlink(normalized_path)
-                if not segments:
+                if no_audio:
+                    chunks = []
+                elif not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
-                lang_code = (media_language or "").lower() or "unknown"
-                chunks = _store_transcript_artifacts(file_path_stored, segments, lang_code)
+                else:
+                    lang_code = (media_language or "").lower() or "unknown"
+                    chunks = _store_transcript_artifacts(file_path_stored, segments, lang_code)
                 # Ingest never translates, a separate job does that on request.
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
@@ -394,7 +403,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
 
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
-        from src.services.openai_compat_llm._chunking import AudioTooLongError
+        from src.services.openai_compat_llm._chunking import AudioTooLongError, NoAudioTrackError
         from src.tasks._errors import audio_too_long_message
 
         if isinstance(e, PdfNoReadableTextError):
@@ -404,6 +413,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                               chars=_zahl(e.chars, locale), max=_zahl(e.limit, locale))
         elif isinstance(e, AudioTooLongError):
             error_message = audio_too_long_message(e, locale)
+        elif isinstance(e, NoAudioTrackError):
+            error_message = t("transcription.noAudioTrack", locale)
         elif isinstance(e, HTTPException):
             error_message = str(e.detail)
         else:

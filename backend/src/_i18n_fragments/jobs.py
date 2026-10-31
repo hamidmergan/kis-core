@@ -42,6 +42,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten.",
         "en": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes.",
     },
+    "transcription.noAudioTrack": {
+        "de": "Das Video hat keine Tonspur, deshalb gibt es nichts zu transkribieren.",
+        "en": "The video has no audio track, so there is nothing to transcribe.",
+    },
 
     # ── glossary (terminology, per user) ──────────────────────────────────────
     "glossary.tooMany": {

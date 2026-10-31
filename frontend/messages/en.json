@@ -4139,6 +4139,7 @@
         "youtubeConsentPrivacy": "Privacy policy",
         "youtubeLoadFailed": "The player could not be loaded. Check blockers in your browser and reload the page.",
         "transcriptLoading": "Loading transcript...",
+        "transcriptNoAudio": "The video has no audio track, so there is nothing to transcribe.",
         "jumpToCurrent": "Jump to current transcript",
         "stopFollowing": "Stop following along",
         "transcriptModeLabel": "Transcript mode",

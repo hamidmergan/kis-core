@@ -40,7 +40,7 @@ def window_too_small_message(e, locale: str) -> str:
 def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> None:
     """Translates the errors a user can act on, then fails or counts one attempt."""
     from src.services.feature_router import FeatureNotConfigured
-    from src.services.openai_compat_llm._chunking import AudioTooLongError
+    from src.services.openai_compat_llm._chunking import AudioTooLongError, NoAudioTrackError
     from src.services import job_recovery
 
     from src.services.own_tts._base import OwnInterfaceError
@@ -56,6 +56,8 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
         msg = t("job.featureNotConfigured", job_locale(job_uuid))
     elif isinstance(e, AudioTooLongError):
         msg = audio_too_long_message(e, job_locale(job_uuid))
+    elif isinstance(e, NoAudioTrackError):
+        msg = t("transcription.noAudioTrack", job_locale(job_uuid))
     elif isinstance(e, WindowTooSmall):
         msg = window_too_small_message(e, job_locale(job_uuid))
     elif is_provider_refusal(e):

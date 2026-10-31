@@ -1,6 +1,7 @@
 """Splits long recordings at speech pauses for the Whisper upload."""
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 CHUNK_MAX_SEC = 540        # 9 min - safely under the typical 600s upload limit
 CHUNK_REENCODE_BITRATE_KBPS = 64  # 64 kbps mono mp3 → ~4 MB / 9-min chunk; bypass nginx upload limits (e.g. myLab 413)
 CHUNK_REENCODE_SAMPLE_RATE_HZ = 16000  # Whisper resamples to 16 kHz internally — match it to skip server-side conversion
+CHUNK_MAX_DIRECT_BYTES = 20 * 1024 * 1024  # Whisper rejects uploads above ~25 MB, leave room
 _SILENCE_NOISE_DB = -40    # dB threshold for silence detection
 _SILENCE_MIN_DURATION = 0.3  # Minimum silence duration (s)
 _SPLIT_SEARCH_WINDOW = 60  # Search window around each target split point (s)
@@ -25,6 +27,10 @@ class AudioTooLongError(Exception):
         )
 
 
+class NoAudioTrackError(ValueError):
+    """Video without a sound track, there is nothing to recognise."""
+
+
 def get_audio_duration(file_path: str) -> float:
     """Return audio/video duration in seconds via ffprobe."""
     result = subprocess.run(
@@ -34,6 +40,8 @@ def get_audio_duration(file_path: str) -> float:
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe failed: {result.stderr[:200]}")
     data = json.loads(result.stdout)
+    if not any(s.get("codec_type") == "audio" for s in data.get("streams", [])):
+        raise NoAudioTrackError("Media file has no audio stream")
     for stream in data.get("streams", []):
         duration = stream.get("duration")
         if duration:
@@ -57,6 +65,11 @@ def find_silence_starts(file_path: str) -> list[float]:
     )
     output = result.stderr + result.stdout
     return [float(m.group(1)) for m in re.finditer(r"silence_start:\s*([\d.]+)", output)]
+
+
+def fits_single_upload(file_path: str, duration: float) -> bool:
+    """True when the file is short and small enough to go to Whisper as it is."""
+    return duration <= CHUNK_MAX_SEC and os.path.getsize(file_path) <= CHUNK_MAX_DIRECT_BYTES
 
 
 def compute_split_points(duration: float, silence_starts: list[float]) -> list[float]:

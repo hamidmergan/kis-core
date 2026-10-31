@@ -4139,6 +4139,7 @@
         "youtubeConsentPrivacy": "Datenschutzerklärung",
         "youtubeLoadFailed": "Der Player konnte nicht geladen werden. Prüfe Blocker im Browser und lade die Seite neu.",
         "transcriptLoading": "Transkript wird geladen...",
+        "transcriptNoAudio": "Das Video hat keine Tonspur, deshalb gibt es nichts zu transkribieren.",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
         "stopFollowing": "Mitlaufen ausschalten",
         "transcriptModeLabel": "Transkriptmodus",

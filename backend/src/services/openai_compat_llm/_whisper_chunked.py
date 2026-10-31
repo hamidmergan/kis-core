@@ -8,10 +8,10 @@ from loguru import logger
 
 from src.services.openai_compat_llm import _chunk_cache
 from src.services.openai_compat_llm._chunking import (
-    CHUNK_MAX_SEC,
     AudioTooLongError,
     compute_split_points,
     find_silence_starts,
+    fits_single_upload,
     get_audio_duration,
     split_audio,
 )
@@ -60,7 +60,7 @@ class _WhisperChunkedMixin:
         """Recognises language, cuts overlong recordings and remembers every part."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
-        if duration <= CHUNK_MAX_SEC:
+        if fits_single_upload(file_path, duration):
             return self.transcribe(file_path, response_format=response_format)
 
         logger.info("Audio {:.1f}s exceeds limit - splitting into chunks", duration)
@@ -110,7 +110,7 @@ class _WhisperChunkedMixin:
         """Recognises and translates, cuts overlong recordings and remembers every part."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
-        if duration <= CHUNK_MAX_SEC:
+        if fits_single_upload(file_path, duration):
             return self.transcribe_and_translate(file_path, response_format=response_format)
 
         logger.info("Audio {:.1f}s exceeds limit - splitting into chunks (translate mode)", duration)
@@ -160,7 +160,7 @@ class _WhisperChunkedMixin:
         """Recognises with timestamps and returns segments, duration and language."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
-        if duration <= CHUNK_MAX_SEC:
+        if fits_single_upload(file_path, duration):
             segs, lang = self.transcribe_verbose(file_path)
             return segs, duration, lang
 
@@ -217,7 +217,7 @@ class _WhisperChunkedMixin:
         """Translates into English with timestamps, like recognition with parts."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
-        if duration <= CHUNK_MAX_SEC:
+        if fits_single_upload(file_path, duration):
             return self.translate_verbose(file_path)
 
         logger.info("Audio {:.1f}s exceeds limit - splitting for verbose translation", duration)
