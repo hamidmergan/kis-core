@@ -47,6 +47,7 @@ def test_translate_mode_reports_too(four_chunks):
 def test_short_audio_is_not_split_and_reports_nothing(four_chunks, monkeypatch):
     """Under the chunk ceiling there is one API call and no progress to report."""
     monkeypatch.setattr(wc, "get_audio_duration", lambda p: 60.0)
+    monkeypatch.setattr(wc, "fits_single_upload", lambda p, d: True)
     seen: list[tuple[int, int]] = []
 
     _StubWhisper().transcribe_chunked("f.webm", on_progress=lambda d, t: seen.append((d, t)))
