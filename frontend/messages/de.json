@@ -331,12 +331,12 @@
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
-    "body1": "ASK Francis befindet sich derzeit in der Testphase. Dein Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
-    "body2": "Wenn du Zugang zu ASK Francis brauchst, wende dich bitte an:",
+    "body1": "askFrancis befindet sich derzeit in der Testphase. Dein Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
+    "body2": "Wenn du Zugang zu askFrancis brauchst, wende dich bitte an:",
     "backToLogin": "Zurück zur Anmeldung"
   },
   "login": {
-    "welcome": "Willkommen bei ASK Francis",
+    "welcome": "Willkommen bei askFrancis",
     "title": "Anmelden",
     "formAria": "Anmeldeformular",
     "username": "Benutzername oder E-Mail-Adresse",
@@ -567,7 +567,7 @@
       "collectionText": "Alle geteilten Seiten unter einem Link, im Moment {count, plural, =1 {1 Seite} other {# Seiten}}.",
       "collectionShareTitle": "Übersicht teilen",
       "collectionShareOn": "Übersicht teilen",
-      "collectionShareNote": "Geteilt sehen alle mit ASK-Francis-Konto und dem Link deine geteilten Seiten auf einen Blick, ohne ASK-Francis-Konto nur die Seiten für alle. Jede geteilte Seite führt dann zurück zur Übersicht.",
+      "collectionShareNote": "Geteilt sehen alle mit askFrancis-Konto und dem Link deine geteilten Seiten auf einen Blick, ohne askFrancis-Konto nur die Seiten für alle. Jede geteilte Seite führt dann zurück zur Übersicht.",
       "collectionShareOffNote": "Schaltest du auf Privat, funktioniert der Link zur Übersicht nicht mehr. Deine Seiten bleiben geteilt, nur ohne Weg zur Übersicht.",
       "collectionLinkAria": "Link zur Übersicht",
       "collectionView": "Geteilte Seiten",
@@ -625,11 +625,11 @@
       "wordcloudAria": "Wortwolke",
       "loadFailed": "Die Seite ließ sich nicht laden.",
       "shareModalTitle": "Seite teilen",
-      "shareNote": "Geteilt sehen alle mit ASK-Francis-Konto und dem Link die Vorschau. Bearbeiten kannst nur du.",
+      "shareNote": "Geteilt sehen alle mit askFrancis-Konto und dem Link die Vorschau. Bearbeiten kannst nur du.",
       "sharedPublic": "Für alle geteilt",
-      "audienceInternal": "Mit ASK-Francis-Konto",
+      "audienceInternal": "Mit askFrancis-Konto",
       "audiencePublic": "Alle mit dem Link",
-      "sharePublicNote": "Alle mit dem Link sehen die Vorschau, auch ohne ASK-Francis-Konto. Wer den Link hat, kann ihn weitergeben. Bearbeiten kannst nur du.",
+      "sharePublicNote": "Alle mit dem Link sehen die Vorschau, auch ohne askFrancis-Konto. Wer den Link hat, kann ihn weitergeben. Bearbeiten kannst nur du.",
       "linkAria": "Link zur Seite",
       "shareOffNote": "Schaltest du auf Privat, funktioniert der Link nicht mehr.",
       "workspaceNote": "Kopiere den Link und füg ihn in deinem Workspace über das Plus als Material ein.",
@@ -2212,6 +2212,16 @@
       "inactive": "Inaktiv",
       "quotaButtonTitle": "Kontingente von {name}",
       "colActions": "Aktion",
+      "resetLink": {
+        "buttonTitle": "Reset-Link für {name} erstellen",
+        "title": "Reset-Link für „{name}\"",
+        "linkLabel": "Link zum Weiterleiten",
+        "copy": "Kopieren",
+        "copied": "Kopiert!",
+        "warning": "Der Link gilt bis {date}. Das alte Passwort bleibt gültig, bis die Person ein neues festlegt.",
+        "failed": "Der Link konnte nicht erstellt werden.",
+        "close": "Schließen"
+      },
       "delete": {
         "buttonTitle": "Konto löschen",
         "title": "Konto „{name}\" löschen?",
@@ -2441,14 +2451,14 @@
         "hideKey": "API-Key verbergen",
         "apiKeyHint": "Leer lassen wenn der Endpoint keinen API-Key benötigt.",
         "apiKeyEditHint": "Leer lassen behält den bestehenden API-Key.",
-        "probeHint": "Nach dem Speichern prüft ASK Francis die Erreichbarkeit des Endpoints. Welche Funktionen tatsächlich laufen, testest du pro Zeile im Bereich „Funktionen“.",
+        "probeHint": "Nach dem Speichern prüft askFrancis die Erreichbarkeit des Endpoints. Welche Funktionen tatsächlich laufen, testest du pro Zeile im Bereich „Funktionen“.",
         "fixedCapabilitiesHint": "Protokoll-fest: {caps}",
         "deeplFreeDetected": "DeepL-Free-Key erkannt (Suffix :fx) → api-free.deepl.com.",
         "deeplProDetected": "DeepL-Pro-Key erkannt → api.deepl.com.",
-        "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. ASK Francis leitet automatisch auf api-free.deepl.com um.",
-        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. ASK Francis leitet automatisch auf api.deepl.com um.",
+        "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. askFrancis leitet automatisch auf api-free.deepl.com um.",
+        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. askFrancis leitet automatisch auf api.deepl.com um.",
         "fieldConcurrency": "Gleichzeitige Aufrufe",
-        "concurrencyHint": "So viele Aufrufe schickt ASK Francis gleichzeitig an diesen Anbieter. Leer heißt ohne Grenze. Der Chat mit dem Lernassistenten zählt nicht mit, Bildanalyse zählt beim LLM mit.",
+        "concurrencyHint": "So viele Aufrufe schickt askFrancis gleichzeitig an diesen Anbieter. Leer heißt ohne Grenze. Der Chat mit dem Lernassistenten zählt nicht mit, Bildanalyse zählt beim LLM mit.",
         "concurrencyNoLimit": "ohne Grenze",
         "concurrencyBucket": {
           "llm": "LLM",
@@ -2586,7 +2596,7 @@
       },
       "windows": {
         "title": "Kontextfenster in Token",
-        "help": "So viele Token kann das Modell auf einmal lesen. ASK Francis misst das selbst. Klappt die Messung nicht, bleibt das Feld leer und das System rechnet vorsichtig mit einem Standardwert. Eine eigene Zahl überschreibt keine Messung. Leerst du das Feld, misst ASK Francis neu.",
+        "help": "So viele Token kann das Modell auf einmal lesen. askFrancis misst das selbst. Klappt die Messung nicht, bleibt das Feld leer und das System rechnet vorsichtig mit einem Standardwert. Eine eigene Zahl überschreibt keine Messung. Leerst du das Feld, misst askFrancis neu.",
         "empty": "unbekannt",
         "fieldLabel": "Kontextfenster von {model}",
         "measuring": "wird gemessen…",
@@ -3106,7 +3116,7 @@
         "now": "jetzt",
         "colSince": "seit",
         "sinceMinutes": "seit {n} min",
-        "cumulativeHint": "Alle, die ASK Francis jemals benutzt haben, aufsummiert."
+        "cumulativeHint": "Alle, die askFrancis jemals benutzt haben, aufsummiert."
       },
       "models": {
         "onlyChat": "Bisher schreibt nur der Chat mit. Vor-Calls, Übungen, Einlesen, Transkription und Vertonung fehlen in diesen Zahlen.",
@@ -4554,7 +4564,7 @@
       "createAria": "{label} erstellen",
       "emptyTitle": "Noch keine {label} vorhanden.",
       "emptyText": "Mit dem Button oben anlegen.",
-      "welcomeTitle": "Willkommen bei ASK Francis",
+      "welcomeTitle": "Willkommen bei askFrancis",
       "enroll": "Einschreiben",
       "enrollEyebrow": "Einschreibung",
       "enrollOwnerRole": "Lehrperson",
@@ -4660,12 +4670,12 @@
     }
   },
   "welcomeModal": {
-    "title": "Willkommen bei ASK Francis",
+    "title": "Willkommen bei askFrancis",
     "cta": "Los geht's"
   },
   "consent": {
     "title": "Bevor du startest",
-    "body": "ASK Francis ist eine KI-Plattform. Deine Eingaben werden von KI-Systemen verarbeitet, um dir die Dienste bereitzustellen. Details dazu stehen in der <link>Datenschutzerklärung</link>.",
+    "body": "askFrancis ist eine KI-Plattform. Deine Eingaben werden von KI-Systemen verarbeitet, um dir die Dienste bereitzustellen. Details dazu stehen in der <link>Datenschutzerklärung</link>.",
     "dataProtection": "Deine Daten werden nach den Vorgaben der DSGVO verarbeitet.",
     "checkbox": "Ich habe die Hinweise gelesen und bin einverstanden.",
     "cta": "Weiter"
@@ -4740,8 +4750,8 @@
     }
   },
   "layoutMeta": {
-    "title": "ASK Francis",
-    "description": "ASK Francis - Services der TH Lübeck",
+    "title": "askFrancis",
+    "description": "askFrancis - Services der TH Lübeck",
     "author": "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck"
   },
@@ -4765,7 +4775,7 @@
     },
     "providerStatus": {
       "title": "Erreichbarkeit der KI-Anbieter",
-      "hint": "Jeder Anbieter bekommt eine kurze echte Anfrage mit dem Modell, das ASK Francis dort nutzt.",
+      "hint": "Jeder Anbieter bekommt eine kurze echte Anfrage mit dem Modell, das askFrancis dort nutzt.",
       "loadError": "Konnte nicht geladen werden.",
       "empty": "Kein Anbieter eingerichtet.",
       "statusActive": "antwortet",
@@ -4797,7 +4807,7 @@
     "noMatch": "Kein Artikel passt zu diesem Filter."
   },
   "invite": {
-    "welcome": "Willkommen bei ASK Francis",
+    "welcome": "Willkommen bei askFrancis",
     "title": "Konto einrichten",
     "username": "Benutzername",
     "copyUsername": "Benutzernamen kopieren",
@@ -4825,8 +4835,31 @@
     "loadErrorText": "Die Einladung liess sich gerade nicht abrufen. Bitte lade die Seite neu.",
     "retry": "Neu laden"
   },
+  "resetPassword": {
+    "title": "Neues Passwort festlegen",
+    "intro": "Mit dem neuen Passwort meldest du dich ab jetzt an. Bis dahin gilt dein altes Passwort weiter.",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "passwordHint": "Mindestens {min} Zeichen",
+    "passwordRepeat": "Passwort wiederholen",
+    "submit": "Passwort speichern",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "errorTooShort": "Das Passwort braucht mindestens {min} Zeichen",
+    "errorMismatch": "Die beiden Passwörter sind nicht gleich",
+    "errorGeneric": "Das Passwort konnte nicht geändert werden",
+    "doneTitle": "Passwort geändert",
+    "doneText": "Du kannst dich jetzt mit dem neuen Passwort anmelden.",
+    "invalidTitle": "Link nicht mehr gültig",
+    "invalidText": "Dieser Link wurde bereits benutzt oder ist abgelaufen.",
+    "invalidHint": "Bitte wende dich an die Person, die dir den Link geschickt hat. Sie kann dir einen neuen Link erstellen.",
+    "toLogin": "Zur Anmeldung",
+    "loadErrorTitle": "Seite konnte nicht geladen werden",
+    "loadErrorText": "Der Link liess sich gerade nicht abrufen. Bitte lade die Seite neu.",
+    "retry": "Neu laden"
+  },
   "accessCode": {
-    "welcome": "Willkommen bei ASK Francis",
+    "welcome": "Willkommen bei askFrancis",
     "title": "Zugang einlösen",
     "intro": "Mit dem Zugangscode aus deiner Einladung legst du dir hier selbst ein Konto an.",
     "code": "Zugangscode",
@@ -4971,8 +5004,8 @@
       },
       "platform": {
         "tag": "Die Plattform",
-        "title": "ASK Francis, Lernplattform für Studierende und Lehrende",
-        "body": "ASK Francis ist das Werkzeug des Projekts. Es ist nicht auf internationale Studierende beschränkt und in jedem Fach nutzbar.",
+        "title": "askFrancis, Lernplattform für Studierende und Lehrende",
+        "body": "askFrancis ist das Werkzeug des Projekts. Es ist nicht auf internationale Studierende beschränkt und in jedem Fach nutzbar.",
         "rows": {
           "students": {
             "label": "Für Studierende",
@@ -4997,16 +5030,16 @@
           "a": "KIS steht für Kinternationalisierung von Studiengängen. Es ist ein gefördertes Pilotprojekt an der THL, das internationale Studierende beim Start in ein deutschsprachiges Fachstudium unterstützen soll. Zugleich ist KIS ein Transferprojekt: Was im Pilot entsteht, soll auf weitere Studiengänge und andere Hochschulen übertragbar sein."
         },
         "platform": {
-          "q": "Was ist ASK Francis?",
-          "a": "ASK Francis ist die Plattform, die im Projekt KIS entsteht. Der Name kommt vom Lernassistenten Francis, der Fragen zu den Unterlagen einer Lehrveranstaltung beantwortet. Für Lehrende gibt es daneben Dienste wie Dokumentenübersetzung, Podcast oder Screencast."
+          "q": "Was ist askFrancis?",
+          "a": "askFrancis ist die Plattform, die im Projekt KIS entsteht. Der Name kommt vom Lernassistenten Francis, der Fragen zu den Unterlagen einer Lehrveranstaltung beantwortet. Für Lehrende gibt es daneben Dienste wie Dokumentenübersetzung, Podcast oder Screencast."
         },
         "how": {
-          "q": "Wie läuft die Arbeit mit ASK Francis ab?",
-          "a": "Im Kern ist ASK Francis ein Lernassistent. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie ihre Studierenden ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Francis antwortet nur auf Grundlage der Materialien im Workspace."
+          "q": "Wie läuft die Arbeit mit askFrancis ab?",
+          "a": "Im Kern ist askFrancis ein Lernassistent. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie ihre Studierenden ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Francis antwortet nur auf Grundlage der Materialien im Workspace."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
-          "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. ASK Francis wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
+          "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. askFrancis wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
         },
         "who": {
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
@@ -5047,7 +5080,7 @@
     },
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "hero": {
-      "title": "<ask>ASK</ask> <francis>Francis</francis><br></br>KI-Plattform für Lehre und Studium",
+      "title": "<ask>ask</ask><francis>Francis</francis><br></br>KI-Plattform für Lehre und Studium",
       "lead": "Das Material einer Lehrveranstaltung steht im Mittelpunkt. Der Lernassistent Francis antwortet ausschließlich daraus.",
       "alt": "Workspace mit Materialien, Chat und Studio",
       "teachers": {
@@ -5159,7 +5192,7 @@
           "lead": "Aus dem Material wird eine Lernseite mit Bildern, Tabellen und Diagrammen, die sich teilen und im Workspace einbinden lässt.",
           "p1": "Die KI wählt selbst, welche Darstellungen zum Stoff passen, etwa Bilder, Tabellen oder eine Mindmap",
           "p2": "Jeder Text, jedes Bild und jede Beschriftung lässt sich danach ändern",
-          "p3": "Teilen per Link, mit oder ohne ASK-Francis-Konto",
+          "p3": "Teilen per Link, mit oder ohne askFrancis-Konto",
           "alt": "Pages-Übersicht mit einer fertigen Lernseite"
         }
       }
@@ -5240,7 +5273,7 @@
     "star": "Stern",
     "lightbulb": "Idee",
     "qrCode": "QR-Code",
-    "platform": "ASK Francis",
+    "platform": "askFrancis",
     "campus": "Infoassistent"
   },
   "eventAdmin": {
@@ -5279,7 +5312,7 @@
     "landing": {
       "title": "Aufsteller Startseite",
       "description": "Ein Aufsteller mit QR-Code, der Besucher direkt zur Startseite von KIS führt.",
-      "headline": "Entdecke ASK Francis",
+      "headline": "Entdecke askFrancis",
       "scanHint": "Scanne den QR-Code und leg direkt los",
       "png": "Als PNG",
       "a4": "Als A4"

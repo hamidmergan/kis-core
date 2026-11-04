@@ -12,7 +12,7 @@ _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/re
 # The invitation page and the access code page belong here, both carry their own credential.
 # The event pages are open on purpose, their visitors never have an account.
 # A shared page and a collection decide themselves whether their link needs a login.
-_OPEN_PREFIXES = ("/auth/", "/invites/", "/access-codes/", "/event/", "/pages/shared/", "/pages/collection/")
+_OPEN_PREFIXES = ("/auth/", "/invites/", "/password-reset/", "/access-codes/", "/event/", "/pages/shared/", "/pages/collection/")
 
 
 def access_expired_error() -> HTTPException:

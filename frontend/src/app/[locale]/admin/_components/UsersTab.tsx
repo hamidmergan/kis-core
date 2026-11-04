@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
 import DemoConfirmDialog from "./DemoConfirmDialog";
-import { Gauge, SignIn, Trash, Users } from "@phosphor-icons/react";
+import { Gauge, Key, SignIn, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
@@ -18,6 +18,7 @@ import { clearAuthCache } from "@/lib/auth";
 import { PERM } from "@/lib/permissions";
 import CreateAccountDialog from "./CreateAccountDialog";
 import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
+import ResetLinkDialog from "./ResetLinkDialog";
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const t = useTranslations("admin");
@@ -34,6 +35,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [adminEmail, setAdminEmail] = useState<string>("");
   const [meineId, setMeineId] = useState(0);
   const [zuLoeschen, setZuLoeschen] = useState<AdminUser | null>(null);
+  const [resetFuer, setResetFuer] = useState<AdminUser | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [demoFrage, setDemoFrage] = useState<{ user: AdminUser; wert: boolean } | null>(null);
   const [allowLdapCreate, setAllowLdapCreate] = useState(false);
@@ -326,6 +328,16 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                             <SignIn size={14} weight="bold" />
                           </IconButton>
                         )}
+                      {u.can_reset_link && (
+                        <IconButton
+                          size="sm"
+                          title={t("users.resetLink.buttonTitle", { name: u.display_name })}
+                          aria-label={t("users.resetLink.buttonTitle", { name: u.display_name })}
+                          onClick={() => setResetFuer(u)}
+                        >
+                          <Key size={14} weight="bold" />
+                        </IconButton>
+                      )}
                       {canDeleteUser(u, { userId: meineId, email: adminEmail }) && (
                         <IconButton
                           size="sm"
@@ -395,6 +407,14 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
             await changeDemo(demoFrage.user.id, demoFrage.wert);
             setDemoFrage(null);
           }}
+        />
+      )}
+
+      {resetFuer && (
+        <ResetLinkDialog
+          userId={resetFuer.id}
+          userName={resetFuer.display_name || resetFuer.ldap_username}
+          onClose={() => setResetFuer(null)}
         />
       )}
 

@@ -45,6 +45,7 @@ SONDERFALL = {
     "event_tasks": "haengt per Fremdschluessel an users(id)",
     "aia_grammar_topics": "gehoert dem Arbeitsbereich, verliert nur den Urheber",
     "invites": "gehoert der eingeladenen Person, verliert nur den Urheber",
+    "password_reset_tokens": "user_id geht per Kaskade mit, der Ersteller verliert nur den Urheber",
     "access_codes": "gehoert der Testrunde, verliert nur den Urheber",
     "evaluation_responses": "Antworten bleiben anonym stehen, user_id faellt per Fremdschluessel automatisch weg",
 }
@@ -82,6 +83,10 @@ def delete_user_completely(user_id: int) -> None:
             )
             cur.execute(
                 "UPDATE invites SET created_by = NULL WHERE created_by = %s",
+                (user_id,),
+            )
+            cur.execute(
+                "UPDATE password_reset_tokens SET created_by = NULL WHERE created_by = %s",
                 (user_id,),
             )
             cur.execute(

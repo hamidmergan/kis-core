@@ -9,6 +9,7 @@ from src.routes.admin.event import router as _event_router
 from src.routes.admin.feedback import router as _feedback_router
 from src.routes.admin.impersonation import router as _impersonation_router
 from src.routes.admin.invites import router as _invites_router
+from src.routes.admin.password_reset import router as _password_reset_router
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.load import router as _load_router
 from src.routes.admin.accounts import router as _accounts_router
@@ -37,6 +38,7 @@ router.include_router(_jobs_router)
 router.include_router(_load_router)
 router.include_router(_accounts_router)
 router.include_router(_invites_router)
+router.include_router(_password_reset_router)
 router.include_router(_providers_router)
 router.include_router(_model_windows_router)
 router.include_router(_quota_router)

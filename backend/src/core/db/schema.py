@@ -437,6 +437,19 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # An invitation without a mail address is normal now, LDAP no longer demands one.
             cur.execute("ALTER TABLE invites ALTER COLUMN email DROP NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (LOWER(email))")
+            # A reset link keeps the old password until the person sets a new one, only the hash of the key is stored.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id          SERIAL PRIMARY KEY,
+                    token_hash  TEXT NOT NULL UNIQUE,
+                    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    created_by  INTEGER,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    expires_at  TIMESTAMP NOT NULL,
+                    used_at     TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens (user_id)")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS access_codes (
                     id             SERIAL PRIMARY KEY,

@@ -18,6 +18,7 @@ from src.permissions_registry import (
     PERM_SET_USERS_WHITELIST,
     SYSTEM_ROLE_PERMISSIONS,
 )
+from src.features.password_reset.service import can_get_reset_link
 from src.i18n import get_locale, t
 
 from src.routes.admin._models import AddWhitelistRequest, SetUserDemoRequest
@@ -45,6 +46,11 @@ def list_users(
         limit=limit, offset=offset, q=q.strip(),
         date_from=date_from.strip(), date_to=date_to.strip(),
     )
+    env_mail = get_settings().admin_email
+    for u in users:
+        # The hash stays on the server, the list only learns whether a reset link is possible.
+        u["can_reset_link"] = can_get_reset_link(u, env_mail)
+        u.pop("password_hash", None)
     return {"users": users, "total": total, "limit": limit, "offset": offset}
 
 

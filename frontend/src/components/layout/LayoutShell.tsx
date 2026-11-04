@@ -8,7 +8,7 @@ import ImpersonationBanner from "./ImpersonationBanner";
 // The access-code pages bring their own header, like the login page.
 const NO_HEADER_PATHS = new Set(["/login", "/maintenance", "/consent", "/pending", "/redeem", "/redeem/expired", "/evaluation", "/campusmap"]);
 // An invitation carries its token in the path, so it is matched by prefix.
-const NO_HEADER_PREFIXES = ["/workspace/", "/invite/", "/tools/info"];
+const NO_HEADER_PREFIXES = ["/workspace/", "/invite/", "/reset-password/", "/tools/info"];
 // A page of Pages read inside a workspace is a page like any other, so it keeps the header.
 const WORKSPACE_PAGE = /^\/workspace\/[^/]+\/page\//;
 

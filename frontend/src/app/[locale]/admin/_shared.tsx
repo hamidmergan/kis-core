@@ -22,6 +22,7 @@ export interface AdminUser {
   role?: "admin" | "staff" | "user" | "custom";
   custom_role_id?: number | null;
   is_demo?: boolean;
+  can_reset_link?: boolean;
 }
 
 export interface AdminJob {

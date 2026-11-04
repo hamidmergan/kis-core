@@ -200,6 +200,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/invites/:path*`,
       },
       {
+        source: "/api/password-reset/:path*",
+        destination: `${backendUrl}/password-reset/:path*`,
+      },
+      {
         source: "/api/access-codes/:path*",
         destination: `${backendUrl}/access-codes/:path*`,
       },

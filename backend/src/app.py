@@ -19,7 +19,7 @@ from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
-from src.routes import access_codes, admin, auth, evaluation, event, event_tasks, feedback, glossaries, health, image, interpreter, invites, jobs, aia, ki_status, me, own_interfaces, pages, pages_demo, podcast, podcast_demo, praesentation, praesentation_demo, providers_status, screencast, screencast_demo, summary, summary_demo, transcription, translate, tts
+from src.routes import access_codes, admin, auth, evaluation, event, event_tasks, feedback, glossaries, health, image, interpreter, invites, password_reset, jobs, aia, ki_status, me, own_interfaces, pages, pages_demo, podcast, podcast_demo, praesentation, praesentation_demo, providers_status, screencast, screencast_demo, summary, summary_demo, transcription, translate, tts
 
 # Routes that stay reachable during maintenance.
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
@@ -123,7 +123,7 @@ def create_app(modules=None) -> FastAPI:
     aktiv = frozenset(modules) if modules is not None else active_modules()
 
     application = FastAPI(
-        title="ASK Francis",
+        title="askFrancis",
         lifespan=lifespan,
         dependencies=[Depends(verify_auth)],
         docs_url="/docs" if not settings.production else None,
@@ -233,6 +233,7 @@ def create_app(modules=None) -> FastAPI:
     # Register routers
     application.include_router(auth.router)
     application.include_router(invites.router)
+    application.include_router(password_reset.router)
     application.include_router(access_codes.router)
     application.include_router(health.router)
     application.include_router(jobs.router)
