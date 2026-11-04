@@ -416,6 +416,13 @@ test.describe("Handbuch-Bilder", () => {
       await page.locator('[data-tour="share"]').first().click();
       // The links are fetched only on opening.
       await page.waitForTimeout(2500);
+      // The enrolment link and its code stay unreadable in the picture, so no address shows.
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll("*")) {
+          const text = el.children.length === 0 ? (el.textContent ?? "").trim() : "";
+          if (/^https?:\/\//.test(text) || /^[0-9a-f]{8}$/.test(text)) (el as HTMLElement).style.filter = "blur(6px)";
+        }
+      });
       await page.screenshot({ path: shot(locale, "share-module") });
     });
 
