@@ -6,7 +6,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.features.password_reset.service import can_get_reset_link, hash_token, status_of
+from src.features.password_reset.service import can_get_reset_link, hash_token, may_create_link, status_of
+from src.permissions import Permissions
+from src.permissions_registry import PERM_SET_USERS_ALL
 
 BCRYPT = "$2b$12$abcdefghijklmnopqrstuv"
 ADMIN = {"user_id": 1, "email": "admin@th-luebeck.de", "role": "admin"}
@@ -28,7 +30,7 @@ def client(monkeypatch):
 
 
 def _konto(**ueberschrieben):
-    konto = {"id": 7, "ldap_username": "max", "email": "max@x.de", "role": "user", "password_hash": BCRYPT}
+    konto = {"id": 7, "ldap_username": "max", "email": "max@x.de", "role": "user", "active": 1, "password_hash": BCRYPT}
     konto.update(ueberschrieben)
     return konto
 
@@ -122,3 +124,24 @@ def test_unknown_link_and_short_password(client):
         r = client.post("/password-reset/abc", json={"password": "kurz"})
     assert r.status_code == 400
     setzen.assert_not_called()
+
+
+def _rechte(*keys):
+    return Permissions(keys=frozenset(keys))
+
+
+def test_a_target_who_manages_users_gets_no_link():
+    with patch("src.features.password_reset.service.target_permissions", return_value=_rechte(PERM_SET_USERS_ALL)):
+        assert not can_get_reset_link(_konto(role="custom", custom_role_id=3))
+
+
+def test_creation_refuses_self_inactive_and_targets_with_more_rights():
+    aktor = {"user_id": 1, "email": "a@x.de", "role": "staff"}
+    assert not may_create_link(aktor, _konto(id=1))
+    assert not may_create_link(aktor, _konto(active=0))
+    with patch("src.features.password_reset.service.permissions_of", return_value=_rechte("a")), \
+         patch("src.features.password_reset.service.target_permissions", return_value=_rechte("a", "b")):
+        assert not may_create_link(aktor, _konto())
+    with patch("src.features.password_reset.service.permissions_of", return_value=_rechte("a", "b")), \
+         patch("src.features.password_reset.service.target_permissions", return_value=_rechte("a")):
+        assert may_create_link(aktor, _konto())

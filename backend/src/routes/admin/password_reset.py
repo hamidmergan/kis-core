@@ -10,7 +10,7 @@ from src.dependencies_rbac import require_permission
 from src.features.password_reset import repository as repo
 from src.features.password_reset.service import (
     VALID_DAYS,
-    can_get_reset_link,
+    may_create_link,
     hash_token,
     new_token,
 )
@@ -32,7 +32,7 @@ def create_reset_link(
     konto = database.get_user_by_id(user_id)
     if not konto:
         raise HTTPException(status_code=404, detail=t("passwordReset.userNotFound", locale))
-    if not can_get_reset_link(dict(konto), get_settings().admin_email):
+    if not may_create_link(admin, dict(konto), get_settings().admin_email):
         raise HTTPException(status_code=403, detail=t("passwordReset.notAllowed", locale))
 
     token = new_token()
