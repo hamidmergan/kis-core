@@ -685,6 +685,9 @@ me-tpc:hover .mm-src-chip {
     .logo-plate--fit img {
       height: 0.875rem;
     }
+    .logo-plate--fit img.logo-francis {
+      height: 1.625rem;
+    }
   }
 
   /* Expand mark: no border, the hint is the mark itself, which gets stronger on

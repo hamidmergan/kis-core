@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Francis from "@/components/ui/Francis";
 import Band from "./Band";
 import Screenshot from "./Screenshot";
 import { useBandTop } from "./useBandTop";
@@ -30,8 +31,19 @@ export default function HeroRoles() {
           </h1>
           <p className="text-lg @min-[40rem]:text-xl @min-[80rem]:text-2xl leading-relaxed text-foreground-soft max-w-2xl text-balance">{t("lead")}</p>
         </div>
-        <div className="@min-[48rem]:[grid-area:shot]">
-          <Screenshot name="workspace" alt={t("alt")} />
+        {/* The top padding is the height Francis reaches above the picture, so picture and Francis together sit centred beside the text. */}
+        <div className="@min-[48rem]:pt-[5.75rem] @min-[80rem]:pt-[6.75rem] @min-[48rem]:[grid-area:shot]">
+          <div className="relative">
+            <Screenshot name="workspace" alt={t("alt")} />
+            {/* Francis sits on the top edge of the picture like on a window sill, so he covers nothing of it. Not on a phone. */}
+            <div
+              className="pointer-events-none absolute bottom-[calc(100%-0.25rem)] right-12 hidden w-28 @min-[48rem]:block @min-[80rem]:w-32"
+              style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.2))" }}
+              aria-hidden="true"
+            >
+              <Francis state="idle" className="w-full h-auto" />
+            </div>
+          </div>
         </div>
         <div className="flex flex-col gap-6 max-w-2xl @min-[48rem]:[grid-area:roles] @min-[48rem]:self-start">
           {ROLES.map((role) => (
