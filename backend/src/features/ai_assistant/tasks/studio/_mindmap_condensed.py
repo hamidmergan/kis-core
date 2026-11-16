@@ -13,11 +13,6 @@ def usable(sources: list[dict]) -> bool:
     return bool(sources) and all((s.get("summary") or "").strip() for s in sources)
 
 
-def should_condense(total_chars: int, budget: int, sources: list[dict]) -> bool:
-    """Only when the material does not fit, and only when every source can be condensed."""
-    return total_chars > budget and usable(sources)
-
-
 def summary_context(sources: list[dict]) -> str:
     """One labelled block per source: what that source is about."""
     teile = []
@@ -59,7 +54,6 @@ def _stelle(chunk: dict) -> str:
     if chunk.get("start_time") is None:
         return f"S. {chunk.get('page_number')}"
     return _spot_key(chunk)
-
 
 
 def evidence_context(hits_by_topic: dict[str, list[dict]]) -> str:
@@ -253,7 +247,7 @@ def located_in_batches(paare: list[tuple[dict, list[dict]]], limit_chars: int
 def build_small(*, sources: list[dict], language: str, adaptive_suffix: str, ask,
                 embed, search, limit_chars: int, stand: dict, verify=None, locate=None
                 ) -> dict | None:
-    """The same map for a small model: one deepening call per main branch, every step remembered."""
+    """The map for a small model: one deepening call per main branch, every step remembered."""
     import json as _json
     from src.features.ai_assistant.prompts.studio_prompts import (
         AIA_MINDMAP_DEEPEN_PROMPT,
@@ -321,71 +315,4 @@ def build_small(*, sources: list[dict], language: str, adaptive_suffix: str, ask
                 {"role": "user", "content": "/no_think\n" + locate_context(gruppe)},
             ])
             apply_located(gruppe, wahl if isinstance(wahl, dict) else {})
-    return fertig
-
-
-def build(*, sources: list[dict], language: str, adaptive_suffix: str, ask,
-          embed, search, verify=None, locate=None) -> dict | None:
-    """Two calls: the summaries give the structure, the searched passages give the depth."""
-    import json as _json
-    from src.features.ai_assistant.prompts.studio_prompts import (
-        AIA_MINDMAP_DEEPEN_PROMPT,
-        AIA_MINDMAP_LOCATE_PROMPT,
-        AIA_MINDMAP_SKELETON_PROMPT,
-    )
-
-    skeleton = ask([
-        {"role": "system",
-         "content": AIA_MINDMAP_SKELETON_PROMPT.replace("{language}", language) + adaptive_suffix},
-        {"role": "user", "content": "/no_think\nSummaries:\n\n" + summary_context(sources)},
-    ])
-    if not isinstance(skeleton, dict) or "topic" not in skeleton:
-        return None
-
-    # The skeleton knows which summary a node came from, that survives the second call.
-    bekannt = {s["label"] for s in sources if s.get("label")}
-    dateien = skeleton_sources(skeleton, bekannt)
-    skeleton.pop("source_label", None)
-
-    treffer = search_evidence(node_topics(skeleton), embed=embed, search=search)
-    belege = evidence_context(treffer)
-    if not belege:
-        logger.info("Mindmap: keine Belegstellen gefunden, das Gerippe bleibt wie es ist")
-        fill_sources(skeleton, dateien)
-        return skeleton
-
-    fertig = ask([
-        {"role": "system",
-         "content": AIA_MINDMAP_DEEPEN_PROMPT.replace("{language}", language) + adaptive_suffix},
-        {"role": "user", "content": (
-            "/no_think\nSkeleton:\n" + _json.dumps(skeleton, ensure_ascii=False)
-            + "\n\nSummaries:\n\n" + summary_context(sources)
-            + "\n\nPassages:\n\n" + belege)},
-    ])
-    if not isinstance(fertig, dict) or "topic" not in fertig:
-        logger.warning("Mindmap: Vertiefung unbrauchbar, das Gerippe bleibt wie es ist")
-        fill_sources(skeleton, dateien)
-        return skeleton
-
-    if verify is not None:
-        ohne_deckung = strip_unbacked(fertig, verify)
-        logger.info("Mindmap: {} Belege ohne Deckung entfernt", ohne_deckung)
-    fertig.pop("source_label", None)
-    fertig.pop("page_number", None)
-    ergaenzt = fill_sources(fertig, dateien)
-    logger.info("Mindmap: {} Knoten auf ihre Datei zurueckgefallen", ergaenzt)
-
-    # Third call: the outermost nodes without a spot pick one from a numbered list.
-    offen = pageless_leaves(fertig)
-    if offen and locate is not None:
-        paare = [(blatt, treffer) for blatt in offen
-                 if (treffer := locate(blatt["topic"], blatt["source_label"], _PER_LEAF))]
-        if paare:
-            wahl = ask([
-                {"role": "system", "content": AIA_MINDMAP_LOCATE_PROMPT},
-                {"role": "user", "content": "/no_think\n" + locate_context(paare)},
-            ])
-            gesetzt = apply_located(paare, wahl if isinstance(wahl, dict) else {})
-            logger.info("Mindmap: {} von {} offenen Blaettern haben ihre Seite bekommen",
-                        gesetzt, len(paare))
     return fertig

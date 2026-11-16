@@ -229,7 +229,7 @@ def _choice_item(ex: dict) -> tuple[dict, str] | None:
     prompt_text = (ex.get("question") or ex.get("sentence") or "").strip()
     options = ex.get("options") or []
     idx = ex.get("correct_idx")
-    if not prompt_text or not options or idx is None or not (0 <= idx < len(options)):
+    if not prompt_text or not options or not isinstance(idx, int) or not (0 <= idx < len(options)):
         return None
     answer = options[idx]
     return {

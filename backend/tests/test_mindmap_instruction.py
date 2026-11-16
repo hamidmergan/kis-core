@@ -144,6 +144,26 @@ def test_a_small_model_goes_the_stepwise_way_with_the_block(stack, monkeypatch):
     assert gesehen["adaptive_suffix"].endswith(anweisung.prompt_block("kurze Labels"))
 
 
+def test_a_summary_stays_with_its_own_source_when_an_earlier_one_has_no_chunks(stack, monkeypatch):
+    """Pairing by position handed the second file the summary of the skipped first one."""
+    mod, seen, row, mit, _q = stack
+    monkeypatch.setattr("src.features.ai_assistant.tasks._context_budget.small_model", lambda: True)
+    monkeypatch.setattr(mod, "_collect_sources", lambda ids, uuids: [(2, "u2.pdf", CHUNKS_B, CHUNKS_B)])
+    monkeypatch.setattr(mod.db, "get_aia_source", lambda uuid: {
+        "id": 1 if uuid == "u1" else 2, "filename": f"{uuid}.pdf", "workspace_id": 7,
+        "summary": f"Summary of {uuid}."}, raising=False)
+    mit(anweisung.Resolution("", None, False, anweisung.NONE))
+    gesehen = {}
+
+    def _build(**kwargs):
+        gesehen.update(kwargs)
+        return {"topic": "T", "children": []}
+
+    monkeypatch.setattr(mod._condensed, "build_small", _build)
+    _run()
+    assert gesehen["sources"] == [{"id": 2, "label": "u2.pdf", "summary": "Summary of u2."}]
+
+
 def test_the_title_comes_out_of_the_same_answer(stack, monkeypatch):
     """No title call of its own, the name leaves the map before it is saved."""
     mod, seen, row, mit, _q = stack

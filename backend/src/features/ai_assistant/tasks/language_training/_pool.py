@@ -9,8 +9,6 @@ from src import database as db
 from src.features.ai_assistant.repository.exercise_pool import POOL_TOOLS
 from src.features.ai_assistant.tasks.language_training._dedup import item_key
 
-# Tools with a pool, the cloze only when generated from the sources.
-
 # Fields a pool row brings along and an exercise in a set needs.
 _CARRIED = (
     "front", "back", "back_en", "options", "correct_idx", "explanation",

@@ -263,3 +263,12 @@ def test_das_modell_liest_kurzzeichen_und_die_aussage_behaelt_ihre_datei(monkeyp
     assert "[Q1, S. 9] Inhalt" in calls[0][1]["content"]
     assert gesehen["tf"][0]["_source_label"] == "02_Seminar.pdf"
     assert gesehen["tf"][0]["_page"] == 9
+
+
+def test_a_solution_index_that_is_no_number_costs_only_its_own_exercise():
+    """A string index used to raise and take the whole set down."""
+    items, _claims = mod._build_items([
+        {"question": "Was ist X?", "options": ["a", "b", "c", "d"], "correct_idx": "1"},
+        {"question": "Was ist Y?", "options": ["a", "b", "c", "d"], "correct_idx": 2},
+    ], "de")
+    assert [i["front"] for i in items] == ["Was ist Y?"]

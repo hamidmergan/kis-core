@@ -1,6 +1,14 @@
-"""After-the-fact evidence search for the data table, with its own context."""
+"""What the studio tools share about a spot in a source, and the evidence search of the data table."""
 
+from pathlib import Path
+
+from src.services import aia_chunker
 from src.services.aia_attribution import attribute_claims, _GENERIC_ATTRIB_MAX_DIST
+
+
+def _is_media_source(filename: str) -> bool:
+    """True when the source's suffix carries a transcript with timestamps."""
+    return aia_chunker.is_media_file(Path(filename).suffix)
 
 
 def _fmt_ts(seconds: float) -> str:

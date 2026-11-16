@@ -1,7 +1,6 @@
 """The display name of a generated result, kept apart from the names already taken."""
 
-# The length the title columns and the interface work with.
-MAX_TITLE_LEN = 120
+from src.features.ai_assistant.repository.titles import MAX_TITLE_LEN  # noqa: F401 - re-exported
 
 # From this similarity on two titles read as the same.
 _SAME_TITLE_RATIO = 0.90

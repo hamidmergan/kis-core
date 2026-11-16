@@ -5,22 +5,6 @@ from datetime import date, time
 from typing import Optional
 
 
-_MONTHS = {
-    "januar": 1, "january": 1, "jan": 1,
-    "februar": 2, "february": 2, "feb": 2,
-    "märz": 3, "maerz": 3, "march": 3, "mär": 3, "mar": 3,
-    "april": 4, "apr": 4,
-    "mai": 5, "may": 5,
-    "juni": 6, "june": 6, "jun": 6,
-    "juli": 7, "july": 7, "jul": 7,
-    "august": 8, "aug": 8,
-    "september": 9, "sept": 9, "sep": 9,
-    "oktober": 10, "october": 10, "okt": 10, "oct": 10,
-    "november": 11, "nov": 11,
-    "dezember": 12, "december": 12, "dez": 12, "dec": 12,
-}
-
-
 # Days written out in words, so a spoken date is found without the model.
 _ORDINALS_DE = {
     "erste": 1, "zweite": 2, "dritte": 3, "vierte": 4, "fünfte": 5, "fuenfte": 5,
@@ -51,17 +35,6 @@ for _tens_word, _tens in (("twenty-", 20), ("thirty-", 30)):
             ORDINAL_DAYS[_tens_word + _ones_word] = _tens + _ones
 
 
-def ordinal_day(word: str) -> Optional[int]:
-    """The day a written-out ordinal stands for, None when it is not one."""
-    w = word.strip().lower()
-    if w in ORDINAL_DAYS:
-        return ORDINAL_DAYS[w]
-    # German carries a case ending, "dritten" is the same day as "dritte".
-    if w[-1:] in "nmrs" and w[:-1] in ORDINAL_DAYS:
-        return ORDINAL_DAYS[w[:-1]]
-    return None
-
-
 def _parse_date(s: Optional[str]) -> Optional[date]:
     if not s:
         return None
@@ -79,116 +52,6 @@ def _parse_time(s: Optional[str]) -> Optional[time]:
         return time(int(parts[0]), int(parts[1]))
     except (ValueError, TypeError, IndexError):
         return None
-
-
-def _normalize_date(raw: str) -> Optional[str]:
-    """Convert a matched year-FULL date string to ISO 'YYYY-MM-DD'. Returns None on failure."""
-    s = raw.strip().replace(" ", " ")
-    # ISO
-    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
-    if m:
-        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
-    # DD.MM.YYYY
-    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", s)
-    if m:
-        d, mo, y = m.groups()
-        return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
-    # DD.MM.YY, a course document lives in this century.
-    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{2})", s)
-    if m:
-        d, mo, y = (int(g) for g in m.groups())
-        if 1 <= mo <= 12 and 1 <= d <= 31:
-            return f"{2000 + y:04d}-{mo:02d}-{d:02d}"
-    # DD/MM/YYYY or DD-MM-YYYY
-    m = re.fullmatch(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", s)
-    if m:
-        d, mo, y = (int(g) for g in m.groups())
-        if 1 <= mo <= 12 and 1 <= d <= 31:
-            return f"{y:04d}-{mo:02d}-{d:02d}"
-    # "3 July 2026", "3rd of July 2026"
-    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)\s+(\d{4})",
-                     s, re.IGNORECASE)
-    if m:
-        d, mo_str, y = m.groups()
-        mo = _MONTHS.get(mo_str.lower())
-        if mo and 1 <= int(d) <= 31:
-            return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
-    # A space or a period may stand before the year.
-    m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)(?:\s+|\.\s*)(\d{4})", s)
-    if m:
-        d, mo_str, y = m.groups()
-        mo = _MONTHS.get(mo_str.lower())
-        if mo:
-            return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
-    # Month D, YYYY (English)
-    m = re.fullmatch(r"([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})", s)
-    if m:
-        mo_str, d, y = m.groups()
-        mo = _MONTHS.get(mo_str.lower())
-        if mo:
-            return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
-    # Written out, e.g. "dritten Februar 2026" or "the third of February 2026".
-    m = re.fullmatch(r"(?:the\s+)?([\w-]+)\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+),?\s*(\d{4})",
-                     s, re.IGNORECASE)
-    if m:
-        day = ordinal_day(m.group(1))
-        mo = _MONTHS.get(m.group(2).lower())
-        if day and mo and 1 <= day <= 31:
-            return f"{int(m.group(3)):04d}-{mo:02d}-{day:02d}"
-    return None
-
-
-def _normalize_month_date(raw: str) -> Optional[str]:
-    """Puts a month without a day on the first of the month as a sort key."""
-    s = raw.strip().replace(" ", " ")
-    m = re.fullmatch(r"(\d{1,2})\.(\d{4})", s)
-    if m:
-        mo, y = int(m.group(1)), int(m.group(2))
-        return f"{y:04d}-{mo:02d}-01" if 1 <= mo <= 12 else None
-    m = re.fullmatch(r"([A-Za-zÄäÖöÜüß]+)\s+(\d{4})", s)
-    if m:
-        mo = _MONTHS.get(m.group(1).lower())
-        return f"{int(m.group(2)):04d}-{mo:02d}-01" if mo else None
-    return None
-
-
-def _normalize_partial_date(raw: str) -> Optional[tuple[int, int]]:
-    """Year-less date → (month, day). Returns None on failure."""
-    s = raw.strip().replace(" ", " ")
-    # DD.MM.
-    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.", s)
-    if m:
-        d, mo = int(m.group(1)), int(m.group(2))
-        return (mo, d) if 1 <= mo <= 12 and 1 <= d <= 31 else None
-    # D. Month (German)
-    m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)", s)
-    if m:
-        d = int(m.group(1))
-        mo = _MONTHS.get(m.group(2).lower())
-        if mo and 1 <= d <= 31:
-            return (mo, d)
-    # Month D (English)
-    m = re.fullmatch(r"([A-Za-z]+)\s+(\d{1,2})", s)
-    if m:
-        mo = _MONTHS.get(m.group(1).lower())
-        d = int(m.group(2))
-        if mo and 1 <= d <= 31:
-            return (mo, d)
-    # "3 July", "3rd of July"
-    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)", s, re.IGNORECASE)
-    if m:
-        d = int(m.group(1))
-        mo = _MONTHS.get(m.group(2).lower())
-        if mo and 1 <= d <= 31:
-            return (mo, d)
-    # Written out without a year, e.g. "dritten Februar".
-    m = re.fullmatch(r"(?:the\s+)?([\w-]+)\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)", s, re.IGNORECASE)
-    if m:
-        day = ordinal_day(m.group(1))
-        mo = _MONTHS.get(m.group(2).lower())
-        if day and mo and 1 <= day <= 31:
-            return (mo, day)
-    return None
 
 
 def _range_end_date(cand: dict, due_date_obj: Optional[date],

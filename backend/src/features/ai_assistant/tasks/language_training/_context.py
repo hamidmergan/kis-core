@@ -159,7 +159,6 @@ def _assemble(picked_by_label: list[tuple[str, list[dict]]],
 
 def label_for_sources(uuids: list[str]) -> str:
     """The same name as ``multi_label``, for callers that build no context."""
-    from src import database as db
     try:
         namen = [(db.get_aia_source(u) or {}).get("filename") or "" for u in uuids]
     except Exception:  # noqa: BLE001 - a name is worth no failed set

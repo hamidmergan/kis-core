@@ -5,8 +5,9 @@ import time
 from fastapi import HTTPException
 from loguru import logger
 
-from src.celery_app import celery_app
 from src import database as db
+from src.celery_app import celery_app
+from src.features.ai_assistant.tasks._helpers import _format_ts
 from src.limits import (
     AIA_TOOL_SOFT_TIME_LIMIT,
     AIA_TOOL_TIME_LIMIT,
@@ -24,8 +25,6 @@ from src.storage import (
     open_input_file,
     put_file,
 )
-
-from src.features.ai_assistant.tasks._helpers import _format_ts
 
 # The overview tools read the summary, so it is built with every source.
 _BUILD_INGEST_SUMMARY = True
@@ -58,7 +57,6 @@ def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> bool:
     """Builds the summary and says whether it worked, chunks and embeddings stay either way."""
     if not chunks:
         return True
-    from src import database as db
     from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
     try:
         db.update_aia_source_progress(source_uuid, "summarizing")
@@ -155,7 +153,7 @@ def _page_chunks(file_path: str) -> list[dict]:
     from src.features.ai_assistant.routes.sources._page import read_sidecar, write_sidecar
     from src.features.pages.text import as_text, parts
     from src.services.text_pieces import PIECE_CHARS, PIECE_OVERLAP, split_text
-    from src.storage import aia_transcript_key, put_bytes
+    from src.storage import put_bytes
     from src.tasks.pages_tasks import load_page
 
     note = read_sidecar(file_path)
@@ -200,10 +198,163 @@ def _convert_office_source(source_uuid: str, file_path: str, file_type: str, fil
     return new_path, "pdf", new_name
 
 
+def _transcribe_media(source_uuid: str, file_path_stored: str, filename: str,
+                      local_path: str) -> tuple[list[dict], float | None, str | None]:
+    """Transcribes audio or video with timestamps, returns chunks, duration and language."""
+    import os
+
+    from src.dependencies import resolve_whisper_client
+    from src.services.media_normalize import normalize_for_playback
+    from src.services.openai_compat_llm._chunking import NoAudioTrackError
+
+    # An MP4 that cannot start at once is rewritten losslessly, repeatable without damage.
+    media_path = local_path
+    normalized_path = normalize_for_playback(local_path)
+    if normalized_path:
+        put_file(file_path_stored, normalized_path)
+        media_path = normalized_path
+        logger.info("KI Tutor: normalized media {} -> progressive faststart", source_uuid)
+
+    whisper_client = resolve_whisper_client()
+    logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
+    media_duration: float | None = None
+    media_language: str | None = None
+    try:
+        segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
+            media_path, cache_key=source_uuid
+        )
+    except NoAudioTrackError:
+        # A silent video stays playable, it just has no text.
+        logger.info("KI Tutor: source {} has no audio track, ready without text", source_uuid)
+        return [], media_duration, media_language
+    finally:
+        if normalized_path:
+            os.unlink(normalized_path)
+    if not segments:
+        raise RuntimeError("Whisper returned no segments for this audio/video file.")
+    lang_code = (media_language or "").lower() or "unknown"
+    # Ingest never translates, a separate job does that on request.
+    return (_store_transcript_artifacts(file_path_stored, segments, lang_code),
+            media_duration, media_language)
+
+
+def _extract_chunks(source_uuid: str, file_type: str, file_path_stored: str, filename: str,
+                    local_path: str | None, locale: str
+                    ) -> tuple[list[dict], float | None, str | None]:
+    """The chunks of a source by its kind, with duration and language for media."""
+    from src.services import aia_chunker
+
+    if file_type == "youtube":
+        from src.features.ai_assistant.tasks._provided_transcript import (
+            detect_language, load_provided_segments,
+        )
+        segments = load_provided_segments(file_path_stored)
+        if not segments:
+            raise RuntimeError("No transcript stored for this YouTube source.")
+        language = detect_language(segments)
+        return (_store_transcript_artifacts(file_path_stored, segments, language),
+                float(segments[-1]["end"]), language)
+    if file_type == "page":
+        chunks = _page_chunks(file_path_stored)
+        check_length(chunks)
+        return chunks, None, None
+    if aia_chunker.is_media_file(file_type):
+        return _transcribe_media(source_uuid, file_path_stored, filename, local_path)
+
+    def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
+        db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
+    # An unrecognised page no longer fails the source, it just shows up here.
+    ocr_report: dict = {}
+    if file_type == "pdf":
+        from src.utils.file_validation import pages_or_raise
+        pages_or_raise(".pdf", local_path, locale)
+    # A pasted text is read from its rendered PDF so pages match the viewer.
+    chunks = aia_chunker.extract_chunks(
+        local_path, "pdf" if file_type == "text" else file_type,
+        progress_cb=_progress_cb, ocr_report=ocr_report,
+    )
+    db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
+    check_length(chunks)
+    return chunks, None, None
+
+
+def _store_and_embed(source_uuid: str, source_id: int, chunks: list[dict], provider) -> str | None:
+    """Replaces the stored chunks, embeds them in batches and returns the fingerprint."""
+    from src.limits import AIA_EMBEDDING_BATCH_SIZE
+    from src.services.aia_embeddings import compute_fingerprint, fingerprint_from_dim
+
+    # Delete old chunks first, otherwise a second attempt doubles them.
+    db.update_aia_source_progress(source_uuid, "chunking")
+    db.delete_aia_chunks_by_source(source_id)
+    # The exercise pool hangs off the text, finished sets get their content back first.
+    db.clear_pool_for_source(source_id)
+    chunk_ids: list[int] = [
+        db.create_aia_chunk(
+            source_id=source_id,
+            page_number=chunk["page_number"],
+            content=chunk["content"],
+            start_time=chunk.get("start_time"),
+            end_time=chunk.get("end_time"),
+        )
+        for chunk in chunks
+    ]
+
+    # The fingerprint is built without a probe, the size comes from the first vector.
+    fingerprint: str | None = None
+    db.update_aia_source_progress(source_uuid, "embedding")
+    beginn = time.monotonic()
+    for i in range(0, len(chunks), AIA_EMBEDDING_BATCH_SIZE):
+        batch_chunks = chunks[i: i + AIA_EMBEDDING_BATCH_SIZE]
+        batch_ids = chunk_ids[i: i + AIA_EMBEDDING_BATCH_SIZE]
+        vectors = provider.embed([c["content"] for c in batch_chunks])
+        if fingerprint is None and vectors:
+            fingerprint = fingerprint_from_dim(provider, len(vectors[0]))
+        for chunk_id, vector in zip(batch_ids, vectors):
+            db.update_chunk_embedding(chunk_id, vector)
+        logger.info(
+            "KI Tutor: embedded chunks {}-{}/{} for source {}",
+            i + 1, i + len(batch_chunks), len(chunks), source_uuid,
+        )
+    logger.info(
+        "KI Tutor: embedding done for {} ({} chunks) in {:.1f}s",
+        source_uuid, len(chunks), time.monotonic() - beginn,
+    )
+    # Last resort: if no vector came back, the fingerprint is probed once.
+    if fingerprint is None and chunks:
+        fingerprint = compute_fingerprint(provider)
+    return fingerprint
+
+
+def _index_error_message(e: Exception, locale: str) -> str:
+    """What the person reads on a source that could not be indexed."""
+    from src.i18n import t
+    from src.services.aia_chunker import PdfNoReadableTextError
+    from src.services.openai_compat_llm._chunking import AudioTooLongError, NoAudioTrackError
+    from src.tasks._errors import audio_too_long_message
+
+    if isinstance(e, PdfNoReadableTextError):
+        return t("ai.source.pdfNoReadableText", locale)
+    if isinstance(e, SourceTooLong):
+        return t("ai.source.tooManyChars", locale,
+                 chars=_zahl(e.chars, locale), max=_zahl(e.limit, locale))
+    if isinstance(e, AudioTooLongError):
+        return audio_too_long_message(e, locale)
+    if isinstance(e, NoAudioTrackError):
+        return t("transcription.noAudioTrack", locale)
+    if isinstance(e, HTTPException):
+        return str(e.detail)
+    return str(e)
+
+
+def _is_rate_limit(e: Exception) -> bool:
+    msg = str(e).lower()
+    return "429" in msg or "rate limit" in msg
+
+
 @celery_app.task(bind=True, name="aia.index_source", queue="aia_ingest")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
+    """Reads a source into chunks, embeds them and builds its summary."""
     try:
-        # 1. Load source from DB
         source = db.get_aia_source(source_uuid)
         if source is None:
             raise RuntimeError(f"Source not found: {source_uuid}")
@@ -214,17 +365,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         file_type = source["file_type"]
         filename = source["filename"]
 
-        # 2. Status → indexing
         db.update_aia_source_status(source_uuid, "indexing")
         logger.info("KI Tutor: indexing source {} ({})", source_uuid, filename)
 
-        # The fingerprint is built without a probe, the size comes from the first vector.
-        from src.services.aia_embeddings import (
-            get_embedding_provider_with_fallback, compute_fingerprint, fingerprint_from_dim,
-        )
+        from src.services.aia_embeddings import get_embedding_provider_with_fallback
         provider = get_embedding_provider_with_fallback()
-        fingerprint: str | None = None  # set from the first embedded batch (step 7)
-
         embedding_model = provider.model_name
 
         # A document that arrived directly is converted and counted here, not on upload.
@@ -233,129 +378,16 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 source_uuid, file_path_stored, file_type, filename, locale,
             )
 
-        # 4. Fetch file from storage
         import os
         from contextlib import nullcontext
         suffix = os.path.splitext(filename)[1] or f".{file_type}"
-        media_language: str | None = None
         # A YouTube source has no file, its transcript was pasted and stored as VTT.
         opener = (nullcontext(None) if file_type in ("youtube", "page")
                   else open_input_file(file_path_stored, suffix=suffix))
         with opener as local_path:
-            # 5. Extract chunks (branch: pasted transcript vs media vs document)
-            from src.services import aia_chunker
-            media_duration: float | None = None
-
-            if file_type == "youtube":
-                from src.features.ai_assistant.tasks._provided_transcript import (
-                    detect_language, load_provided_segments,
-                )
-                segments = load_provided_segments(file_path_stored)
-                if not segments:
-                    raise RuntimeError("No transcript stored for this YouTube source.")
-                media_language = detect_language(segments)
-                media_duration = float(segments[-1]["end"])
-                chunks = _store_transcript_artifacts(file_path_stored, segments, media_language)
-            elif file_type == "page":
-                chunks = _page_chunks(file_path_stored)
-                check_length(chunks)
-            elif aia_chunker.is_media_file(file_type):
-                # Audio/Video: transcribe with timestamps, then chunk
-                from src.dependencies import resolve_whisper_client
-
-                # An MP4 that cannot start at once is rewritten losslessly, repeatable without damage.
-                from src.services.media_normalize import normalize_for_playback
-                media_path = local_path
-                normalized_path = normalize_for_playback(local_path)
-                if normalized_path:
-                    from src.storage import put_file
-                    put_file(file_path_stored, normalized_path)
-                    media_path = normalized_path
-                    logger.info(
-                        "KI Tutor: normalized media {} -> progressive faststart",
-                        source_uuid,
-                    )
-
-                whisper_client = resolve_whisper_client()
-                logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
-                from src.services.openai_compat_llm._chunking import NoAudioTrackError
-                no_audio = False
-                try:
-                    segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
-                        media_path, cache_key=source_uuid
-                    )
-                except NoAudioTrackError:
-                    # A silent video stays playable, it just has no text.
-                    logger.info("KI Tutor: source {} has no audio track, ready without text", source_uuid)
-                    segments, no_audio = [], True
-                finally:
-                    if normalized_path:
-                        os.unlink(normalized_path)
-                if no_audio:
-                    chunks = []
-                elif not segments:
-                    raise RuntimeError("Whisper returned no segments for this audio/video file.")
-                else:
-                    lang_code = (media_language or "").lower() or "unknown"
-                    chunks = _store_transcript_artifacts(file_path_stored, segments, lang_code)
-                # Ingest never translates, a separate job does that on request.
-            else:
-                def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
-                    db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
-                # An unrecognised page no longer fails the source, it just shows up here.
-                ocr_report: dict = {}
-                if file_type == "pdf":
-                    from src.utils.file_validation import pages_or_raise
-                    pages_or_raise(".pdf", local_path, locale)
-                # A pasted text is read from its rendered PDF so pages match the viewer.
-                chunks = aia_chunker.extract_chunks(
-                    local_path, "pdf" if file_type == "text" else file_type,
-                    progress_cb=_progress_cb, ocr_report=ocr_report,
-                )
-                db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
-                check_length(chunks)
-
-            # Delete old chunks first, otherwise a second attempt doubles them.
-            db.update_aia_source_progress(source_uuid, "chunking")
-            db.delete_aia_chunks_by_source(source_id)
-            # The exercise pool hangs off the text, finished sets get their content back first.
-            db.clear_pool_for_source(source_id)
-            chunk_ids: list[int] = []
-            for chunk in chunks:
-                chunk_id = db.create_aia_chunk(
-                    source_id=source_id,
-                    page_number=chunk["page_number"],
-                    content=chunk["content"],
-                    start_time=chunk.get("start_time"),
-                    end_time=chunk.get("end_time"),
-                )
-                chunk_ids.append(chunk_id)
-
-            # Embed and write in pieces, the client sets the batch size itself.
-            db.update_aia_source_progress(source_uuid, "embedding")
-            _t_embed = time.monotonic()
-            from src.limits import AIA_EMBEDDING_BATCH_SIZE
-            for i in range(0, len(chunks), AIA_EMBEDDING_BATCH_SIZE):
-                batch_chunks = chunks[i: i + AIA_EMBEDDING_BATCH_SIZE]
-                batch_ids = chunk_ids[i: i + AIA_EMBEDDING_BATCH_SIZE]
-                texts = [c["content"] for c in batch_chunks]
-                vectors = provider.embed(texts)
-                if fingerprint is None and vectors:
-                    # dimension for free from the real embedding → no separate probe call
-                    fingerprint = fingerprint_from_dim(provider, len(vectors[0]))
-                for chunk_id, vector in zip(batch_ids, vectors):
-                    db.update_chunk_embedding(chunk_id, vector)
-                logger.info(
-                    "KI Tutor: embedded chunks {}-{}/{} for source {}",
-                    i + 1, i + len(batch_chunks), len(chunks), source_uuid,
-                )
-            logger.info(
-                "KI Tutor: embedding done for {} ({} chunks) in {:.1f}s",
-                source_uuid, len(chunks), time.monotonic() - _t_embed,
-            )
-            # Last resort: if no vector came back, the fingerprint is probed once.
-            if fingerprint is None and chunks:
-                fingerprint = compute_fingerprint(provider)
+            chunks, media_duration, media_language = _extract_chunks(
+                source_uuid, file_type, file_path_stored, filename, local_path, locale)
+            fingerprint = _store_and_embed(source_uuid, source_id, chunks, provider)
 
         if file_type == "text":
             # A pasted text is short enough to be its own summary, no LLM call.
@@ -369,7 +401,6 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             _mark_workspace_ready_if_done(workspace_id, embedding_model, fingerprint)
             return
 
-        # 8. Source status → ready
         db.update_aia_source_status(
             source_uuid,
             "ready",
@@ -380,20 +411,14 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         )
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
-        # 9. Check if all non-failed sources for this workspace are ready → set workspace ready
         _mark_workspace_ready_if_done(workspace_id, embedding_model, fingerprint)
 
         # The source is done, the progress field is cleared.
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
-        from src.services.aia_chunker import PdfNoReadableTextError
-        from src.i18n import t
-
         # On a temporary disruption it is re-queued with a pause.
-        msg = str(e).lower()
-        is_rate_limit = "429" in msg or "rate limit" in msg
-        if is_rate_limit and self.request.retries < 5:
+        if _is_rate_limit(e) and self.request.retries < 5:
             countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
             logger.warning(
                 "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
@@ -402,23 +427,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
 
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
-        from src.services.openai_compat_llm._chunking import AudioTooLongError, NoAudioTrackError
-        from src.tasks._errors import audio_too_long_message
-
-        if isinstance(e, PdfNoReadableTextError):
-            error_message = t("ai.source.pdfNoReadableText", locale)
-        elif isinstance(e, SourceTooLong):
-            error_message = t("ai.source.tooManyChars", locale,
-                              chars=_zahl(e.chars, locale), max=_zahl(e.limit, locale))
-        elif isinstance(e, AudioTooLongError):
-            error_message = audio_too_long_message(e, locale)
-        elif isinstance(e, NoAudioTrackError):
-            error_message = t("transcription.noAudioTrack", locale)
-        elif isinstance(e, HTTPException):
-            error_message = str(e.detail)
-        else:
-            error_message = str(e)
-        db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
+        db.update_aia_source_status(source_uuid, "failed",
+                                    error_message=_index_error_message(e, locale))
         raise
     finally:
         if _aia_job_uuid:
@@ -436,11 +446,6 @@ class TranslateFailed(Exception):
         super().__init__(str(cause))
         self.error_key = error_key
         self.cause = cause
-
-
-def _is_rate_limit(e: Exception) -> bool:
-    msg = str(e).lower()
-    return "429" in msg or "rate limit" in msg
 
 
 @celery_app.task(bind=True, name="aia.translate_transcript", queue="aia_ingest",
@@ -491,7 +496,7 @@ def _run_translate_transcript_inner(
     source_uuid: str, provider_id: int | None, target_lang: str | None
 ) -> None:
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
-    from src.storage import get_file, delete_file
+    from src.storage import get_file
     from src.dependencies import get_translate_client_for_provider
     from src.i18n import TRANSCRIPT_LANGUAGES, DEFAULT_TRANSCRIPT_TARGET
 

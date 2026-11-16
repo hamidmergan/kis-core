@@ -25,7 +25,7 @@ class AnswerTruncated(ValueError):
     """The model stopped at its answer cap, so the JSON it sent is incomplete."""
 
 
-def hit_blocks(src: dict, chunks: list[dict], open_spots: dict) -> list[dict]:
+def hit_blocks(src: dict, chunks: list[dict], open_spots: set[int]) -> list[dict]:
     """The chunks of a source with a date pattern or an open-appointment spot, as blocks."""
     blocks: list[dict] = []
     for c in chunks:

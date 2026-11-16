@@ -6,17 +6,17 @@ from datetime import date
 
 from loguru import logger
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_HARMONIZE_PROMPT
-
-from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
-
-# Room for one group per item across every day of the request.
-_MAX_TOKENS = 8000
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _candidate_start,
     _range_end_date,
 )
+
+# Room for one group per item across every day of the request.
+_MAX_TOKENS = 8000
+# A packet of 120 verdicts measured 171 s, a slow provider needs the rest.
+_TIMEOUT_SECS = 600
 
 
 def _harmonize_same_date_titles(
@@ -115,7 +115,7 @@ def _harmonize_same_date_titles(
             temperature=0.0,
             max_tokens=_MAX_TOKENS,
             response_format={"type": "json_object"},
-            timeout=_CLASSIFY_TIMEOUT_SECS,
+            timeout=_TIMEOUT_SECS,
         )
         raw = _clean_llm_json((response.choices[0].message.content or "").strip())
         parsed = json.loads(raw)

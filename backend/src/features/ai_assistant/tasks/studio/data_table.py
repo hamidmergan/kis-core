@@ -1,24 +1,24 @@
 """KI-Assistent Celery tasks - data_table generation."""
 
-from pathlib import Path
+import json
 
 from langfuse.decorators import observe
 from loguru import logger
 
-from src.celery_app import celery_app
-from src.limits import (
-    AIA_TABLE_SOFT_TIME_LIMIT,
-    AIA_TABLE_TIME_LIMIT,
-)
 from src import database as db
-
-from src.features.ai_assistant.tasks._helpers import (
-    _get_llm_client,
-    _clean_llm_json,
+from src.celery_app import celery_app
+from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
+from src.features.ai_assistant.prompts.studio_prompts import (
+    AIA_DATENTABELLE_PROMPT,
+    AIA_DATENTABELLE_WEITERE_PAKETE,
 )
 from src.features.ai_assistant.tasks._context_budget import (
     fill_sources_evenly,
     overview_context_budget,
+)
+from src.features.ai_assistant.tasks._helpers import (
+    _clean_llm_json,
+    _get_llm_client,
 )
 from src.features.ai_assistant.tasks._instruction import (
     NONE,
@@ -27,10 +27,17 @@ from src.features.ai_assistant.tasks._instruction import (
     spots_by_source,
 )
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
-from src.features.ai_assistant.tasks.studio import _table_packets
-from src.services import aia_chunker
-from src.features.ai_assistant.prompts.language_training_prompts import COMPACT_JSON_RULE
 from src.features.ai_assistant.tasks._json_commas import loads_entries
+from src.features.ai_assistant.tasks.studio import _table_packets
+from src.features.ai_assistant.tasks.studio._attribution import (
+    _fmt_ts,
+    _is_media_source,
+    nav_page_value,
+)
+from src.limits import (
+    AIA_TABLE_SOFT_TIME_LIMIT,
+    AIA_TABLE_TIME_LIMIT,
+)
 from src.services.llm_call import create_logged
 
 
@@ -48,9 +55,71 @@ def _collect_sources(source_ids: list[int],
     return vorhanden
 
 
-def _is_media_source(filename: str) -> bool:
-    """True when the source's suffix carries a transcript with timestamps."""
-    return aia_chunker.is_media_file(Path(filename).suffix)
+def _table_context(vorhanden: list[tuple[int, str, list[dict]]]
+                   ) -> tuple[list[str], dict[int, str], dict[int, set]]:
+    """The labelled passages, the file name per source and the pages the model saw."""
+    context_parts: list[str] = []
+    source_id_to_label: dict[int, str] = {}
+    seen_pages_by_source: dict[int, set] = {}
+    for sid, filename, picked in vorhanden:
+        source_id_to_label[sid] = filename
+        is_media = _is_media_source(filename)
+        for chunk in picked:
+            if is_media and chunk.get("start_time") is not None:
+                part = f"[{filename}, {_fmt_ts(chunk['start_time'])}]\n{chunk['content']}"
+            else:
+                part = f"[{filename}, S. {chunk['page_number']}]\n{chunk['content']}"
+            context_parts.append(part)
+            seen_pages_by_source.setdefault(sid, set()).add(chunk["page_number"])
+    return context_parts, source_id_to_label, seen_pages_by_source
+
+
+def _ask_packet(client, model, system: str, language: str, data_table_id: int,
+                context: str, columns) -> dict | None:
+    """One packet: the first names the columns, every further one joins them."""
+    anweisung = system
+    if columns:
+        anweisung += AIA_DATENTABELLE_WEITERE_PAKETE.format(
+            columns=", ".join(str(c) for c in columns), count=len(columns))
+    messages = [
+        {"role": "system", "content": anweisung},
+        {"role": "user", "content": (
+            f"Create a structured data table from the following text "
+            f"(write it in {language}):\n\n{context}"
+        )},
+    ]
+    # A second attempt on broken JSON, a re-roll almost always works.
+    for attempt in range(2):
+        response = create_logged(client, endpoint="datentabelle", model=model,
+                                 messages=messages, temperature=0.2)
+        if getattr(response.choices[0], "finish_reason", None) == "length":
+            logger.warning("data_table {}: Antwort abgeschnitten, Paket zu gross",
+                           data_table_id)
+            continue
+        raw = response.choices[0].message.content
+        if not raw:
+            continue
+        try:
+            return loads_entries(_clean_llm_json(raw), "rows")
+        except json.JSONDecodeError as e:
+            logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
+                           data_table_id, attempt + 1, e)
+    return None
+
+
+def _attach_sources(rows: list[dict], workspace_id, source_ids: list[int],
+                    source_id_to_label: dict[int, str], seen_pages_by_source: dict[int, set]) -> None:
+    """Attribution afterwards overwrites the guessed page with the checked one."""
+    from src.features.ai_assistant.tasks.studio._attribution import attribute_studio_claims
+    claims = [" ".join(str(c) for c in (r.get("cells") or []) if c).strip() for r in rows]
+    chip_lists = attribute_studio_claims(
+        claims, workspace_id=workspace_id, source_ids=source_ids,
+        source_id_to_label=source_id_to_label, seen_pages_by_source=seen_pages_by_source,
+    )
+    for r, chips in zip(rows, chip_lists):
+        r["sources"] = [
+            {"source_label": c["source_label"], "page": nav_page_value(c)} for c in chips
+        ]
 
 
 @celery_app.task(bind=True, name="aia.generate_data_table", queue="aia",
@@ -63,11 +132,6 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
     """Generates a data table from the sources as a background job."""
     # A requeued run takes the seat along and gives it back itself.
     platz_weiter = False
-    import json as _json
-    from src.features.ai_assistant.prompts.studio_prompts import (
-        AIA_DATENTABELLE_PROMPT,
-        AIA_DATENTABELLE_WEITERE_PAKETE,
-    )
     from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
@@ -96,24 +160,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             # Every source gets its share of one call, swept across the whole document.
             vorhanden = fill_sources_evenly(vorhanden, overview_context_budget())
 
-        context_parts: list[str] = []
-        # Which pages the model saw, the chips are limited to them.
-        source_id_to_label: dict[int, str] = {}
-        seen_pages_by_source: dict[int, set] = {}
-        for sid, filename, picked in vorhanden:
-            source_id_to_label[sid] = filename
-            is_media = _is_media_source(filename)
-            for chunk in picked:
-                if is_media and chunk.get("start_time") is not None:
-                    st = chunk["start_time"]
-                    h, m, s = int(st // 3600), int((st % 3600) // 60), int(st % 60)
-                    ts = f"{h}:{m:02}:{s:02}" if h > 0 else f"{m}:{s:02}"
-                    part = f"[{filename}, {ts}]\n{chunk['content']}"
-                else:
-                    part = f"[{filename}, S. {chunk['page_number']}]\n{chunk['content']}"
-                context_parts.append(part)
-                seen_pages_by_source.setdefault(sid, set()).add(chunk["page_number"])
-
+        context_parts, source_id_to_label, seen_pages_by_source = _table_context(vorhanden)
         if not context_parts:
             db.update_aia_data_table(data_table_id, "failed", error="Keine Chunks vorhanden")
             return
@@ -135,35 +182,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                   + title_rule(language, vergeben) + COMPACT_JSON_RULE + adaptive_suffix)
 
         def _ask(context: str, columns) -> dict | None:
-            """One packet: the first names the columns, every further one joins them."""
-            anweisung = system
-            if columns:
-                anweisung += AIA_DATENTABELLE_WEITERE_PAKETE.format(
-                    columns=", ".join(str(c) for c in columns), count=len(columns))
-            messages = [
-                {"role": "system", "content": anweisung},
-                {"role": "user", "content": (
-                    f"Create a structured data table from the following text "
-                    f"(write it in {language}):\n\n{context}"
-                )},
-            ]
-            # A second attempt on broken JSON, a re-roll almost always works.
-            for attempt in range(2):
-                response = create_logged(client, endpoint="datentabelle", model=model,
-                                         messages=messages, temperature=0.2)
-                if getattr(response.choices[0], "finish_reason", None) == "length":
-                    logger.warning("data_table {}: Antwort abgeschnitten, Paket zu gross",
-                                   data_table_id)
-                    continue
-                raw = response.choices[0].message.content
-                if not raw:
-                    continue
-                try:
-                    return loads_entries(_clean_llm_json(raw), "rows")
-                except _json.JSONDecodeError as e:
-                    logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
-                                   data_table_id, attempt + 1, e)
-            return None
+            return _ask_packet(client, model, system, language, data_table_id, context, columns)
 
         # One packet, the material already fits the overview budget.
         pakete = _table_packets.packets(context_parts, overview_context_budget(), 1)
@@ -178,20 +197,8 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             db.update_aia_data_table(data_table_id, "failed", error="Invalid table format")
             return
 
-        # Attribution afterwards overwrites the guessed page with the checked one.
-        from src.features.ai_assistant.tasks.studio._attribution import (
-            attribute_studio_claims, nav_page_value,
-        )
-        rows = table_data.get("rows") or []
-        claims = [" ".join(str(c) for c in (r.get("cells") or []) if c).strip() for r in rows]
-        chip_lists = attribute_studio_claims(
-            claims, workspace_id=workspace_id, source_ids=source_ids,
-            source_id_to_label=source_id_to_label, seen_pages_by_source=seen_pages_by_source,
-        )
-        for r, chips in zip(rows, chip_lists):
-            r["sources"] = [
-                {"source_label": c["source_label"], "page": nav_page_value(c)} for c in chips
-            ]
+        _attach_sources(table_data.get("rows") or [], workspace_id, source_ids,
+                        source_id_to_label, seen_pages_by_source)
 
         sources_list = [
             {"number": info["number"], "filename": info["filename"]}
@@ -201,7 +208,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         title = free_title(table_data.get("title"), "DataTable", vergeben)
 
         db.update_aia_data_table(data_table_id, "success",
-                                        title=title, table_data=table_data, sources=sources_list)
+                                 title=title, table_data=table_data, sources=sources_list)
         logger.info("KI Tutor: data_table {} generated successfully", data_table_id)
 
     except Exception as e:

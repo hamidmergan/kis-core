@@ -124,66 +124,6 @@ def test_no_topics_mean_no_search():
                               search=lambda *a: None) == {}
 
 
-# --- build ------------------------------------------------------------------
-
-_GERIPPE = {"topic": "Wurzel", "children": [{"topic": "Ast A"}]}
-_FERTIG = {"topic": "Wurzel", "children": [
-    {"topic": "Ast A", "source_label": "a.pdf", "page_number": 3}]}
-
-
-def _bauen(antworten, sucher=None, **over):
-    """Runs build with a scripted ask, returns the map and what was asked."""
-    calls = []
-
-    def ask(messages):
-        calls.append(messages)
-        return antworten[len(calls) - 1]
-
-    args = dict(sources=[_src(1, "a.pdf", "Über Alpha.")], language="Deutsch",
-                adaptive_suffix="", ask=ask,
-                embed=lambda t: [0.1],
-                search=sucher or (lambda q, vec, limit: [_chunk("a.pdf", 3)]))
-    args.update(over)
-    return mc.build(**args), calls
-
-
-def test_the_first_call_carries_the_summaries():
-    _map, calls = _bauen([_GERIPPE, _FERTIG])
-    assert "Über Alpha." in calls[0][1]["content"]
-
-
-def test_the_second_call_carries_the_skeleton_and_the_passages():
-    _map, calls = _bauen([_GERIPPE, _FERTIG])
-    zweiter = calls[1][1]["content"]
-    assert "Ast A" in zweiter and "[a.pdf, S. 3]" in zweiter
-
-
-def test_the_second_call_also_carries_the_summaries():
-    """The detail says WHAT, the passage only says WHERE, so both must travel."""
-    _map, calls = _bauen([_GERIPPE, _FERTIG])
-    assert "Über Alpha." in calls[1][1]["content"]
-
-
-def test_the_finished_map_comes_back():
-    karte, _calls = _bauen([_GERIPPE, _FERTIG])
-    assert karte == _FERTIG
-
-
-def test_without_a_skeleton_there_is_no_second_call():
-    karte, calls = _bauen([None])
-    assert karte is None and len(calls) == 1
-
-
-def test_without_any_passage_the_skeleton_stays():
-    karte, calls = _bauen([_GERIPPE], sucher=lambda q, vec, limit: [])
-    assert karte == _GERIPPE and len(calls) == 1
-
-
-def test_a_failed_deepening_keeps_the_skeleton():
-    karte, _calls = _bauen([_GERIPPE, None])
-    assert karte == _GERIPPE
-
-
 # --- strip_unbacked ---------------------------------------------------------
 
 def _knoten(topic, **felder):
@@ -397,25 +337,6 @@ def test_the_number_of_filled_nodes_comes_back():
     karte = {"topic": "W", "children": [{"topic": "Ast", "children": [
         {"topic": "Zweig", "children": [{"topic": "B1"}, {"topic": "B2"}]}]}]}
     assert mc.fill_sources(karte, {"Zweig": "a.pdf"}) == 3
-
-
-# --- should_condense --------------------------------------------------------
-
-_MIT = [_src(1, "a.pdf", "A"), _src(2, "b.pdf", "B")]
-_OHNE = [_src(1, "a.pdf", "A"), _src(2, "b.pdf", "")]
-
-
-def test_material_that_fits_is_read_in_full():
-    # A summary throws away detail that is there, so it is the worse way here.
-    assert mc.should_condense(90_000, 100_000, _MIT) is False
-
-
-def test_material_that_does_not_fit_goes_through_the_summaries():
-    assert mc.should_condense(110_000, 100_000, _MIT) is True
-
-
-def test_without_summaries_the_raw_way_stays_even_when_it_does_not_fit():
-    assert mc.should_condense(110_000, 100_000, _OHNE) is False
 
 
 # --- build_small: a small model takes one deepening call per main branch -------

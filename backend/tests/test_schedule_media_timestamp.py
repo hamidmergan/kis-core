@@ -33,51 +33,38 @@ QUELLE = {"id": 7, "uuid": "u-7", "filename": "vorlesung.mp4", "file_path": "x/v
 
 @pytest.fixture
 def medien_quelle(monkeypatch):
-    """A media source with one chunk and the matching segments."""
-    monkeypatch.setattr(mod.db, "get_aia_chunks_by_source", lambda sid: [dict(CHUNK)])
+    """A media source with the segments matching its chunk."""
     monkeypatch.setattr(mod, "_load_transcript_segments", lambda src: list(SEGMENTE))
     return QUELLE
 
 
-def _finde(kandidaten, teil):
-    treffer = [c for c in kandidaten if teil in (c.get("date_raw") or "")]
-    assert treffer, f"kein Kandidat mit {teil!r} in {[c.get('date_raw') for c in kandidaten]}"
-    return treffer[0]
+def _zeit(quelle, chunk, teil):
+    """The timestamp the task stores for the spot where this wording stands."""
+    index = mod._transcript_index(quelle, [chunk])
+    return mod._fundstelle_zeit(index, chunk, chunk["content"].index(teil))
 
 
 # ── The timestamp on the schedule entry ─────────────────────────────────────
 
 def test_datum_zeigt_auf_sein_segment_statt_auf_den_chunk_anfang(medien_quelle):
     """The date falls in the fourth segment, so the mark points there."""
-    kandidaten = mod._build_candidates_for_source(medien_quelle)
-    kand = _finde(kandidaten, "03.07.2026")
-    assert kand["start_time"] == 130.0, "Zeitmarke steht auf dem Chunk-Anfang statt auf dem Satz"
+    assert _zeit(medien_quelle, CHUNK, "03.07.2026") == 130.0, \
+        "Zeitmarke steht auf dem Chunk-Anfang statt auf dem Satz"
 
 
 def test_offener_termin_zeigt_auf_sein_segment(medien_quelle):
     """An open appointment has a spot too, not just the chunk."""
-    kandidaten = mod._build_candidates_for_source(medien_quelle)
-    offen = [c for c in kandidaten if c["is_tbd"]]
-    assert offen, "kein offener Termin gefunden"
-    assert offen[0]["start_time"] == 145.0
-
-
-def test_seite_bleibt_wie_sie_war(medien_quelle):
-    """Only the timestamp moves, the page number stays untouched."""
-    kandidaten = mod._build_candidates_for_source(medien_quelle)
-    assert all(c["page_number"] == 17 for c in kandidaten)
+    assert _zeit(medien_quelle, CHUNK, "nach Vereinbarung") == 145.0
 
 
 def test_pdf_ohne_zeiten_bleibt_unberuehrt(monkeypatch):
     """A PDF source has no timestamp and must not get one."""
     seite = {"id": 2, "content": "Abgabe bis 03.07.2026.", "page_number": 4,
              "start_time": None, "end_time": None}
-    monkeypatch.setattr(mod.db, "get_aia_chunks_by_source", lambda sid: [seite])
     monkeypatch.setattr(mod, "_load_transcript_segments",
                         lambda src: pytest.fail("PDF darf kein Transkript laden"))
-    kandidaten = mod._build_candidates_for_source(
-        {"id": 8, "uuid": "u-8", "filename": "plan.pdf", "file_path": "x/plan.pdf"})
-    assert _finde(kandidaten, "03.07.2026")["start_time"] is None
+    quelle = {"id": 8, "uuid": "u-8", "filename": "plan.pdf", "file_path": "x/plan.pdf"}
+    assert _zeit(quelle, seite, "03.07.2026") is None
 
 
 # ── The mapping from character position to time ─────────────────────────────

@@ -27,7 +27,7 @@ from src.services.aia_grammar_topic import derive_topic
 from src.features.ai_assistant.tasks._context_budget import exercise_context_budget
 from src.features.ai_assistant.tasks._instruction import NONE, Resolution, prompt_block
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
-from src.features.ai_assistant.tasks._warten import platz_nachfuehren
+from src.features.ai_assistant.tasks._warten import ZEITGRENZE_ANLAEUFE, platz_nachfuehren
 from src.features.ai_assistant.tasks.language_training._context import (
     build_context_from_chunks,
     build_source_context,
@@ -66,8 +66,103 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 # Stands in the title column until the generation call or the pool names the set.
 _PLATZHALTER = "Wird generiert…"
 
-# A set that hits the time limit this often is too big and not merely waiting.
-_ZEITGRENZE_ANLAEUFE = 3
+
+def _grammar_type(ex_set: dict, client, model, locale: str, language: str) -> dict | None:
+    """The catalogue entry of the set's grammar topic, None when it cannot be worked out."""
+    # The topic is read again, the job can run long after the request.
+    topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
+    if not topic:
+        return None
+    spec = db.get_topic_spec(topic["id"], locale)
+    if not spec:
+        # First use in this language, rule and example hang off it.
+        derived = derive_topic(client, model, topic["name"], language)
+        if not derived:
+            logger.warning(
+                "KI Tutor: Thema {!r} liess sich in {} nicht ausarbeiten",
+                topic["name"], locale,
+            )
+            return None
+        spec = db.save_topic_spec(
+            topic["id"], locale, derived["rule"], derived["examples"])
+    return catalog_entry(topic, spec)
+
+
+def _generate(tool: str, client, model, from_ctx, how_many: int, *, gtype, kinds,
+              anweisung: str, gezielt: bool, **shared):
+    """One generation run against a context, returns exercises, title and header."""
+    # Only equally sized numbered sections with a quota make the model use them all.
+    # Found spots carry no quota, the topic may sit in one source alone.
+    shared["coverage"] = "" if gezielt else coverage_rule(from_ctx, how_many)
+    if tool == "flashcards":
+        got, name = generate_flashcards_from_source(
+            client, model, from_ctx, how_many, **shared)
+        return got, name, None
+    if tool == "karteikarten":
+        got, name = generate_cards_from_source(
+            client, model, from_ctx, how_many,
+            instruction=prompt_block(anweisung, narrowed=gezielt), **shared)
+        return got, name, None
+    if tool == "grammatik":
+        # One call, the chosen formats mixed evenly.
+        return generate_grammar_from_source(
+            client, model, from_ctx, gtype, how_many, kinds=kinds, **shared)
+    got, name = generate_mc_from_source(
+        client, model, from_ctx, how_many,
+        instruction=prompt_block(anweisung), **shared)
+    return got, name, None
+
+
+def _fill_shortfall(set_id: int, tool: str, user_id, items: list[dict], neu: list[dict],
+                    zu_erzeugen: int, vorrat: tuple | None) -> tuple[list[dict], list[dict]]:
+    """Drops what the person already had, a set left short is filled with repeats."""
+    # Whatever this person already had is dropped.
+    gehabt = seen_by_user(user_id, tool)
+    # What the model repeated stays at hand, it fills the set once the material is used up.
+    schon_gehabt: list[dict] = []
+    if neu:
+        vorher = neu
+        neu, wiederholt = drop_repeats(neu, gehabt + [i.get("front", "") for i in items])
+        schon_gehabt += [i for i in vorher if all(i is not k for k in neu)]
+        if wiederholt:
+            logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
+                        set_id, wiederholt)
+
+    # Truly nothing new left in the pool or from the model: a repeat still
+    # beats a set that stays short.
+    fehlt = zu_erzeugen - len(neu)
+    aufgefuellt = 0
+    if fehlt > 0 and vorrat is not None:
+        uuids, level, topic_id, kinds = vorrat
+        wiederholt = take_from_pool(
+            uuids, tool, level, user_id, fehlt, topic_id,
+            exclude_ids=[i["pool_item_id"] for i in items if i.get("pool_item_id")],
+            kinds=kinds, ignore_seen=True,
+        )
+        if wiederholt:
+            # Must not collide with what the model just generated either.
+            wiederholt, _ = drop_repeats(wiederholt, [i.get("front", "") for i in neu])
+        if wiederholt:
+            logger.info(
+                "KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit bereits "
+                "gesehenen Aufgaben, Vorrat und Modell reichen nicht mehr",
+                set_id, len(wiederholt), fehlt,
+            )
+            items = items + wiederholt
+            aufgefuellt = len(wiederholt)
+
+    # Material used up: the person gets repeats rather than a set that fails.
+    fehlt = zu_erzeugen - len(neu) - aufgefuellt
+    if fehlt > 0 and schon_gehabt:
+        nochmal, _ = drop_repeats(schon_gehabt, [i.get("front", "") for i in items + neu])
+        nochmal = nochmal[:fehlt]
+        if nochmal:
+            logger.info("KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit Wiederholungen, "
+                        "das Material ist ausgeschöpft", set_id, len(nochmal), fehlt)
+            for item in nochmal:
+                item.pop("_kind", None)
+            items = items + nochmal
+    return items, neu
 
 
 @celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
@@ -168,118 +263,34 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                                 set_id, len(items), count)
 
             zu_erzeugen = count - len(items)
-            if zu_erzeugen <= 0:
-                # The pool was enough, only the title is missing.
-                ctx = None
-            elif gezielt:
+            # When the pool was enough only the title is missing, no context is built.
+            if zu_erzeugen > 0 and gezielt:
                 ctx = build_context_from_chunks(uuids, wahl.chunks)
                 if ctx is None:
                     db.fail_exercise_set(set_id)
                     return
-            else:
+            elif zu_erzeugen > 0:
                 ctx = build_source_context(uuids, tool, count=zu_erzeugen)
                 if ctx is None and not items:
                     db.fail_exercise_set(set_id)
                     return
 
         if mode == "source" and ctx is not None:
-
             gtype = None
             if tool == "grammatik":
-                # The topic is read again, the job can run long after the request.
-                topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
-                if not topic:
+                gtype = _grammar_type(ex_set, client, model, locale, language)
+                if gtype is None:
                     db.fail_exercise_set(set_id)
                     return
-                spec = db.get_topic_spec(topic["id"], locale)
-                if not spec:
-                    # First use in this language, rule and example hang off it.
-                    derived = derive_topic(client, model, topic["name"], language)
-                    if not derived:
-                        logger.warning(
-                            "KI Tutor: Thema {!r} liess sich in {} nicht ausarbeiten",
-                            topic["name"], locale,
-                        )
-                        db.fail_exercise_set(set_id)
-                        return
-                    spec = db.save_topic_spec(
-                        topic["id"], locale, derived["rule"], derived["examples"])
-                gtype = catalog_entry(topic, spec)
-
-            def generate(from_ctx, how_many):
-                """One generation run against a context, returns exercises, title and header."""
-                # Only equally sized numbered sections with a quota make the model use them all.
-                # Found spots carry no quota, the topic may sit in one source alone.
-                cov = "" if gezielt else coverage_rule(from_ctx, how_many)
-                shared = dict(locale=locale, language=language,
-                              adaptive_suffix=adaptive_suffix,
-                              title_avoidance=title_avoidance, coverage=cov)
-                if tool == "flashcards":
-                    got, name = generate_flashcards_from_source(
-                        client, model, from_ctx, how_many, **shared)
-                    return got, name, None
-                if tool == "karteikarten":
-                    got, name = generate_cards_from_source(
-                        client, model, from_ctx, how_many,
-                        instruction=prompt_block(anweisung, narrowed=gezielt), **shared)
-                    return got, name, None
-                if tool == "grammatik":
-                    # One call, the chosen formats mixed evenly.
-                    return generate_grammar_from_source(
-                        client, model, from_ctx, gtype, how_many, kinds=kinds, **shared)
-                got, name = generate_mc_from_source(
-                    client, model, from_ctx, how_many,
-                    instruction=prompt_block(anweisung), **shared)
-                return got, name, None
 
             # One call per set, a shortfall is filled from the pool or the model's repeats.
-            neu, title, header = generate(ctx, zu_erzeugen)
-
-            # Whatever this person already had is dropped.
-            gehabt = seen_by_user(user_id, tool)
-            # What the model repeated stays at hand, it fills the set once the material is used up.
-            schon_gehabt: list[dict] = []
-            if neu:
-                vorher = neu
-                neu, wiederholt = drop_repeats(neu, gehabt + [i.get("front", "") for i in items])
-                schon_gehabt += [i for i in vorher if all(i is not k for k in neu)]
-                if wiederholt:
-                    logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
-                                set_id, wiederholt)
-
-            # Truly nothing new left in the pool or from the model: a repeat still
-            # beats a set that stays short.
-            fehlt = zu_erzeugen - len(neu)
-            aufgefuellt = 0
-            if fehlt > 0 and mit_vorrat:
-                wiederholt = take_from_pool(
-                    uuids, tool, level, user_id, fehlt, topic_id,
-                    exclude_ids=[i["pool_item_id"] for i in items if i.get("pool_item_id")],
-                    kinds=kinds, ignore_seen=True,
-                )
-                if wiederholt:
-                    # Must not collide with what the model just generated either.
-                    wiederholt, _ = drop_repeats(wiederholt, [i.get("front", "") for i in neu])
-                if wiederholt:
-                    logger.info(
-                        "KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit bereits "
-                        "gesehenen Aufgaben, Vorrat und Modell reichen nicht mehr",
-                        set_id, len(wiederholt), fehlt,
-                    )
-                    items = items + wiederholt
-                    aufgefuellt = len(wiederholt)
-
-            # Material used up: the person gets repeats rather than a set that fails.
-            fehlt = zu_erzeugen - len(neu) - aufgefuellt
-            if fehlt > 0 and schon_gehabt:
-                nochmal, _ = drop_repeats(schon_gehabt, [i.get("front", "") for i in items + neu])
-                nochmal = nochmal[:fehlt]
-                if nochmal:
-                    logger.info("KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit Wiederholungen, "
-                                "das Material ist ausgeschöpft", set_id, len(nochmal), fehlt)
-                    for item in nochmal:
-                        item.pop("_kind", None)
-                    items = items + nochmal
+            neu, title, header = _generate(
+                tool, client, model, ctx, zu_erzeugen, gtype=gtype, kinds=kinds,
+                anweisung=anweisung, gezielt=gezielt, locale=locale, language=language,
+                adaptive_suffix=adaptive_suffix, title_avoidance=title_avoidance)
+            items, neu = _fill_shortfall(
+                set_id, tool, user_id, items, neu, zu_erzeugen,
+                (uuids, level, topic_id, kinds) if mit_vorrat else None)
 
             # Store them so the next call gets them for free, the name comes along
             # so a later set drawn purely from the pool needs no call to be named.
@@ -341,7 +352,7 @@ def _wieder_einreihen(e: Exception, erstellt, anlauf: int, args: list, kwargs: d
     from src.features.ai_assistant.tasks._retry import _soft_deadline
     # The SDK hides an expired deadline behind a connection error, that is no busy provider.
     if isinstance(e, SoftTimeLimitExceeded) or _soft_deadline(e) is not None:
-        if anlauf >= _ZEITGRENZE_ANLAEUFE:
+        if anlauf >= ZEITGRENZE_ANLAEUFE:
             return False
     elif not is_upstream_busy(e):
         return False

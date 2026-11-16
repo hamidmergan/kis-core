@@ -3,9 +3,6 @@
 import pytest
 
 from src.features.ai_assistant.tasks.studio.schedule._regex import _date_candidates_in_text
-from src.features.ai_assistant.tasks.studio.schedule._parse import (
-    _normalize_date, _normalize_month_date, _normalize_partial_date,
-)
 
 
 def _only(text: str):
@@ -14,15 +11,14 @@ def _only(text: str):
     return found[0]
 
 
-@pytest.mark.parametrize("text, raw, iso", [
-    ("Die Abgabe ist im Januar 2026 geplant.", "Januar 2026", "2026-01-01"),
-    ("The retake takes place in July 2026.", "July 2026", "2026-07-01"),
-    ("Start der Vorlesung: Sept 2026.", "Sept 2026", "2026-09-01"),
+@pytest.mark.parametrize("text, raw", [
+    ("Die Abgabe ist im Januar 2026 geplant.", "Januar 2026"),
+    ("The retake takes place in July 2026.", "July 2026"),
+    ("Start der Vorlesung: Sept 2026.", "Sept 2026"),
 ])
-def test_month_name_with_year_is_a_month_hit(text, raw, iso):
+def test_month_name_with_year_is_a_month_hit(text, raw):
     s, e, got, has_year, prec = _only(text)
     assert (got, has_year, prec) == (raw, True, "month")
-    assert _normalize_month_date(got) == iso
 
 
 @pytest.mark.parametrize("text, raw", [
@@ -53,14 +49,13 @@ def test_day_month_year_beats_the_month_with_year_inside_it():
     assert (got, prec) == ("3. Juli 2026", "day")
 
 
-@pytest.mark.parametrize("text, raw, iso", [
-    ("Abgabe bis 3.6.26 um 12 Uhr.", "3.6.26", "2026-06-03"),
-    ("Klausur am 03.06.26.", "03.06.26", "2026-06-03"),
+@pytest.mark.parametrize("text, raw", [
+    ("Abgabe bis 3.6.26 um 12 Uhr.", "3.6.26"),
+    ("Klausur am 03.06.26.", "03.06.26"),
 ])
-def test_two_digit_year_is_expanded_to_this_century(text, raw, iso):
+def test_two_digit_year_is_expanded_to_this_century(text, raw):
     s, e, got, has_year, prec = _only(text)
     assert (got, has_year, prec) == (raw, True, "day")
-    assert _normalize_date(got) == iso
 
 
 def test_two_digit_year_does_not_eat_a_four_digit_one():
@@ -68,14 +63,13 @@ def test_two_digit_year_does_not_eat_a_four_digit_one():
     assert got == "03.06.2026"
 
 
-@pytest.mark.parametrize("text, raw, iso", [
-    ("Deadline: 03/06/2026.", "03/06/2026", "2026-06-03"),
-    ("Deadline: 3-6-2026.", "3-6-2026", "2026-06-03"),
+@pytest.mark.parametrize("text, raw", [
+    ("Deadline: 03/06/2026.", "03/06/2026"),
+    ("Deadline: 3-6-2026.", "3-6-2026"),
 ])
-def test_slash_and_dash_separators_are_day_month_year(text, raw, iso):
+def test_slash_and_dash_separators_are_day_month_year(text, raw):
     s, e, got, has_year, prec = _only(text)
     assert (got, has_year, prec) == (raw, True, "day")
-    assert _normalize_date(got) == iso
 
 
 def test_iso_date_is_not_mistaken_for_a_dash_form():
@@ -83,25 +77,23 @@ def test_iso_date_is_not_mistaken_for_a_dash_form():
     assert got == "2026-07-03"
 
 
-@pytest.mark.parametrize("text, raw, iso", [
-    ("The exam is on 3 July 2026.", "3 July 2026", "2026-07-03"),
-    ("Submission by 3rd July 2026.", "3rd July 2026", "2026-07-03"),
-    ("Submission by the 21st of March 2026.", "21st of March 2026", "2026-03-21"),
+@pytest.mark.parametrize("text, raw", [
+    ("The exam is on 3 July 2026.", "3 July 2026"),
+    ("Submission by 3rd July 2026.", "3rd July 2026"),
+    ("Submission by the 21st of March 2026.", "21st of March 2026"),
 ])
-def test_english_day_before_month_with_year(text, raw, iso):
+def test_english_day_before_month_with_year(text, raw):
     s, e, got, has_year, prec = _only(text)
     assert (got, has_year, prec) == (raw, True, "day")
-    assert _normalize_date(got) == iso
 
 
-@pytest.mark.parametrize("text, raw, tag_monat", [
-    ("The exam is on 3 July.", "3 July", (7, 3)),
-    ("Submission by 3rd July.", "3rd July", (7, 3)),
+@pytest.mark.parametrize("text, raw", [
+    ("The exam is on 3 July.", "3 July"),
+    ("Submission by 3rd July.", "3rd July"),
 ])
-def test_english_day_before_month_without_year(text, raw, tag_monat):
+def test_english_day_before_month_without_year(text, raw):
     s, e, got, has_year, prec = _only(text)
     assert (got, has_year, prec) == (raw, False, "day")
-    assert _normalize_partial_date(got) == tag_monat
 
 
 @pytest.mark.parametrize("text, raw", [

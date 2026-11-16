@@ -48,7 +48,7 @@ def test_a_chunk_without_a_date_or_open_spot_is_left_out():
 
 def test_a_chunk_the_open_search_found_is_a_block_too():
     out = hit_blocks(SRC, [_chunk(12, "Der Termin wird noch bekannt gegeben.")],
-                     {12: (0, 10, "Der Termin wird noch bekannt gegeben.")})
+                     {12})
     assert [b["id"] for b in out] == [12]
 
 
