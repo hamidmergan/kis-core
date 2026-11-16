@@ -21,6 +21,14 @@ class DemoLeaveBody(BaseModel):
     workspace_uuid: str
 
 
+def _demo_course(workspace_uuid: str, user_id: int, locale: str) -> dict:
+    """The demo course behind this uuid as this person sees it, otherwise 404."""
+    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == workspace_uuid), None)
+    if kurs is None:
+        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    return kurs
+
+
 @router.get("/ai-assistant/demo/workspaces")
 def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
     """All active courses of the demo accounts, without the internal ids."""
@@ -70,9 +78,7 @@ def leave_demo(
 ):
     """Withdraws the enrollment, everything else in the course stays."""
     user_id = current_user["user_id"]
-    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
-    if kurs is None:
-        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    kurs = _demo_course(body.workspace_uuid, user_id, locale)
     geloescht = db.delete_demo_enrollment(kurs["id"], user_id)
     logger.info("Demo: Nutzer {} hat Kurs {} verlassen: {}", user_id, kurs["uuid"], geloescht)
     return {"left": geloescht}
@@ -86,9 +92,7 @@ def prepare_tour_content(
 ):
     """Puts the glossary entry and the note the guided tour shows in place."""
     user_id = current_user["user_id"]
-    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
-    if kurs is None:
-        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    kurs = _demo_course(body.workspace_uuid, user_id, locale)
     return lege_rundgang_inhalte_an(kurs["id"], user_id)
 
 
@@ -100,7 +104,5 @@ def prepare_tour_chat_example(
 ):
     """Puts the example question and answer in the chat, called only at that tour step."""
     user_id = current_user["user_id"]
-    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
-    if kurs is None:
-        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    kurs = _demo_course(body.workspace_uuid, user_id, locale)
     return {"added": lege_chat_beispiel_an(kurs["id"], user_id)}

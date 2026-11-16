@@ -10,7 +10,12 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import (
+    _rename_artifact,
+    _require_workspace_member,
+    _resolve_source_ids,
+    _visible_workspace,
+)
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 
@@ -66,9 +71,7 @@ def get_data_table(
 ):
     """Poll data_table status."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    _visible_workspace(workspace_uuid, locale)
 
     dt = db.get_aia_data_table(data_table_id)
     if not dt or dt["user_id"] != user_id:
@@ -84,9 +87,7 @@ def get_latest_data_table(
 ):
     """Get the most recent data_table for a workspace."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     dt = db.get_latest_aia_data_table(workspace["id"], user_id)
     return _mit_anweisung(dt) if dt else {}
@@ -99,9 +100,7 @@ def get_data_tables(
 ):
     """Get all data_tables for a workspace."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     rows = db.get_aia_data_tables_by_workspace(workspace["id"], user_id)
     return [
@@ -138,20 +137,5 @@ def rename_data_table(
     locale: str = Depends(get_locale),
 ):
     """Change the name of a data table."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    titel = db.clean_title(body.title)
-    if not titel:
-        raise HTTPException(status_code=400, detail=t("title.empty", locale))
-
-    # Someone else's row: 404 instead of 403, as on the delete route above.
-    if not db.update_artifact_title("data_table", data_table_id, user_id, workspace["id"], titel):
-        raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
-    return {"ok": True, "title": titel}
-
-
-# ─── LanguageTraining: generate exercises (via Celery) ────────────────────────
-
+    return _rename_artifact("data_table", workspace_uuid, data_table_id, body.title,
+                            current_user["user_id"], locale, "ai.dataTable.notFound")

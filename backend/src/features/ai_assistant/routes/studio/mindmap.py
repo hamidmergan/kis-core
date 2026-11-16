@@ -1,5 +1,6 @@
 """KI-Assistent routes - mindmap."""
 
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -10,7 +11,12 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import (
+    _rename_artifact,
+    _require_workspace_member,
+    _resolve_source_ids,
+    _visible_workspace,
+)
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 
@@ -60,11 +66,10 @@ def generate_mindmap(
 
 def _gewaehlte_quellen(source_ids) -> list[dict]:
     """The sources the user ticked, so the legend can show the unused ones too."""
-    import json as _json
     if isinstance(source_ids, str):
         try:
-            source_ids = _json.loads(source_ids)
-        except _json.JSONDecodeError:
+            source_ids = json.loads(source_ids)
+        except json.JSONDecodeError:
             return []
     out = []
     for nummer, sid in enumerate(source_ids or [], 1):
@@ -152,9 +157,7 @@ def delete_mindmap(
 ):
     """Delete a mindmap."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     mindmap = db.get_aia_mindmap(mindmap_id)
     if not mindmap or mindmap["workspace_id"] != workspace["id"] or mindmap["user_id"] != user_id:
@@ -172,17 +175,6 @@ def rename_mindmap(
     locale: str = Depends(get_locale),
 ):
     """Change the name of a mind map, without one the list shows the root node."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    titel = db.clean_title(body.title)
-    if not titel:
-        raise HTTPException(status_code=400, detail=t("title.empty", locale))
-
-    # Someone else's row: 404 instead of 403, as on the delete route above.
-    if not db.update_artifact_title("mindmap", mindmap_id, user_id, workspace["id"], titel):
-        raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
-    return {"ok": True, "title": titel}
+    return _rename_artifact("mindmap", workspace_uuid, mindmap_id, body.title,
+                            current_user["user_id"], locale, "mindmap.notFound")
 

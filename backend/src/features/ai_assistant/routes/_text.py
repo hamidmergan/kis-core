@@ -366,6 +366,14 @@ def _strip_inline_citation_chips(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", out).rstrip()
 
 
+def _json_object_text(content: str | None) -> tuple[str, str | None]:
+    """A model answer without thinking block and fences, plus the JSON object found in it."""
+    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
+    raw = raw.replace("```json", "").replace("```", "")
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    return raw, (m.group(0) if m else None)
+
+
 def _context_snippet(page_text: str, term: str, max_chars: int = 700) -> str:
     """A short excerpt of the page around the marked term."""
     text = re.sub(r"\s+", " ", (page_text or "")).strip()

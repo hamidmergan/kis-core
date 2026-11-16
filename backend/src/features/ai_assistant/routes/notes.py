@@ -11,10 +11,13 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.services import model_limits
 from src.i18n import get_locale, t
-from src.limits import (
-    AIA_NOTES_MAX_PER_USER,
-)
+from src.limits import AIA_NOTES_MAX_PER_USER
+from src.features.ai_assistant import schemas
 from src.features.ai_assistant.prompts.popup_prompts import AIA_NOTE_TITLE
+from src.features.ai_assistant.routes._workspace_access import (
+    _require_workspace_member,
+    _visible_workspace,
+)
 
 _NOTE_TITLE_SAFETY_CAP = 80
 
@@ -75,9 +78,6 @@ def _generate_note_title(llm, content: str, language: str = "German") -> Optiona
             cut = cut[:last_space]
         title = cut.rstrip(" ,;:.-")
     return title
-
-from src.features.ai_assistant import schemas
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: notes"])
 
@@ -150,9 +150,7 @@ def update_note_title(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    _visible_workspace(workspace_uuid, locale)
 
     updated = db.update_aia_note_title(note_id, user_id, body.title)
     if not updated:
@@ -167,15 +165,9 @@ def delete_note(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    _visible_workspace(workspace_uuid, locale)
 
     deleted = db.delete_aia_note(note_id, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=t("note.notFound", locale))
     return {"ok": True}
-
-
-# ─── LanguageTraining: Glossary ─────────────────────────────────────────────────
-

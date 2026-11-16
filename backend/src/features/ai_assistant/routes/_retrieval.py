@@ -3,6 +3,7 @@
 import asyncio
 import re
 from bisect import bisect_left
+from collections import Counter
 from typing import Optional
 
 from loguru import logger
@@ -135,7 +136,6 @@ async def _retrieve_generic_context(
     budget: int = 0,
 ) -> list[dict]:
     """Builds the overview context from one broad search plus coverage per source."""
-    import asyncio
     # Caps the search query, the full question still goes to the model.
     question = _truncate_query_for_embedding(question)
     question_vector = await asyncio.to_thread(provider.embed_one, question)
@@ -207,7 +207,6 @@ async def _retrieve_generic_context(
         c["_seq"] = seq_by_source.get(sid, 0)
         seq_by_source[sid] = c["_seq"] + 1
 
-    from collections import Counter
     per_source = Counter(c["source_id"] for c in chunks)
     logger.info("Generic retrieval: {} chunks across {} sources (single wide search) | per-source: {}",
                 len(chunks), len(source_ids or []), dict(per_source))
@@ -386,8 +385,7 @@ async def _retrieve_specific_context(
         c.get("id") or 0,
     ))
     _used = sum(len(c.get("content") or "") for c in chunks)
-    from collections import Counter as _Counter
-    _per_src = _Counter(c["source_id"] for c in chunks)
+    _per_src = Counter(c["source_id"] for c in chunks)
     logger.info(
         "SPECIFIC global: {} chunks ({} chars) aus {} Quellen | je Quelle: {} "
         "| Kandidaten<={} Radius+-{} | Frage: '{}'",

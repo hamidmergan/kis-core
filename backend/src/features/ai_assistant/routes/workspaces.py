@@ -10,7 +10,13 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES, DEFAULT_DIAGNOSIS_LANGUAGE
+from src.i18n import (
+    DEFAULT_DIAGNOSIS_LANGUAGE,
+    DEFAULT_TRANSCRIPT_TARGET,
+    TRANSCRIPT_LANGUAGES,
+    get_locale,
+    t,
+)
 from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
     AIA_WORKSPACE_MAX_MEMBERS,
@@ -28,6 +34,41 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: workspaces"])
 
+
+def _parse_optional_expiry(raw: str | None, locale: str) -> datetime | None:
+    """Turn an ISO string into a UTC datetime. Empty or missing means never expires."""
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
+
+
+def _iso_z(moment: datetime | None) -> str | None:
+    """A UTC moment as the browser reads it, an offset would make the trailing Z invalid."""
+    return moment.replace(tzinfo=None).isoformat() + "Z" if moment else None
+
+
+def _link_payload(link: dict) -> dict:
+    """One access link as the browser sees it."""
+    return {
+        "id": link["id"],
+        "code": link["code"],
+        "expires_at": _iso_z(link["expires_at"]),
+        "created_at": _iso_z(link["created_at"]),
+    }
+
+
+def _legacy_enroll_fields(links: list[dict], row: dict) -> dict:
+    """The old single-code fields, taken from the first link when there is one."""
+    if links:
+        return {"enroll_code": links[0]["code"],
+                "enroll_code_expires": _iso_z(links[0]["expires_at"])}
+    return {"enroll_code": row.get("enroll_code"),
+            "enroll_code_expires": _iso_z(row.get("enroll_code_expires"))}
+
+
 @router.post(
     "/ai-assistant/workspaces",
     dependencies=[Depends(require_workspace_create)],
@@ -40,18 +81,12 @@ def create_workspace(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
+    # Checked first, a bad date must not leave a workspace without a link behind.
+    expires = _parse_optional_expiry(expires_at, locale)
     workspace_uuid = db.create_aia_workspace(user_id, title, description)
 
     # Create first access link
     enroll_code = uuid.uuid4().hex[:8]
-    if expires_at:
-        try:
-            expires = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
-    else:
-        expires = None
-
     workspace = db.get_aia_workspace(workspace_uuid)
     link = db.create_access_link(workspace["id"], enroll_code, expires)
     # Also set legacy fields for backward compat
@@ -64,21 +99,12 @@ def create_workspace(
         "access_links": [{
             "id": link["id"],
             "code": link["code"],
-            "expires_at": (link["expires_at"].isoformat() + "Z") if link["expires_at"] else None,
+            "expires_at": _iso_z(link["expires_at"]),
         }],
         # Legacy fields
         "enroll_code": enroll_code,
-        "enroll_code_expires": (expires.isoformat() + "Z") if expires else None,
+        "enroll_code_expires": _iso_z(expires),
     }
-
-def _parse_optional_expiry(raw: str | None, locale: str) -> datetime | None:
-    """Turn an ISO string into a UTC datetime. Empty or missing means never expires."""
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw).replace(tzinfo=timezone.utc)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
 
 
 def _managed_workspace_payload(m: dict, access: str, shared: bool, favorite: bool) -> dict:
@@ -98,20 +124,9 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool, favorite: boo
         "is_tour_module": bool(m.get("is_tour_module")),
         "source_count": len(sources),
         "member_count": db.count_enrollments(m["id"]),
-        "access_links": [
-            {
-                "id": l["id"],
-                "code": l["code"],
-                "expires_at": l["expires_at"].isoformat() + "Z" if l["expires_at"] else None,
-                "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
-            }
-            for l in links
-        ],
+        "access_links": [_link_payload(l) for l in links],
         # Legacy: first link as enroll_code for backward compat
-        "enroll_code": links[0]["code"] if links else m.get("enroll_code"),
-        "enroll_code_expires": (links[0]["expires_at"].isoformat() + "Z" if links[0]["expires_at"] else None) if links else (
-            m["enroll_code_expires"].isoformat() + "Z" if m.get("enroll_code_expires") else None
-        ),
+        **_legacy_enroll_fields(links, m),
         "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
     }
 
@@ -177,7 +192,6 @@ def list_transcript_languages(
     locale: str = Depends(get_locale),
 ):
     """The languages that can be translated into, from i18n.TRANSCRIPT_LANGUAGES."""
-    from src.i18n import DEFAULT_TRANSCRIPT_TARGET
     languages = [
         {"id": code, "deepl": meta["deepl"], "label": t(f"lang.{meta['deepl']}", locale)}
         for code, meta in TRANSCRIPT_LANGUAGES.items()
@@ -221,19 +235,8 @@ def get_workspace(
         "text_source_max_chars": AIA_TEXT_SOURCE_MAX_CHARS,
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
-        "access_links": [
-            {
-                "id": l["id"],
-                "code": l["code"],
-                "expires_at": l["expires_at"].isoformat() + "Z" if l["expires_at"] else None,
-                "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
-            }
-            for l in links
-        ],
-        "enroll_code": links[0]["code"] if links else workspace.get("enroll_code"),
-        "enroll_code_expires": (links[0]["expires_at"].isoformat() + "Z" if links[0]["expires_at"] else None) if links else (
-            workspace["enroll_code_expires"].isoformat() + "Z" if workspace.get("enroll_code_expires") else None
-        ),
+        "access_links": [_link_payload(l) for l in links],
+        **_legacy_enroll_fields(links, workspace),
         "created_at": workspace["created_at"].isoformat() + "Z" if workspace["created_at"] else None,
         "chapters": [
             {"uuid": c["uuid"], "name": c["name"], "position": c["position"]}
@@ -336,7 +339,7 @@ def renew_enroll_code(
     logger.info("KI Tutor: access link created for workspace {}", workspace_uuid)
     return {
         "enroll_code": new_code,
-        "enroll_code_expires": expires.isoformat() + "Z" if expires else None,
+        "enroll_code_expires": _iso_z(expires),
         "link_id": link["id"],
     }
 
@@ -364,7 +367,7 @@ def create_workspace_access_link(
     return {
         "id": link["id"],
         "code": link["code"],
-        "expires_at": link["expires_at"].isoformat() + "Z" if link["expires_at"] else None,
+        "expires_at": _iso_z(link["expires_at"]),
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/access-links")
@@ -375,15 +378,7 @@ def list_access_links(
 ):
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     links = db.get_access_links_by_workspace(workspace["id"])
-    return [
-        {
-            "id": l["id"],
-            "code": l["code"],
-            "expires_at": l["expires_at"].isoformat() + "Z" if l["expires_at"] else None,
-            "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
-        }
-        for l in links
-    ]
+    return [_link_payload(l) for l in links]
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/access-links/{link_id}")
 def delete_access_link(

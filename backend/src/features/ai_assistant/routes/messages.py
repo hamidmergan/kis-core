@@ -86,7 +86,3 @@ def update_user_settings(
         body.popup_translate_lang,
     )
     return {"ok": True}
-
-
-# ─── Notizen ─────────────────────────────────────────────────────────────────
-

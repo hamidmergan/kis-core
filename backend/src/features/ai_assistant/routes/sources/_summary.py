@@ -3,6 +3,7 @@ from ._shared import (
     APIRouter, Depends, HTTPException, db, get_current_user, logger,
     get_locale, t, _load_workspace_source, _require_workspace_manage,
 )
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -15,15 +16,7 @@ def get_source_summary(
     locale: str = Depends(get_locale),
 ):
     """The stored summary of one source, for everybody who may see the module."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    if not is_owner and not db.is_student_enrolled(workspace["id"], user_id):
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-
+    workspace = _require_workspace_member(workspace_uuid, current_user["user_id"], locale)
     source = _load_workspace_source(source_uuid, workspace, locale)
     return {"summary": source.get("summary") or ""}
 

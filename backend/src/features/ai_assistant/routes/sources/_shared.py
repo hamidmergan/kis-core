@@ -1,5 +1,6 @@
 """Shared imports and the common tail every new source goes through."""
 import asyncio
+import re
 import uuid as _uuid
 from pathlib import Path
 from typing import Optional
@@ -13,7 +14,6 @@ from src.dependencies import get_current_user
 from src.i18n import get_locale, t
 from src.limits import (
     AIA_MAX_CONCURRENT_UPLOADS,
-    AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
 )
 from src.storage import (
@@ -29,12 +29,8 @@ from src.storage import (
 
 from src.features.ai_assistant.routes._media_files import (
     _ALLOWED_EXTENSIONS,
-    _MAX_UPLOAD_BYTES,
-    _convert_office_to_pdf,
+    _CONTENT_TYPES,
     _convert_office_to_pdf_path,
-    _count_pages,
-    _count_pages_path,
-    _mp4_faststart,
     _mp4_faststart_path,
 )
 from src.features.ai_assistant.routes._workspace_access import (
@@ -50,6 +46,14 @@ def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> di
     if not source or source["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
     return source
+
+
+def _clean_lang(lang: str | None, locale: str) -> str:
+    """A transcript language as a lowercase code of two to five letters, otherwise 400."""
+    code = (lang or "").strip().lower()
+    if not re.fullmatch(r"[a-z]{2,5}", code):
+        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
+    return code
 
 
 def _workspace_label(locale: str) -> str:
@@ -137,14 +141,13 @@ __all__ = [
     "logger", "db",
     "get_current_user",
     "get_locale", "t",
-    "AIA_MAX_CONCURRENT_UPLOADS", "AIA_SOURCE_MAX_PAGES", "AIA_WORKSPACE_MAX_SOURCES",
+    "AIA_MAX_CONCURRENT_UPLOADS", "AIA_WORKSPACE_MAX_SOURCES",
     "USE_S3", "delete_aia_source_files", "file_exists", "get_file", "list_keys",
     "stream_s3_object", "aia_transcript_prefix", "aia_vtt_key",
-    "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",
-    "_convert_office_to_pdf_path", "_mp4_faststart_path", "_count_pages_path",
-    "_require_workspace_manage", "_load_workspace_source", "_workspace_label",
+    "_convert_office_to_pdf_path", "_mp4_faststart_path",
+    "_require_workspace_manage", "_load_workspace_source", "_workspace_label", "_clean_lang",
     "_save_source_file_path",
     "_require_source_capacity", "_register_source_file",
     "_unique_filename", "_enqueue_index_source", "_as_http",
-    "_ALLOWED_EXTENSIONS", "_MAX_UPLOAD_BYTES",
+    "_ALLOWED_EXTENSIONS", "_CONTENT_TYPES",
 ]

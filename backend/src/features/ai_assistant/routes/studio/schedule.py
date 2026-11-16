@@ -45,12 +45,9 @@ def _parse_time(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[time
         raise HTTPException(status_code=400, detail=t("ai.schedule.invalidTime", locale, value=s))
 
 
-def _serialize_entry(row: dict) -> dict:
-    """DB-row → JSON-safe dict for API response."""
+def _when_fields(row: dict) -> dict:
+    """Description, dates and times of an entry, the same in both lists."""
     return {
-        "id": row["id"],
-        "type": row["type"],
-        "title": row["title"],
         "description": row.get("description"),
         "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
         # When set, the appointment runs until this day.
@@ -58,12 +55,22 @@ def _serialize_entry(row: dict) -> dict:
         "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
         # When set, the appointment ends on this day at this time.
         "end_time": row["end_time"].strftime("%H:%M") if row.get("end_time") else None,
-        # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
+        # Set means the start is known and the end is explicitly open.
         "is_open_ended": bool(row.get("is_open_ended")),
         # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
         # Set when the source wrote no year and the system picked it from the running semester.
         "year_assumed": bool(row.get("year_assumed")),
+    }
+
+
+def _serialize_entry(row: dict) -> dict:
+    """DB-row → JSON-safe dict for API response."""
+    return {
+        "id": row["id"],
+        "type": row["type"],
+        "title": row["title"],
+        **_when_fields(row),
         "is_optional": row["is_optional"],
         "is_checked": row["is_checked"],
         "checked_at": row["checked_at"].isoformat() + "Z" if row.get("checked_at") else None,
@@ -85,19 +92,7 @@ def _serialize_global_entry(row: dict) -> dict:
         "module_relation": row["module_relation"],
         "type": row["type"],
         "title": row["title"],
-        "description": row.get("description"),
-        "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
-        # When set, the appointment runs until this day.
-        "end_date": row["end_date"].isoformat() if row.get("end_date") else None,
-        "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
-        # When set, the appointment ends on this day at this time.
-        "end_time": row["end_time"].strftime("%H:%M") if row.get("end_time") else None,
-        # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
-        "is_open_ended": bool(row.get("is_open_ended")),
-        # 'month' = the source named only a month, the view then shows no day
-        "date_precision": row.get("date_precision") or "day",
-        # Set when the source wrote no year and the system picked it from the running semester.
-        "year_assumed": bool(row.get("year_assumed")),
+        **_when_fields(row),
         "is_checked": row["is_checked"],
     }
 

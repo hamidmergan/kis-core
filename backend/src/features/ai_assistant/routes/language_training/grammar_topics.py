@@ -77,7 +77,7 @@ def preview_topic(
 ):
     """Rule and pattern pair for a typed name, without saving."""
     user_id = current_user["user_id"]
-    _require_workspace_access(workspace_uuid, user_id, locale)
+    workspace = _require_workspace_access(workspace_uuid, user_id, locale)
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail=t("grammar.topicNameEmpty", locale))
@@ -86,7 +86,6 @@ def preview_topic(
     client, model, _ = _get_llm_client()
     # Rule and pattern are produced in the teaching language, not the interface language.
     from src.features.ai_assistant.tasks._helpers import tool_output_language
-    workspace = db.get_aia_workspace(workspace_uuid) or {}
     _, sprache = tool_output_language(workspace.get("id"))
     try:
         derived = derive_topic(client, model, name, sprache)

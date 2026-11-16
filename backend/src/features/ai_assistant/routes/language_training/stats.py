@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
-from src.limits import (
-    GLOSSARY_LIMIT,
-)
+from src.limits import GLOSSARY_LIMIT
 
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_manage
+from src.features.ai_assistant.routes._workspace_access import (
+    _require_workspace_manage,
+    _visible_workspace,
+)
 from src.features.stats import workspace_detail
 
 router = APIRouter(tags=["ki-assistent: language-training"])
@@ -23,11 +24,8 @@ def get_streak_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    streak = db.get_streak(workspace["id"], user_id)
-    return streak
+    workspace = _visible_workspace(workspace_uuid, locale)
+    return db.get_streak(workspace["id"], user_id)
 
 
 # ─── Student Stats ─────────────────────────────────────────────────────────
@@ -39,9 +37,7 @@ def get_student_stats_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     return db.get_student_stats(workspace["id"], user_id)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/stats/day")
@@ -53,9 +49,7 @@ def get_student_day_stats_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     return db.get_student_day_stats(workspace["id"], user_id, date, category)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/recent-activities")
@@ -65,9 +59,7 @@ def get_recent_activities_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     return db.get_recent_activities(workspace["id"], user_id, limit=10)
 
 
@@ -106,9 +98,7 @@ def get_glossary_count_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     count = db.get_glossary_count(workspace["id"], user_id)
     return {"count": count, "limit": GLOSSARY_LIMIT}
 

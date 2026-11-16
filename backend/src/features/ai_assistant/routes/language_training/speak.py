@@ -9,6 +9,8 @@ from src.i18n import get_locale, t
 from src.security.rate_limit import enforce_tool_burst
 from src.services import aia_flashcard_speech as speech
 
+from src.features.ai_assistant.routes._workspace_access import _visible_workspace
+
 router = APIRouter(tags=["ki-assistent: language-training"])
 
 
@@ -24,9 +26,7 @@ def speak_example_sentence(
 ):
     """Returns the example sentence of a flashcard as MP3."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     ex_set = db.get_exercise_set_with_items(set_id)
     # 404 instead of 403 so other people's sets cannot be found by counting up.

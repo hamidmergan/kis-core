@@ -10,6 +10,7 @@ from loguru import logger
 from src import database as db
 
 from ._media_files import _MEDIA_EXTENSIONS
+from ._text import _json_object_text
 
 
 # A page reference in the question is fetched directly instead of searched.
@@ -56,13 +57,11 @@ def _first_source_kind(source_ids: Optional[list[int]], sources_by_id: dict[int,
 
 def _parse_scope_response(content: str) -> dict:
     """Reads the reference call's answer leniently, nonsense yields an empty reference."""
-    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
-    raw = raw.replace("```json", "").replace("```", "")
-    m = re.search(r"\{.*\}", raw, re.DOTALL)
-    if not m:
+    _, blob = _json_object_text(content)
+    if not blob:
         return {"unit": None, "intervals": []}
     try:
-        data = json.loads(m.group(0))
+        data = json.loads(blob)
     except Exception:
         return {"unit": None, "intervals": []}
     unit = data.get("unit")

@@ -1,10 +1,9 @@
 """Makes a follow-up question self-contained before the search, inside the pre-call that runs anyway."""
 
 import json
-import re
 from typing import Optional
 
-from ._text import _strip_inline_citation_chips
+from ._text import _json_object_text, _strip_inline_citation_chips
 
 KEINE = "none"
 UMSCHREIBEN = "rewrite"
@@ -111,13 +110,11 @@ def letzte_quellen(
 
 def _json_objekt(roh: str) -> Optional[dict]:
     """First JSON object from a model answer, tolerant of fences and thinking blocks."""
-    text = re.sub(r"<think>.*?</think>", "", roh or "", flags=re.DOTALL)
-    text = text.replace("```json", "").replace("```", "")
-    treffer = re.search(r"\{.*\}", text, re.DOTALL)
-    if not treffer:
+    _, blob = _json_object_text(roh)
+    if not blob:
         return None
     try:
-        obj = json.loads(treffer.group(0))
+        obj = json.loads(blob)
     except Exception:
         return None
     return obj if isinstance(obj, dict) else None

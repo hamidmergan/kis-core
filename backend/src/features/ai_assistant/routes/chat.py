@@ -2,10 +2,11 @@
 
 import asyncio
 import json
+from collections import Counter
 from collections.abc import AsyncGenerator
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -21,7 +22,6 @@ from src.services.aia_embeddings import get_embedding_provider, get_embedding_pr
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
 from src.features.ai_assistant.prompts.popup_prompts import (
-    AIA_POPUP_ACTIONS,
     AIA_SYSTEM_DIRECT,
     AIA_SYSTEM_DIRECT_WITH_CONTEXT,
 )
@@ -38,6 +38,12 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 )
 from . import _chat_failover
 from . import _followup
+from ._chat_setup import (
+    adaptive_suffix_for,
+    heal_workspace_status,
+    popup_selection_entry,
+    resolve_active_sources,
+)
 from ._greeting import greeting_chunks, overview_chunks
 from ._prewarm import start_prewarm
 from ._source_map import build_source_pages, build_source_qmap, load_transcripts
@@ -56,15 +62,6 @@ from ._scope import _scope_unfulfillable_message, resolve_scope
 from ._stream_helpers import _antwort_ohne_denken, _enrich_chat_trace, _stream_usage_tokens
 from ._understand import _should_skip_intent_classification, _understand_query
 from ._json_stream import _ANTWORT_SCHEMA, MAX_EINTRAEGE, AntwortStrom
-from src.services.aia_adaptive_chat import (
-    adaptive_chat_appendix,
-    level_texts,
-    seal_adaptive_suffix,
-    DEFAULT_ADAPTIVE_BEHAVIOR,
-    _LEGACY_ADAPTIVE_BEHAVIOR,
-)
-from src.services.aia_diagnosis_chat import ADAPTIVE_BEHAVIOR_SETTING
-from src.services.aia_level_ladder import resolve_prompt_setting
 from src.services.upstream_errors import upstream_error_code
 
 
@@ -124,49 +121,17 @@ async def chat(
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
-    # Level-appropriate answers need the person's switch and a stored level.
-    _adaptive_suffix, _applied_level = "", None
-    if db.is_language_training_ready(user_id):
-        # The level block hangs on the user message, where it weighs most.
-        _level = db.get_user_language_level(user_id)["language_level"]
-        _example, _description = level_texts(_level)
-        _adaptive_suffix, _applied_level = adaptive_chat_appendix(
-            _level,
-            resolve_prompt_setting(
-                db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, ""),
-                _LEGACY_ADAPTIVE_BEHAVIOR,
-                DEFAULT_ADAPTIVE_BEHAVIOR,
-            ),
-            _example,
-            _description,
-        )
-
-    # The source guard goes along with every chat and always stays last.
-    _adaptive_suffix = seal_adaptive_suffix(_adaptive_suffix)
+    # The level block for the user message, the source guard always stays last in it.
+    _adaptive_suffix, _applied_level = adaptive_suffix_for(user_id)
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
 
     # Sync workspace status: heal stale 'pending' if all sources are actually ready
-    if workspace["status"] != "ready":
-        sources_check = db.get_aia_sources_by_workspace(workspace["id"])
-        ready_sources = [s for s in sources_check if s["status"] == "ready"]
-        if not ready_sources:
-            raise HTTPException(status_code=409, detail=t("ai.chat.noIndexedSources", locale))
-        if all(s["status"] == "ready" for s in sources_check):
-            db.update_aia_workspace_status(workspace_uuid, "ready")
+    heal_workspace_status(workspace, locale)
 
     # Resolve source UUIDs to database ids and keep the rows.
-    source_ids: list[int] | None = None
-    resolved_sources: dict[int, dict] = {}
-    if body.active_source_ids is not None:
-        resolved = []
-        for suuid in body.active_source_ids:
-            source = db.get_aia_source(suuid)
-            if source and source["workspace_id"] == workspace["id"]:
-                resolved.append(source["id"])
-                resolved_sources[source["id"]] = source
-        source_ids = resolved if resolved else None
+    source_ids, resolved_sources = resolve_active_sources(body.active_source_ids, workspace["id"])
 
     # Pre-call: route, reference and follow-up in one go, the history stays here.
     _letzte_runde = None
@@ -177,8 +142,7 @@ async def chat(
         logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
                     body.question[:60], len(source_ids or []))
     else:
-        import time as _t_pc
-        _t_pc0 = _t_pc.monotonic()
+        _t_pc0 = _time.monotonic()
         if _followup.lohnt_nachschlagen(body.question, body.source_text):
             _runden = await asyncio.to_thread(
                 db.get_last_aia_rounds, workspace["id"], user_id, enrollment_id, FOLLOWUP_HISTORY_ROUNDS)
@@ -191,7 +155,7 @@ async def chat(
         intent, scope_raw, subqueries, _nachfrage, rewritten_question, _frage_sprache = await _understand_query(
             llm, body.question, _letzte_runde, _aeltere_runden)
         logger.info("Chat: pre-call routed intent={} scope={} subqueries={} nachfrage={} in {:.1f}s ('{}' across {} sources)",
-                    intent, scope_raw, len(subqueries), _nachfrage, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
+                    intent, scope_raw, len(subqueries), _nachfrage, _time.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
     # When reshaping, the last answer is the material, search and context are skipped.
     _umformen = _nachfrage == _followup.UMFORMEN and bool(_letzte_runde)
@@ -278,7 +242,6 @@ async def chat(
         chunks = _ueberblick_chunks
     elif _fit_full is not None:
         chunks = _fit_full
-        from collections import Counter
         _ps = Counter(c["source_id"] for c in chunks)
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
     elif intent in _UEBERBLICK_INTENTS:
@@ -379,26 +342,9 @@ async def chat(
             {"role": "user", "content": aia_rag_user_message(context, rewritten_question, _prev_questions, _frage_sprache) + _adaptive_suffix},
         ]
 
-    is_popup = bool(body.source_text and body.source_uuid and body.source_page)
-
     # Build the selection note early so it reappears on reload.
-    popup_entry: Optional[dict] = None
-    if is_popup:
-        popup_entry = {
-            "source_uuid": body.source_uuid,
-            "filename": body.source_filename or "",
-            "page_number": body.source_page,
-            "source_text": body.source_text,
-            "is_popup_selection": True,
-        }
-        if body.action_key:
-            action_def = next(
-                (a for a in AIA_POPUP_ACTIONS if a["key"] == body.action_key),
-                None,
-            )
-            if action_def:
-                popup_entry["action_key"] = body.action_key
-                popup_entry["action_icon"] = action_def["icon"]
+    popup_entry = popup_selection_entry(body)
+    is_popup = popup_entry is not None
 
     # Save the question right away so it survives a cancelled stream.
     await asyncio.to_thread(

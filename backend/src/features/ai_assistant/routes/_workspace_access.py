@@ -54,6 +54,18 @@ def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = D
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 
+def _rename_artifact(kind: str, workspace_uuid: str, row_id: int, title: str | None,
+                     user_id: int, locale: str, missing_key: str) -> dict:
+    """Renames one row of this person, someone else's row is a 404 instead of a 403."""
+    workspace = _visible_workspace(workspace_uuid, locale)
+    titel = db.clean_title(title)
+    if not titel:
+        raise HTTPException(status_code=400, detail=t("title.empty", locale))
+    if not db.update_artifact_title(kind, row_id, user_id, workspace["id"], titel):
+        raise HTTPException(status_code=404, detail=t(missing_key, locale))
+    return {"ok": True, "title": titel}
+
+
 def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, local_path: str) -> str:
     """Stores an uploaded source, streaming from disk."""
     return save_aia_source_from_path(user_id, workspace_uuid, source_uuid, ext, local_path)

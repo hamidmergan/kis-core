@@ -13,9 +13,7 @@ from src.dependencies import get_current_user, get_llm_client, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
-from src.limits import (
-    GLOSSARY_LIMIT,
-)
+from src.limits import GLOSSARY_LIMIT
 
 from src.features.ai_assistant.routes._text import (
     _context_snippet,
@@ -139,6 +137,20 @@ def _glossary_system_prompt(is_single_term: bool, adaptive_suffix: str = "") -> 
     return base + adaptive_suffix
 
 
+async def _ask_json(llm, messages: list[dict]):
+    """One model call, the answer parsed as JSON with a code fence stripped."""
+    response = await asyncio.to_thread(
+        lambda: llm._client.chat.completions.create(
+            model=llm._model, messages=messages, temperature=0.2,
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+        )
+    )
+    answer = response.choices[0].message.content.strip()
+    if answer.startswith("```"):
+        answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    return json.loads(answer)
+
+
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/extract")
 async def extract_glossary_from_selection(
     workspace_uuid: str,
@@ -194,17 +206,7 @@ async def extract_glossary_from_selection(
                 {"role": "system", "content": _glossary_system_prompt(True, adaptive_suffix)},
                 {"role": "user", "content": user_content},
             ]
-            response = await asyncio.to_thread(
-                lambda: llm._client.chat.completions.create(
-                    model=llm._model, messages=messages, temperature=0.2,
-                    **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
-                )
-            )
-            answer = response.choices[0].message.content.strip()
-            if answer.startswith("```"):
-                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-
-            parsed = json.loads(answer)
+            parsed = await _ask_json(llm, messages)
             if isinstance(parsed, list):
                 parsed = parsed[0] if parsed else None
             if not isinstance(parsed, dict):
@@ -236,17 +238,7 @@ async def extract_glossary_from_selection(
             {"role": "system", "content": _glossary_system_prompt(False, adaptive_suffix)},
             {"role": "user", "content": f"Markierter Text:\n\n{text}"},
         ]
-        response = await asyncio.to_thread(
-            lambda: llm._client.chat.completions.create(
-                model=llm._model, messages=messages, temperature=0.2,
-                **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
-            )
-        )
-        answer = response.choices[0].message.content.strip()
-        if answer.startswith("```"):
-            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-
-        terms = json.loads(answer)
+        terms = await _ask_json(llm, messages)
         if not isinstance(terms, list):
             return {"added": 0, "message": t("ai.glossary.noLearnableTerms", locale)}
 
@@ -295,7 +287,3 @@ async def extract_glossary_from_selection(
     except Exception as e:
         logger.error("Glossary extract error: {}", e)
         raise HTTPException(status_code=500, detail=t("ai.glossary.extractionFailed", locale))
-
-
-# ─── Mindmap generieren ──────────────────────────────────────────────────────
-

@@ -16,6 +16,7 @@ from ._shared import (
     get_locale,
     logger,
     t,
+    _clean_lang,
     _load_workspace_source,
     _require_workspace_manage,
 )
@@ -117,9 +118,7 @@ async def edit_transcript(
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     source = _load_workspace_source(source_uuid, workspace, locale)
 
-    lang_clean = (body.lang or "").strip().lower()
-    if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
-        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
+    lang_clean = _clean_lang(body.lang, locale)
     if not body.cues or len(body.cues) > _MAX_CUES_PER_CALL:
         raise HTTPException(status_code=400, detail=t("ai.transcript.lineOutOfRange", locale))
 

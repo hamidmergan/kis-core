@@ -1,5 +1,7 @@
 """The pre-call: route, reference, follow-up and answer language in one go."""
 
+import asyncio
+import json
 import re
 from typing import Optional
 
@@ -13,6 +15,7 @@ from src.features.ai_assistant.prompts.query_understanding_prompts import (
 
 from . import _followup
 from ._scope import _parse_scope_response
+from ._text import _json_object_text
 
 
 # Longer questions are almost always topical, the pre-call is skipped.
@@ -30,14 +33,11 @@ def _should_skip_intent_classification(source_text, source_ids, question: str) -
 
 def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     """Reads route, reference and sub-questions from the pre-call answer."""
-    import json
-    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
-    raw = raw.replace("```json", "").replace("```", "")
-    m = re.search(r"\{.*\}", raw, re.DOTALL)
-    if not m:
+    raw, blob = _json_object_text(content)
+    if not blob:
         return "SPECIFIC", {"unit": None, "intervals": []}, []
     try:
-        obj = json.loads(m.group(0))
+        obj = json.loads(blob)
     except Exception:
         cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().split()
         return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}, []
@@ -57,13 +57,11 @@ _SPRACHNAME = re.compile(r"^[A-Za-z][A-Za-z \-]{1,29}$")
 
 def _parse_answer_language(content: str) -> str:
     """The English name of the question language from the pre-call, empty when unusable."""
-    import json
-    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
-    m = re.search(r"\{.*\}", raw.replace("```json", "").replace("```", ""), re.DOTALL)
-    if not m:
+    _, blob = _json_object_text(content)
+    if not blob:
         return ""
     try:
-        name = str(json.loads(m.group(0)).get("lang", "")).strip()
+        name = str(json.loads(blob).get("lang", "")).strip()
     except Exception:
         return ""
     return name if _SPRACHNAME.match(name) else ""
@@ -73,7 +71,6 @@ async def _understand_query(
     llm, question: str, letzte_runde: Optional[dict] = None, aeltere: Optional[list[dict]] = None
 ) -> tuple[str, dict, list[str], str, str, str]:
     """One pre-call for everything: route, reference, sub-questions, follow-up and language."""
-    import asyncio
     def _call():
         # 60s covers Ollama cold-start; warm calls return in ~500ms.
         return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(

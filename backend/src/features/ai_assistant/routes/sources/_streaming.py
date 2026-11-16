@@ -1,16 +1,18 @@
 """File streaming + transcript retrieval."""
 import asyncio
 import re
+from urllib.parse import quote
 
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, Request, logger, get_current_user,
     get_locale, t, FileResponse,
     Response, StreamingResponse, USE_S3,
     file_exists, get_file, list_keys, stream_s3_object, _require_workspace_manage,
-    _load_workspace_source,
+    _load_workspace_source, _clean_lang, _CONTENT_TYPES,
     aia_transcript_prefix, aia_vtt_key,
 )
 from src.features.ai_assistant import schemas
+from src.i18n import TRANSCRIPT_LANGUAGES
 from src.storage import aia_vtt_error_key, delete_file
 from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
@@ -19,7 +21,6 @@ router = APIRouter(tags=["ki-assistent: sources"])
 
 def _inline_content_disposition(filename: str) -> str:
     """Builds a header for serving that is always latin-1 safe."""
-    from urllib.parse import quote
     ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "download"
     return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
 
@@ -44,20 +45,7 @@ def stream_source_file(
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
 
     ext = Path(source["filename"]).suffix.lower()
-    media_type_map = {
-        ".pdf": "application/pdf",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ".txt": "text/plain; charset=utf-8",
-        ".md": "text/markdown; charset=utf-8",
-        ".mp3": "audio/mpeg",
-        ".mp4": "video/mp4",
-        ".wav": "audio/wav",
-        ".flac": "audio/flac",
-        ".m4a": "audio/mp4",
-        ".webm": "video/webm",
-    }
-    media_type = media_type_map.get(ext, "application/octet-stream")
+    media_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
     disposition = _inline_content_disposition(source["filename"])
 
     if USE_S3:
@@ -98,7 +86,6 @@ async def regenerate_transcript(
 ):
     """Queues a job that translates the transcript into the chosen language."""
     from src.services import feature_router
-    from src.i18n import TRANSCRIPT_LANGUAGES
 
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     source = _load_workspace_source(source_uuid, workspace, locale)
@@ -152,10 +139,7 @@ async def get_transcript_vtt(
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
-    # Only allow lowercase ISO-like language codes (2-5 chars)
-    lang_clean = (lang or "").strip().lower()
-    if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
-        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
+    lang_clean = _clean_lang(lang, locale)
 
     vtt_key = aia_vtt_key(source["file_path"], lang_clean)
     if not await asyncio.to_thread(file_exists, vtt_key):
@@ -183,9 +167,7 @@ async def get_transcript_exists(
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
-    lang_clean = (lang or "").strip().lower()
-    if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
-        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
+    lang_clean = _clean_lang(lang, locale)
 
     vtt_key = aia_vtt_key(source["file_path"], lang_clean)
     if await asyncio.to_thread(file_exists, vtt_key):
@@ -206,8 +188,6 @@ async def get_transcript_langs(
     locale: str = Depends(get_locale),
 ):
     """Tells the player the transcript languages that really exist."""
-    from src.i18n import TRANSCRIPT_LANGUAGES
-
     user_id = current_user["user_id"]
     workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 

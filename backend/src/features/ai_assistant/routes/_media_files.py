@@ -1,13 +1,11 @@
 """Uploaded sources: office conversion, faststart remux, page count, transcript segments."""
 
 import subprocess
-import tempfile
 from pathlib import Path
 
 from fastapi import HTTPException
 from loguru import logger
 
-from src.utils.pdfium_lock import PDFIUM_LOCK
 from src.i18n import DEFAULT_LOCALE, t
 from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import aia_transcript_key, get_file
@@ -21,68 +19,20 @@ _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".mp3", ".mp4", ".wav", ".flac"
 _MEDIA_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"}
 
 
-_MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB (audio/video can be large)
-
-
-def _convert_office_to_pdf(data: bytes, ext: str, locale: str = DEFAULT_LOCALE) -> bytes:
-    """Convert .docx or .pptx to PDF using LibreOffice. Raises HTTPException on failure."""
-    import subprocess
-    import tempfile
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        src = tmp / f"input{ext}"
-        src.write_bytes(data)
-        result = subprocess.run(
-            ["libreoffice", "--headless", "--norestore", "--convert-to", "pdf",
-             "--outdir", str(tmp), str(src)],
-            capture_output=True, text=True, timeout=180,
-        )
-        pdf_path = tmp / "input.pdf"
-        if not pdf_path.exists():
-            logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
-            raise HTTPException(status_code=500, detail=t("ai.source.pdfConversionFailed", locale))
-        return pdf_path.read_bytes()
-
-
-def _mp4_faststart(data: bytes) -> bytes:
-    """Remuxes MP4 so the browser can play right away instead of downloading first."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        src = tmp / "input.mp4"
-        dst = tmp / "output.mp4"
-        src.write_bytes(data)
-        try:
-            result = subprocess.run(
-                ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
-                 "-c", "copy", "-movflags", "+faststart", str(dst)],
-                capture_output=True, text=True, timeout=600,
-            )
-        except Exception as e:
-            logger.warning("KI Tutor: faststart remux exception: {}", e)
-            return data
-        if result.returncode != 0 or not dst.exists():
-            logger.warning("KI Tutor: faststart remux failed (rc={}): {}", result.returncode, result.stderr[:200])
-            return data
-        return dst.read_bytes()
-
-
-def _count_pages(ext: str, data: bytes) -> int | None:
-    """Return page/slide count for PDF/PPTX, None for formats without a meaningful page count."""
-    try:
-        if ext == ".pdf":
-            import pypdfium2 as pdfium
-            with PDFIUM_LOCK:
-                doc = pdfium.PdfDocument(data)
-                count = len(doc)
-                doc.close()
-            return count
-        if ext == ".pptx":
-            import io
-            from pptx import Presentation
-            return len(Presentation(io.BytesIO(data)).slides)
-    except Exception as e:
-        logger.warning("KI Tutor: page count failed for {}: {}", ext, e)
-    return None
+# What the browser is told a stored source is, by its extension.
+_CONTENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+    ".webm": "video/webm",
+}
 
 
 def _convert_office_to_pdf_path(src_path: str, ext: str, out_dir: str, locale: str = DEFAULT_LOCALE) -> str:
@@ -115,24 +65,6 @@ def _mp4_faststart_path(src_path: str, out_dir: str) -> str:
         logger.warning("KI Tutor: faststart remux failed (rc={}): {}", result.returncode, result.stderr[:200])
         return src_path
     return str(dst)
-
-
-def _count_pages_path(ext: str, path: str) -> int | None:
-    """Page/slide count for a PDF/PPTX on disk, None for other formats."""
-    try:
-        if ext == ".pdf":
-            import pypdfium2 as pdfium
-            with PDFIUM_LOCK:
-                doc = pdfium.PdfDocument(path)
-                count = len(doc)
-                doc.close()
-            return count
-        if ext == ".pptx":
-            from pptx import Presentation
-            return len(Presentation(path).slides)
-    except Exception as e:
-        logger.warning("KI Tutor: page count failed for {}: {}", ext, e)
-    return None
 
 
 def _load_transcript_segments(source: dict) -> list[dict]:

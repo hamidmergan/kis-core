@@ -46,7 +46,3 @@ def generate_flashcards(
                  args=[placeholder["id"], workspace["id"], "flashcards", "source", body.count],
                  kwargs={"source_uuids": body.active_source_ids, "locale": locale})
     return {"set_id": placeholder["id"], "status": "generating"}
-
-
-# ─── DataTable generieren ─────────────────────────────────────────────────
-

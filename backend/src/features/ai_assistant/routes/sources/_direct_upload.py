@@ -11,7 +11,6 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from pydantic import BaseModel, Field
 
-from src.core.redis_url import REDIS_URL
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.storage import (
     S3_UPLOAD_PROXY,
@@ -36,7 +35,9 @@ from ._shared import (
     _workspace_label,
     _enqueue_index_source,
     _ALLOWED_EXTENSIONS,
+    _CONTENT_TYPES,
 )
+from ._upload import _redis
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -51,20 +52,6 @@ _MAX_URLS_PER_CALL = 20
 # An open upload can be resumed this long, the bucket drops leftovers after a day too.
 _SESSION_SECONDS = 24 * 60 * 60
 _SESSION_PREFIX = "kis:aia:direct-upload:"
-
-
-_CONTENT_TYPES = {
-    ".mp3": "audio/mpeg", ".mp4": "video/mp4", ".wav": "audio/wav",
-    ".flac": "audio/flac", ".m4a": "audio/mp4", ".webm": "video/webm",
-    ".pdf": "application/pdf",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-}
-
-
-def _redis():
-    import redis as _redis_lib
-    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _save_session(token: str, session: dict) -> None:

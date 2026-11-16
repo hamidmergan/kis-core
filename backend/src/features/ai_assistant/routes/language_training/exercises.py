@@ -11,7 +11,12 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import (
+    _rename_artifact,
+    _require_workspace_member,
+    _resolve_source_ids,
+    _visible_workspace,
+)
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.stats import LANGUAGE_TRAINING_TOOLS
 from src.features.ai_assistant.tasks._helpers import LEARNING_TOOLS
@@ -146,9 +151,7 @@ def retry_exercise_set(
 ):
     """Restarts a failed set with its original settings."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     meta = db.get_exercise_set_meta(set_id)
     # 404 instead of 403, the running number must not reveal other people's sets.
@@ -195,9 +198,7 @@ def check_grammar_answer(
     from src.services import aia_grammar_check as gc
 
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
 
     ex_set = db.get_exercise_set_with_items(set_id)
     # 404 instead of 403, the running number must not reveal other people's sets.
@@ -231,9 +232,7 @@ def list_exercise_sets(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     sets = db.get_exercise_sets(workspace["id"], user_id, tool)
     for s in sets:
         if s.get("created_at") and hasattr(s["created_at"], "isoformat"):
@@ -254,9 +253,7 @@ def get_exercise_set(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     ex_set = db.get_exercise_set_with_items(set_id)
     # A set belongs to one person in one course room, otherwise 404.
     if not ex_set or ex_set["user_id"] != user_id or ex_set["workspace_id"] != workspace["id"]:
@@ -294,19 +291,8 @@ def rename_exercise_set(
     locale: str = Depends(get_locale),
 ):
     """Changes the name of a set, hand-typed names apply without duplicate protection."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    titel = db.clean_title(body.title)
-    if not titel:
-        raise HTTPException(status_code=400, detail=t("title.empty", locale))
-
-    # Someone else's row: 404 instead of 403, as on the other single-item routes.
-    if not db.update_artifact_title("exercise_set", set_id, user_id, workspace["id"], titel):
-        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
-    return {"ok": True, "title": titel}
+    return _rename_artifact("exercise_set", workspace_uuid, set_id, body.title,
+                            current_user["user_id"], locale, "set.notFound")
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/progress")
 def record_set_progress(
@@ -317,9 +303,7 @@ def record_set_progress(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     # Without this check anyone could write progress onto other people's sets.
     meta = db.get_exercise_set_meta(set_id)
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
@@ -327,7 +311,3 @@ def record_set_progress(
     db.bulk_record_exercise_progress(set_id, user_id, body.results, body.new_run)
     db.update_streak(workspace["id"], user_id)
     return {"ok": True}
-
-
-# ─── Streak ──────────────────────────────────────────────────────────────────
-
