@@ -7,6 +7,8 @@ type Listener = (list: Glossary[]) => void;
 
 let cache: Glossary[] | null = null;
 let inflight: Promise<Glossary[]> | null = null;
+// Counts the invalidations, a request started before one must not fill the list after it.
+let generation = 0;
 const listeners = new Set<Listener>();
 
 /** The list already in memory, or null while nothing has been fetched yet. */
@@ -32,20 +34,23 @@ export function publish(list: Glossary[]): void {
 export function load(fetcher: () => Promise<Glossary[]>): Promise<Glossary[]> {
   if (cache) return Promise.resolve(cache);
   if (!inflight) {
-    inflight = fetcher()
+    const startedIn = generation;
+    const request: Promise<Glossary[]> = fetcher()
       .then((list) => {
-        publish(list);
+        if (startedIn === generation) publish(list);
         return list;
       })
       .finally(() => {
-        inflight = null;
+        if (inflight === request) inflight = null;
       });
+    inflight = request;
   }
   return inflight;
 }
 
 /** Drops the list, used when the signed-in person changes. */
 export function invalidateGlossaries(): void {
+  generation += 1;
   cache = null;
   inflight = null;
 }

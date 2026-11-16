@@ -30,4 +30,11 @@ describe("applyRegen", () => {
   it("laesst den Text stehen, wenn die Markierung nicht mehr vorkommt", () => {
     expect(applyRegen(TEXT, "gibt es nicht", "replace-selection", "Neu.")).toBe(TEXT);
   });
+
+  it("keeps dollar signs of the suggestion as they are", () => {
+    expect(applyRegen(TEXT, "liegt an", "replace-selection", "kostet $$5 und $& mehr"))
+      .toBe("Die Spannung kostet $$5 und $& mehr. Der Widerstand bremst.");
+    expect(applyRegen(TEXT, "liegt an", "insert-after", "$'"))
+      .toBe("Die Spannung liegt an $'. Der Widerstand bremst.");
+  });
 });

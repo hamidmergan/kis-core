@@ -8,6 +8,7 @@ import { CalendarBlank, SignIn, SquaresFour } from "@phosphor-icons/react";
 import { Link as LocaleLink, usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { hasModule } from "@/lib/modules";
 import { areaLabelKey, hasPerm, PERM, type AreaKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
@@ -60,7 +61,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
       setIsLocalMode(s.local_mode ?? false);
       // Jobs only come from tools, without a tool permission the list stays empty.
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
-      setHasAia((s.modules ?? ["aia", "tools"]).includes("aia"));
+      setHasAia(hasModule(s.modules, "aia"));
       setMayLanguageLevel(hasPerm(s.permissions, PERM.aiaLanguageLevel));
       setMayInterfaces(hasPerm(s.permissions, PERM.interfaces));
       setMayFeedback(hasPerm(s.permissions, PERM.usersFeedback));
@@ -122,7 +123,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
             )}
             {hasSession && (
               <div className="hidden sm:flex items-center gap-1.5">
-                {hasSession && hasTools && (
+                {hasTools && (
                   <Link
                     href="/services"
                     aria-label={t("tools")}
@@ -136,7 +137,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                     <span className="text-sm font-medium">{t("tools")}</span>
                   </Link>
                 )}
-                {hasSession && hasAia && (
+                {hasAia && (
                   <Link
                     href="/calendar"
                     aria-label={t("calendar")}
@@ -150,19 +151,19 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                     <span className="text-sm font-medium">{t("calendar")}</span>
                   </Link>
                 )}
-                {hasSession && hasTools && <JobsPanel />}
+                {hasTools && <JobsPanel />}
                 <HeaderSettingsMenu
-                  isAdmin={hasSession && isAdmin}
-                  canViewManual={hasSession && canViewManual}
-                  showLanguageLevel={hasSession && mayLanguageLevel}
-                  showInterfaces={hasSession && mayInterfaces}
-                  showTour={hasSession && hasAia && tour.available}
+                  isAdmin={isAdmin}
+                  canViewManual={canViewManual}
+                  showLanguageLevel={mayLanguageLevel}
+                  showInterfaces={mayInterfaces}
+                  showTour={hasAia && tour.available}
                   onStartTour={tour.start}
-                  showEvaluation={hasSession && evaluationActive}
+                  showEvaluation={evaluationActive}
                   areaKey={areaKey}
-                  showLogout={hasSession && !isLocalMode}
-                  showFaq={hasSession}
-                  adminNotice={hasSession && isAdmin && feedbackNotice}
+                  showLogout={!isLocalMode}
+                  showFaq
+                  adminNotice={isAdmin && feedbackNotice}
                   onLogout={handleLogout}
                 />
               </div>

@@ -5,13 +5,8 @@ import { Check, Eye, EyeSlash, PencilSimple, Trash } from "@phosphor-icons/react
 import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
-import { cleanScheduleDescription, dateQualifier, effectiveDueDate, formatRangeEnd, urgencyColor } from "./utils";
+import { cleanScheduleDescription, dateLocaleTag, dateQualifier, effectiveDueDate, formatRangeEnd, parseYMD, urgencyColor } from "./utils";
 import { YearLabel } from "./YearLabel";
-
-function parseYMD(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 
 interface Props {
   entry: ScheduleListEntry;
@@ -35,7 +30,7 @@ export default function ScheduleMonthRow({
   const tMonth = useTranslations("schedule.month");
   const tPlan = useTranslations("schedule");
   const locale = useLocale();
-  const tag = locale === "en" ? "en-US" : "de-DE";
+  const tag = dateLocaleTag(locale);
 
   const date = parseYMD(entry.due_date);
   const monthOnly = entry.date_precision === "month";

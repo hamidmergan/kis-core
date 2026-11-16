@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PREFS_KEY, readPrefs, updatePrefs } from "@/lib/browserStore";
+import { PREFS_KEY, readPrefs, updatePrefs, type Theme } from "@/lib/browserStore";
 
-export type Theme = "light" | "dark";
+export type { Theme };
 
 const COOKIE_KEY = "kis-theme";
 const CHANGE_EVENT = "kis-theme:change";

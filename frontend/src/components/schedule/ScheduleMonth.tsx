@@ -6,63 +6,18 @@ import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
+import ScheduleMonthLegend from "./ScheduleMonthLegend";
 import ScheduleMonthRow from "./ScheduleMonthRow";
+import ScheduleMonthWeek from "./ScheduleMonthWeek";
 import ScheduleEntryModal from "./ScheduleEntryModal";
-import ScheduleBars, { barsSpace, BAR_TOP, BAR_GAP } from "./ScheduleBars";
-import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
+import type { RangeEntry } from "./_ranges";
 import { useHiddenGroups, useHiddenIds } from "./_hidden";
-import { parseYMD, todayISO, ymd } from "./utils";
-import { fetchAllEntries, fetchColors, putColor, PRIVAT, type CalendarColors } from "./_api";
-import FarbWahl from "./FarbWahl";
+import { monthGrid, rangesOn } from "./_monthGrid";
+import { dateLocaleTag, parseYMD, todayISO } from "./utils";
+import { deleteEntry, fetchAllEntries, fetchColors, putChecked, putColor, PRIVAT, type CalendarColors } from "./_api";
 
 /** Until the colours arrive, every entry stands in the accent colour. */
 const ERSATZ_FARBE = "var(--kb)";
-
-/** More entries per day become '+N more', otherwise one day blows the row height. */
-const MAX_CHIPS = 2;
-
-/** At most this many bars on top of each other, the rest counts into '+N more'. */
-const MAX_LANES = 2;
-
-/** Today only carries a top edge, the same mark the mini calendar uses. */
-const HEUTE_KANTE: React.CSSProperties = {
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 3,
-  backgroundColor: "var(--kb)",
-};
-
-/** Like ymd, but the day may run past the month, Date converts that. */
-function ymdShift(y: number, m: number, dayOffset: number): string {
-  const dt = new Date(y, m, dayOffset);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-}
-
-async function putChecked(
-  workspaceUuid: string | null,
-  entryId: number,
-  checked: boolean,
-): Promise<boolean> {
-  // A private appointment has no workspace in the path.
-  const url = workspaceUuid
-    ? `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`
-    : `/api/ai-assistant/schedule/entries/${entryId}`;
-  try {
-    const r = await fetch(
-      url,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ is_checked: checked }),
-      },
-    );
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
 
 const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,7 +25,7 @@ const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
 export default function ScheduleMonth({ initialDate }: { initialDate?: string }) {
   const t = useTranslations("schedule");
   const locale = useLocale();
-  const tag = locale === "en" ? "en-US" : "de-DE";
+  const tag = dateLocaleTag(locale);
 
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [farben, setFarben] = useState<CalendarColors | null>(null);
@@ -121,7 +76,11 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
   const reload = useCallback(() => {
     setEntries(null);
-    fetchAllEntries().then((items) => { if (items !== null) setEntries(items); });
+    // A failed reload shows the error, otherwise the spinner would never end.
+    fetchAllEntries().then((items) => {
+      if (items === null) setError(true);
+      else setEntries(items);
+    });
     // A first private appointment or a new workspace needs its own colour.
     fetchColors().then((c) => { if (c) setFarben(c); });
   }, []);
@@ -133,11 +92,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
   const handleDelete = useCallback(async (entry: ScheduleListEntry) => {
     if (!window.confirm(t("month.deleteConfirm", { title: entry.title }))) return;
-    const r = await fetch(`/api/ai-assistant/schedule/entries/${entry.id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (r.ok) setEntries((prev) => prev?.filter((e) => e.id !== entry.id) ?? prev);
+    if (await deleteEntry(entry.id)) setEntries((prev) => prev?.filter((e) => e.id !== entry.id) ?? prev);
   }, [t]);
 
   /** One click selects the day, two in quick succession create an appointment there. */
@@ -190,61 +145,13 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
   }
 
   const { y, m } = cursor;
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const daysInPrev = new Date(y, m, 0).getDate();
-  const startCol = (new Date(y, m, 1).getDay() + 6) % 7; // Monday = 0
-  const trailing = (7 - ((startCol + daysInMonth) % 7)) % 7;
-  const weeks = (startCol + daysInMonth + trailing) / 7;
-
-  // An entry without a day number fits no cell and sits below the grid.
-  const byDay = new Map<string, ScheduleListEntry[]>();
-  const noDay: ScheduleListEntry[] = [];
-  const monthPrefix = `${y}-${String(m + 1).padStart(2, "0")}`;
-  const monthStart = `${monthPrefix}-01`;
-  const monthEnd = `${monthPrefix}-${String(daysInMonth).padStart(2, "0")}`;
-
-  // Spans are drawn by the bar, they must not also appear as a day tile.
-  const isRange = (e: ScheduleListEntry) => !!e.end_date && e.end_date !== e.due_date;
-  const imMonat = (e: ScheduleListEntry) =>
-    isRange(e)
-      ? e.due_date <= monthEnd && (e.end_date as string) >= monthStart
-      : !!e.due_date && e.due_date.startsWith(monthPrefix);
-
-  // The legend lists hidden workspaces too, otherwise they could not be shown again.
-  const usedWorkspaces = new Map<string, { title: string; color: string }>();
-  let hatPrivate = false;
-  for (const e of entries.filter(imMonat)) {
-    // Private appointments carry no workspace name, they stand as one line.
-    if (e.workspace_uuid === null) {
-      hatPrivate = true;
-      continue;
-    }
-    if (!usedWorkspaces.has(e.workspace_uuid)) {
-      usedWorkspaces.set(e.workspace_uuid, {
-        title: e.module_title ?? "",
-        color: colorFor(e.workspace_uuid),
-      });
-    }
-  }
-  if (hatPrivate) {
-    usedWorkspaces.set(PRIVAT, { title: t("month.personal"), color: colorFor(null) });
-  }
-
-  // A hidden workspace disappears from the grid and from every list.
-  const shown = entries.filter((e) => !hiddenGroups.has(e.workspace_uuid ?? PRIVAT));
-  const monthRanges = shown.filter((e) => isRange(e) && imMonat(e));
-
-  for (const e of shown) {
-    if (!e.due_date || !e.due_date.startsWith(monthPrefix)) continue;
-    if (isRange(e)) continue;
-    if (e.date_precision === "month") {
-      noDay.push(e);
-      continue;
-    }
-    const list = byDay.get(e.due_date);
-    if (list) list.push(e);
-    else byDay.set(e.due_date, [e]);
-  }
+  const grid = monthGrid(entries, y, m, hiddenGroups);
+  const { byDay, noDay, monthRanges } = grid;
+  const legend = grid.groups.map(({ key, title }) => ({
+    key,
+    title: title ?? t("month.personal"),
+    color: colorFor(key === PRIVAT ? null : key),
+  }));
 
   // Only the grid leaves hidden entries out, the list on the right still shows everything.
   const imRaster = (e: ScheduleListEntry) => !hidden.has(e.id);
@@ -264,12 +171,9 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
   const monthLabel = new Intl.DateTimeFormat(tag, { month: "long", year: "numeric" })
     .format(new Date(y, m, 1));
-  // A span sits in no cell but covers the day and makes it clickable.
-  const rangesOn = (iso: string) =>
-    monthRanges.filter((r) => r.due_date <= iso && (r.end_date as string) >= iso);
-  const entriesOn = (iso: string) => (byDay.get(iso) ?? []).concat(rangesOn(iso));
-  const selectedEntries = selected ? entriesOn(selected) : [];
-  const isEmptyMonth = byDay.size === 0 && noDay.length === 0;
+  const selectedEntries = selected ? (byDay.get(selected) ?? []).concat(rangesOn(monthRanges, selected)) : [];
+  // A span alone fills the month too, the bar would otherwise stand above "no appointments".
+  const isEmptyMonth = byDay.size === 0 && noDay.length === 0 && monthRanges.length === 0;
 
   // Only on wide screens, the column shows the month or the selected day.
   const monthEntries = [...byDay.entries()]
@@ -337,7 +241,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
       <div className="-mx-4 sm:mx-0 grid grid-cols-7 gap-1 mb-1">
         {weekdays.map((w) => (
           <div
-            key={w}
+            key={`${y}-${m}-${w}`}
             className="text-2xs font-bold text-center pb-1 uppercase tracking-wide"
             style={{ color: "var(--muted)" }}
           >
@@ -346,128 +250,22 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         ))}
       </div>
 
-      {/* Each week is its own block so the bars can sit inside it. */}
       <div className="-mx-4 sm:mx-0 flex flex-col gap-1 xl:flex-1">
-      {Array.from({ length: weeks }, (_, w) => {
-        const weekStart = ymdShift(y, m, 1 - startCol + w * 7);
-        const segmente = weekSegments(ranges, weekStart);
-        // Whatever exceeds the cap is not drawn but counted.
-        const sichtbareBalken = segmente.filter((s) => s.lane < MAX_LANES);
-        const versteckteIds = new Set(
-          segmente.filter((s) => s.lane >= MAX_LANES).map((s) => s.entry.id),
-        );
-        // Space per day instead of per week, otherwise empty cells gape.
-        const spurProTag = new Map<number, number>();
-        for (const seg of sichtbareBalken) {
-          for (let i = seg.col1 - 1; i <= seg.col2 - 2; i++) {
-            spurProTag.set(i, Math.max(spurProTag.get(i) ?? -1, seg.lane));
-          }
-        }
-        const wochenPlatz = barsSpace(laneCount(sichtbareBalken));
-        return (
-          <div
-            key={weekStart}
-            className="relative grid grid-cols-7 xl:flex-1"
-            // Many bars need real height, otherwise the tile below slips out of the cell.
-            style={{
-              borderTop: w === 0 ? undefined : "1px solid var(--border-soft)",
-              ...(wochenPlatz ? { minHeight: BAR_TOP + wochenPlatz + BAR_GAP } : {}),
-            }}
-          >
-        {Array.from({ length: 7 }, (_, i) => {
-          const day = w * 7 + i - startCol + 1;
-          if (day < 1 || day > daysInMonth) {
-            return (
-              <div
-                key={`out-${w}-${i}`}
-                aria-hidden="true"
-                className="min-h-13 md:min-h-19 px-1.5 py-1 text-2xs font-semibold"
-                style={{
-                  borderLeft: i === 0 ? undefined : "1px solid var(--border-soft)",
-                  color: "var(--border)",
-                }}
-              >
-                {day < 1 ? daysInPrev + day : day - daysInMonth}
-              </div>
-            );
-          }
-          const iso = ymd(y, m, day);
-          const items = (byDay.get(iso) ?? []).filter(imRaster);
-          const spannen = rangesOn(iso);
-          // A span without a bar counts into the same remainder as an omitted tile.
-          const versteckteSpannen = spannen.filter((r) => versteckteIds.has(r.id)).length;
-          const spur = spurProTag.get(i);
-          const platz = spur === undefined ? 0 : barsSpace(spur + 1);
-          const gesamt = items.length + versteckteSpannen;
-          const isToday = iso === today;
-          const isSelected = iso === selected;
-          const chips = gesamt > MAX_CHIPS + 1 ? items.slice(0, MAX_CHIPS) : items;
-          const restChips = gesamt - chips.length;
-
-          return (
-            <button
-              key={iso}
-              type="button"
-              onClick={() => handleDayClick(iso)}
-              aria-pressed={isSelected}
-              className="relative min-h-13 md:min-h-19 px-1.5 py-1 flex flex-col text-left transition-colors cursor-pointer hover:bg-[var(--surface-dim)] hover:outline-2 hover:outline-[var(--kb)]"
-              style={{
-                borderLeft: i === 0 ? undefined : "1px solid var(--border-soft)",
-                // The selected day gets the full outline, today only the top edge below.
-                outline: isSelected ? "2px solid var(--kb)" : undefined,
-                outlineOffset: -2,
-                backgroundColor: "var(--background)",
-              }}
-            >
-              {isToday && (
-                <span aria-hidden="true" className="absolute pointer-events-none" style={HEUTE_KANTE} />
-              )}
-              <span
-                className="text-2xs font-semibold"
-                // Fixed height, otherwise the gap is off by a pixel.
-                style={{ height: 17, color: isToday ? "var(--kb)" : "var(--foreground-soft)" }}
-              >
-                {day}
-              </span>
-
-              {/* The space for the bars sits below the number, never above. */}
-              {platz > 0 && <span aria-hidden="true" style={{ height: platz }} />}
-
-              {/* The same tiles everywhere, in narrow cells truncate shortens the title. */}
-              <span className="flex flex-col gap-0.5 min-w-0">
-                {chips.map((e) => (
-                  <span
-                    key={e.id}
-                    title={e.title}
-                    className="text-2xs font-semibold rounded px-1 py-px truncate"
-                    style={{
-                      backgroundColor: colorFor(e.workspace_uuid),
-                      color: "#fff",
-                      opacity: e.is_checked ? 0.45 : 1,
-                      textDecoration: e.is_checked ? "line-through" : undefined,
-                    }}
-                  >
-                    {e.title}
-                  </span>
-                ))}
-                {restChips > 0 && (
-                  <span
-                    className="text-2xs font-bold px-1"
-                    style={{ color: "var(--kb)" }}
-                  >
-                    {/* The word "more" fits beside the number only from tablet up. */}
-                    <span className="md:hidden">+{restChips}</span>
-                    <span className="hidden md:inline">{t("month.more", { count: restChips })}</span>
-                  </span>
-                )}
-              </span>
-            </button>
-          );
-        })}
-            <ScheduleBars segments={sichtbareBalken} />
-          </div>
-        );
-      })}
+        {Array.from({ length: grid.weeks }, (_, w) => (
+          <ScheduleMonthWeek
+            key={`${y}-${m}-${w}`}
+            y={y}
+            m={m}
+            week={w}
+            grid={grid}
+            bars={ranges}
+            inGrid={imRaster}
+            today={today}
+            selected={selected}
+            colorFor={colorFor}
+            onDayClick={handleDayClick}
+          />
+        ))}
       </div>
 
       {/* From xl these entries sit in the right column, here they would be duplicates. */}
@@ -502,41 +300,13 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
         </p>
       )}
 
-      {usedWorkspaces.size > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-          {[...usedWorkspaces.entries()].map(([key, w]) => {
-            const aus = hiddenGroups.has(key);
-            return (
-              <span key={key} className="inline-flex items-center gap-1.5">
-                {farben ? (
-                  <FarbWahl
-                    color={w.color}
-                    palette={farben.palette}
-                    name={w.title}
-                    dimmed={aus}
-                    onPick={(i) => pickColor(key, i)}
-                  />
-                ) : (
-                  <span className="rounded-sm" style={{ width: 14, height: 14, backgroundColor: w.color }} />
-                )}
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(key)}
-                  aria-pressed={!aus}
-                  title={t(aus ? "month.showInCalendar" : "month.hideInCalendar")}
-                  className="text-xs cursor-pointer"
-                  style={{
-                    color: aus ? "var(--muted)" : "var(--foreground-soft)",
-                    textDecoration: aus ? "line-through" : undefined,
-                  }}
-                >
-                  {w.title}
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
+      <ScheduleMonthLegend
+        groups={legend}
+        palette={farben?.palette}
+        hiddenGroups={hiddenGroups}
+        onPickColor={pickColor}
+        onToggleGroup={toggleGroup}
+      />
 
       {/* Narrow screens keep the day list below the grid. */}
       {selected && selectedEntries.length > 0 && (

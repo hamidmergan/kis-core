@@ -28,10 +28,17 @@ export default function ImpersonationBanner() {
 
   async function zurueck() {
     setLaeuft(true);
-    const res = await fetch("/api/admin/impersonation/stop", {
-      method: "POST",
-      credentials: "include",
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/admin/impersonation/stop", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // No connection, the button comes back for another try.
+      setLaeuft(false);
+      return;
+    }
     clearAuthCache();
     if (res.ok) {
       // Hard nav so the server layout re-reads the swapped session cookie.

@@ -2,9 +2,18 @@
 const URGENCY_TODAY = "var(--kb-dark)";
 export const URGENCY_SOON = "var(--warn)";
 
+/** The local day of a Date as YYYY-MM-DD. */
+export function ymdOf(d: Date): string {
+  return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 export function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return ymdOf(new Date());
+}
+
+/** The locale tag every date of the calendar is written with. */
+export function dateLocaleTag(locale: string): string {
+  return locale === "en" ? "en-US" : "de-DE";
 }
 
 /** Colour of the appointment line, blue today and orange under seven days. */
@@ -19,7 +28,6 @@ export function urgencyColor(dueDate: string | null | undefined, today: string):
   return null;
 }
 
-/** Drops the start time from the description, for spans the end stays. */
 /** Drops an 'until' or 'from' carrying its own day, another day stays. */
 function stripSelfDate(text: string, dueDate: string | null | undefined): string {
   if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return text;
@@ -36,6 +44,7 @@ function stripSelfDate(text: string, dueDate: string | null | undefined): string
     .trim();
 }
 
+/** Drops the start time from the description, for spans the end stays. */
 export function cleanScheduleDescription(
   description: string | null | undefined,
   dueTime: string | null | undefined,
@@ -101,9 +110,8 @@ export function formatRangeEnd(
   locale: string,
 ): string | null {
   if (!dueDate || !endDate || endDate === dueDate) return null;
-  const tag = locale === "en" ? "en-US" : "de-DE";
   const anderesJahr = endDate.slice(0, 4) !== dueDate.slice(0, 4);
-  return new Intl.DateTimeFormat(tag, {
+  return new Intl.DateTimeFormat(dateLocaleTag(locale), {
     day: "numeric",
     month: "long",
     ...(anderesJahr ? { year: "numeric" } : {}),

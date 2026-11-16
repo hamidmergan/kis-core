@@ -10,9 +10,13 @@ const EXPIRY_HOME = ["/login", "/redeem", "/redeem/expired"];
 /** Pages anyone may see, a stale session there is dropped instead of sending the visitor to the login. */
 export const PUBLIC_PAGES = ["/", "/info", "/imprint", "/privacy", "/campusmap"];
 
+/** The path without its locale prefix, /en/login is the same page as /login. */
+function ohneSprache(path: string): string {
+  return path.replace(/^\/en(?=\/|$)/, "") || "/";
+}
+
 function isPublicPage(path: string): boolean {
-  const ohneSprache = path.replace(/^\/en(?=\/|$)/, "") || "/";
-  return PUBLIC_PAGES.includes(ohneSprache);
+  return PUBLIC_PAGES.includes(ohneSprache(path));
 }
 
 // The first redirect wins, a 401 running behind it must not swallow the expiry hint.
@@ -90,13 +94,22 @@ export function parseDetail(detail: unknown, fallback: string): string {
   return fallback;
 }
 
+// A plain name may carry a bare percent sign, which is no encoding at all.
+function decodeName(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 // Takes the file name from the header, otherwise the fallback.
-function filenameFromDisposition(disposition: string | null, fallback: string): string {
+export function filenameFromDisposition(disposition: string | null, fallback: string): string {
   if (disposition) {
     const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-    if (utf8Match) return decodeURIComponent(utf8Match[1].trim());
+    if (utf8Match) return decodeName(utf8Match[1].trim());
     const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-    if (basicMatch) return decodeURIComponent(basicMatch[1].trim());
+    if (basicMatch) return decodeName(basicMatch[1].trim());
   }
   return fallback;
 }
@@ -115,6 +128,18 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   // but never put the raw code in front of the user.
   console.error(`API error ${fallbackStatus}:`, detail);
   return new Error(fallback("genericError"));
+}
+
+/** Turns a failed response into the error the callers show. */
+async function throwIfFailed(response: Response, fallbackKey: "unknownError" | "translationError" = "unknownError"): Promise<void> {
+  if (response.ok) return;
+  const error = await response.json().catch(() => ({ detail: fallback(fallbackKey) }));
+  throw _parseErrorResponse(error, response.status);
+}
+
+async function blobWithName(response: Response, fallbackName: string): Promise<{ blob: Blob; filename: string }> {
+  const blob = await response.blob();
+  return { blob, filename: filenameFromDisposition(response.headers.get("Content-Disposition"), fallbackName) };
 }
 
 function readLocaleFromCookie(): "de" | "en" {
@@ -146,7 +171,7 @@ class ApiClient {
       const currentPath = window.location.pathname;
       if (isPublicPage(currentPath)) {
         sitzungVerwerfen();
-      } else if (currentPath !== "/login") {
+      } else if (ohneSprache(currentPath) !== "/login") {
         verlassen("/login");
       }
     }
@@ -178,10 +203,7 @@ class ApiClient {
       signal,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
     return response.json();
   }
@@ -189,10 +211,7 @@ class ApiClient {
   async getJson<T>(path: string): Promise<T> {
     const response = await this.fetch(path);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
     return response.json();
   }
@@ -205,10 +224,7 @@ class ApiClient {
       signal,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
     return response.json();
   }
@@ -232,15 +248,9 @@ class ApiClient {
       signal,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
-    const blob = await response.blob();
-    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), file.name);
-
-    return { blob, filename };
+    return blobWithName(response, file.name);
   }
 
   async uploadFile(
@@ -259,16 +269,11 @@ class ApiClient {
       body: formData,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("translationError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response, "translationError");
 
-    const blob = await response.blob();
-    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), file.name);
-
-    return { blob, filename };
+    return blobWithName(response, file.name);
   }
+
   async postJsonForBlob(
     path: string,
     body: unknown,
@@ -279,15 +284,9 @@ class ApiClient {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
-    const blob = await response.blob();
-    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), "output");
-
-    return { blob, filename };
+    return blobWithName(response, "output");
   }
 
   async uploadMultipleFiles(
@@ -308,15 +307,9 @@ class ApiClient {
       body: formData,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
-      throw _parseErrorResponse(error, response.status);
-    }
+    await throwIfFailed(response);
 
-    const blob = await response.blob();
-    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), "output");
-
-    return { blob, filename };
+    return blobWithName(response, "output");
   }
 }
 
@@ -414,7 +407,5 @@ export async function downloadJobAsBlob(
     throw _parseErrorResponse(body, res.status);
   }
 
-  const blob = await res.blob();
-  const filename = filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackFilename);
-  return { blob, filename };
+  return blobWithName(res, fallbackFilename);
 }

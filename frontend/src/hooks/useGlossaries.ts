@@ -23,7 +23,8 @@ async function migrateLegacyGlossaries(serverGlossaries: Glossary[]): Promise<Gl
   if (serverGlossaries.length === 0) {
     let legacy: Glossary[] = [];
     try {
-      legacy = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) legacy = parsed;
     } catch {
       legacy = [];
     }

@@ -108,3 +108,49 @@ describe("jedes andere 403", () => {
     expect(ort.href).toBe("unveraendert");
   });
 });
+
+describe("401 on the login page", () => {
+  it("stays on the German login page so the wrong password shows", async () => {
+    const ort = fensterMit("/login");
+    antwort(401, { detail: "wrong" });
+
+    await backendApi.fetch("/auth/login");
+
+    expect(ort.href).toBe("unveraendert");
+  });
+
+  it("stays on the English login page as well", async () => {
+    const ort = fensterMit("/en/login");
+    antwort(401, { detail: "wrong" });
+
+    await backendApi.fetch("/auth/login");
+
+    expect(ort.href).toBe("unveraendert");
+  });
+
+  it("still sends every other page to the login", async () => {
+    const ort = fensterMit("/en/tools/tts");
+    antwort(401, { detail: "not authenticated" });
+
+    await backendApi.fetch("/aia/workspaces");
+
+    expect(ort.href).toBe("/login");
+  });
+});
+
+describe("file name from the header", () => {
+  it("decodes the UTF-8 form", async () => {
+    const { filenameFromDisposition } = await import("./api");
+    expect(filenameFromDisposition("attachment; filename*=UTF-8''%C3%9Cbung.pdf", "x")).toBe("Übung.pdf");
+  });
+
+  it("keeps a plain name with a bare percent sign", async () => {
+    const { filenameFromDisposition } = await import("./api");
+    expect(filenameFromDisposition('attachment; filename="100% fertig.pdf"', "x")).toBe("100% fertig.pdf");
+  });
+
+  it("falls back without a header", async () => {
+    const { filenameFromDisposition } = await import("./api");
+    expect(filenameFromDisposition(null, "output")).toBe("output");
+  });
+});

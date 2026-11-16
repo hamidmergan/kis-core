@@ -56,4 +56,18 @@ describe("glossary store", () => {
     await load(fetcher);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  it("drops the answer of a request that an invalidation overtook", async () => {
+    let finish: (l: Glossary[]) => void = () => {};
+    const slow = load(() => new Promise<Glossary[]>((resolve) => { finish = resolve; }));
+    invalidateGlossaries();
+    finish(list("old account"));
+    await slow;
+    expect(cached()).toBeNull();
+
+    const fetcher = vi.fn(async () => list("new account"));
+    await load(fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(cached()).toEqual(list("new account"));
+  });
 });

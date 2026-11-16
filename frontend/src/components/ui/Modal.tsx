@@ -61,7 +61,6 @@ export default function Modal({
   className = "",
 }: ModalProps) {
   const t = useTranslations("common");
-  const dialogRef = useRef<HTMLDivElement>(null);
   const press = useRef(newBackdropPress()).current;
   const area = useVisibleArea(open);
 
@@ -99,7 +98,6 @@ export default function Modal({
       aria-modal="true"
     >
       <div
-        ref={dialogRef}
         className={`w-full ${sizeClass[size]} rounded-xl shadow-lg flex flex-col max-h-full ${className}`}
         style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}

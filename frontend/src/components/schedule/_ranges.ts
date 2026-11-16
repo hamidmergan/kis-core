@@ -1,3 +1,5 @@
+import { parseYMD, ymdOf } from "./utils";
+
 /** A span in the month grid, cut at the week boundaries. */
 export interface RangeEntry {
   id: number;
@@ -22,17 +24,13 @@ export interface Segment {
 }
 
 function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + n);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  const dt = parseYMD(iso);
+  dt.setDate(dt.getDate() + n);
+  return ymdOf(dt);
 }
 
 function dayIndex(iso: string, weekStartISO: string): number {
-  const [ay, am, ad] = weekStartISO.split("-").map(Number);
-  const [by, bm, bd] = iso.split("-").map(Number);
-  const a = new Date(ay, am - 1, ad).getTime();
-  const b = new Date(by, bm - 1, bd).getTime();
-  return Math.round((b - a) / 86_400_000);
+  return Math.round((parseYMD(iso).getTime() - parseYMD(weekStartISO).getTime()) / 86_400_000);
 }
 
 /** All spans touching this week, with columns and lane. */

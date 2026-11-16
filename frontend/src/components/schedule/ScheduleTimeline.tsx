@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { dateQualifier, effectiveDueDate, todayISO, urgencyColor } from "./utils";
+import { dateLocaleTag, dateQualifier, effectiveDueDate, parseYMD, todayISO, urgencyColor } from "./utils";
 import { YearLabel } from "./YearLabel";
 
 interface DatedEntry {
@@ -31,11 +31,6 @@ interface ScheduleTimelineProps<T extends DatedEntry> {
   renderTbdCard?: (entry: T) => ReactNode;
 }
 
-function parseYMD(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 function sortByDate<T extends DatedEntry>(entries: T[]): T[] {
   return [...entries].sort((a, b) => {
     const da = a.due_date ? parseYMD(a.due_date).getTime() : 0;
@@ -53,7 +48,7 @@ function formatDay(
   monthOnly = false,
 ): { day: string | null; month: string; year: string } {
   const d = parseYMD(dateStr);
-  const tag = locale === "en" ? "en-US" : "de-DE";
+  const tag = dateLocaleTag(locale);
   return {
     // Without a day number in the source none appears here, the first only sorts.
     day: monthOnly ? null : String(d.getDate()).padStart(2, "0"),

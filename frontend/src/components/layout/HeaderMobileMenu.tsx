@@ -5,18 +5,12 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import NoticeDot from "@/components/ui/NoticeDot";
 import { useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { CalendarBlank, Check, Compass, FileText, List, Medal, Moon, PencilSimple, Plugs, Question, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
-import { useRouter, usePathname } from "@/i18n/navigation";
+import { usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
-
-const LOCALES = UI_LOCALES as readonly Locale[];
-const THEMES: readonly Theme[] = ["light", "dark"];
-// Row groups below the appearance section, in the order they are rendered.
-const BLOCKS: readonly (readonly string[])[] = [["level", "interfaces", "tour", "evaluation", "manual", "faq"], ["admin"], ["logout"]];
+import { blockStartRows, LOCALES, THEMES, useLocaleSwitch } from "./_headerMenu";
 
 interface HeaderMobileMenuProps {
   hasSession: boolean;
@@ -41,9 +35,8 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
-  const router = useRouter();
   const pathname = usePathname();
-  const currentLocale = useLocale() as Locale;
+  const { currentLocale, switchLocale } = useLocaleSwitch();
   const [open, setOpen] = useState(false);
 
   // The menu stays open while the page loads, so the row can show its spinner.
@@ -86,10 +79,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
 
   const chooseLocale = (next: Locale) => {
     setOpen(false);
-    if (next === currentLocale) return;
-    rememberLocaleCookie(next);
-    router.replace(pathname, { locale: next });
-    void persistLocale(next);
+    switchLocale(next);
   };
 
   const chooseTheme = (next: Theme) => {
@@ -110,7 +100,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
   const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, interfaces: hasSession && showInterfaces, tour: hasSession && showTour, evaluation: hasSession && showEvaluation, manual: hasSession && canViewManual, faq: hasSession, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
-  const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
+  const blockStarts = blockStartRows(shown);
   const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
   return (

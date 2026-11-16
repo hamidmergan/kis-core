@@ -1,4 +1,4 @@
-export type UploadProblem = "extension" | "size";
+type UploadProblem = "extension" | "size";
 
 // Returns the first reason a picked file cannot be uploaded, or null.
 export function checkUpload(

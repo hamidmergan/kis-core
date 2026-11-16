@@ -7,8 +7,10 @@ import { notifyJobsChanged } from "@/lib/jobs-events";
 /** Stops a running job on the server, the job list updates right after. */
 export function cancelJob(uuid: string | null | undefined) {
   if (!uuid) return;
-  fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-  notifyJobsChanged();
+  // Only after the answer, a list loaded earlier would still show the job as running.
+  fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" })
+    .catch(() => {})
+    .finally(notifyJobsChanged);
 }
 
 /** The cancel button next to the submit button while a job runs. */

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { backendApi } from "@/lib/api";
+import { JOBS_CHANGED_EVENT } from "@/lib/jobs-events";
 
 export interface JobHistoryEntry {
   job_uuid: string;
@@ -35,8 +36,8 @@ export function useJobHistory(toolFilter: string, limit = 10, oeffnbar: (j: JobH
   useEffect(() => {
     void laden();
     const neu = () => { void laden(); };
-    window.addEventListener("kis-jobs-changed", neu);
-    return () => window.removeEventListener("kis-jobs-changed", neu);
+    window.addEventListener(JOBS_CHANGED_EVENT, neu);
+    return () => window.removeEventListener(JOBS_CHANGED_EVENT, neu);
   }, [laden]);
 
   return eintraege;

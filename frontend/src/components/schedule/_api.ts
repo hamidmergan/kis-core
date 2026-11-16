@@ -50,3 +50,38 @@ export async function putColor(group: string, color: number): Promise<CalendarCo
     return null;
   }
 }
+
+/** Ticks an appointment, a private one has no workspace in the path. */
+export async function putChecked(
+  workspaceUuid: string | null,
+  entryId: number,
+  checked: boolean,
+): Promise<boolean> {
+  const url = workspaceUuid
+    ? `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`
+    : `/api/ai-assistant/schedule/entries/${entryId}`;
+  try {
+    const r = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ is_checked: checked }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Deletes a private appointment, false when the server or the connection refuses. */
+export async function deleteEntry(entryId: number): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/ai-assistant/schedule/entries/${entryId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}

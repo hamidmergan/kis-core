@@ -20,6 +20,20 @@ const TOOL_ROUTES = [
 
 export type ToolKey = (typeof TOOL_ROUTES)[number]["key"];
 
+/** Whether this installation has the module, a missing list means an older server with all of them. */
+export function hasModule(modules: readonly string[] | undefined, module: (typeof ALL_MODULES)[number]): boolean {
+  return (modules ?? ALL_MODULES).includes(module);
+}
+
+/** The tool behind a path like /tools/stt/..., null for anything else. */
+export function toolKeyFromPath(pathname: string | null): ToolKey | null {
+  if (!pathname) return null;
+  const segs = pathname.split("/").filter(Boolean);
+  const idx = segs.indexOf("tools");
+  if (idx === -1 || !segs[idx + 1]) return null;
+  return TOOL_ROUTES.find((t) => t.href === `/tools/${segs[idx + 1]}`)?.key ?? null;
+}
+
 export type HomeTarget =
   | { kind: "aia"; href: "/workspace" }
   | { kind: "tool"; key: ToolKey; href: string };
@@ -30,10 +44,9 @@ export function homeTargets(
   permissions: UserPermissions,
   enabledKeys?: readonly string[],
 ): HomeTarget[] {
-  const aktiv = modules ?? ALL_MODULES;
   const ziele: HomeTarget[] = [];
-  if (aktiv.includes("aia") && permissions.allow_aia) ziele.push({ kind: "aia", href: "/workspace" });
-  if (aktiv.includes("tools")) {
+  if (hasModule(modules, "aia") && permissions.allow_aia) ziele.push({ kind: "aia", href: "/workspace" });
+  if (hasModule(modules, "tools")) {
     const frei = (key: string) => enabledKeys === undefined || enabledKeys.includes(key);
     for (const key of sichtbareWerkzeuge(permissions, frei)) {
       ziele.push({ kind: "tool", key, href: TOOL_ROUTES.find((t) => t.key === key)!.href });

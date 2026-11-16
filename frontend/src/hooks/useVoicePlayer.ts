@@ -16,6 +16,8 @@ export function useVoicePlayer({ keepCache = false }: { keepCache?: boolean } = 
   useEffect(() => {
     const cache = cacheRef.current;
     return () => {
+      // A request still running would otherwise start playing after the page is gone.
+      abortRef.current?.abort();
       audioRef.current?.pause();
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       cache.forEach((url) => URL.revokeObjectURL(url));

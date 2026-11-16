@@ -1,21 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Check } from "@phosphor-icons/react";
-import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { UI_LOCALES } from "@/lib/constants";
-import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
-
-const LOCALES = UI_LOCALES as readonly Locale[];
+import { LOCALES, useLocaleSwitch } from "./_headerMenu";
 
 /** Shows the current language only, the choice opens on hover with a mouse and on tap otherwise. */
 function LanguageMenu() {
   const tLang = useTranslations("languageSwitch");
-  const router = useRouter();
-  const pathname = usePathname();
-  const currentLocale = useLocale() as Locale;
+  const { currentLocale, switchLocale } = useLocaleSwitch();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   // A click on the button right after the hover opened the menu must not close it again.
@@ -41,10 +35,7 @@ function LanguageMenu() {
 
   const chooseLocale = (next: Locale) => {
     setOpen(false);
-    if (next === currentLocale) return;
-    rememberLocaleCookie(next);
-    router.replace(pathname, { locale: next });
-    void persistLocale(next);
+    switchLocale(next);
   };
 
   return (

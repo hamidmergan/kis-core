@@ -1,6 +1,7 @@
 import type { Card, EventConfig, EventStats, PublicEvent, RaffleEntry } from "@/lib/event/types";
 
 const VISITOR_KEY = "kis.event.visitor";
+let memoryId: string | undefined;
 
 /** A random id that stays in this browser, the server only ever sees its hash. */
 function visitorId(): string {
@@ -15,7 +16,6 @@ function visitorId(): string {
     return (memoryId ??= crypto.randomUUID());
   }
 }
-let memoryId: string | undefined;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, { credentials: "include", cache: "no-store", ...init });

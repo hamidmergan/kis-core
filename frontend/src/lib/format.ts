@@ -1,4 +1,5 @@
-function intlTag(locale: string): string {
+/** The locale tag for dates read in running text, day before month in both languages. */
+export function intlTag(locale: string): string {
   return locale === "en" ? "en-GB" : "de-DE";
 }
 
