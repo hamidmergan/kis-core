@@ -24,6 +24,7 @@ node_modules
 frontend/node_modules
 frontend/.next/
 frontend/.next-verify/
+frontend/.next-probe/
 frontend/.next-prod/
 frontend/.next-manual/
 frontend/out/
