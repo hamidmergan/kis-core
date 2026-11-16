@@ -38,12 +38,6 @@ class TestDerVorrat:
         for n in tn.NUMBERS:
             assert n.tool, n.key
 
-    def test_ein_werkzeug_bekommt_seine_eigenen_zahlen(self):
-        for n in tn.of_tool("summary"):
-            assert n.tool == "summary"
-        assert tn.of_tool("gibt_es_nicht") == ()
-
-
 class TestLesen:
     """Without a usable entry the code default applies, never zero."""
 

@@ -23,15 +23,6 @@ def ist_anmeldename(text: str) -> bool:
     return bool(_UID.match(text or ""))
 
 
-def name_to_uid(given_name: str, surname: str) -> str | None:
-    """Builds vorname.nachname, None when one of the two carries nothing usable."""
-    vorname = slugify_uid(given_name)
-    nachname = slugify_uid(surname)
-    if not vorname or not nachname:
-        return None
-    return slugify_uid(f"{vorname}.{nachname}"[:MAX_UID_LENGTH])
-
-
 def unique_uid(base: str, exists: Callable[[str], bool]) -> str:
     """Appends the smallest free number, the result never grows past the limit."""
     if not exists(base):

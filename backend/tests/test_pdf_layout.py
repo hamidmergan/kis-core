@@ -4,7 +4,6 @@ from src.services.pdf_layout import (
     LineBox,
     boilerplate_keys,
     is_boilerplate,
-    drop_boilerplate_lines,
     merge_rows,
     page_reading_order,
     slide_groups,
@@ -15,6 +14,12 @@ from src.services.pdf_layout import (
 
 def L(text, x=30.0, y=100.0):
     return LineBox(text=text, x=x, y=y)
+
+
+def drop_boilerplate_lines(pages):
+    # The same filter the chunker applies per page.
+    boiler = boilerplate_keys(pages)
+    return [[b for b in page if not is_boilerplate(b.text, boiler)] for page in pages]
 
 
 # ── reading order ────────────────────────────────────────────────────────────
@@ -68,13 +73,6 @@ def test_leaves_a_short_document_alone():
     pages = [[L("Überschrift"), L("Inhalt")] for _ in range(3)]
     out = drop_boilerplate_lines(pages)
     assert [b.text for b in out[0]] == ["Überschrift", "Inhalt"]
-
-
-def test_never_empties_a_page_completely():
-    # A page made of nothing but headers keeps its lines.
-    pages = [[L("Kopfzeile")] for _ in range(8)]
-    out = drop_boilerplate_lines(pages)
-    assert all(p for p in out)
 
 
 def test_ignores_case_and_spacing_when_matching_repeats():

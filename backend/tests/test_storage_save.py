@@ -41,12 +41,10 @@ def test_jede_bytes_funktion_schreibt_an_ihren_platz(lokal):
     assert json.loads((job / "result.json").read_text()) == {"a": 1}
 
 
-def test_meta_und_pptx_schreiben_ohne_rueckgabe(lokal):
+def test_meta_schreiben_ohne_rueckgabe(lokal):
     assert storage.save_result_meta(7, "j1", {"b": 2}) is None
-    assert storage.save_pptx_tmp("f1", b"pptx") is None
 
     assert json.loads((lokal / "users/7/jobs/j1/meta.json").read_text()) == {"b": 2}
-    assert (lokal / "tmp/pptx/f1.pptx").read_bytes() == b"pptx"
 
 
 def test_jede_pfad_funktion_kopiert_an_ihren_platz(lokal, tmp_path):
@@ -112,7 +110,5 @@ def test_mit_s3_landet_meta_unter_seinem_schluessel(s3):
     abgelegt, _ = s3
 
     storage.save_result_meta(7, "j1", {"b": 2})
-    storage.save_pptx_tmp("f1", b"pptx")
 
     assert json.loads(abgelegt["users/7/jobs/j1/meta.json"]) == {"b": 2}
-    assert abgelegt["tmp/pptx/f1.pptx"] == b"pptx"

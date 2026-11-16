@@ -159,24 +159,6 @@ def make_whisper_client(binding: FeatureBinding):
     return make_llm_client(binding)
 
 
-def make_tts_client(binding: FeatureBinding):
-    """Return an OpenAICompatTTSClient for the chosen TTS provider."""
-    from src.services.openai_compat_tts import OpenAICompatTTSClient
-
-    if not binding.model:
-        raise FeatureNotConfigured(
-            f"tts provider '{binding.provider.get('name', '')}' has no model_name — "
-            "set it in the admin KI panel"
-        )
-    provider = binding.provider
-    return OpenAICompatTTSClient(
-        base_url=provider["base_url"],
-        model=binding.model,
-        api_key=provider.get("api_key") or "not-needed",
-        binding=binding,
-    )
-
-
 def make_ocr_provider(binding: FeatureBinding):
     """A text recognition provider matching the chosen protocol."""
     if binding.protocol == "docling":

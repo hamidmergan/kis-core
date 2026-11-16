@@ -165,11 +165,6 @@ class TestRegen:
         assert "WISH OF THE TEACHER: noch kürzer" in content
 
 
-def test_source_excerpt_findet_die_stelle():
-    quelle = "Anfang. " * 50 + "Der Regelkreis hat vier Glieder." + " Ende." * 50
-    assert "Regelkreis" in folien.source_excerpt(quelle, ["Regelkreis"], 200)
-
-
 class TestSprechtext:
     """Notes were asked for, so an answer without them is unusable and gets asked again."""
 

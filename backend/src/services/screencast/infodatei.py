@@ -33,16 +33,6 @@ def sprach_name(lang_code: str) -> str:
     return "" if name == schluessel else name
 
 
-def dauer_text(sekunden: float) -> str:
-    """A duration the way you would say it out loud."""
-    gesamt = round(sekunden or 0)
-    if gesamt < 60:
-        return f"{gesamt} s"
-    if gesamt < 3600:
-        return f"{gesamt // 60} min {gesamt % 60} s"
-    return f"{gesamt // 3600} h {(gesamt % 3600) // 60} min"
-
-
 def _zahl(wert) -> str:
     """Thousands separator as in German."""
     return f"{int(wert):,}".replace(",", ".")

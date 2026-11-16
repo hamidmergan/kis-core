@@ -1,7 +1,7 @@
 """Excluded slides keep their old audio so resuming costs nothing."""
 
 from src import storage
-from src.storage import audio_folien_mit_ton, clear_audio_cache, hat_audio_slide, job_prefix, save_audio_cache
+from src.storage import audio_folien_mit_ton, clear_audio_cache, job_prefix, save_audio_cache
 
 UUID = "b" * 32
 ANDERE_UUID = "c" * 32
@@ -27,22 +27,6 @@ def test_leere_bytes_schreiben_eine_leere_datei(lokal):
 def test_nur_none_schreibt_gar_nichts(lokal):
     save_audio_cache(1, UUID, [None, None])
     assert not (_audio_dir(lokal)).exists()
-
-
-def test_hat_audio_slide_erkennt_inhalt(lokal):
-    save_audio_cache(1, UUID, [b"ID3", b""])
-    assert hat_audio_slide(1, UUID, 0) is True
-
-
-def test_leere_datei_gilt_als_kein_ton(lokal):
-    """Zero bytes is not a valid MP3, the fallback must not take it."""
-    save_audio_cache(1, UUID, [b"ID3", b""])
-    assert hat_audio_slide(1, UUID, 1) is False
-
-
-def test_fehlende_datei_gilt_als_kein_ton(lokal):
-    save_audio_cache(1, UUID, [b"ID3"])
-    assert hat_audio_slide(1, UUID, 5) is False
 
 
 def test_audio_folien_mit_ton_findet_nur_belegte_plaetze(lokal):

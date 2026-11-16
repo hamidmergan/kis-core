@@ -25,18 +25,6 @@ def test_constructor_requires_model():
         OpenAICompatTTSClient("http://tts.example.com")  # no model kwarg
 
 
-def test_make_tts_client_raises_when_no_model():
-    """make_tts_client must raise FeatureNotConfigured when binding has no model."""
-    from src.services.feature_router import make_tts_client, FeatureBinding, FeatureNotConfigured
-    binding = FeatureBinding(
-        feature="tts",
-        provider={"base_url": "http://tts.example.com", "name": "Stimmen lokal"},
-        model=None,
-    )
-    with pytest.raises(FeatureNotConfigured, match="model_name"):
-        make_tts_client(binding)
-
-
 def test_openai_compat_llm_client_requires_whisper_model():
     """Constructing OpenAICompatLLMClient without whisper_model must raise TypeError."""
     from src.services.openai_compat_llm import OpenAICompatLLMClient

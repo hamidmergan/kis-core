@@ -147,14 +147,6 @@ def get_last_aia_rounds(
     return list(reversed(rounds))
 
 
-def get_last_aia_round(
-    workspace_id: int, user_id: int, enrollment_id: int | None = None
-) -> dict | None:
-    """The last completed round."""
-    rounds = get_last_aia_rounds(workspace_id, user_id, enrollment_id, 1)
-    return rounds[0] if rounds else None
-
-
 def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:

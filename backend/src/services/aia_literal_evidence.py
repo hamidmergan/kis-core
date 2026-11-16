@@ -103,20 +103,3 @@ def lookup_figures(line: str, corpus: list[str]) -> list[str]:
     _, figures = distinctive_tokens(line, corpus)
     worth = [f for f in figures if any(ch in f for ch in ":.-/") and len(f) >= 4]
     return sorted(worth, key=lambda f: (-len(f), f))[:_MAX_LOOKUP_FIGURES]
-
-
-def adds_literal_evidence(line: str, chunk: str, primary: str, corpus: list[str]) -> bool:
-    """True when the chunk names verbatim something the best hit lacks."""
-    words, figures = distinctive_tokens(line, corpus)
-    if not words and not figures:
-        return False
-    chunk_stems, primary_stems = _stems(chunk), _stems(primary)
-    chunk_figs, primary_figs = figure_runs(chunk), figure_runs(primary)
-    # One number is enough, it is the part a reader looks up.
-    for f in figures:
-        if f in chunk_figs and f not in primary_figs:
-            return True
-    # Words need two, rarity alone does not tell a term from a filler.
-    missing = [w for w in words
-               if _carries_word(chunk_stems, w) and not _carries_word(primary_stems, w)]
-    return len(missing) >= _MIN_WORDS_AS_EVIDENCE

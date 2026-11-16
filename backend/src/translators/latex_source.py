@@ -47,11 +47,6 @@ def decode_tex_with_codec(raw: bytes) -> tuple[str, str]:
     return raw.decode("latin-1"), "latin-1"
 
 
-def decode_tex(raw: bytes) -> str:
-    """Decodes a LaTeX file in any common encoding."""
-    return decode_tex_with_codec(raw)[0]
-
-
 # Characters missing in an 8-bit encoding are written as LaTeX commands, which every encoding accepts.
 _TEX_FALLBACK = {
     "“": "``", "”": "''", "‘": "`", "’": "'", "„": "\\quotedblbase{}", "‚": "\\quotesinglbase{}",

@@ -49,68 +49,6 @@ def coverage_rule(ctx: "QuelleContext", count: int) -> str:
     )
 
 
-def section_usage(items: list[dict], ctx: "QuelleContext") -> dict[int, int]:
-    """How many exercises came out of each section, according to the model."""
-    used = {num: 0 for num in ctx.sections}
-    for item in items:
-        try:
-            num = int(item.get("_section"))
-        except (TypeError, ValueError):
-            continue
-        if num in used:
-            used[num] += 1
-    return used
-
-
-def missing_section_uuids(items: list[dict], ctx: "QuelleContext") -> list[str]:
-    """The sources of the sections that got nothing, in section order."""
-    usage = section_usage(items, ctx)
-    if not any(usage.values()):
-        return []
-    out = []
-    for num in sorted(ctx.sections):
-        if usage.get(num):
-            continue
-        source = ctx.source_by_name.get(ctx.sections[num]) or {}
-        if source.get("uuid"):
-            out.append(source["uuid"])
-    return out
-
-
-def remap_sections(items: list[dict], from_ctx: "QuelleContext",
-                   to_ctx: "QuelleContext") -> list[dict]:
-    """Maps the section numbers of a top-up back into the full numbering."""
-    back = {label: num for num, label in to_ctx.sections.items()}
-    for item in items:
-        try:
-            num = int(item.get("_section"))
-        except (TypeError, ValueError):
-            item["_section"] = None
-            continue
-        item["_section"] = back.get(from_ctx.sections.get(num))
-    return items
-
-
-def rebalance_to_count(items: list[dict], count: int) -> list[dict]:
-    """Trims back after a top-up, the fullest sections give up first."""
-    if len(items) <= count:
-        return items
-    keep = list(items)
-    while len(keep) > count:
-        usage: dict[object, int] = {}
-        for item in keep:
-            usage[item.get("_section")] = usage.get(item.get("_section"), 0) + 1
-        # None first, then whichever section is most over-served.
-        fullest = max(usage, key=lambda s: (s is None, usage[s]))
-        for i in range(len(keep) - 1, -1, -1):
-            if keep[i].get("_section") == fullest:
-                keep.pop(i)
-                break
-        else:
-            keep.pop()
-    return keep
-
-
 def build_source_context(uuids: list[str], tool: str, count: int,
                          *, with_quota: bool = True) -> QuelleContext | None:
     """Builds the context from several sources, greedily and sweeping.

@@ -33,7 +33,7 @@ def test_ein_redis_ausfall_reisst_den_stream_nicht():
 def test_ohne_redis_ist_niemand_online_statt_geraten():
     """Statistics that briefly show nothing beat statistics that guess."""
     with patch.object(presence, "_redis", side_effect=RuntimeError("Redis weg")):
-        assert presence.online_user_ids() == []
+        assert presence.online_since() == {}
 
 
 def test_die_online_liste_kommt_aus_den_schluesseln():
@@ -41,7 +41,7 @@ def test_die_online_liste_kommt_aus_den_schluesseln():
     r.keys.return_value = [b"kis:seen:9", b"kis:seen:3"]
     r.mget.return_value = [b"1750000000", b"1750000000"]
     with patch.object(presence, "_redis", return_value=r):
-        assert presence.online_user_ids() == [3, 9]
+        assert sorted(presence.online_since()) == [3, 9]
 
 
 def test_eine_kaputte_datenbank_reisst_den_stream_nicht():

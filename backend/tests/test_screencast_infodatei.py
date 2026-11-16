@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from src.services.screencast.infodatei import baue_info, dauer_text, sprach_wort
+from src.services.screencast.infodatei import baue_info, sprach_wort
 
 
 def _job() -> dict:
@@ -90,14 +90,6 @@ def test_info_ohne_uebersetzung_nennt_nur_die_sprache():
 
     assert "nach" not in text.split("Sprache:")[1].split("\n")[0]
     assert "Sprache: Englisch" in text
-
-
-def test_dauer_text_rundet_menschlich():
-    assert dauer_text(0) == "0 s"
-    assert dauer_text(18.4) == "18 s"
-    assert dauer_text(62) == "1 min 2 s"
-    assert dauer_text(600) == "10 min 0 s"
-    assert dauer_text(3672) == "1 h 1 min"
 
 
 def test_sprach_wort_fuer_den_dateinamen():

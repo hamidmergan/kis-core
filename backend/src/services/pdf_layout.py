@@ -160,18 +160,6 @@ def strip_boilerplate_text(text: str, keys: set[str]) -> str:
     return "\n".join(kept).strip() or text
 
 
-def drop_boilerplate_lines(pages: list[list[LineBox]]) -> list[list[LineBox]]:
-    """Removes the header and footer from every page, counted instead of guessed."""
-    boiler = boilerplate_keys(pages)
-    if not boiler and len(pages) < _BOILERPLATE_MIN_PAGES:
-        return pages
-    out: list[list[LineBox]] = []
-    for page in pages:
-        kept = [b for b in page if not is_boilerplate(b.text, boiler)]
-        out.append(kept or page)
-    return out
-
-
 def _bullet_level(box: LineBox, lefts: list[float]) -> int:
     """Indent level of a bullet line, 0 for the left column."""
     level = 0

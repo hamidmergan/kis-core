@@ -79,15 +79,6 @@ def assert_may_grant(actor: Permissions, keys, locale: str) -> None:
         raise HTTPException(status_code=403, detail=t("auth.grantBeyondOwn", locale))
 
 
-async def require_admin(
-    perms: Permissions = Depends(get_user_permissions),
-    locale: str = Depends(get_locale),
-) -> Permissions:
-    if not perms.allow_admin_panel:
-        raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
-    return perms
-
-
 async def require_full_admin(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

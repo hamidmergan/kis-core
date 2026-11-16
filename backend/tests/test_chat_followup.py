@@ -364,6 +364,11 @@ def _zeile(role, content, aborted=False, failed=False, source_pages=None, source
             "source_pages": source_pages, "source_qmap": source_qmap}
 
 
+def _letzte_runde(enrollment_id=None):
+    runden = repo_chat.get_last_aia_rounds(1, 2, enrollment_id, 1)
+    return runden[0] if runden else None
+
+
 def test_letzte_runde_ist_frage_und_zugehoerige_antwort(fake_db):
     # Newest first, the way the query delivers.
     fake_db([
@@ -372,7 +377,7 @@ def test_letzte_runde_ist_frage_und_zugehoerige_antwort(fake_db):
         _zeile("assistant", "Aeltere Antwort"),
         _zeile("user", "Aeltere Frage"),
     ])
-    runde = repo_chat.get_last_aia_round(1, 2)
+    runde = _letzte_runde()
     assert runde["question"] == "Was ist die Pruefungsleistung?"
     assert runde["answer"] == "Sie besteht aus Hausarbeit und Praesentation."
 
@@ -384,7 +389,7 @@ def test_abgebrochene_antwort_zaehlt_nicht(fake_db):
         _zeile("assistant", "Vollstaendige Antwort"),
         _zeile("user", "Was ist Quellenkritik?"),
     ])
-    runde = repo_chat.get_last_aia_round(1, 2)
+    runde = _letzte_runde()
     assert runde["answer"] == "Vollstaendige Antwort"
     assert runde["question"] == "Was ist Quellenkritik?"
 
@@ -396,17 +401,17 @@ def test_gescheiterte_antwort_zaehlt_nicht(fake_db):
         _zeile("assistant", "Vollstaendige Antwort"),
         _zeile("user", "Was ist Quellenkritik?"),
     ])
-    assert repo_chat.get_last_aia_round(1, 2)["answer"] == "Vollstaendige Antwort"
+    assert _letzte_runde()["answer"] == "Vollstaendige Antwort"
 
 
 def test_ohne_antwort_gibt_es_keine_runde(fake_db):
     fake_db([_zeile("user", "Erste Frage ueberhaupt")])
-    assert repo_chat.get_last_aia_round(1, 2) is None
+    assert _letzte_runde() is None
 
 
 def test_leerer_verlauf_gibt_nichts(fake_db):
     fake_db([])
-    assert repo_chat.get_last_aia_round(1, 2) is None
+    assert _letzte_runde() is None
 
 
 def test_quellen_der_letzten_antwort_kommen_mit(fake_db):
@@ -416,20 +421,20 @@ def test_quellen_der_letzten_antwort_kommen_mit(fake_db):
         _zeile("assistant", "Antwort", source_pages=seiten, source_qmap=qmap),
         _zeile("user", "Frage"),
     ])
-    runde = repo_chat.get_last_aia_round(1, 2)
+    runde = _letzte_runde()
     assert runde["source_pages"] == seiten
     assert runde["source_qmap"] == qmap
 
 
 def test_zugangslink_hat_seine_eigene_letzte_runde(fake_db):
     calls = fake_db([])
-    repo_chat.get_last_aia_round(1, 2, enrollment_id=7)
+    _letzte_runde(enrollment_id=7)
     sql, params = calls[0]
     assert "enrollment_id = %s" in sql
     assert params[:3] == (1, 2, 7)
 
     calls = fake_db([])
-    repo_chat.get_last_aia_round(1, 2)
+    _letzte_runde()
     sql, params = calls[0]
     assert "enrollment_id IS NULL" in sql
 

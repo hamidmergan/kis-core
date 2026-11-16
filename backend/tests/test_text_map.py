@@ -233,18 +233,6 @@ def test_ohne_jede_stelle_bleibt_alles_wie_es_ist():
     assert tm.abdecken([[], []], 3) == [[], []]
 
 
-def test_eine_datei_ohne_stelle_im_plan_fehlt():
-    karte = tm.Karte([_quelle("a.pdf", 3), _quelle("b.pdf", 3)])
-    assert tm.fehlende_dateien([[1, 2], []], karte) == ["b.pdf"]
-    assert tm.fehlende_dateien([[1], [5]], karte) == []
-
-
-def test_die_zielzahl_waechst_mit_dem_material_in_ihren_grenzen():
-    assert tm.ziel_eintraege(60_000, 3, 30, grund=8, je=20_000) == 11
-    assert tm.ziel_eintraege(364_000, 3, 30, grund=8, je=20_000) == 26
-    assert tm.ziel_eintraege(5_000_000, 3, 30, grund=8, je=20_000) == 30
-
-
 def test_eine_eingestreute_nummer_deckt_eine_grosse_datei_nicht_ab():
     """87 percent of the material, but only one of twenty numbers in the plan: too short."""
     karte = tm.Karte([_quelle("agg.pdf", 13), _quelle("amg.pdf", 87)])

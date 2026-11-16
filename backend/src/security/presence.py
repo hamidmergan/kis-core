@@ -42,11 +42,6 @@ def touch(user_id: int) -> None:
         logger.warning("Anwesenheit nicht gemerkt (user={}): {}", user_id, e)
 
 
-def online_user_ids() -> list[int]:
-    """Whoever gave a heartbeat in the last five minutes."""
-    return sorted(online_since().keys())
-
-
 def online_since() -> dict[int, int]:
     """User id to the moment of the first heartbeat, empty on failure."""
     try:

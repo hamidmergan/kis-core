@@ -246,16 +246,3 @@ SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "language_diagnosis_level_examples": PERM_SET_AIA_LEVEL,
     "language_diagnosis_level_descriptions": PERM_SET_AIA_LEVEL,
 }
-
-
-# === Migration alter Rollen ==================================================
-def keys_from_legacy(aia_access: str | None, allowed_tools) -> tuple[str, ...]:
-    """Translates the two old columns into permission keys."""
-    keys = [PERM_AIA_USE]
-    if aia_access == "edit":
-        keys.append(PERM_AIA_WORKSPACE_CREATE)
-    for tool in allowed_tools or []:
-        key = f"{TOOL_PERM_PREFIX}{tool}"
-        if key in TOOL_KEYS:
-            keys.append(key)
-    return valid_keys(keys)

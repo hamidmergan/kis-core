@@ -13,7 +13,7 @@ from src.services.glossary import GlossaryService
 from src.services.llm_translation_client import LLMTranslationClient
 from src.services.translation import TranslationService
 from src.translators.latex import translatable_text, translate_latex_preserve_structure
-from src.translators.latex_source import decode_tex, read_tex, write_tex
+from src.translators.latex_source import decode_tex_with_codec, read_tex, write_tex
 from src.translators.latex_tags import TAG_RE, _map_text, repair_tags, tags_match
 
 
@@ -367,12 +367,12 @@ def test_index_entries_with_syntax_are_kept():
 
 
 def test_decode_tex_handles_old_encodings():
-    assert decode_tex("Grüße".encode("utf-8")) == "Grüße"
-    assert decode_tex("Grüße".encode("cp1252")) == "Grüße"
+    assert decode_tex_with_codec("Grüße".encode("utf-8"))[0] == "Grüße"
+    assert decode_tex_with_codec("Grüße".encode("cp1252"))[0] == "Grüße"
     mac = b"\\usepackage[applemac]{inputenc}\n" + "Grüße".encode("mac_roman")
-    assert decode_tex(mac).endswith("Grüße")
+    assert decode_tex_with_codec(mac)[0].endswith("Grüße")
     with pytest.raises(ValueError):
-        decode_tex(b"\x00\x01binary")
+        decode_tex_with_codec(b"\x00\x01binary")
 
 
 def test_length_count_is_what_the_translator_gets():

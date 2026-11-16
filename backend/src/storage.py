@@ -21,9 +21,6 @@ USE_S3 = bool(_S3_ENDPOINT)
 
 # --- Object-key prefix helpers (pure, no DB) ---
 
-TMP_PPTX_PREFIX = "tmp/pptx"
-
-
 def job_prefix(user_id: int, job_uuid: str) -> str:
     """S3 prefix for a job: 'users/{user_id}/jobs/{job_uuid}'. No trailing slash."""
     return f"users/{user_id}/jobs/{job_uuid}"
@@ -75,11 +72,6 @@ def aia_transcript_prefix(file_path: str) -> str:
 def aia_provided_vtt_key(file_path: str) -> str:
     """The transcript a person pasted for a link-only source, read once by the ingest."""
     return f"{aia_source_base(file_path)}_provided.vtt"
-
-
-def tmp_pptx_key(file_id: str) -> str:
-    """S3 key for a temporary PPTX (translate -> render handoff). Lifecycle: 24h."""
-    return f"{TMP_PPTX_PREFIX}/{file_id}.pptx"
 
 
 AIA_SPEECH_PREFIX = "aia/speech"
@@ -700,11 +692,6 @@ def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | No
     return path.read_bytes() if path.exists() else None
 
 
-def hat_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bool:
-    """Empty files count as no audio, they stand for slides without a script."""
-    return bool(get_audio_slide(user_id, job_uuid, slide_index))
-
-
 def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
@@ -759,14 +746,6 @@ def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]
         return []
     slides = sorted(audio_dir.glob("slide_*.mp3"), key=lambda p: _slide_number(p.name))
     return [(f.name, f.read_bytes()) for f in slides]
-
-
-# Interim storage for PPTX between translating and rendering, gone after 24h.
-
-
-def save_pptx_tmp(file_id: str, data: bytes) -> None:
-    """Save a temporary PPTX for the translate -> render handoff."""
-    _store_bytes(tmp_pptx_key(file_id), data)
 
 
 # Spoken example sentences, retention follows the last use.

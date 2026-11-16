@@ -3,7 +3,11 @@
 import pytest
 
 from src.features.ai_assistant.tasks.studio.schedule import _candidates as mod
-from src.services.aia_transcript_offsets import TranscriptIndex, start_at_offset
+from src.services.aia_transcript_offsets import TranscriptIndex
+
+
+def start_at_offset(chunk, segments, offset):
+    return TranscriptIndex(segments).start_at(chunk, offset)
 
 
 # Segments of an invented recording, built the way Whisper delivers.

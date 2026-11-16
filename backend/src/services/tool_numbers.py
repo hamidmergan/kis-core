@@ -56,11 +56,6 @@ NUMBERS: tuple[Number, ...] = (
 BY_KEY: dict[str, Number] = {n.key: n for n in NUMBERS}
 
 
-def of_tool(tool: str) -> tuple[Number, ...]:
-    """The numbers of one tool, in the order of the table."""
-    return tuple(n for n in NUMBERS if n.tool == tool)
-
-
 def permission_for(key: str) -> str | None:
     """The right this number hangs off, None when no tool entered it."""
     eintrag = BY_KEY.get(key)

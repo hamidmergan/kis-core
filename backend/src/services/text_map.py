@@ -415,12 +415,6 @@ def abdeckung(listen: list[list[int]], gesamt: int) -> float:
     return len({n for liste in listen for n in liste if 1 <= n <= gesamt}) / gesamt
 
 
-def fehlende_dateien(listen: list[list[int]], karte: "Karte") -> list[str]:
-    """The files no entry of a plan draws on, a plan that skips one is not usable."""
-    genannt = {karte.stelle(n).source for liste in listen for n in liste if 1 <= n <= len(karte)}
-    return [q.dateiname for i, q in enumerate(karte.sources) if q.stuecke and i not in genannt]
-
-
 def zu_kurz(listen: list[list[int]], karte: "Karte") -> list[tuple[str, int]]:
     """The files a plan hardly draws on, with the share of the material they hold.
 
@@ -440,11 +434,6 @@ def zu_kurz(listen: list[list[int]], karte: "Karte") -> list[tuple[str, int]]:
         if anteil_plan < anteil_text * MAP_FILE_WEIGHT_FLOOR:
             aus.append((q.dateiname, round(anteil_text * 100)))
     return aus
-
-
-def ziel_eintraege(zeichen: int, lo: int, hi: int, *, grund: int, je: int) -> int:
-    """How many entries the material carries, a target the planner may deviate from."""
-    return max(lo, min(hi, grund + zeichen // je))
 
 
 def exklusiv(listen: list[list[int]]) -> list[list[int]]:

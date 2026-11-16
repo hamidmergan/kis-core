@@ -1,4 +1,4 @@
-from src.features.accounts.uid import ist_anmeldename, name_to_uid, slugify_uid, unique_uid
+from src.features.accounts.uid import ist_anmeldename, slugify_uid, unique_uid
 
 
 def test_slugify_keeps_a_plain_local_part():
@@ -16,18 +16,6 @@ def test_slugify_drops_characters_ldap_does_not_accept():
 def test_slugify_returns_none_when_nothing_usable_is_left():
     assert slugify_uid("!!!") is None
     assert slugify_uid("a") is None
-
-
-def test_name_to_uid_joins_given_name_and_surname():
-    assert name_to_uid("Max", "Mustermann") == "max.mustermann"
-
-
-def test_name_to_uid_handles_spaces_in_the_name():
-    assert name_to_uid("Anna Lena", "von Bergen") == "anna-lena.von-bergen"
-
-
-def test_name_to_uid_returns_none_without_a_surname():
-    assert name_to_uid("Max", "  ") is None
 
 
 def test_unique_uid_returns_the_base_when_it_is_free():

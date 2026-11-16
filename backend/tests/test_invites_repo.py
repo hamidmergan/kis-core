@@ -113,13 +113,6 @@ def test_withdrawing_deletes_and_commits(fake_db):
     assert ("commit", None, None) in calls
 
 
-def test_an_open_invite_for_the_same_address_is_found(fake_db):
-    calls = fake_db(rows=[])
-    assert repo.open_invite_for_email("a@th-luebeck.de") is None
-    anweisungen = [c[1] for c in calls if c[0] == "execute"]
-    assert any("used_at IS NULL" in a and "expires_at > NOW()" in a for a in anweisungen)
-
-
 def test_reopening_clears_the_stamp_and_commits(fake_db):
     calls = fake_db()
     repo.reopen_invite(5)

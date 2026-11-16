@@ -77,13 +77,6 @@ def drop_oldest_round(chat_id: int) -> None:
         conn.commit()
 
 
-def touch_chat(chat_id: int) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE campus_chats SET updated_at = NOW() WHERE id = %s", (chat_id,))
-        conn.commit()
-
-
 def enforce_chat_cap(user_id: int, cap: int) -> int:
     """Deletes the least recently used chats beyond the cap, returns how many went."""
     with get_connection() as conn:

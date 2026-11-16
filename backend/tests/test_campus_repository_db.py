@@ -80,7 +80,10 @@ def test_orte_werden_als_ganzes_ersetzt(verbindung):
 def test_chats_kappung_und_aufraeumen(nutzer_id, verbindung):
     angelegt = [chats.create_chat(nutzer_id, f"Chat {i}") for i in range(3)]
     try:
-        chats.touch_chat(angelegt[0])
+        with verbindung() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE campus_chats SET updated_at = NOW() WHERE id = %s", (angelegt[0],))
+            conn.commit()
         # Only the two most recently used chats of this person survive a cap of two.
         meine = [c["id"] for c in chats.list_chats(nutzer_id)]
         assert meine[0] == angelegt[0]

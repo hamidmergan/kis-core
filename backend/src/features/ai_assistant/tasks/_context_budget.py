@@ -1,7 +1,5 @@
 """Context size for the generating tools: the budgets and the chunk selection."""
 
-import re
-
 from src.services import model_limits
 from src.limits import (
     AIA_CONTEXT_HARD_CAP,
@@ -209,111 +207,6 @@ def fill_sources_evenly(
         left -= sum(_len(c) for c in picked)
         open_count -= 1
     # Back into the order the person chose, so the section numbers stay calm.
-    return [(sid, label, taken[sid]) for sid, label, _chunks in sources if sid in taken]
-
-
-# A heading is short, stands on its own line and does not end a sentence.
-_HEADING_MAX_CHARS = 80
-_HEADING_MAX_WORDS = 10
-
-
-def _is_heading_line(line: str) -> bool:
-    """Short, standing alone and not closing a sentence reads like a heading."""
-    if not 2 <= len(line) <= _HEADING_MAX_CHARS:
-        return False
-    if line[-1] in ".!?,;:":
-        return False
-    if len(line.split()) > _HEADING_MAX_WORDS:
-        return False
-    return any(ch.isalpha() for ch in line)
-
-
-# A line coming back on this share of the pages is page chrome, not a heading.
-_CHROME_SHARE = 0.5
-_DIGITS = re.compile(r"\d+")
-
-
-def _chrome_patterns(chunks: list[dict]) -> set[str]:
-    """The line shapes that repeat page after page, the page number does not count."""
-    seiten: dict[str, set] = {}
-    for c in chunks:
-        seite = c.get("page_number") or c.get("start_time")
-        for line in (c.get("content") or "").splitlines():
-            line = line.strip()
-            if _is_heading_line(line):
-                seiten.setdefault(_DIGITS.sub("#", line), set()).add(seite)
-    gesamt = len({c.get("page_number") or c.get("start_time") for c in chunks})
-    return {muster for muster, wo in seiten.items()
-            if len(wo) > 2 and len(wo) >= gesamt * _CHROME_SHARE}
-
-
-def outline_chunks(chunks: list[dict]) -> list[dict]:
-    """The heading-like lines of a source as tiny chunks, its table of contents."""
-    out: list[dict] = []
-    chrome = _chrome_patterns(chunks)
-    gesehen: set[str] = set()
-    for c in chunks:
-        for line in (c.get("content") or "").splitlines():
-            line = line.strip()
-            if not _is_heading_line(line):
-                continue
-            # The same line twice says nothing twice, and chrome only counts once.
-            schluessel = _DIGITS.sub("#", line) if line in chrome or _DIGITS.sub("#", line) in chrome else line
-            if schluessel in gesehen:
-                continue
-            gesehen.add(schluessel)
-            out.append({"page_number": c.get("page_number"),
-                        "start_time": c.get("start_time"), "content": line})
-    return out
-
-
-def _cut_to(chunks: list[dict], budget: int) -> list[dict]:
-    """As many chunks from the front as the budget carries, at least one."""
-    out: list[dict] = []
-    used = 0
-    for c in chunks:
-        if out and used + _len(c) > budget:
-            break
-        out.append(c)
-        used += _len(c)
-    return out
-
-
-def fill_sources_with_outline(
-    sources: list[tuple[int, str, list[dict]]], budget: int | None = None,
-) -> list[tuple[int, str, list[dict]]]:
-    """Every source contributes its outline, the rest of the budget goes into depth."""
-    budget = budget or tool_context_budget()
-    with_content = [(sid, label, chunks) for sid, label, chunks in sources if chunks]
-    if not with_content:
-        return []
-
-    # The base of every source: its outline, or its beginning when it has no headings.
-    je_quelle = max(1000, budget // (2 * len(with_content)))
-    base: dict[int, list[dict]] = {}
-    left = budget
-    for source_id, _label, chunks in with_content:
-        gerippe = _cut_to(outline_chunks(chunks) or chunks, je_quelle)
-        base[source_id] = gerippe
-        left -= sum(_len(c) for c in gerippe)
-
-    # What is left goes into depth, source by source from the front.
-    taken: dict[int, list[dict]] = {}
-    for source_id, _label, chunks in with_content:
-        depth: list[dict] = []
-        if left > 0:
-            depth = _cut_to(chunks, left)
-            left -= sum(_len(c) for c in depth)
-        # A source that is in completely needs no base next to it.
-        if len(depth) == len(chunks):
-            taken[source_id] = depth
-            continue
-        # A base taken from the chunks themselves must not travel twice.
-        schon = {id(c) for c in depth}
-        rest = [c for c in base[source_id] if id(c) not in schon]
-        # Back into document order, the outline has no place there and stays in front.
-        stelle = {id(c): i for i, c in enumerate(chunks)}
-        taken[source_id] = sorted(rest + depth, key=lambda c: stelle.get(id(c), -1))
     return [(sid, label, taken[sid]) for sid, label, _chunks in sources if sid in taken]
 
 

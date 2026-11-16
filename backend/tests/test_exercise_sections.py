@@ -4,11 +4,7 @@ from src.features.ai_assistant.tasks.language_training._context import (
     QuelleContext,
     build_source_context,
     coverage_rule,
-    missing_section_uuids,
     per_section_quota,
-    rebalance_to_count,
-    remap_sections,
-    section_usage,
 )
 
 
@@ -152,84 +148,3 @@ def test_the_rule_numbers_the_sections_and_asks_for_the_number_back():
     assert "1 = a.pdf" in rule and "2 = b.webm" in rule
     assert "at least 5 of the 10 entries" in rule
     assert '"section"' in rule
-
-
-# --- checking the outcome ----------------------------------------------------
-
-def test_usage_counts_per_section_and_names_the_skipped_ones():
-    ctx = QuelleContext(context="", first_label="", multi_label="", source_hint="",
-                        sections={1: "a.pdf", 2: "b.pdf", 3: "c.webm"})
-    items = [{"_section": 1}, {"_section": 1}, {"_section": 3}]
-    assert section_usage(items, ctx) == {1: 2, 2: 0, 3: 1}
-
-
-def test_usage_survives_a_missing_or_bogus_section_number():
-    ctx = QuelleContext(context="", first_label="", multi_label="", source_hint="",
-                        sections={1: "a.pdf", 2: "b.pdf"})
-    items = [{"_section": "2"}, {"_section": None}, {"_section": 9}, {"_section": "abc"}, {}]
-    assert section_usage(items, ctx) == {1: 0, 2: 1}
-
-
-# The top-up for skipped sections, measured as necessary.
-
-def _full_ctx():
-    return QuelleContext(
-        context="", first_label="a.pdf", multi_label="", source_hint="",
-        source_by_name={"a.pdf": {"uuid": "ua"}, "b.pdf": {"uuid": "ub"},
-                        "c.webm": {"uuid": "uc"}},
-        sections={1: "a.pdf", 2: "b.pdf", 3: "c.webm"},
-    )
-
-
-def test_only_the_skipped_sections_are_topped_up():
-    items = [{"_section": 1}, {"_section": 1}, {"_section": 3}]
-    assert missing_section_uuids(items, _full_ctx()) == ["ub"]
-
-
-def test_nothing_to_top_up_when_every_section_was_served():
-    items = [{"_section": 1}, {"_section": 2}, {"_section": 3}]
-    assert missing_section_uuids(items, _full_ctx()) == []
-
-
-def test_a_run_that_names_no_section_is_not_topped_up():
-    """A missing field must not be read as 'all sections missed'."""
-    items = [{"front": "x"}, {"_section": None}, {"_section": "keine Zahl"}]
-    assert missing_section_uuids(items, _full_ctx()) == []
-
-
-def test_the_top_ups_own_numbering_is_translated_back():
-    """The top-up numbers its own sections, that has to be mapped back."""
-    gap = QuelleContext(context="", first_label="b.pdf", multi_label="", source_hint="",
-                        sections={1: "b.pdf"})
-    extra = [{"_section": 1}, {"_section": 1}]
-    assert [i["_section"] for i in remap_sections(extra, gap, _full_ctx())] == [2, 2]
-
-
-def test_an_unusable_claim_from_the_top_up_becomes_unknown():
-    gap = QuelleContext(context="", first_label="b.pdf", multi_label="", source_hint="",
-                        sections={1: "b.pdf"})
-    extra = [{"_section": None}, {"_section": 7}]
-    assert [i["_section"] for i in remap_sections(extra, gap, _full_ctx())] == [None, None]
-
-
-def test_the_learner_still_gets_the_number_of_entries_they_asked_for():
-    items = [{"_section": 1}] * 8 + [{"_section": 2}, {"_section": 3}, {"_section": 2}]
-    assert len(rebalance_to_count(items, 10)) == 10
-
-
-def test_trimming_takes_from_the_fullest_section_first():
-    items = [{"_section": 1}, {"_section": 1}, {"_section": 1}, {"_section": 2}]
-    kept = rebalance_to_count(items, 2)
-    assert sorted(i["_section"] for i in kept) == [1, 2]
-
-
-def test_entries_without_a_section_go_first():
-    """They cannot be shown to serve any section, so they are the cheapest to lose."""
-    items = [{"_section": 1}, {"_section": None}, {"_section": 2}]
-    kept = rebalance_to_count(items, 2)
-    assert sorted(i["_section"] for i in kept) == [1, 2]
-
-
-def test_a_set_at_or_below_the_wanted_count_is_left_alone():
-    items = [{"_section": 1}, {"_section": 2}]
-    assert rebalance_to_count(items, 5) is items

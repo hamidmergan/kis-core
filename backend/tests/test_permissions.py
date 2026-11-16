@@ -17,7 +17,6 @@ from src.permissions_registry import (
     PERM_SET_USERS_ALL,
     ROLE_ONLY_KEYS,
     SETTING_FIELD_PERMISSIONS,
-    keys_from_legacy,
     valid_keys,
 )
 from src.tools_registry import ALL_TOOL_KEYS
@@ -194,25 +193,3 @@ def test_custom_role_with_one_settings_key_reaches_the_area():
     assert perms.has(PERM_SET_SYSTEM) is False
     assert perms.has(PERM_SET_USERS_ALL) is False
     assert perms.tools == ()
-
-
-# ── Migration of the old columns ──────────────────────────────────────────────
-
-def test_legacy_edit_role_with_tools_maps_to_four_keys():
-    keys = keys_from_legacy("edit", ["translation", "tts"])
-    assert set(keys) == {
-        PERM_AIA_USE,
-        PERM_AIA_WORKSPACE_CREATE,
-        "tools.translation",
-        "tools.tts",
-    }
-
-
-def test_legacy_read_role_loses_nothing_but_gains_no_create():
-    keys = keys_from_legacy("read", [])
-    assert keys == (PERM_AIA_USE,)
-
-
-def test_legacy_unknown_tool_is_dropped():
-    keys = keys_from_legacy("none", ["translation", "erfundenes-werkzeug"])
-    assert keys == (PERM_AIA_USE, "tools.translation")

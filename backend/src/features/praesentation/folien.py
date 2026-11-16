@@ -435,23 +435,3 @@ def regen_messages(slide: Slide, row: OutlineRow, form: dict, params: Praesentat
         zusatz += f"\n\nWISH OF THE TEACHER: {wunsch}"
     basis[1]["content"] += zusatz
     return basis
-
-
-def inhaltswoerter(text: str) -> set[str]:
-    return {w.lower() for w in re.findall(r"\w{5,}", text)}
-
-
-def source_excerpt(source: str, needles: list[str], limit: int) -> str:
-    """The stretch of the material that shares most words with the needles."""
-    if len(source) <= limit:
-        return source
-    woerter = set().union(*(inhaltswoerter(n) for n in needles if n))
-    if not woerter:
-        return source[:limit]
-    schritt = max(200, limit // 2)
-    beste, wert = 0, -1
-    for start in range(0, len(source), schritt):
-        treffer = len(woerter & inhaltswoerter(source[start:start + limit]))
-        if treffer > wert:
-            beste, wert = start, treffer
-    return source[beste:beste + limit]

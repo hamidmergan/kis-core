@@ -73,20 +73,6 @@ def delete_invite(invite_id: int) -> bool:
         return getroffen
 
 
-def open_invite_for_email(email: str) -> dict | None:
-    """The still open invitation to this address, if there is one."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT * FROM invites
-                   WHERE LOWER(email) = LOWER(%s) AND used_at IS NULL AND expires_at > NOW()
-                   ORDER BY created_at DESC LIMIT 1""",
-                (email,),
-            )
-            zeile = cur.fetchone()
-            return dict(zeile) if zeile else None
-
-
 def open_invite_for_uid(uid: str) -> dict | None:
     """The still open invitation for this user name, if there is one."""
     with get_connection() as conn:

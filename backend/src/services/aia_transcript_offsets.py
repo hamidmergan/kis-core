@@ -80,8 +80,3 @@ class TranscriptIndex:
         laenge = len((chunk.get("content") or "").strip())
         innen = min(max(offset, 0), max(laenge - 1, 0))
         return self._segment_at(basis + innen)["start"]
-
-
-def start_at_offset(chunk: dict, segments: list[dict], offset: int) -> Optional[float]:
-    """Single lookup without an index of its own."""
-    return TranscriptIndex(segments).start_at(chunk, offset)

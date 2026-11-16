@@ -179,7 +179,7 @@ def test_unbekanntes_fenster_deckelt_nichts(monkeypatch):
     """Without knowledge about the model only the admin setting applies."""
     profil = ml.ModelProfile(0, ml.QUELLE_UNBEKANNT, False, "")
     monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
-    assert ml.cap_for_model(250000, ml.CHAT_SHARE) == 250000
+    assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000
     assert ml.as_dict(profil)["context_chars"] is None
 
 
