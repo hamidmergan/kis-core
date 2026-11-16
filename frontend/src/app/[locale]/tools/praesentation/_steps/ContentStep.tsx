@@ -18,6 +18,8 @@ import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import DemoMaterialList from "@/components/tools/DemoMaterialList";
+import SourceChecklist from "@/components/tools/SourceChecklist";
 import { listBildstile } from "../_api";
 import { FIELD } from "../_components/VorlageHochladen";
 import StepFooter from "../_components/StepFooter";
@@ -109,13 +111,6 @@ export default function ContentStep({ canUseModules, source, language, notes, in
     setDragOver(false);
     addFiles(e.dataTransfer.files);
   };
-  const voll = source.sourceIds.length >= MAX_QUELLEN;
-  const toggleSource = (uuid: string) => {
-    const set = new Set(source.sourceIds);
-    if (set.has(uuid)) set.delete(uuid);
-    else if (!voll) set.add(uuid);
-    onSource({ sourceIds: [...set] });
-  };
   const zeile = (z: Zeile) => ({ offen: offen === z, onToggle: () => setOffen((alt) => (alt === z ? null : z)) });
 
   const stil = imageStyle ?? vorlage?.stiltext ?? "";
@@ -202,24 +197,8 @@ export default function ContentStep({ canUseModules, source, language, notes, in
                   wert={demo ? t("sourcesCount", { n: demo.files.length }) : mode === "files" ? t("filesCount", { n: source.files.length }) : t("sourcesCount", { n: source.sourceIds.length })}
                   {...zeile("material")}>
               {demo && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="praesentation-module" className="block text-sm font-medium text-foreground-soft mb-2">Workspace</label>
-                    <Select id="praesentation-module" value="demo" onChange={() => {}} disabled
-                      options={[{ value: "demo", label: demo.workspace }]} />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
-                    <ul className="space-y-2">
-                      {demo.files.map((name) => (
-                        <li key={name}>
-                          <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
-                  </div>
-                </div>
+                <DemoMaterialList selectId="praesentation-module" workspace={demo.workspace} files={demo.files}
+                  sourcesLabel={t("sourcesLabel")} note={tDemo("materialVorgegeben")} />
               )}
 
               {mode === "files" && (
@@ -286,25 +265,8 @@ export default function ContentStep({ canUseModules, source, language, notes, in
                     ) : sources.length === 0 ? (
                       <EmptyState size="sm" text={t("noSources")} />
                     ) : (
-                      <div>
-                        {source.sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
-                        <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
-                        <ul className="space-y-2">
-                          {sources.map((s) => (
-                            <li key={s.uuid}>
-                              <div className="flex items-center justify-between gap-3">
-                                <Checkbox checked={source.sourceIds.includes(s.uuid)} disabled={voll && !source.sourceIds.includes(s.uuid)}
-                                  onChange={() => toggleSource(s.uuid)} label={s.filename} labelClassName="text-sm text-foreground" />
-                                {source.sourceIds.includes(s.uuid) && <MeasureNote messung={messung.forSource(s.uuid)} />}
-                              </div>
-                              {source.sourceIds.includes(s.uuid) && <MeasureError messung={messung.forSource(s.uuid)} />}
-                            </li>
-                          ))}
-                        </ul>
-                        <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
-                          {t(voll ? "sourcesFull" : "sourcesHint", { max: MAX_QUELLEN })}
-                        </p>
-                      </div>
+                      <SourceChecklist namespace="tools.praesentation.content" sources={sources} selectedIds={source.sourceIds}
+                        max={MAX_QUELLEN} messung={messung} onChange={(ids) => onSource({ sourceIds: ids })} />
                     ))}
                   </div>
                 )

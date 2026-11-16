@@ -89,6 +89,33 @@ function isPast(dateStr: string, dueTime: string | null | undefined, now: Date):
   return due.getTime() < now.getTime();
 }
 
+/** One row of the timeline: the dot on the line, then whatever the caller puts next to it. */
+function TimelineRow({ entry, children }: { entry: DatedEntry; children: ReactNode }) {
+  return (
+    <div
+      data-entry-id={entry.id}
+      className="group schedule-row grid items-start py-1.5"
+      style={{ gridTemplateColumns: "24px 44px 1fr", columnGap: 0 }}
+    >
+      <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
+        <div
+          className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--kb)] ${
+            entry.is_checked ? "bg-[var(--success)]" : "bg-[var(--border)]"
+          }`}
+          style={{
+            width: 14,
+            height: 14,
+            boxShadow: entry.is_checked
+              ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
+              : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",
+          }}
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function ScheduleTimeline<T extends DatedEntry>({
   entries,
   renderCard,
@@ -129,26 +156,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
             : urgencyColor(effectiveDueDate(entry), todayStr);
 
           return (
-            <div
-              key={entry.id}
-              data-entry-id={entry.id}
-              className="group schedule-row grid items-start py-1.5"
-              style={{ gridTemplateColumns: "24px 44px 1fr", columnGap: 0 }}
-            >
-              <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
-                <div
-                  className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--kb)] ${
-                    entry.is_checked ? "bg-[var(--success)]" : "bg-[var(--border)]"
-                  }`}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    boxShadow: entry.is_checked
-                      ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
-                      : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",
-                  }}
-                />
-              </div>
+            <TimelineRow key={entry.id} entry={entry}>
 
               <div className="text-right pr-1">
                 {marke && (
@@ -191,7 +199,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
               </div>
 
               {renderCard(entry, { isPast: past_, urgency })}
-            </div>
+            </TimelineRow>
           );
         })}
 
@@ -204,26 +212,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
               {t("tbdHeading")}
             </div>
             {tbd.map((entry) => (
-              <div
-                key={entry.id}
-                data-entry-id={entry.id}
-                className="group schedule-row grid items-start py-1.5"
-                style={{ gridTemplateColumns: "24px 44px 1fr", columnGap: 0 }}
-              >
-                <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
-                  <div
-                    className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--kb)] ${
-                      entry.is_checked ? "bg-[var(--success)]" : "bg-[var(--border)]"
-                    }`}
-                    style={{
-                      width: 14,
-                      height: 14,
-                      boxShadow: entry.is_checked
-                        ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
-                        : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",
-                    }}
-                  />
-                </div>
+              <TimelineRow key={entry.id} entry={entry}>
                 <div className="text-right pr-1">
                   <div
                     className="font-semibold uppercase tracking-wider leading-tight"
@@ -233,7 +222,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                   </div>
                 </div>
                 {renderTbdCard(entry)}
-              </div>
+              </TimelineRow>
             ))}
           </>
         )}

@@ -8,18 +8,15 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
+import Pager from "./Pager";
+import { useListFilter } from "./useListFilter";
 
 export default function JobsTab() {
   const t = useTranslations("admin");
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [limit, setLimit] = useState(50);
-  const [offset, setOffset] = useState(0);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const { q, setQ, limit, setLimit, offset, setOffset, dateFrom, setDateFrom, dateTo, setDateTo, query } = useListFilter();
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   const pageSizeOptions = useMemo(
@@ -44,34 +41,16 @@ export default function JobsTab() {
   };
 
   useEffect(() => {
-    const id = setTimeout(() => setDebouncedQ(q), 350);
-    return () => clearTimeout(id);
-  }, [q]);
-
-  useEffect(() => {
-    setOffset(0);
-  }, [debouncedQ, limit, dateFrom, dateTo]);
-
-  useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-      q: debouncedQ,
-    });
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    fetch(`/api/admin/jobs?${params}`, { credentials: "include" })
+    fetch(`/api/admin/jobs?${query}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         setJobs(d.jobs ?? []);
         setTotal(d.total ?? 0);
       })
       .finally(() => setLoading(false));
-  }, [limit, offset, debouncedQ, dateFrom, dateTo]);
+  }, [query]);
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const currentPage = Math.floor(offset / limit) + 1;
 
   return (
     <div className="space-y-3">
@@ -166,45 +145,7 @@ export default function JobsTab() {
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1 pt-2">
-          <button
-            onClick={() => setOffset(Math.max(0, offset - limit))}
-            disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
-          >
-            ‹
-          </button>
-          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-            const half = 3;
-            let start = Math.max(1, currentPage - half);
-            const end = Math.min(totalPages, start + 6);
-            start = Math.max(1, end - 6);
-            const page = start + i;
-            if (page > totalPages) return null;
-            return (
-              <button
-                key={page}
-                onClick={() => setOffset((page - 1) * limit)}
-                className={`px-3 py-1.5 text-sm border-2 rounded-md transition-colors ${
-                  page === currentPage
-                    ? "bg-kb text-white border-kb"
-                    : "border-border hover:border-[var(--kb)] hover:text-[var(--kb)]"
-                }`}
-              >
-                {page}
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setOffset(offset + limit)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
-          >
-            ›
-          </button>
-        </div>
-      )}
+      <Pager total={total} limit={limit} offset={offset} onOffset={setOffset} />
     </div>
   );
 }

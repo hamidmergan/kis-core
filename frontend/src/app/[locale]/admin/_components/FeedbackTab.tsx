@@ -10,52 +10,13 @@ import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import StatusMark from "@/components/ui/StatusMark";
-import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { announceFeedbackChange } from "@/hooks/useOpenFeedback";
 
-type Category = "bug" | "idea" | "other";
-
-type FeedbackStatus = "open" | "parked" | "done";
-
-const STATUSES: readonly FeedbackStatus[] = ["open", "parked", "done"];
+import { STATUSES, STRIPE, TON, datum, type Entry, type FeedbackStatus } from "./_feedback";
 
 type Filter = FeedbackStatus | "all";
 
 const FILTERS: readonly Filter[] = ["open", "parked", "done", "all"];
-
-// The stripe on the left tells the status at a glance, without opening the select.
-const STRIPE: Record<FeedbackStatus, string> = {
-  open: "var(--error)",
-  parked: "var(--warn)",
-  done: "var(--success)",
-};
-
-type Attachment = {
-  id: number;
-  filename: string;
-};
-
-type Entry = {
-  id: number;
-  category: Category;
-  message: string;
-  contact: string | null;
-  username: string | null;
-  page_path: string | null;
-  status: FeedbackStatus;
-  created_at: string;
-  attachments: Attachment[];
-};
-
-const TON: Record<Category, StatusTone> = {
-  bug: "error",
-  idea: "success",
-  other: "muted",
-};
-
-function datum(wert: string): string {
-  return new Date(wert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
-}
 
 export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }) {
   const t = useTranslations("admin.feedback");

@@ -8,6 +8,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import IconButton from "@/components/ui/IconButton";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import Modal from "@/components/ui/Modal";
+import { useSettingsPatch } from "./useSettingsPatch";
 
 /** The assessment question plan: two exercise kinds, every row spelled out. */
 
@@ -52,10 +53,9 @@ export default function DiagnosisQuestionPlanCard() {
   const t = useTranslations("admin.diagnosisPlanCard");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [defaultPlan, setDefaultPlan] = useState<PlanItem[]>([]);
-  const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [askGenerate, setAskGenerate] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { saving, error, setError, patch } = useSettingsPatch(t("saveFailed"));
 
   // For an old cloze the correct options become the answer key.
   const toRows = (items: PlanItem[]): Row[] =>
@@ -87,29 +87,6 @@ export default function DiagnosisQuestionPlanCard() {
       })
       .catch(() => setRows([]));
   }, []);
-
-  const patch = async (payload: Record<string, unknown>) => {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        let detail = t("saveFailed");
-        try {
-          const body = await res.json();
-          if (typeof body?.detail === "string") detail = body.detail;
-        } catch { /* ignore */ }
-        setError(detail);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // An unusable option set is dropped, an empty answer is not an error.
   const serialize = (r: Row): PlanItem => {

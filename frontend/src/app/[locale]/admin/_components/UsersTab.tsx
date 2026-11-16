@@ -19,18 +19,15 @@ import { PERM } from "@/lib/permissions";
 import CreateAccountDialog from "./CreateAccountDialog";
 import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
 import ResetLinkDialog from "./ResetLinkDialog";
+import Pager from "./Pager";
+import { useListFilter } from "./useListFilter";
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const t = useTranslations("admin");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [limit, setLimit] = useState(50);
-  const [offset, setOffset] = useState(0);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const { q, setQ, limit, setLimit, offset, setOffset, dateFrom, setDateFrom, dateTo, setDateTo, query } = useListFilter();
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string; customId: number | null }[]>([]);
   const [adminEmail, setAdminEmail] = useState<string>("");
   const [meineId, setMeineId] = useState(0);
@@ -53,31 +50,15 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   );
 
   useEffect(() => {
-    const id = setTimeout(() => setDebouncedQ(q), 350);
-    return () => clearTimeout(id);
-  }, [q]);
-
-  useEffect(() => {
-    setOffset(0);
-  }, [debouncedQ, limit, dateFrom, dateTo]);
-
-  useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-      q: debouncedQ,
-    });
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    fetch(`/api/admin/users?${params}`, { credentials: "include" })
+    fetch(`/api/admin/users?${query}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         setUsers(d.users ?? []);
         setTotal(d.total ?? 0);
       })
       .finally(() => setLoading(false));
-  }, [limit, offset, debouncedQ, dateFrom, dateTo, refreshKey]);
+  }, [query, refreshKey]);
 
   useEffect(() => {
     fetch("/api/admin/roles", { credentials: "include" })
@@ -170,8 +151,6 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const currentPage = Math.floor(offset / limit) + 1;
 
   return (
     <div className="space-y-3">
@@ -357,44 +336,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1 pt-2">
-          <button
-            onClick={() => setOffset(Math.max(0, offset - limit))}
-            disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
-          >
-            ‹
-          </button>
-          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-            let start = Math.max(1, currentPage - 3);
-            const end = Math.min(totalPages, start + 6);
-            start = Math.max(1, end - 6);
-            const page = start + i;
-            if (page > totalPages) return null;
-            return (
-              <button
-                key={page}
-                onClick={() => setOffset((page - 1) * limit)}
-                className={`px-3 py-1.5 text-sm border-2 rounded-md transition-colors ${
-                  page === currentPage
-                    ? "bg-kb text-white border-kb"
-                    : "border-border hover:border-[var(--kb)] hover:text-[var(--kb)]"
-                }`}
-              >
-                {page}
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setOffset(offset + limit)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
-          >
-            ›
-          </button>
-        </div>
-      )}
+      <Pager total={total} limit={limit} offset={offset} onOffset={setOffset} />
 
       {demoFrage && (
         <DemoConfirmDialog

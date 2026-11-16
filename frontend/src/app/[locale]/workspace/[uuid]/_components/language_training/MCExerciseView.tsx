@@ -3,14 +3,16 @@ import { CaretLeft, CaretRight, Chat, Check, Lightbulb, SidebarSimple } from "@p
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
-import type { ExerciseItem, ExerciseItemSource, ExerciseSet } from "../../_types";
-import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
+import type { ExerciseItem, ExerciseSet } from "../../_types";
+import { _md } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { ExerciseNav } from "./ExerciseNav";
 import { HintCard } from "./HintCard";
-import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
+import { SetSourceLegend, sourceNumbers } from "./SetSourceLegend";
 import { shuffleOptions } from "./_shuffle";
+import { ItemSourceChips } from "./ItemSourceChips";
+import { chatPrompts } from "./_chatPrompts";
 
 export function MCExerciseView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
@@ -29,19 +31,10 @@ export function MCExerciseView({
   showChatHelp?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  const tChip = useTranslations("sourceChip");
   // The chat instructions follow the interface language.
   void chatLang;
   const locale = useLocale();
-  const promptTip = (term: string) => locale === "en"
-    ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
-    : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
-  const promptTermDeep = (term: string) => locale === "en"
-    ? `Explain the term "${term}" in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
-    : `Erkläre mir den Begriff „${term}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
-  const promptTopicDeep = (term: string) => locale === "en"
-    ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
-    : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
+  const { tip: promptTip, termDeep: promptTermDeep, topicDeep: promptTopicDeep } = chatPrompts(locale);
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
@@ -252,35 +245,7 @@ export function MCExerciseView({
                   {/* Source chips + Hint */}
                   <div className="flex items-center justify-between mt-1 gap-2">
                     <div className="min-w-0">
-                      {(() => {
-                        const cardSource = card.source_label ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time } : null;
-                        const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
-                        const seenKeys = new Set<string>();
-                        const srcs = rawSrcs.filter((s) => {
-                          const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
-                          if (seenKeys.has(k)) return false;
-                          seenKeys.add(k);
-                          return true;
-                        });
-                        if (!srcs.length) return null;
-                        return (
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {srcs.map((s, si) => {
-                                const ChipIcon = _getChipIcon(s.source_label);
-                                return (
-                                  <button key={si} type="button"
-                                    onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || `${card.front} ${card.back}`); }}
-                                    className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
-                                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                                    <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number, s.start_time, (key, vals) => tChip(key, vals))}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      <ItemSourceChips card={card} numbers={srcNumbers} onSourceClick={onSourceClick} />
                     </div>
                     {!answered && showChatHelp && (
                       <div className="flex items-center gap-2 shrink-0">

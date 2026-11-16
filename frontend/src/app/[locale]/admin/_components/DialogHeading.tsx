@@ -4,6 +4,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import CloseIcon from "@/components/ui/CloseIcon";
 
 type Props = {
   children: ReactNode;
@@ -25,19 +26,7 @@ export default function DialogHeading({ children, onClose, disabled }: Props) {
         className="w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-full btn-icon dark:text-white dark:hover:!text-white transition-colors disabled:opacity-50"
         style={{ backgroundColor: "var(--surface-dim)" }}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <CloseIcon />
       </button>
     </div>
   );

@@ -9,7 +9,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
-import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import JobHistorySection from "@/components/jobs/JobHistorySection";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { JobPausedError, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { TEXT_MODE_FILENAME, TTS_MAX_CHARS } from "@/lib/constants";
@@ -429,21 +429,13 @@ function TtsPageInner() {
         </section>
         </div>
 
-        <div className="mt-10">
-          <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
-          <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
-          {verlauf.length > 0 && (
-            <JobHistoryTable
-              entries={verlauf}
-              selectedUuid={angezeigterJobUuid}
-              disabled={isProcessing}
-              locale={locale}
-              colMaterial={t("history.colMaterial")}
-              colDate={t("history.colDate")}
-              onSelect={(uuid) => void ladeErgebnis(uuid)}
-            />
-          )}
-        </div>
+        <JobHistorySection
+          namespace="tools.tts.history"
+          entries={verlauf}
+          selectedUuid={angezeigterJobUuid}
+          disabled={isProcessing}
+          onSelect={(uuid) => void ladeErgebnis(uuid)}
+        />
       </div>
     </ProtectedRoute>
   );

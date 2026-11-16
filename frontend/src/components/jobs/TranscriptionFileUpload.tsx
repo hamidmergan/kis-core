@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES, MAX_TRANSCRIPTION_MINUTES } from "@/lib/constants";
 import { exceedsTranscriptionLimit, readMediaDurationSeconds } from "@/lib/mediaDuration";
+import FileDropzone from "./FileDropzone";
 
 // Everything Whisper accepts, display and error text read from the same list.
 const ALLOWED_EXTENSIONS = [".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".oga", ".webm", ".mpeg", ".mpga"];
-const DISPLAY_EXTENSIONS = ALLOWED_EXTENSIONS;
 
 interface TranscriptionFileUploadProps {
   onFileSelected: (file: File) => void;
@@ -15,135 +14,28 @@ interface TranscriptionFileUploadProps {
   selectedFilename?: string;
 }
 
-export default function TranscriptionFileUpload({ onFileSelected, disabled = false, selectedFilename }: TranscriptionFileUploadProps) {
+export default function TranscriptionFileUpload(props: TranscriptionFileUploadProps) {
   const t = useTranslations("common");
   const tStt = useTranslations("tools.stt");
-  const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
-    const ext = "." + file.name.split(".").pop()?.toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      return t("onlyExtsAllowed", { exts: DISPLAY_EXTENSIONS.join(", ") });
-    }
-    if (file.size > MAX_TRANSCRIPTION_BYTES) {
-      return t("fileTooLarge", { n: MAX_TRANSCRIPTION_MB });
-    }
-    return null;
+  // Saves a long upload that fails on the playing time in the end.
+  const checkDuration = async (file: File): Promise<string | null> => {
+    const seconds = await readMediaDurationSeconds(file);
+    if (!exceedsTranscriptionLimit(seconds)) return null;
+    return tStt("tooLong", {
+      minutes: Math.round((seconds as number) / 60),
+      maxMinutes: MAX_TRANSCRIPTION_MINUTES,
+    });
   };
-
-  const handleFile = useCallback(
-    async (file: File) => {
-      setError(null);
-      const validationError = validateFile(file);
-      if (validationError) {
-        setError(validationError);
-        return;
-      }
-      // Saves a long upload that fails on the playing time in the end.
-      setChecking(true);
-      try {
-        const seconds = await readMediaDurationSeconds(file);
-        if (exceedsTranscriptionLimit(seconds)) {
-          setError(tStt("tooLong", {
-            minutes: Math.round((seconds as number) / 60),
-            maxMinutes: MAX_TRANSCRIPTION_MINUTES,
-          }));
-          return;
-        }
-      } finally {
-        setChecking(false);
-      }
-      onFileSelected(file);
-    },
-    [onFileSelected, tStt]
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragActive(false);
-      if (disabled || checking) return;
-      const file = e.dataTransfer.files[0];
-      if (file) void handleFile(file);
-    },
-    [disabled, checking, handleFile]
-  );
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!disabled) setDragActive(true);
-  };
-
-  const handleDragLeave = () => setDragActive(false);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) void handleFile(file);
-    if (inputRef.current) inputRef.current.value = "";
-  };
-
-  const borderClass = dragActive
-    ? "border-kb bg-info-bg"
-    : selectedFilename
-      ? "border-kb60 bg-kb20"
-      : "border-border hover:border-kb";
 
   return (
-    <div>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={t("audioVideoSelectAria")}
-        onClick={() => !disabled && !checking && inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            if (!disabled && !checking) inputRef.current?.click();
-          }
-        }}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb ${borderClass} ${disabled || checking ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        {selectedFilename ? (
-          <>
-            <svg className="mx-auto h-8 w-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <p className="text-sm font-medium text-foreground">{selectedFilename}</p>
-            <p className="text-xs text-muted-soft mt-1">{t("clickToReplace")}</p>
-          </>
-        ) : (
-          <>
-            <svg className="mx-auto h-12 w-12 text-muted-soft mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
-            <p className="text-sm font-medium text-muted">
-              {t("dropOrBrowse")} <span className="text-kb underline">{t("browse")}</span>
-            </p>
-            <p className="text-xs text-muted-soft mt-1">
-              {DISPLAY_EXTENSIONS.join(", ")}
-            </p>
-          </>
-        )}
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ALLOWED_EXTENSIONS.join(",")}
-        onChange={handleInputChange}
-        className="hidden"
-        aria-hidden="true"
-      />
-      {error && (
-        <p className="mt-2 text-sm text-error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    <FileDropzone
+      {...props}
+      extensions={ALLOWED_EXTENSIONS}
+      maxMb={MAX_TRANSCRIPTION_MB}
+      maxBytes={MAX_TRANSCRIPTION_BYTES}
+      ariaLabel={t("audioVideoSelectAria")}
+      extraCheck={checkDuration}
+    />
   );
 }

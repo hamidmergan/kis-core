@@ -2,14 +2,14 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
-import JobHistoryTable from "@/components/jobs/JobHistoryTable";
-import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
+import JobHistorySection from "@/components/jobs/JobHistorySection";
+import { cancelJob } from "@/components/jobs/JobCancelButton";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -18,6 +18,8 @@ import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { stripAiNoticeVtt, withAiNoticeVtt } from "@/lib/aiNotice";
+import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
+import JobSubmitRow from "@/components/jobs/JobSubmitRow";
 
 function formatFromFilename(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -28,7 +30,6 @@ function TranscriptionPageInner() {
   const t = useTranslations("tools.stt");
   const tCommon = useTranslations("common");
   const tResult = useTranslations("common.result");
-  const locale = useLocale();
   const verlauf = useJobHistory("transcription");
   // Only the jobs list links straight to one transcript.
   const ausListe = useSearchParams().get("job");
@@ -213,27 +214,15 @@ function TranscriptionPageInner() {
             </div>
           </div>
 
-          <div className="mb-6 flex items-center gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={!pendingFile || processing}
-              className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {processing && (
-                <Spinner size="sm" color="current" />
-              )}
-              {processing ? tCommon("processing") : t("submit")}
-            </button>
-            {processing && <JobCancelButton onClick={handleCancel} />}
-          </div>
-
-          {stallMessage && !errorMessage && (
-            <p className="text-sm text-warn" role="status">{stallMessage}</p>
-          )}
-
-          {errorMessage && (
-            <p className="text-sm text-error" role="alert">{errorMessage}</p>
-          )}
+          <JobSubmitRow
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            canSubmit={!!pendingFile}
+            processing={processing}
+            label={t("submit")}
+            stallMessage={stallMessage}
+            errorMessage={errorMessage}
+          />
         </section>
 
         {/* The input on the right, the result takes its place once it is there. On the phone the input leads. */}
@@ -269,21 +258,8 @@ function TranscriptionPageInner() {
                 />
 
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
-                  >
-                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    {t("downloadLabel")}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
-                  >
-                    {t("newTranscript")}
-                  </button>
+                  <DownloadButton onClick={handleDownload} label={t("downloadLabel")} />
+                  <ResetButton onClick={handleReset} label={t("newTranscript")} />
                   <ErgebnisLoeschenKnopf jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} />
                 </div>
               </div>
@@ -294,21 +270,13 @@ function TranscriptionPageInner() {
         </section>
         </div>
 
-        <div className="mt-10">
-          <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
-          <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
-          {verlauf.length > 0 && (
-            <JobHistoryTable
-              entries={verlauf}
-              selectedUuid={doneJobUuid}
-              disabled={processing}
-              locale={locale}
-              colMaterial={t("history.colMaterial")}
-              colDate={t("history.colDate")}
-              onSelect={(uuid) => void ladeErgebnis(uuid)}
-            />
-          )}
-        </div>
+        <JobHistorySection
+          namespace="tools.stt.history"
+          entries={verlauf}
+          selectedUuid={doneJobUuid}
+          disabled={processing}
+          onSelect={(uuid) => void ladeErgebnis(uuid)}
+        />
       </div>
     </ProtectedRoute>
   );

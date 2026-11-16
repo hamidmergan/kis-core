@@ -15,6 +15,7 @@ import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, markCi
 import { clearActiveChipTarget } from "../chat/_citations";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
+import { selectionHasText, withSelectedText } from "./_pdfSelection";
 
 
 export function PdfViewer({
@@ -306,24 +307,9 @@ export function PdfViewer({
       icon: "ph-chat-circle",
       iconProps: { title: t("askQuestion") },
       categories: ["kis-actions"],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      visible: ({ state, documentId }: any) => {
-        const doc = state?.plugins?.selection?.documents?.[documentId];
-        if (!doc?.slices) return true;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
-        return totalChars > 0;
-      },
+      visible: selectionHasText,
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sel = (r as any).getPlugin?.("selection")?.provides?.();
-        if (!sel) return;
-        const textTask = sel.getSelectedText?.(documentId);
-        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
-        promise.then((lines: string[]) => {
-          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-          onCustomQuestionRef.current?.(text);
-        }).catch(() => { /* ignore */ });
+        withSelectedText(r, documentId, (text) => onCustomQuestionRef.current?.(text));
       },
     });
 
@@ -335,14 +321,7 @@ export function PdfViewer({
       icon: "copy",
       iconProps: { title: t("copy") },
       categories: ["selection", "selection-copy"],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      visible: ({ state, documentId }: any) => {
-        const doc = state?.plugins?.selection?.documents?.[documentId];
-        if (!doc?.slices) return true;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
-        return totalChars > 0;
-      },
+      visible: selectionHasText,
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sel = (r as any).getPlugin?.("selection")?.provides?.();
@@ -363,26 +342,9 @@ export function PdfViewer({
       icon: "ph-book",
       iconProps: { title: t("addToGlossaryTitle") },
       categories: ["kis-actions"],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      visible: ({ state, documentId }: any) => {
-        const doc = state?.plugins?.selection?.documents?.[documentId];
-        if (!doc?.slices) return true;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
-        return totalChars > 0;
-      },
+      visible: selectionHasText,
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sel = (r as any).getPlugin?.("selection")?.provides?.();
-        if (!sel) return;
-        const textTask = sel.getSelectedText?.(documentId);
-        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
-        promise.then((lines: string[]) => {
-          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-          const formatted: Array<{ pageIndex: number }> = sel.forDocument?.(documentId)?.getFormattedSelection?.() ?? [];
-          const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
-          onAddToGlossaryRef.current?.(text, sourceRef.current.uuid, selPage);
-        }).catch(() => { /* ignore */ });
+        withSelectedText(r, documentId, (text, page) => onAddToGlossaryRef.current?.(text, sourceRef.current.uuid, page()));
       },
     });
 
@@ -394,26 +356,9 @@ export function PdfViewer({
       icon: "ph-note-pencil",
       iconProps: { title: t("addToNoteTitle") },
       categories: ["kis-actions"],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      visible: ({ state, documentId }: any) => {
-        const doc = state?.plugins?.selection?.documents?.[documentId];
-        if (!doc?.slices) return true;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
-        return totalChars > 0;
-      },
+      visible: selectionHasText,
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sel = (r as any).getPlugin?.("selection")?.provides?.();
-        if (!sel) return;
-        const textTask = sel.getSelectedText?.(documentId);
-        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
-        promise.then((lines: string[]) => {
-          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-          const formatted: Array<{ pageIndex: number }> = sel.forDocument?.(documentId)?.getFormattedSelection?.() ?? [];
-          const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
-          onAddToNoteRef.current?.(text, sourceRef.current.uuid, selPage);
-        }).catch(() => { /* ignore */ });
+        withSelectedText(r, documentId, (text, page) => onAddToNoteRef.current?.(text, sourceRef.current.uuid, page()));
       },
     });
 

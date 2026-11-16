@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import { useSettingsPatch } from "./useSettingsPatch";
 
 /** The level ladder, one source for assessment, chat and tools. */
 
@@ -17,8 +18,7 @@ export default function DiagnosisLevelsCard() {
   const [savedExamples, setSavedExamples] = useState("");
   const [descriptionDefaults, setDescriptionDefaults] = useState<PerLevel>({});
   const [exampleDefaults, setExampleDefaults] = useState<PerLevel>({});
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { saving, error, patch } = useSettingsPatch(t("saveFailed"));
 
   // Canonical form so merely looking never saves.
   const keyOf = (values: PerLevel, lvls: string[]) => {
@@ -51,29 +51,6 @@ export default function DiagnosisLevelsCard() {
       })
       .catch(() => setDescriptions({}));
   }, []);
-
-  const patch = async (payload: Record<string, unknown>) => {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        let detail = t("saveFailed");
-        try {
-          const body = await res.json();
-          if (typeof body?.detail === "string") detail = body.detail;
-        } catch { /* ignore */ }
-        setError(detail);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (descriptions === null) return null;
 

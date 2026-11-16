@@ -1,0 +1,94 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
+
+/** One prompt text of the admin settings, saving it empty resets it to the default. */
+export default function PromptSettingCard({ namespace, settingKey, rows }: {
+  namespace: "admin.adaptiveBehaviorCard" | "admin.languageDiagnosisCard";
+  settingKey: string;
+  rows: number;
+}) {
+  const t = useTranslations(namespace);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [fallback, setFallback] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const value = typeof d[settingKey] === "string" ? d[settingKey] : "";
+        setSaved(value);
+        setDraft(value);
+        const def = d[`${settingKey}_default`];
+        setFallback(typeof def === "string" ? def : "");
+      })
+      .catch(() => setSaved(""));
+  }, [settingKey]);
+
+  const commit = async (value: string) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [settingKey]: value }),
+      });
+      if (!res.ok) {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(saved ?? "");
+        return;
+      }
+      const stored = value.trim() || fallback;
+      setSaved(stored);
+      setDraft(stored);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (saved === null) return null;
+
+  const isDefault = draft.trim() === fallback.trim();
+
+  return (
+    <CollapsibleCard title={t("title")} description={t("description")}>
+      <textarea
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); setError(null); }}
+        onBlur={() => { if (draft !== saved) void commit(draft); }}
+        disabled={saving}
+        rows={rows}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
+      />
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-soft">{t("hint")}</p>
+        <button
+          type="button"
+          onClick={() => void commit("")}
+          disabled={saving || isDefault}
+          className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-border text-foreground enabled:hover:border-kb disabled:opacity-40"
+        >
+          {t("reset")}
+        </button>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </CollapsibleCard>
+  );
+}

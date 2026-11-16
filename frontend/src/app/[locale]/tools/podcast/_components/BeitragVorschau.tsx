@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
@@ -9,6 +9,7 @@ import { lineAudioUrl } from "../_api";
 import { needsVoice } from "../_logic";
 import { speakerColor } from "../_colors";
 import type { JobProgress, Line, Person } from "../_types";
+import { useTileStrip } from "@/hooks/useTileStrip";
 
 interface Props {
   jobUuid: string | null;
@@ -27,10 +28,7 @@ export default function BeitragVorschau(props: Props) {
   const { jobUuid, lines, persons, voicedIds, progress, running, failedIndex, rueckblick = false } = props;
   const t = useTranslations("tools.podcast.vorschau");
   const tCast = useTranslations("tools.podcast.cast");
-  const streifenRef = useRef<HTMLDivElement>(null);
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
-  const [kannLinks, setKannLinks] = useState(false);
-  const [kannRechts, setKannRechts] = useState(false);
 
   // While the job runs its progress is the truth, but only once it has one: at the
   // very start of a run the kept contributions are already there to listen to.
@@ -49,43 +47,7 @@ export default function BeitragVorschau(props: Props) {
   const istFertig = zeigtIdx >= 0 && hatTon(zeigtIdx);
   const istGeaendert = !!zeigt && !running && needsVoice(zeigt, voicedIds) && voicedIds.length > 0;
 
-  const messen = useCallback(() => {
-    const el = streifenRef.current;
-    if (!el) return;
-    setKannLinks(el.scrollLeft > 1);
-    setKannRechts(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
-
-  useEffect(() => {
-    const el = streifenRef.current;
-    if (!el) return;
-    messen();
-    el.addEventListener("scroll", messen, { passive: true });
-    window.addEventListener("resize", messen);
-    return () => {
-      el.removeEventListener("scroll", messen);
-      window.removeEventListener("resize", messen);
-    };
-  }, [messen, lines.length]);
-
-  // The shown tile has to stay visible even when the stage moves on by itself.
-  useEffect(() => {
-    const el = streifenRef.current;
-    if (!el) return;
-    const kachel = el.querySelector<HTMLElement>('[data-aktiv="true"]');
-    if (!kachel) return;
-    const aussen = el.getBoundingClientRect();
-    const innen = kachel.getBoundingClientRect();
-    el.scrollBy({ left: innen.left - aussen.left - aussen.width / 2 + innen.width / 2, behavior: "smooth" });
-  }, [zeigtId]);
-
-  /** A click moves by one tile width, measured on the first tile. */
-  const schieben = useCallback((richtung: -1 | 1) => {
-    const el = streifenRef.current;
-    if (!el) return;
-    const breite = el.querySelector("button")?.getBoundingClientRect().width ?? 74;
-    el.scrollBy({ left: richtung * (breite + 8), behavior: "smooth" });
-  }, []);
+  const { streifenRef, kannLinks, kannRechts, schieben } = useTileStrip(lines.length, zeigtId);
 
   if (!lines.length || !zeigt || !jobUuid) return null;
   const sprecherIdx = persons[zeigt.speaker] ? zeigt.speaker : 0;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { backdropClose, newBackdropPress } from "./backdropClose";
+import CloseIcon from "./CloseIcon";
 
 interface ModalProps {
   open: boolean;
@@ -119,19 +120,7 @@ export default function Modal({
               className="w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-full btn-icon dark:text-white dark:hover:!text-white transition-colors"
               style={{ backgroundColor: "var(--surface-dim)" }}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
+              <CloseIcon />
             </button>
           </div>
         )}

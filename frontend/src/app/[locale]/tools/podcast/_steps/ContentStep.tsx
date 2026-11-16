@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Info, X } from "@phosphor-icons/react";
-import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
@@ -18,6 +17,8 @@ import StepFooter from "../_components/StepFooter";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import DemoMaterialList from "@/components/tools/DemoMaterialList";
+import SourceChecklist from "@/components/tools/SourceChecklist";
 import { hasContent } from "../_logic";
 import type { DemoMaterial } from "../_demo";
 import type { Language, Source, SourceMode } from "../_types";
@@ -104,13 +105,6 @@ export default function ContentStep({ canUseModules, source, language, instructi
     addFiles(e.dataTransfer.files);
   };
   const chooseModule = (uuid: string) => onSource({ moduleId: uuid, sourceIds: [] });
-  const voll = source.sourceIds.length >= MAX_QUELLEN;
-  const toggleSource = (uuid: string) => {
-    const set = new Set(source.sourceIds);
-    if (set.has(uuid)) set.delete(uuid);
-    else if (!voll) set.add(uuid);
-    onSource({ sourceIds: [...set] });
-  };
 
   const bytes = source.files.reduce((n, f) => n + f.size, 0);
   const zuViele = source.files.length > MAX_QUELLEN;
@@ -211,26 +205,8 @@ export default function ContentStep({ canUseModules, source, language, instructi
         <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
           <EinstellungsFeld titel={tCommon("material.label")} desktopTitel={false} wert={materialWert} className="border-t lg:border-t-0" {...zeile("material")}>
             {demo && (
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="podcast-module" className="block text-sm font-medium text-foreground-soft mb-2">
-                    Workspace
-                  </label>
-                  <Select id="podcast-module" value="demo" onChange={() => {}} disabled
-                    options={[{ value: "demo", label: demo.workspace }]} />
-                </div>
-                <div>
-                  <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
-                  <ul className="space-y-2">
-                    {demo.files.map((name) => (
-                      <li key={name}>
-                        <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
-                </div>
-              </div>
+              <DemoMaterialList selectId="podcast-module" workspace={demo.workspace} files={demo.files}
+                sourcesLabel={t("sourcesLabel")} note={tDemo("materialVorgegeben")} />
             )}
 
             {mode === "blank" && (
@@ -344,30 +320,8 @@ export default function ContentStep({ canUseModules, source, language, instructi
                     ) : sources.length === 0 ? (
                       <EmptyState size="sm" text={t("noSources")} />
                     ) : (
-                      <div>
-                        {source.sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
-                        <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
-                        <ul className="space-y-2">
-                          {sources.map((s) => (
-                            <li key={s.uuid}>
-                              <div className="flex items-center justify-between gap-3">
-                                <Checkbox
-                                  checked={source.sourceIds.includes(s.uuid)}
-                                  disabled={voll && !source.sourceIds.includes(s.uuid)}
-                                  onChange={() => toggleSource(s.uuid)}
-                                  label={s.filename}
-                                  labelClassName="text-sm text-foreground"
-                                />
-                                {source.sourceIds.includes(s.uuid) && <MeasureNote messung={messung.forSource(s.uuid)} />}
-                              </div>
-                              {source.sourceIds.includes(s.uuid) && <MeasureError messung={messung.forSource(s.uuid)} />}
-                            </li>
-                          ))}
-                        </ul>
-                        <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
-                          {t(voll ? "sourcesFull" : "sourcesHint", { max: MAX_QUELLEN })}
-                        </p>
-                      </div>
+                      <SourceChecklist namespace="tools.podcast.content" sources={sources} selectedIds={source.sourceIds}
+                        max={MAX_QUELLEN} messung={messung} onChange={(ids) => onSource({ sourceIds: ids })} />
                     ))}
                 </div>
               )

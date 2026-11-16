@@ -10,7 +10,7 @@ import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben, type Auft
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
-import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import JobHistorySection from "@/components/jobs/JobHistorySection";
 import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
@@ -29,6 +29,8 @@ import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
 import { demoSchritte, warte, type DemoSetup } from "../_demo";
 import { useSummaryHistory } from "./useSummaryHistory";
+import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
+import { triggerBlobDownload } from "@/app/[locale]/tools/screencast/_utils";
 
 type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
 type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
@@ -321,12 +323,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
     if (demo) return herunterladen(`/api/summary-demo/${doneJobUuid}/md`);
     try {
       const { blob, filename } = await downloadJobAsBlob(doneJobUuid);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, filename);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
     }
@@ -337,12 +334,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
     if (demo) return herunterladen(`/api/summary-demo/${doneJobUuid}/docx`);
     try {
       const { blob, filename } = await downloadJobAsBlob(doneJobUuid, "zusammenfassung.docx", "docx");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, filename);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
     }
@@ -521,30 +513,9 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
-                  >
-                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    {t("downloadLabel")}
-                  </button>
-                  <button
-                    onClick={handleDownloadDocx}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
-                  >
-                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    {t("downloadDocxLabel")}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
-                  >
-                    {t("newSummary")}
-                  </button>
+                  <DownloadButton onClick={handleDownload} label={t("downloadLabel")} />
+                  <DownloadButton onClick={handleDownloadDocx} label={t("downloadDocxLabel")} />
+                  <ResetButton onClick={handleReset} label={t("newSummary")} />
                   {!demo && <ErgebnisLoeschenKnopf jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} />}
                 </div>
               </div>
@@ -721,21 +692,13 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
         </div>
 
         {!demo && (
-          <div className="mt-10">
-            <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
-            <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
-            {verlauf.length > 0 && (
-              <JobHistoryTable
-                entries={verlauf}
-                selectedUuid={doneJobUuid}
-                disabled={processing}
-                locale={locale}
-                colMaterial={t("history.colMaterial")}
-                colDate={t("history.colDate")}
-                onSelect={(uuid) => { setDoneJobUuid(uuid); setErrorMessage(""); }}
-              />
-            )}
-          </div>
+          <JobHistorySection
+            namespace="tools.summarize.history"
+            entries={verlauf}
+            selectedUuid={doneJobUuid}
+            disabled={processing}
+            onSelect={(uuid) => { setDoneJobUuid(uuid); setErrorMessage(""); }}
+          />
         )}
 
       </div>

@@ -2,20 +2,19 @@
 
 /** Create an invitation: the form first, then the link to copy. */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Check, Warning } from "@phosphor-icons/react";
+import { Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
-import { copyTextFromPromise } from "@/lib/clipboard";
+import CopyTextButton from "./CopyTextButton";
 import { inviteUrl } from "./inviteUrl";
 import { uidPreview } from "./uidPreview";
+import { roleToPayload, useRoleOptions } from "./useRoleOptions";
 
 type Props = {
   onClose: () => void;
   onCreated: () => void;
 };
-
-type CustomRole = { id: number; name: string };
 
 type Erstellt = { token: string; uid: string; expires_at: string };
 
@@ -27,29 +26,11 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("staff");
   const [days, setDays] = useState("7");
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [erstellt, setErstellt] = useState<Erstellt | null>(null);
-  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/roles", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.custom_roles) setCustomRoles(d.custom_roles);
-      })
-      .catch(() => {});
-  }, []);
-
-  const roleOptions = useMemo(
-    () => [
-      { value: "staff", label: t("roleStaff") },
-      { value: "user", label: t("roleUser") },
-      ...customRoles.map((r) => ({ value: `custom:${r.id}`, label: r.name })),
-    ],
-    [t, customRoles],
-  );
+  const roleOptions = useRoleOptions(t("roleStaff"), t("roleUser"));
 
   const dayOptions = useMemo(
     () => TAGE.map((n) => ({ value: String(n), label: t("days", { n }) })),
@@ -63,7 +44,6 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const custom = role.startsWith("custom:");
     try {
       const r = await fetch("/api/admin/invites", {
         method: "POST",
@@ -72,8 +52,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
         body: JSON.stringify({
           username: username.trim(),
           email: email.trim() || null,
-          kis_role: custom ? "custom" : role,
-          custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
+          ...roleToPayload(role),
           days: Number(days),
         }),
       });
@@ -92,13 +71,6 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
     }
   }
 
-  function copyLink() {
-    if (!erstellt) return;
-    copyTextFromPromise(Promise.resolve(inviteUrl(window.location.origin, erstellt.token)));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
@@ -113,14 +85,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
                 <code className="flex-1 min-w-0 truncate font-mono text-sm bg-surface border border-border rounded-md px-3 py-2 select-all">
                   {inviteUrl(window.location.origin, erstellt.token)}
                 </code>
-                <button
-                  type="button"
-                  onClick={copyLink}
-                  className="px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap"
-                >
-                  {copied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
-                  {copied ? t("copied") : t("copy")}
-                </button>
+                <CopyTextButton text={() => inviteUrl(window.location.origin, erstellt.token)} copyLabel={t("copy")} copiedLabel={t("copied")} />
               </div>
             </div>
 

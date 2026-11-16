@@ -67,6 +67,35 @@ function DisabledChip({ label }: { label: string }) {
   );
 }
 
+/** The finished video and, when the audio run is known, the bundle of everything. */
+function ScreencastDownloads({ job, bundleLabel, children }: {
+  job: MyJob;
+  bundleLabel: string;
+  children?: React.ReactNode;
+}) {
+  const meta = (job.meta ?? null) as Record<string, unknown> | null;
+  const audioId = meta?.audio_id as string | undefined;
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap gap-2 items-center">
+        {job.has_download && (
+          <DownloadChip
+            href={`/api/jobs/${job.job_uuid}/download`}
+            filename={job.result_filename ?? undefined}
+            label="MP4"
+          />
+        )}
+        {audioId && (
+          <DownloadChip
+            href={`/api/jobs/${audioId}/bundle`}
+            label={bundleLabel}
+          />
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function JobArtifacts({ job }: { job: MyJob }) {
   const t = useTranslations("myJobs.artifacts");
@@ -100,27 +129,8 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     }
 
     if (job.status === "success") {
-      const meta = (job.meta ?? null) as Record<string, unknown> | null;
-      const audioId = meta?.audio_id as string | undefined;
       return (
-        <div className="mt-3">
-          <div className="flex flex-wrap gap-2 items-center">
-            {job.has_download && (
-              <DownloadChip
-                href={`/api/jobs/${job.job_uuid}/download`}
-                filename={job.result_filename ?? undefined}
-                label="MP4"
-              />
-            )}
-            {audioId && (
-              <DownloadChip
-                href={`/api/jobs/${audioId}/bundle`}
-                label={downloadAllLabel}
-              />
-            )}
-            {sprungChip}
-          </div>
-        </div>
+        <ScreencastDownloads job={job} bundleLabel={downloadAllLabel}>{sprungChip}</ScreencastDownloads>
       );
     }
 
@@ -130,28 +140,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
 
   // screencast render/auto: show all artifacts (legacy + auto mode)
   if (job.status === "success" && SCREENCAST_RENDER_TOOLS.has(job.tool)) {
-    const meta = (job.meta ?? null) as Record<string, unknown> | null;
-    const audioId = meta?.audio_id as string | undefined;
-
-    return (
-      <div className="mt-3">
-        <div className="flex flex-wrap gap-2 items-center">
-          {job.has_download && (
-            <DownloadChip
-              href={`/api/jobs/${job.job_uuid}/download`}
-              filename={job.result_filename ?? undefined}
-              label="MP4"
-            />
-          )}
-          {audioId && (
-            <DownloadChip
-              href={`/api/jobs/${audioId}/bundle`}
-              label={downloadAllLabel}
-            />
-          )}
-        </div>
-      </div>
-    );
+    return <ScreencastDownloads job={job} bundleLabel={downloadAllLabel} />;
   }
 
   // Podcast: the finished MP3 plus the way back into the tool, resuming sits in the badge.

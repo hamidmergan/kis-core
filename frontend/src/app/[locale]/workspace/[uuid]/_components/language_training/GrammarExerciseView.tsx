@@ -3,13 +3,13 @@ import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
-import type { ExerciseItem, ExerciseItemSource, ExerciseSet, GrammarCheckResult } from "../../_types";
-import { _chunkLabel, _getChipIcon, _sourceChipKey } from "../../_utils";
+import type { ExerciseItem, ExerciseSet, GrammarCheckResult } from "../../_types";
 import { ExerciseNav } from "./ExerciseNav";
-import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
+import { SetSourceLegend, sourceNumbers } from "./SetSourceLegend";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { shuffleOptions } from "./_shuffle";
+import { ItemSourceChips } from "./ItemSourceChips";
 
 const TITLE_PREFIX_RE = /^(Grammatik-Übung|Grammar exercise)\s*(aus|von|from|of)\s*/i;
 
@@ -32,7 +32,6 @@ export function GrammarExerciseView({
   onFinish?: (correct: number, total: number) => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  const tChip = useTranslations("sourceChip");
   const minimize = useContext(MinimizeContext);
 
   // Grammar sets keep their order, they are a numbered worksheet. Only the
@@ -156,19 +155,6 @@ export function GrammarExerciseView({
     ? t(`grammar.verdict.${result.verdict}` as "grammar.verdict.correct")
     : "";
 
-  const cardSource = card.source_label
-    ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time }
-    : null;
-  const rawSrcs: ExerciseItemSource[] = card.sources?.length
-    ? (card.sources as ExerciseItemSource[])
-    : cardSource ? [cardSource] : [];
-  const seenKeys = new Set<string>();
-  const srcs = rawSrcs.filter((s) => {
-    const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
-    if (seenKeys.has(k)) return false;
-    seenKeys.add(k);
-    return true;
-  });
   // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
@@ -337,25 +323,7 @@ export function GrammarExerciseView({
               )}
 
               {/* Source chips: nav-only, same behaviour as chat citations */}
-              {srcs.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {srcs.map((s, si) => {
-                      const ChipIcon = _getChipIcon(s.source_label);
-                      return (
-                        <button key={si} type="button"
-                          onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || `${card.front} ${card.back}`); }}
-                          className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
-                          style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                          <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number, s.start_time, (key, vals) => tChip(key, vals))}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* No filename list per card: the numbered legend at the bottom of
-                      the view names every source once, for the whole set. */}
-                </div>
-              )}
+              <ItemSourceChips card={card} numbers={srcNumbers} onSourceClick={onSourceClick} />
 
             </div>
           </div>

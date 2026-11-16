@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Warning } from "@phosphor-icons/react";
-import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
+import { useConfirmSubmit } from "./useConfirmSubmit";
 import type { Feature } from "./_types";
 
 type Props = {
@@ -18,35 +17,13 @@ export default function DeleteProviderConfirmDialog({
 }: Props) {
   const t = useTranslations("admin.providers.delete");
   const tFeature = useTranslations("admin.providers.featureName");
-  const [submitting, setSubmitting] = useState(false);
-  const press = useRef(newBackdropPress()).current;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !submitting) onCancel();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel, submitting]);
-
-  const handleBackdropClick = () => {
-    if (!submitting) onCancel();
-  };
-
-  const handleConfirm = async () => {
-    setSubmitting(true);
-    try {
-      await onConfirm();
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { submitting, handleConfirm, backdropProps } = useConfirmSubmit(onCancel, onConfirm);
 
   const hasRoutes = affectedFeatures.length > 0;
   const featureList = affectedFeatures.map((f) => tFeature(f)).join(", ");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" {...backdropClose(press, handleBackdropClick)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" {...backdropProps}>
       <div className="bg-background border border-red-300 dark:border-red-700 rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 rounded-t-xl flex items-start gap-3">
           <Warning size={22} weight="fill" className="text-red-600 dark:text-red-400 shrink-0" />

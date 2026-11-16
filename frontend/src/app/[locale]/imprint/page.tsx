@@ -1,21 +1,7 @@
-import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { legalMetadata } from "../_legalMetadata";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "layoutMeta" });
-  return {
-    title: t("title"),
-    description: t("description"),
-    // Legal pages stay reachable but out of search results, so name searches land on the start page.
-    robots: { index: false, follow: true },
-  };
-}
+export const generateMetadata = legalMetadata;
 
 export default function ImpressumPage() {
   const t = useTranslations("imprint");

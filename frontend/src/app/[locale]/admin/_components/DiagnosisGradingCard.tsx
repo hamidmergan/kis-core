@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import { useSettingsPatch } from "./useSettingsPatch";
 
 /** The grading rules of the assessment, empty resets to the default. */
 export default function DiagnosisGradingCard() {
@@ -10,8 +11,7 @@ export default function DiagnosisGradingCard() {
   const [rules, setRules] = useState<string | null>(null);
   const [savedRules, setSavedRules] = useState("");
   const [fallback, setFallback] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { saving, error, setError, patch } = useSettingsPatch(t("saveFailed"));
 
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
@@ -28,29 +28,6 @@ export default function DiagnosisGradingCard() {
       })
       .catch(() => setRules(""));
   }, []);
-
-  const patch = async (payload: Record<string, unknown>) => {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        let detail = t("saveFailed");
-        try {
-          const body = await res.json();
-          if (typeof body?.detail === "string") detail = body.detail;
-        } catch { /* ignore */ }
-        setError(detail);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (rules === null) return null;
 

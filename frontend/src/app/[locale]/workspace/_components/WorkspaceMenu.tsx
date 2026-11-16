@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { DotsThreeVertical, Info, LinkSimple, PencilSimple, SignOut, Star, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 
 interface WorkspaceMenuProps {
   /** Every entry appears only when it exists for this row. */
@@ -30,40 +30,7 @@ export default function WorkspaceMenu({
 }: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      const t = e.target as Node;
-      if (triggerRef.current?.contains(t)) return;
-      if (menuRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    function update() {
-      const btn = triggerRef.current?.getBoundingClientRect();
-      if (!btn) return;
-      const top = btn.bottom + GAP;
-      const left = Math.min(btn.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8);
-      setPos({ top, left: Math.max(8, left) });
-    }
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
+  const { open, setOpen, pos, triggerRef, menuRef } = useAnchoredMenu(MENU_WIDTH, GAP);
 
   function handle(action: () => void) {
     setOpen(false);

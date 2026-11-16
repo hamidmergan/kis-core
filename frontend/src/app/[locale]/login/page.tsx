@@ -12,15 +12,13 @@ import { login, checkAuthStatus } from "@/lib/auth";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkForm } from "../redeem/checkForm";
 import { isReturnPath } from "@/components/auth/ProtectedRoute";
+import { AUTH_FIELD } from "@/components/auth/authField";
 
 /** Where the login leads: back to a shared page the person came from, else the workspaces. */
 function afterLogin(): string {
   const next = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("next");
   return isReturnPath(next) ? next : "/workspace";
 }
-
-const FIELD =
-  "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
 
 type Fertig = { username: string; password: string; expiresAt: string | null };
 
@@ -223,7 +221,7 @@ export default function LoginPage() {
             autoFocus
             required
             disabled={loading}
-            className={FIELD}
+            className={AUTH_FIELD}
           />
         </div>
 
@@ -241,7 +239,7 @@ export default function LoginPage() {
               required
               disabled={loading}
               aria-describedby={error ? "login-error" : undefined}
-              className={`${FIELD} pr-11`}
+              className={`${AUTH_FIELD} pr-11`}
             />
             <button
               type="button"
@@ -296,7 +294,7 @@ export default function LoginPage() {
               required
               disabled={codeSending}
               placeholder={tc("codeHint")}
-              className={`${FIELD} font-mono`}
+              className={`${AUTH_FIELD} font-mono`}
             />
           </div>
           {codeError && (

@@ -1,6 +1,6 @@
 import "mind-elixir/style.css";
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import {
   ArrowsInLineVertical,
   ArrowsOutLineVertical,
@@ -8,27 +8,20 @@ import {
   CaretRight,
   CornersIn,
   CornersOut,
-  Files,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
-  PencilSimple,
   SidebarSimple,
-  Sparkle,
-  Trash,
   TreeStructure,
 } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { InlineRename } from "@/components/ui/InlineRename";
 import type { Source } from "../../_types";
 import { _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
-import { STUDIO_ITEM_MAX } from "../../_constants";
-import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { chipTargetKey, getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
 import { StudioSourceLegend } from "./StudioSourceLegend";
 import { InstructionNote } from "./InstructionField";
-import { GenerateModal } from "./GenerateModal";
+import { StudioSavedList } from "./StudioSavedList";
 
 // A source label rarely matches a filename exactly, so fall back to a loose match.
 function _findSource(sources: Source[], label: string): Source | undefined {
@@ -91,15 +84,10 @@ export function MindmapStudio({
 }) {
   const t = useTranslations("workspace.detail.studio");
   const tMm = useTranslations("workspace.detail.studio.mindmap");
-  // The create dialog with the instruction field, opened by the Create button.
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const locale = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
-  // Which card is currently being renamed, only one, nobody needs more at once.
-  const [umbenennt, setUmbenennt] = useState<number | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const minimize = useContext(MinimizeContext);
@@ -382,126 +370,19 @@ export function MindmapStudio({
   }, [mindmap, view, pickedSources]);
 
   const activeTopicName = mindmap?.topic ?? tMm("fallbackTopic");
-  const noSources = sourceCount === 0;
-  const atLimit = savedList.length >= STUDIO_ITEM_MAX;
 
   return (
     <div className="flex flex-col h-full">
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
-        <SubviewHeader title={tMm("title")} toolKey="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-          <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
-            style={{
-              color: noSources ? "var(--error-strong)" : "var(--kb)",
-            }}>
-            <Files size={13} weight="bold" />
-            {noSources
-              ? t("sources.none")
-              : sourceCount === 1
-                ? t("sources.one")
-                : t("sources.few", { n: sourceCount })}
-          </div>
-
-          {dialogOpen && (
-            <GenerateModal id="mindmap-instruction" toolName={tMm("title")}
-              onClose={() => setDialogOpen(false)}
-              onCreate={(text) => { setDialogOpen(false); onGenerate(text); }} />
-          )}
-          {savedList.length === 0 && !loading ? (
-            <EmptyState
-              className="pt-[15%]"
-              size="lg"
-              icon={<TreeStructure size={48} weight="bold" />}
-              text={tMm("emptyHint")}
-              action={
-                <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => setDialogOpen(true)}
-                    disabled={noSources || loading || atLimit}
-                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
-                  </button>
-                </span>
-              }
-            />
-          ) : (
-            <>
-              <div className="flex justify-center">
-                <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => setDialogOpen(true)}
-                    disabled={noSources || loading || atLimit}
-                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
-                  </button>
-                </span>
-              </div>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tMm("countOne") : tMm("countMany")}</span>
-              </div>
-              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-                {loading && (
-                  <div className="bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
-                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Spinner size="sm" />
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>{t("generate.generating")}</span>
-                    </div>
-                  </div>
-                )}
-                {savedList.map((item) => (
-                  <div key={item.id}
-                    onClick={() => { onSelect(item.id); setView("viewer"); }}
-                    className="bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:outline-2 hover:outline-[var(--kb)] -outline-offset-2 transition"
-                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <TreeStructure size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      {umbenennt === item.id && onRename ? (
-                        <InlineRename
-                          value={item.topic}
-                          errorText={t("common.renameFailed")}
-                          onSave={(next) => onRename(item.id, next)}
-                          onCancel={() => setUmbenennt(null)}
-                        />
-                      ) : (
-                        <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }}
-                          onDoubleClick={(e) => { if (onRename) { e.stopPropagation(); setUmbenennt(item.id); } }}
-                          data-tip={item.topic}>
-                          {item.topic}
-                        </span>
-                      )}
-                    </div>
-                    {item.user_instruction && (
-                      <span className="text-xs text-muted line-clamp-1" title={item.user_instruction}>
-                        {t("generate.instructionShown", { text: item.user_instruction })}
-                      </span>
-                    )}
-                    <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-xs font-medium" >
-                        {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {onRename && (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setUmbenennt(item.id); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                            style={{ backgroundColor: "var(--surface-dim)" }}
-                            title={t("common.rename")}
-                            aria-label={t("common.rename")}>
-                            <PencilSimple size={12} />
-                          </button>
-                        )}
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                          className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                          style={{ backgroundColor: "var(--surface-dim)" }}>
-                          <Trash size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <StudioSavedList
+          toolKey="Mindmap" modalId="mindmap-instruction" icon={TreeStructure}
+          labels={{ title: tMm("title"), emptyHint: tMm("emptyHint"), countOne: tMm("countOne"), countMany: tMm("countMany") }}
+          items={savedList.map((m) => ({ ...m, title: m.topic }))} loading={loading} sourceCount={sourceCount} breadcrumbs={breadcrumbs}
+          onBack={onBack} onGenerate={onGenerate}
+          onOpen={(id) => { onSelect(id); setView("viewer"); }}
+          onDelete={onDelete} onRename={onRename}
+        />
       </div>
 
       {/* ── Mindmap Viewer ── */}

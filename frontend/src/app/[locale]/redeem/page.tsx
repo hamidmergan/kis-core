@@ -13,9 +13,7 @@ import Spinner from "@/components/ui/Spinner";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkAuthStatus } from "@/lib/auth";
 import { checkForm } from "./checkForm";
-
-const FIELD =
-  "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
+import { AUTH_FIELD } from "@/components/auth/authField";
 
 type Fertig = { username: string; password: string; expiresAt: string | null };
 type Kopiert = "user" | "password" | null;
@@ -181,7 +179,7 @@ function AccessCodePageInner() {
               required
               disabled={sending}
               placeholder={t("codeHint")}
-              className={`${FIELD} font-mono`}
+              className={`${AUTH_FIELD} font-mono`}
             />
           </div>
 

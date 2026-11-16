@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Check, Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import { copyTextFromPromise } from "@/lib/clipboard";
+import { useRoleOptions } from "./useRoleOptions";
 
 type Props = {
   onClose: () => void;
@@ -30,8 +31,6 @@ const EMPTY: FormState = {
   role: { kind: "system", value: "staff" },
 };
 
-type CustomRole = { id: number; name: string };
-
 function roleToSelectValue(r: RoleSelection): string {
   return r.kind === "system" ? r.value : `custom:${r.customRoleId}`;
 }
@@ -49,29 +48,12 @@ function roleFromSelectValue(value: string): RoleSelection {
 export default function CreateAccountDialog({ onClose }: Props) {
   const t = useTranslations("admin.createLdapUser");
   const [form, setForm] = useState<FormState>(EMPTY);
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ uid: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/roles", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.custom_roles) setCustomRoles(d.custom_roles);
-      })
-      .catch(() => {});
-  }, []);
-
-  const roleOptions = useMemo(
-    () => [
-      { value: "staff", label: t("roleStaff") },
-      { value: "user", label: t("roleUser") },
-      ...customRoles.map((r) => ({ value: `custom:${r.id}`, label: r.name })),
-    ],
-    [t, customRoles],
-  );
+  const roleOptions = useRoleOptions(t("roleStaff"), t("roleUser"));
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

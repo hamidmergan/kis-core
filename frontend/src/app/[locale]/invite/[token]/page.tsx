@@ -2,23 +2,21 @@
 
 /** The public invitation page, the key in the URL is the credential. */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { Check, Copy, Eye, EyeSlash, WarningCircle } from "@phosphor-icons/react";
+import { Check, Copy, WarningCircle } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
+import NewPasswordFields from "@/components/auth/NewPasswordFields";
+import { AUTH_FIELD } from "@/components/auth/authField";
+import { useTokenCheck } from "@/components/auth/useTokenCheck";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkPassword, MIN_PASSWORD_LENGTH } from "./checkPassword";
-
-const FIELD =
-  "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
-
-type Einladung = { uid: string };
 
 export default function InvitePage() {
   const t = useTranslations("invite");
@@ -27,13 +25,9 @@ export default function InvitePage() {
   const token = String(params?.token ?? "");
   const { variant } = useMascotPref();
 
-  const [einladung, setEinladung] = useState<Einladung | null>(null);
-  const [pruefend, setPruefend] = useState(true);
-  const [ungueltig, setUngueltig] = useState(false);
-  const [ladefehler, setLadefehler] = useState(false);
+  const { uid, pruefend, ungueltig, setUngueltig, ladefehler } = useTokenCheck("/api/invites", token);
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [givenName, setGivenName] = useState("");
   const [surname, setSurname] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,28 +40,6 @@ export default function InvitePage() {
     setKopiert(true);
     setTimeout(() => setKopiert(false), 1500);
   }
-
-  useEffect(() => {
-    if (!token) return;
-    (async () => {
-      try {
-        const r = await fetch(`/api/invites/${encodeURIComponent(token)}`, { cache: "no-store" });
-        if (r.ok) {
-          const d = await r.json();
-          setEinladung({ uid: d.uid });
-        } else if (r.status === 404 || r.status === 410) {
-          // Only these two really mean 'no longer exists'.
-          setUngueltig(true);
-        } else {
-          setLadefehler(true);
-        }
-      } catch {
-        setLadefehler(true);
-      } finally {
-        setPruefend(false);
-      }
-    })();
-  }, [token]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,11 +148,11 @@ export default function InvitePage() {
                     </span>
                     <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-border px-3 py-2.5">
                       <span data-testid="invite-username" className="font-mono text-base break-all">
-                        {einladung?.uid}
+                        {uid}
                       </span>
                       <IconButton
                         size="sm"
-                        onClick={() => benutzernamenKopieren(einladung?.uid ?? "")}
+                        onClick={() => benutzernamenKopieren(uid ?? "")}
                         aria-label={kopiert ? t("copied") : t("copyUsername")}
                       >
                         {kopiert ? (
@@ -193,51 +165,15 @@ export default function InvitePage() {
                     <p className="mt-1.5 text-xs text-muted-soft">{t("usernameHint")}</p>
                   </div>
 
-                  <div>
-                    <label htmlFor="invite-password" className="block text-sm font-medium text-foreground-soft mb-1.5">
-                      {t("password")}
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="invite-password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="new-password"
-                        required
-                        disabled={sending}
-                        className={`${FIELD} pr-11`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? t("hidePassword") : t("showPassword")}
-                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-kb transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeSlash size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
-                      </button>
-                    </div>
-                    <p className="mt-1.5 text-xs text-muted-soft">
-                      {t("passwordHint", { min: MIN_PASSWORD_LENGTH })}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="invite-password-repeat" className="block text-sm font-medium text-foreground-soft mb-1.5">
-                      {t("passwordRepeat")}
-                    </label>
-                    <input
-                      id="invite-password-repeat"
-                      type={showPassword ? "text" : "password"}
-                      value={repeat}
-                      onChange={(e) => setRepeat(e.target.value)}
-                      autoComplete="new-password"
-                      required
-                      disabled={sending}
-                      className={FIELD}
-                    />
-                  </div>
+                  <NewPasswordFields
+                    namespace="invite"
+                    idPrefix="invite"
+                    password={password}
+                    repeat={repeat}
+                    onPassword={setPassword}
+                    onRepeat={setRepeat}
+                    disabled={sending}
+                  />
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -250,7 +186,7 @@ export default function InvitePage() {
                         value={givenName}
                         onChange={(e) => setGivenName(e.target.value)}
                         disabled={sending}
-                        className={FIELD}
+                        className={AUTH_FIELD}
                       />
                     </div>
                     <div>
@@ -263,7 +199,7 @@ export default function InvitePage() {
                         value={surname}
                         onChange={(e) => setSurname(e.target.value)}
                         disabled={sending}
-                        className={FIELD}
+                        className={AUTH_FIELD}
                       />
                     </div>
                   </div>
