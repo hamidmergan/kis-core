@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field
 
 from loguru import logger
+
 from src.core.redis_url import REDIS_URL
 
 
@@ -29,10 +30,14 @@ def _redis():
     return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=5)
 
 
-def _task_id(raw) -> str | None:
+def _task_id(raw, *, unacked: bool = False) -> str | None:
+    """The task id of a queued message, an unacknowledged one is wrapped in a list."""
     try:
-        return json.loads(raw)["headers"]["id"]
-    except (ValueError, KeyError, TypeError):
+        message = json.loads(raw)
+        if unacked:
+            message = message[0]
+        return message["headers"]["id"]
+    except (ValueError, KeyError, IndexError, TypeError):
         return None
 
 
@@ -59,10 +64,7 @@ def snapshot(r=None) -> Snapshot | None:
                     if task_id:
                         stand.waiting.add(task_id)
         for raw in r.hvals(_UNACKED_KEY):
-            try:
-                task_id = _task_id(json.dumps(json.loads(raw)[0]))
-            except (ValueError, IndexError, TypeError):
-                task_id = None
+            task_id = _task_id(raw, unacked=True)
             if task_id:
                 stand.taken.add(task_id)
         return stand

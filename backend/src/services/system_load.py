@@ -6,18 +6,10 @@ import asyncio
 import os
 import time
 
-from src.services.system_capacity import capacity
+from src.services.system_capacity import _read_text, capacity
 
 # Gap between the two samples of the CPU measurement.
 _SAMPLE_SECONDS = 0.3
-
-
-def _read_text(path: str) -> str | None:
-    try:
-        with open(path, "r") as fh:
-            return fh.read().strip()
-    except OSError:
-        return None
 
 
 def _cgroup_cpu_usec() -> int | None:

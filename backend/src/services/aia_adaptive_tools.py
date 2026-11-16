@@ -1,11 +1,13 @@
 """Tunes the generated learning tools to the learner's language level."""
 
-from src.services.aia_adaptive_chat import level_texts
+from src.services.aia_adaptive_chat import (  # noqa: F401 - the placeholders stay importable from here
+    DESCRIPTION_PLACEHOLDER,
+    EXAMPLE_PLACEHOLDER,
+    LEVEL_PLACEHOLDER,
+    adaptive_chat_appendix,
+    level_texts,
+)
 from src.services.aia_level_ladder import resolve_prompt_setting
-
-LEVEL_PLACEHOLDER = "{level}"
-EXAMPLE_PLACEHOLDER = "{example}"
-DESCRIPTION_PLACEHOLDER = "{description}"
 
 # A separate admin key for the tool text, apart from the chat text.
 ADAPTIVE_TOOL_BEHAVIOR_SETTING = "language_diagnosis_adaptive_tool_behavior_de"
@@ -59,15 +61,7 @@ def adaptive_tool_appendix(
     level: str | None, behavior: str, example: str = "", description: str = ""
 ) -> tuple[str, str | None]:
     """Builds the prompt suffix and names the applied level."""
-    if not level or not behavior or not behavior.strip():
-        return "", None
-    text = (
-        behavior.strip()
-        .replace(LEVEL_PLACEHOLDER, level)
-        .replace(EXAMPLE_PLACEHOLDER, (example or "").strip())
-        .replace(DESCRIPTION_PLACEHOLDER, (description or "").strip())
-    )
-    return "\n\n" + text, level
+    return adaptive_chat_appendix(level, behavior, example, description)
 
 
 def build_adaptive_tool_suffix(user_id: int | None) -> str:

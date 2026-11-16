@@ -7,15 +7,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urlsplit
-from zoneinfo import ZoneInfo
 
 import trafilatura
 
 from src.i18n import t
 from src.limits import WEB_PAGE_MIN_WORDS, WEB_PAGE_TITLE_MAX_CHARS
 from src.services.web_page_fetch import LinkError
+from src.utils.local_date import LOCAL_TZ
 
-_TZ = ZoneInfo("Europe/Berlin")
 _BAD_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
 _WS = re.compile(r"\s+")
 _TITLE_TAG = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
@@ -70,7 +69,7 @@ def extract_text_page(raw: bytes, url: str) -> PageDocument:
 def build_document_html(title: str, url: str, body_html: str, fetched_at: datetime, locale: str) -> str:
     """The file LibreOffice renders, without a single reference to the outside."""
     date_format = "%Y-%m-%d" if locale == "en" else "%d.%m.%Y"
-    stamp = fetched_at.astimezone(_TZ).strftime(date_format)
+    stamp = fetched_at.astimezone(LOCAL_TZ).strftime(date_format)
     line = t("ai.link.sourceLine", locale, url=url, date=stamp)
     return (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'

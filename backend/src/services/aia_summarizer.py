@@ -20,13 +20,6 @@ from src.services.upstream_errors import is_provider_refusal
 # Signs of a refusal due to overload, deliberately via the text.
 _RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
 
-
-def _is_rate_limit(e: Exception) -> bool:
-    if getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429:
-        return True
-    msg = str(e).lower()
-    return any(m in msg for m in _RATE_LIMIT_MARKERS)
-
 # Ceiling of the output, short enough for many sources in one window.
 _MAX_OUTPUT_TOKENS = 1280
 
@@ -34,6 +27,13 @@ _MAX_OUTPUT_TOKENS = 1280
 _RUN = re.compile(r"(\S ?)\1{7,}")
 # The model thinking out loud instead of answering, seen in the wild.
 _SELF_TALK = ("wait, let me", "let me rephrase", "let me restart", "let me try again")
+
+
+def _is_rate_limit(e: Exception) -> bool:
+    if getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429:
+        return True
+    msg = str(e).lower()
+    return any(m in msg for m in _RATE_LIMIT_MARKERS)
 
 
 def _is_derailed(text: str) -> bool:

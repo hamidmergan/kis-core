@@ -1,7 +1,5 @@
 """Lange Erkenner-Segmente in kurze Einblendungen zerlegen."""
 
-import pytest
-
 from src.services.subtitle_converter import split_long_segments
 
 # A real segment from storage, 553 characters over 29.3 seconds.
@@ -78,3 +76,12 @@ def test_ein_uebermaessig_langes_wort_bleibt_ganz():
 
 def test_leere_liste_bleibt_leer():
     assert split_long_segments([]) == []
+
+
+def test_ein_zeitstempel_knapp_unter_der_vollen_sekunde_bleibt_gueltig():
+    """Rounding the fraction alone wrote 1.9996 s as 00:00:01.1000."""
+    from src.services.subtitle_converter import _fmt_vtt_time
+
+    assert _fmt_vtt_time(1.9996) == "00:00:02.000"
+    assert _fmt_vtt_time(3599.9999) == "01:00:00.000"
+    assert _fmt_vtt_time(3725.25) == "01:02:05.250"

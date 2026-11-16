@@ -3,16 +3,21 @@
 import re
 
 
-def _offset_srt_ts(ts: str, offset_sec: float) -> str:
-    """Shift an SRT timestamp (HH:MM:SS,mmm) by offset_sec."""
-    h, m, rest = ts.split(":")
-    s, ms = rest.split(",")
+def _shifted(h: str, m: str, s: str, ms: str, offset_sec: float, mark: str) -> str:
+    """The time moved by offset_sec, written with ``mark`` in front of the milliseconds."""
     total_ms = (int(h) * 3600 + int(m) * 60 + int(s)) * 1000 + int(ms)
     total_ms = max(0, total_ms + int(offset_sec * 1000))
     h2, total_ms = divmod(total_ms, 3_600_000)
     m2, total_ms = divmod(total_ms, 60_000)
     s2, ms2 = divmod(total_ms, 1000)
-    return f"{h2:02d}:{m2:02d}:{s2:02d},{ms2:03d}"
+    return f"{h2:02d}:{m2:02d}:{s2:02d}{mark}{ms2:03d}"
+
+
+def _offset_srt_ts(ts: str, offset_sec: float) -> str:
+    """Shift an SRT timestamp (HH:MM:SS,mmm) by offset_sec."""
+    h, m, rest = ts.split(":")
+    s, ms = rest.split(",")
+    return _shifted(h, m, s, ms, offset_sec, ",")
 
 
 def merge_srt(chunks: list[tuple[str, float]]) -> str:
@@ -35,12 +40,7 @@ def _offset_vtt_ts(ts: str, offset_sec: float) -> str:
     parts = ts.split(":")
     h, m, s_ms = (parts[0], parts[1], parts[2]) if len(parts) == 3 else ("0", parts[0], parts[1])
     s, ms = s_ms.split(".")
-    total_ms = (int(h) * 3600 + int(m) * 60 + int(s)) * 1000 + int(ms)
-    total_ms = max(0, total_ms + int(offset_sec * 1000))
-    h2, total_ms = divmod(total_ms, 3_600_000)
-    m2, total_ms = divmod(total_ms, 60_000)
-    s2, ms2 = divmod(total_ms, 1000)
-    return f"{h2:02d}:{m2:02d}:{s2:02d}.{ms2:03d}"
+    return _shifted(h, m, s, ms, offset_sec, ".")
 
 
 def merge_vtt(chunks: list[tuple[str, float]]) -> str:

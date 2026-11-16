@@ -1,5 +1,7 @@
 """Shared after-the-fact evidence search for the tools, with the same threshold as the chat."""
 
+from loguru import logger
+
 from src.features.ai_assistant.routes._chips import _line_segment_start
 from src.features.ai_assistant.routes._evidence import (
     _ATTRIB_CANDIDATES,
@@ -84,7 +86,6 @@ def attribute_claims(
     try:
         vecs = embed_fn(claims)
     except Exception as e:
-        from loguru import logger
         logger.warning("aia attribution: batch embed failed, no chips attached: {}", e)
         return [[] for _ in claims]
 
@@ -93,7 +94,6 @@ def attribute_claims(
         try:
             hits = search_fn(claim, vec)
         except Exception as e:
-            from loguru import logger
             logger.warning("aia attribution: search failed for a claim, no chip: {}", e)
             hits = []
         out.append(chips_for_claim(hits, source_id_to_label, multi=multi,
@@ -121,6 +121,7 @@ def chips_for_claim(
     best = _pick_attribution(hits, max_distance)
     if best is None:
         return []
+
     def _segs(hit: dict) -> list[dict] | None:
         """Fetch segments only for media hits, a PDF page needs none."""
         if segments_fn is None or hit.get("start_time") is None:

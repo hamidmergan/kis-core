@@ -1,6 +1,8 @@
 """ElevenLabs: MP3 straight from the service, voices of the person's own library including clones."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import httpx
 
 from src.services.own_tts._base import QUICK_TIMEOUT, OwnTTSClient, raise_for
@@ -76,7 +78,6 @@ def credit(api_key: str) -> dict | None:
         return None
     data = response.json()
     reset = data.get("next_character_count_reset_unix")
-    from datetime import datetime, timezone
     return {
         "used": int(data.get("character_count") or 0),
         "limit": int(data.get("character_limit") or 0),

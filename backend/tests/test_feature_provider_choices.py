@@ -311,3 +311,25 @@ async def test_eine_neue_adresse_wird_neu_gepingt(monkeypatch):
 
     assert await svc._is_reachable(_provider(20, base_url="http://neu")) is False
     assert len(calls) == 1
+
+
+async def test_gleichzeitige_erste_anfragen_pingen_nur_einmal(monkeypatch):
+    import asyncio
+
+    calls = []
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _CountingAdapter(calls, "ok"))
+    provider = _provider(20)
+
+    assert await asyncio.gather(*(svc._is_reachable(provider) for _ in range(5))) == [True] * 5
+    assert len(calls) == 1
+
+
+async def test_eine_neue_adresse_raeumt_das_alte_ergebnis_weg(monkeypatch):
+    import time
+
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _CountingAdapter([], "ok"))
+    alt = svc._probe_key(_provider(20, base_url="http://alt"))
+    svc._probed[alt] = (time.time(), True)
+
+    await svc._is_reachable(_provider(20, base_url="http://neu"))
+    assert alt not in svc._probed

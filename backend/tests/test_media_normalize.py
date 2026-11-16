@@ -8,12 +8,7 @@ import tempfile
 
 import pytest
 
-from src.services.media_normalize import (
-    is_fragmented_mp4,
-    is_fragmented_mp4_reader,
-    normalize_if_fragmented,
-    remux_to_progressive,
-)
+from src.services.media_normalize import _scan_needs_remux, normalize_for_playback
 
 
 def _box(box_type: bytes, payload: bytes = b"") -> bytes:
@@ -31,6 +26,19 @@ def _write(tmp_path, data: bytes) -> str:
     with open(p, "wb") as fh:
         fh.write(data)
     return p
+
+
+def is_fragmented_mp4(path: str) -> bool:
+    with open(path, "rb") as fh:
+        data = fh.read()
+    return _scan_needs_remux(lambda off, n: data[off:off + n])
+
+
+def is_fragmented_mp4_reader(read) -> bool:
+    return _scan_needs_remux(read)
+
+
+normalize_if_fragmented = normalize_for_playback
 
 
 # ── detection (pure, no ffmpeg) ──────────────────────────────────────────────

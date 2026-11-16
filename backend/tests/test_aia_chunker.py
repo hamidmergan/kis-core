@@ -112,3 +112,26 @@ def test_extract_text_long_file_paginates(tmp_path):
 def test_pdf_no_readable_text_error_is_a_value_error():
     # The error has to stay a ValueError, otherwise the handling does not catch it.
     assert issubclass(PdfNoReadableTextError, ValueError)
+
+
+# ── _extract_docx ────────────────────────────────────────────────────────────
+
+def test_docx_first_paragraph_above_the_size_opens_no_empty_page(monkeypatch):
+    import sys
+    import types
+
+    from src.services import aia_chunker
+
+    class _Para:
+        def __init__(self, text):
+            self.text = text
+
+    class _Doc:
+        paragraphs = [_Para("a" * 50), _Para("b" * 10)]
+
+    monkeypatch.setitem(sys.modules, "docx", types.SimpleNamespace(Document=lambda path: _Doc()))
+    chunks = aia_chunker._extract_docx("x.docx", 20)
+    assert chunks == [
+        {"page_number": 1, "content": "a" * 50},
+        {"page_number": 2, "content": "b" * 10},
+    ]

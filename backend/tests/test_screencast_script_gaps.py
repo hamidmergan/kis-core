@@ -143,3 +143,17 @@ def test_prompt_demands_a_script_for_every_slide_with_content():
     assert "at least one sentence" in rules
     assert "similar to the previous one" in rules
     assert "not a placeholder word" in rules
+
+
+def test_a_failed_single_retry_does_not_cancel_the_retry_of_later_slides():
+    """The retry result overwrote the retry flag, so one failed slide left the following gaps silent."""
+    client = ScriptClient([
+        f"{LONG}\n|||\n|||\n",
+        RuntimeError("boom"),
+        "The third slide gets its own script after all.",
+    ])
+    scripts = client.generate_scripts_batch(
+        ["eins", "zwei", "drei"], add_greeting=False, add_closing=False
+    )
+    assert scripts[1] == ""
+    assert scripts[2].startswith("The third slide")

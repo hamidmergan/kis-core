@@ -11,13 +11,12 @@ MAX_ZEILEN_JE_EINBLENDUNG = 2
 _SATZENDE = re.compile(r"(?<=[.!?])\s+")
 
 
-
 def _fmt_vtt_time(seconds: float) -> str:
     """Format seconds as WebVTT timestamp ``HH:MM:SS.mmm``."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    ms = int(round((seconds - int(seconds)) * 1000))
+    # Rounded as a whole, else 1.9996 s would come out as 00:00:01.1000.
+    rest, ms = divmod(int(round(seconds * 1000)), 1000)
+    m, s = divmod(rest, 60)
+    h, m = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
 
@@ -69,8 +68,6 @@ def vtt_to_segments(raw: str) -> list[dict]:
             segments.append({"start": start, "end": end, "text": " ".join(text_lines).strip()})
         i += 1
     return segments
-
-
 
 
 def _zeilen(text: str, max_zeile: int) -> list[str]:

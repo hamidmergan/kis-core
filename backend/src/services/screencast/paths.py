@@ -3,13 +3,14 @@
 import asyncio
 import shutil
 import time
-from pathlib import Path
 
 from loguru import logger
 
+from src.storage import STORAGE_ROOT
+
 # Shared volume - accessible by celery-worker (mounted at /app/storage)
-PPTX_TMP_DIR = Path("/app/storage/screencast_tmp")
-IMAGE_TMP_DIR = Path("/app/storage/screencast_tmp/images")
+PPTX_TMP_DIR = STORAGE_ROOT / "screencast_tmp"
+IMAGE_TMP_DIR = PPTX_TMP_DIR / "images"
 
 _cleanup_task: asyncio.Task | None = None
 

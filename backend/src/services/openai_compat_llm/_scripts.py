@@ -298,12 +298,12 @@ class _ScriptsMixin:
                     "Folie {}: kein brauchbares Skript ({!r}), einzeln nachholen",
                     slide_no, script[:40],
                 )
-                retry = _one_slide(text, idx, slide_no)
-                if is_blank_script(retry):
+                single = _one_slide(text, idx, slide_no)
+                if is_blank_script(single):
                     logger.warning("Folie {}: auch einzeln kein Skript, bleibt stumm", slide_no)
                     scripts[i] = ""
                 else:
-                    scripts[i] = retry
+                    scripts[i] = single
             return scripts
 
         def _run_batch_with_retry(texts: list[str], idx: int, n: int) -> tuple[int, list[str]]:

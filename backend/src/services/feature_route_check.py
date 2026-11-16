@@ -10,11 +10,12 @@ from typing import Optional
 import httpx
 from loguru import logger
 
+from src.services.model_limits import CHAT_LIKE_FEATURES as _CHAT_LIKE_FEATURES
 from src.services.protocols import make_adapter
-from src.services.provider_transport import INFERENCE_SERVICE_HEADER, moved_to
 from src.services.protocols.deepl import DeepLAdapter
 from src.services.protocols.docling import DoclingAdapter
 from src.services.protocols.openai_compat import OpenAICompatAdapter
+from src.services.provider_transport import INFERENCE_SERVICE_HEADER, moved_to
 
 
 _TIMEOUT = 15.0
@@ -26,10 +27,6 @@ class FeatureTestResult:
     error: Optional[str] = None
     # Soft signal next to 'ok', the call went through with a caveat.
     warning: Optional[str] = None
-
-
-# Features whose openai_compat path runs via /v1/chat/completions.
-_CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "transcript_translate"})
 
 
 def run_feature_route_test(
@@ -65,11 +62,15 @@ def run_feature_route_test(
 # ─── OpenAI-compat per-feature tests ────────────────────────────────────────
 
 
-def _openai_headers(api_key: Optional[str]) -> dict:
-    h = {"Accept": "application/json", "Content-Type": "application/json"}
+def _auth_headers(api_key: Optional[str]) -> dict:
+    h = {"Accept": "application/json"}
     if api_key:
         h["Authorization"] = f"Bearer {api_key}"
     return h
+
+
+def _openai_headers(api_key: Optional[str]) -> dict:
+    return {**_auth_headers(api_key), "Content-Type": "application/json"}
 
 
 def _build_url(base_url: str, path: str) -> str:
@@ -149,7 +150,7 @@ def _post_tts(
             resp = client.post(url, headers=_openai_headers(api_key), json=payload)
     except httpx.HTTPError:
         return FeatureTestResult(status="error", error="unreachable")
-    result = _classify_http(resp, expect_json=False)
+    result = _classify_http(resp)
     if result.status == "error" and resp.status_code == 404:
         return FeatureTestResult(status="error", error="tts_speech_endpoint_not_found")
     return result
@@ -186,9 +187,7 @@ def _stt_probe(
     base_url: str, api_key: Optional[str], model_name: str
 ) -> httpx.Response:
     url = _build_url(base_url, "/v1/audio/transcriptions")
-    headers = {"Accept": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    headers = _auth_headers(api_key)
     files = {"file": ("probe.wav", _silence_wav(), "audio/wav")}
     data = {"model": model_name, "response_format": "text"}
     with httpx.Client(timeout=_TIMEOUT) as client:
@@ -217,7 +216,7 @@ def _post_stt(
         resp = _stt_probe(base_url, api_key, model_name)
     except httpx.HTTPError:
         return FeatureTestResult(status="error", error="unreachable")
-    primary = _classify_http(resp, expect_json=False)
+    primary = _classify_http(resp)
     if primary.status != "ok":
         return primary
     # A bait call shows whether the provider reads the model name at all.
@@ -268,9 +267,7 @@ def _check_image_model(
     *, base_url: str, api_key: Optional[str], model_name: str, edit: bool
 ) -> FeatureTestResult:
     """Checks an image model with a real call, exactly as in operation."""
-    headers = {"Accept": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    headers = _auth_headers(api_key)
     try:
         with httpx.Client(timeout=_IMAGE_TIMEOUT, headers=headers) as client:
             if edit:
@@ -308,7 +305,7 @@ def _check_image_model(
                 )
     except httpx.HTTPError:
         return FeatureTestResult(status="error", error="unreachable")
-    return _classify_http(resp, expect_json=True)
+    return _classify_http(resp)
 
 
 def _post_json(url: str, api_key: Optional[str], payload: dict) -> FeatureTestResult:
@@ -317,10 +314,10 @@ def _post_json(url: str, api_key: Optional[str], payload: dict) -> FeatureTestRe
             resp = client.post(url, headers=_openai_headers(api_key), json=payload)
     except httpx.HTTPError:
         return FeatureTestResult(status="error", error="unreachable")
-    return _classify_http(resp, expect_json=True)
+    return _classify_http(resp)
 
 
-def _classify_http(resp: httpx.Response, *, expect_json: bool) -> FeatureTestResult:
+def _classify_http(resp: httpx.Response) -> FeatureTestResult:
     status = resp.status_code
     if 200 <= status < 300:
         return FeatureTestResult(status="ok")

@@ -21,6 +21,20 @@ def _unregister_proc(job_uuid: str, proc: subprocess.Popen) -> None:
             procs.remove(proc)
         except ValueError:
             pass
+        # The last process of a job takes the entry along, else every job leaves an empty list behind.
+        if not procs:
+            _job_procs.pop(job_uuid, None)
+
+
+def _kill(proc: subprocess.Popen) -> None:
+    """Kills the whole process group, the process alone when the group is gone."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
 
 
 def kill_job_procs(job_uuid: str) -> None:
@@ -28,13 +42,7 @@ def kill_job_procs(job_uuid: str) -> None:
     with _job_procs_lock:
         procs = _job_procs.pop(job_uuid, [])
     for proc in procs:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+        _kill(proc)
 
 
 def run_proc(cmd: list[str], timeout: int, job_uuid: str | None = None) -> subprocess.CompletedProcess:
@@ -50,12 +58,12 @@ def run_proc(cmd: list[str], timeout: int, job_uuid: str | None = None) -> subpr
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except Exception:
-            proc.kill()
+        _kill(proc)
         stdout, stderr = proc.communicate()
     finally:
+        # A time limit of the job struck while waiting, the process must not run on alone.
+        if proc.poll() is None:
+            _kill(proc)
         if job_uuid:
             _unregister_proc(job_uuid, proc)
     return subprocess.CompletedProcess(

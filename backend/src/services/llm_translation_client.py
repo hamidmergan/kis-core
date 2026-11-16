@@ -74,6 +74,13 @@ _BATCH_SYSTEM_PROMPT = (
 )
 
 
+def _instruction(source_lang: str, target_lang: str) -> str:
+    """The direction of the translation as the prompts word it."""
+    if source_lang:
+        return f"from {source_lang} to {target_lang}"
+    return f"to {target_lang} (auto-detect source language)"
+
+
 class LLMTranslationClient:
     def __init__(
         self,
@@ -146,12 +153,7 @@ class LLMTranslationClient:
         raise last_exc
 
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:
-        if source_lang:
-            instruction = f"from {source_lang} to {target_lang}"
-        else:
-            instruction = f"to {target_lang} (auto-detect source language)"
-
-        system = _SYSTEM_PROMPT.format(instruction=instruction)
+        system = _SYSTEM_PROMPT.format(instruction=_instruction(source_lang, target_lang))
         translated, finish_reason = self._completion_with_retry(system, text)
         if finish_reason == "length":
             # A single text cannot be split, so give it more room.
@@ -199,13 +201,8 @@ class LLMTranslationClient:
 
     def _translate_chunk(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
         """Translates a batch in one call, missing parts are fetched individually."""
-        if source_lang:
-            instruction = f"from {source_lang} to {target_lang}"
-        else:
-            instruction = f"to {target_lang} (auto-detect source language)"
-
         numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
-        system = _BATCH_SYSTEM_PROMPT.format(instruction=instruction)
+        system = _BATCH_SYSTEM_PROMPT.format(instruction=_instruction(source_lang, target_lang))
 
         raw, finish_reason = self._completion_with_retry(system, numbered, item_count=len(texts))
 

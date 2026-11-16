@@ -598,18 +598,19 @@ def _build(lib, full=provider_slots.ProviderFull):
             order, held = self._first_seat(door.order(), body)
             for i, target in enumerate(order):
                 last = i == len(order) - 1
-                outgoing = door.prepare(request, body, target)
-                outgoing.stream = _Pieces(outgoing.content)
                 seats = held if i == 0 and held is not None else self._take(door.seats(target, body))
                 release = _releaser(seats)
                 try:
+                    outgoing = door.prepare(request, body, target)
+                    outgoing.stream = _Pieces(outgoing.content)
                     response = self._inner.handle_request(outgoing)
                     url = moved_to(response, target.root)
                     if url:
                         response.read()
                         response.close()
                         headers = [(k, v) for k, v in outgoing.headers.multi_items() if k.lower() != "host"]
-                        outgoing = type(outgoing)(outgoing.method, url, headers=headers, content=body,
+                        # The rewritten body goes along, a fallback keeps its own model after the move.
+                        outgoing = type(outgoing)(outgoing.method, url, headers=headers, content=outgoing.content,
                                                   extensions=outgoing.extensions)
                         outgoing.stream = _Pieces(outgoing.content)
                         response = self._inner.handle_request(outgoing)
@@ -619,11 +620,15 @@ def _build(lib, full=provider_slots.ProviderFull):
                     if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last, alive):
                         continue
                     raise
+                except BaseException:
+                    # A time limit or any other error mid call, the seat must not stay held for good.
+                    release()
+                    raise
                 if response.status_code in _RETRY_STATUS:
                     if door.switch(target, _down_seconds(response), str(response.status_code), last):
+                        release()
                         response.read()
                         response.close()
-                        release()
                         continue
                 if response.is_closed:
                     # A body that is already complete never calls close, so the seat goes back now.
@@ -682,11 +687,11 @@ def _build(lib, full=provider_slots.ProviderFull):
             order, held = await self._first_seat(door.order(), body)
             for i, target in enumerate(order):
                 last = i == len(order) - 1
-                outgoing = door.prepare(request, body, target)
-                outgoing.stream = _Pieces(outgoing.content)
                 seats = held if i == 0 and held is not None else await self._take(door.seats(target, body))
                 release = _releaser(seats)
                 try:
+                    outgoing = door.prepare(request, body, target)
+                    outgoing.stream = _Pieces(outgoing.content)
                     response = await self._inner.handle_async_request(outgoing)
                 except lib.TransportError as e:
                     release()
@@ -694,11 +699,15 @@ def _build(lib, full=provider_slots.ProviderFull):
                     if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last, alive):
                         continue
                     raise
+                except BaseException:
+                    # A cancelled request or any other error mid call, the seat must not stay held for good.
+                    release()
+                    raise
                 if response.status_code in _RETRY_STATUS:
                     if door.switch(target, _down_seconds(response), str(response.status_code), last):
+                        release()
                         await response.aread()
                         await response.aclose()
-                        release()
                         continue
                 if response.is_closed:
                     # A body that is already complete never calls close, so the seat goes back now.

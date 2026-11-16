@@ -58,72 +58,36 @@ class _WhisperChunkedMixin:
                            cache_key: str | None = None,
                            on_progress: ProgressFn = None) -> str:
         """Recognises language, cuts overlong recordings and remembers every part."""
-        duration = get_audio_duration(file_path)
-        _reject_if_too_long(duration)
-        if fits_single_upload(file_path, duration):
-            return self.transcribe(file_path, response_format=response_format)
-
-        logger.info("Audio {:.1f}s exceeds limit - splitting into chunks", duration)
-        silence_starts = find_silence_starts(file_path)
-        split_points = compute_split_points(duration, silence_starts)
-
-        def _transcribe_or_cached(path: str, idx: int, total: int) -> str:
-            if cache_key:
-                hit = _chunk_cache.get_text(cache_key, idx)
-                if hit is not None:
-                    logger.info("Chunk {}/{} cache hit", idx + 1, total)
-                    return hit
-            text = self.transcribe(path, response_format=response_format)
-            if cache_key:
-                _chunk_cache.put_text(cache_key, idx, text)
-            return text
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            chunks = split_audio(file_path, split_points, tmpdir)
-            results: dict[int, tuple[str, float]] = {}
-            with ThreadPoolExecutor(max_workers=chunk_concurrency()) as executor:
-                futures = {
-                    executor.submit(_transcribe_or_cached, path, i, len(chunks)): (i, offset)
-                    for i, (path, offset) in enumerate(chunks)
-                }
-                for future in as_completed(futures):
-                    i, offset = futures[future]
-                    try:
-                        results[i] = (future.result(), offset)
-                        logger.info("Chunk {}/{} transcribed", i + 1, len(chunks))
-                        _report(on_progress, len(results), len(chunks))
-                    except Exception as e:
-                        raise _fail_chunk("transcription", i, e) from e
-
-            if cache_key:
-                _chunk_cache.clear_text(cache_key, len(chunks))
-            ordered = [results[i] for i in range(len(chunks))]
-            if response_format == "srt":
-                return merge_srt(ordered)
-            if response_format == "vtt":
-                return merge_vtt(ordered)
-            return " ".join(text for text, _ in ordered).strip()
+        return self._text_chunked(file_path, response_format, cache_key, on_progress, translate=False)
 
     def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text",
                                          cache_key: str | None = None,
                                          on_progress: ProgressFn = None) -> str:
         """Recognises and translates, cuts overlong recordings and remembers every part."""
+        return self._text_chunked(file_path, response_format, cache_key, on_progress, translate=True)
+
+    def _text_chunked(self, file_path: str, response_format: str, cache_key: str | None,
+                      on_progress: ProgressFn, *, translate: bool) -> str:
+        """One text over all parts, recognised or translated, both ways share every step."""
+        single = self.transcribe_and_translate if translate else self.transcribe
+        hint = " (translate)" if translate else ""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if fits_single_upload(file_path, duration):
-            return self.transcribe_and_translate(file_path, response_format=response_format)
+            return single(file_path, response_format=response_format)
 
-        logger.info("Audio {:.1f}s exceeds limit - splitting into chunks (translate mode)", duration)
+        logger.info("Audio {:.1f}s exceeds limit - splitting into chunks{}",
+                    duration, " (translate mode)" if translate else "")
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
-        def _translate_or_cached(path: str, idx: int, total: int) -> str:
+        def _one_or_cached(path: str, idx: int, total: int) -> str:
             if cache_key:
                 hit = _chunk_cache.get_text(cache_key, idx)
                 if hit is not None:
-                    logger.info("Chunk {}/{} cache hit (translate)", idx + 1, total)
+                    logger.info("Chunk {}/{} cache hit{}", idx + 1, total, hint)
                     return hit
-            text = self.transcribe_and_translate(path, response_format=response_format)
+            text = single(path, response_format=response_format)
             if cache_key:
                 _chunk_cache.put_text(cache_key, idx, text)
             return text
@@ -133,17 +97,18 @@ class _WhisperChunkedMixin:
             results: dict[int, tuple[str, float]] = {}
             with ThreadPoolExecutor(max_workers=chunk_concurrency()) as executor:
                 futures = {
-                    executor.submit(_translate_or_cached, path, i, len(chunks)): (i, offset)
+                    executor.submit(_one_or_cached, path, i, len(chunks)): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
                     i, offset = futures[future]
                     try:
                         results[i] = (future.result(), offset)
-                        logger.info("Chunk {}/{} translated", i + 1, len(chunks))
+                        logger.info("Chunk {}/{} {}", i + 1, len(chunks),
+                                    "translated" if translate else "transcribed")
                         _report(on_progress, len(results), len(chunks))
                     except Exception as e:
-                        raise _fail_chunk("translation", i, e) from e
+                        raise _fail_chunk("translation" if translate else "transcription", i, e) from e
 
             if cache_key:
                 _chunk_cache.clear_text(cache_key, len(chunks))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import random
 import threading
@@ -147,63 +148,67 @@ def _try_sit_ranked(r, provider: str, ticket: str, limit: int, stale_seconds: fl
 
 
 def _leave_line(r, provider: str, ticket: str) -> None:
+    """Takes a ticket that got no seat out of the line, and out of the seats a broken try left it in."""
     try:
         r.zrem(_WAIT_KEY.format(provider), ticket)
         r.zrem(_SEEN_KEY.format(provider), ticket)
+        r.zrem(_KEY.format(provider), ticket)
     except _REDIS_DOWN:
         pass
+
+
+def _ranked_waits(provider: str, *, limit: int, wait_seconds: float, rank: int, r,
+                  stale_seconds: float):
+    """Yields once per pause until the ticket sits and returns it, so both claims share all but the sleep."""
+    ticket = uuid.uuid4().hex
+    start = time.time()
+    seated = False
+    try:
+        r = r if r is not None else _redis()
+        while not _try_sit_ranked(r, provider, ticket, limit, stale_seconds, rank):
+            if time.time() - start >= wait_seconds:
+                raise ProviderFull(provider, time.time() - start)
+            yield 0.5 + random.random()
+        seated = True
+        _hold(provider, ticket)
+        return ticket
+    except _REDIS_DOWN as e:
+        seated = True
+        # Without Redis the request goes through unbraked.
+        logger.warning("Anbieter-Plätze nicht erreichbar (Redis), lasse durch: {}", e)
+        return ticket
+    finally:
+        if not seated and r is not None:
+            _leave_line(r, provider, ticket)
 
 
 def claim_ranked(provider: str, *, limit: int, wait_seconds: float, rank: int, r=None,
                  stale_seconds: float = STALE_SECONDS) -> str:
     """Like claim, but lower ranks get the next free seat first and equal ranks in arrival order."""
-    ticket = uuid.uuid4().hex
-    start = time.time()
-    seated = False
+    waits = _ranked_waits(provider, limit=limit, wait_seconds=wait_seconds, rank=rank, r=r,
+                          stale_seconds=stale_seconds)
     try:
-        r = r if r is not None else _redis()
-        while not _try_sit_ranked(r, provider, ticket, limit, stale_seconds, rank):
-            if time.time() - start >= wait_seconds:
-                raise ProviderFull(provider, time.time() - start)
-            time.sleep(0.5 + random.random())
-        seated = True
-        _hold(provider, ticket)
-        return ticket
-    except _REDIS_DOWN as e:
-        seated = True
-        # Without Redis the request goes through unbraked.
-        logger.warning("Anbieter-Plätze nicht erreichbar (Redis), lasse durch: {}", e)
-        return ticket
+        while True:
+            time.sleep(next(waits))
+    except StopIteration as seated:
+        return seated.value
     finally:
-        if not seated and r is not None:
-            _leave_line(r, provider, ticket)
+        # A time limit struck during the sleep, closing takes the ticket out of the line.
+        waits.close()
 
 
 async def claim_ranked_async(provider: str, *, limit: int, wait_seconds: float, rank: int, r=None,
                              stale_seconds: float = STALE_SECONDS) -> str:
     """Like claim_ranked, but waits without blocking the event loop."""
-    import asyncio
-
-    ticket = uuid.uuid4().hex
-    start = time.time()
-    seated = False
+    waits = _ranked_waits(provider, limit=limit, wait_seconds=wait_seconds, rank=rank, r=r,
+                          stale_seconds=stale_seconds)
     try:
-        r = r if r is not None else _redis()
-        while not _try_sit_ranked(r, provider, ticket, limit, stale_seconds, rank):
-            if time.time() - start >= wait_seconds:
-                raise ProviderFull(provider, time.time() - start)
-            await asyncio.sleep(0.5 + random.random())
-        seated = True
-        _hold(provider, ticket)
-        return ticket
-    except _REDIS_DOWN as e:
-        seated = True
-        # Without Redis the request goes through unbraked.
-        logger.warning("Anbieter-Plätze nicht erreichbar (Redis), lasse durch: {}", e)
-        return ticket
+        while True:
+            await asyncio.sleep(next(waits))
+    except StopIteration as seated:
+        return seated.value
     finally:
-        if not seated and r is not None:
-            _leave_line(r, provider, ticket)
+        waits.close()
 
 
 def release(provider: str, ticket: str, r=None) -> None:

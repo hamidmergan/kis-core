@@ -954,3 +954,53 @@ def test_antwortet_die_erste_wahl_bleibt_das_protokoll_still(redis):
     finally:
         logger.remove(sink)
     assert not any("geantwortet" in z for z in zeilen)
+
+
+def test_ein_fremder_fehler_mitten_im_aufruf_gibt_den_platz_zurueck(redis, monkeypatch):
+    """A time limit during the call kept the seat held and renewed for the life of the worker."""
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
+    monkeypatch.setattr(provider_slots, "_start_refresher", lambda: None)
+
+    def handler(req):
+        raise SoftTimeLimitExceeded()
+
+    with pytest.raises(SoftTimeLimitExceeded):
+        _chat(_client(handler, primary=_eng(), fallback=None))
+    assert redis.zcard("kis:provider-slots:1:llm") == 0
+    assert "1:llm" not in provider_slots._held.values()
+
+
+def test_ein_abgebrochener_asynchroner_aufruf_gibt_den_platz_zurueck(redis, monkeypatch):
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
+    monkeypatch.setattr(provider_slots, "_start_refresher", lambda: None)
+
+    def handler(req):
+        raise asyncio.CancelledError()
+
+    async def los():
+        tuer = pt.AsyncProviderTransport(_eng(), None, "llm", inner=httpx.MockTransport(handler))
+        async with httpx.AsyncClient(transport=tuer) as client:
+            await client.post("https://hpc.example/v1/chat/completions", json={"model": "gemma-hpc", "messages": []})
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(los())
+    assert redis.zcard("kis:provider-slots:1:llm") == 0
+    assert "1:llm" not in provider_slots._held.values()
+
+
+def test_eine_weiterleitung_beim_rueckfall_behaelt_dessen_modell(redis):
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req)
+        if req.url.host == "hpc.example":
+            raise httpx.ConnectError("Connection refused", request=req)
+        if req.url.path == "/v1/chat/completions":
+            return httpx.Response(307, headers={"location": "http://mylab.example/v2/chat"})
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler)).json() == {"ok": 1}
+    assert str(gesehen[-1].url) == "https://mylab.example/v2/chat"
+    assert json.loads(gesehen[-1].content)["model"] == "chat-fast"

@@ -221,3 +221,38 @@ def test_der_platz_eines_toten_prozesses_wird_nach_kurzer_zeit_frei(uhr, monkeyp
     uhr["t"] += provider_slots.HELD_STALE_SECONDS + 1
     assert provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0,
                                        stale_seconds=provider_slots.HELD_STALE_SECONDS)
+
+
+def test_ein_abbruch_zwischen_hinsetzen_und_zaehlen_laesst_keinen_platz_besetzt(uhr):
+    """A time limit right after sitting down left a seat nobody held and nobody gave back."""
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    class _Bricht(_RangRedis):
+        gezaehlt = 0
+
+        def zcard(self, key):
+            self.gezaehlt += 1
+            if self.gezaehlt == 2:
+                raise SoftTimeLimitExceeded()
+            return super().zcard(key)
+
+    r = _Bricht()
+    with pytest.raises(SoftTimeLimitExceeded):
+        provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
+    assert r.zcard("kis:provider-slots:mylab:llm") == 0
+    assert r.zcard("kis:provider-wait:mylab:llm") == 0
+
+
+def test_ein_abgebrochenes_asynchrones_warten_verlaesst_die_schlange(uhr, monkeypatch):
+    import asyncio
+
+    async def abbruch(sek):
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(asyncio, "sleep", abbruch)
+    r = _RangRedis()
+    r.zadd("kis:provider-slots:mylab:llm", {"besetzt": uhr["t"]})
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(provider_slots.claim_ranked_async("mylab:llm", limit=1, wait_seconds=60, rank=0, r=r))
+    assert r.zcard("kis:provider-wait:mylab:llm") == 0
+    assert r.zcard("kis:provider-seen:mylab:llm") == 0

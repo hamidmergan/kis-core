@@ -127,9 +127,13 @@ async def _probe_reachable(provider: dict) -> bool:
 
     try:
         ok = await asyncio.wait_for(asyncio.to_thread(_probe), _PROBE_TIMEOUT)
-    except (asyncio.TimeoutError, Exception):  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - a timeout counts as not reachable too
         ok = False
-    _probed[_probe_key(provider)] = (time.time(), ok)
+    key = _probe_key(provider)
+    # A changed address leaves its old result behind, it goes with the new one.
+    for alt in [k for k in _probed if k[0] == key[0] and k != key]:
+        del _probed[alt]
+    _probed[key] = (time.time(), ok)
     return ok
 
 
@@ -138,17 +142,26 @@ def _probe_key(provider: dict) -> tuple:
     return provider["id"], provider["protocol"], provider["base_url"]
 
 
+def _start_probe(provider: dict, key: tuple) -> asyncio.Task:
+    """The probe running for this provider, started only when none is under way."""
+    task = _probing.get(key)
+    if task is None:
+        task = asyncio.create_task(_probe_reachable(provider))
+        _probing[key] = task
+        task.add_done_callback(lambda _t: _probing.pop(key, None))
+    return task
+
+
 async def _is_reachable(provider: dict) -> bool:
     """The last probe result, an old one is renewed in the background and only a missing one is awaited."""
     key = _probe_key(provider)
     known = _probed.get(key)
     if known is None:
-        return await _probe_reachable(provider)
+        # Shielded, so one caller going away does not cancel the probe the others wait for.
+        return await asyncio.shield(_start_probe(provider, key))
     checked_at, ok = known
-    if time.time() - checked_at > PROVIDER_PROBE_MAX_AGE_SECONDS and key not in _probing:
-        task = asyncio.create_task(_probe_reachable(provider))
-        _probing[key] = task
-        task.add_done_callback(lambda _t: _probing.pop(key, None))
+    if time.time() - checked_at > PROVIDER_PROBE_MAX_AGE_SECONDS:
+        _start_probe(provider, key)
     return ok
 
 

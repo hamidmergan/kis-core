@@ -2,15 +2,22 @@
 
 import time
 
+from loguru import logger
+
 from src.services.text_pieces import (
     PIECE_CHARS,
     PIECE_OVERLAP,
     clean,
     split_text,
 )
-
-from loguru import logger
 from src.services.upstream_errors import is_provider_refusal
+
+_AUDIO_EXTENSIONS = {"mp3", "mp4", "wav", "flac", "m4a", "webm"}
+# A YouTube source has no file but a transcript, downstream it counts as media.
+_TRANSCRIPT_TYPES = _AUDIO_EXTENSIONS | {"youtube"}
+
+# Stands in for a page or file without any text.
+_EMPTY_PAGE = "[Leere Seite]"
 
 
 class PdfNoReadableTextError(ValueError):
@@ -120,8 +127,6 @@ class _OcrRun:
         }
 
 
-
-
 # This much text of its own a bullet group needs to be indexed alone.
 SLIDE_GROUP_MIN_CHARS = 120
 
@@ -142,13 +147,11 @@ def extract_chunks(
         return _extract_pptx(file_path, PIECE_CHARS, PIECE_OVERLAP)
     if ft in ("txt", "md"):
         return _extract_text(file_path, PIECE_CHARS, PIECE_OVERLAP)
-    if ft in ("mp3", "mp4", "wav", "flac", "m4a", "webm"):
+    if ft in _AUDIO_EXTENSIONS:
         raise ValueError(
             "Audio/Video files must be transcribed first - use segments_to_chunks() instead."
         )
     raise ValueError(f"Unsupported file_type: {file_type!r}")
-
-
 
 
 # ── Format-specific extractors ────────────────────────────────────────────────
@@ -193,20 +196,22 @@ def _bitmap_coverage(page) -> float:
     return min(total / page_area, 1.0)
 
 
-def _extract_pdf(
-    file_path: str,
-    chunk_size: int,
-    overlap: int,
-    progress_cb=None,
-    ocr_report: dict | None = None,
-) -> list[dict]:
+def _ocr_text(page, page_number: int, total_pages: int, ocr_run: _OcrRun, progress_cb) -> str:
+    """The recognised text of one page, empty when it stays open."""
+    if progress_cb:
+        progress_cb("ocr", page_number, total_pages)
+    png_bytes = _render_ocr_png(page, page_number)
+    if png_bytes is None:
+        ocr_run.mark_open(page_number)
+        return ""
+    return clean(ocr_run.ocr_page(png_bytes, page_number)).strip()
+
+
+def _read_pdf_pages(file_path: str, progress_cb) -> tuple[list[str], list[list], _OcrRun | None]:
+    """Text and line boxes of every page, with the text recognition run if one was needed."""
     import pypdfium2 as pdfium
-    from src.services.pdf_layout import (
-        line_boxes,
-        boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
-    )
-    chunks: list[dict] = []
-    # Collect all pages first, then cut, the header only shows in the whole.
+    from src.services.pdf_layout import line_boxes
+
     page_texts: list[str] = []
     page_lines: list[list] = []
     doc = pdfium.PdfDocument(file_path)
@@ -238,28 +243,19 @@ def _extract_pdf(
                 provider = None
             ocr_run = _OcrRun(provider)
 
+        # A page that did not get through keeps its text layer and counts as open.
+        ocr_text = ""
+        if should_ocr and ocr_run.wants(page_num + 1):
+            ocr_text = _ocr_text(page, page_num + 1, total_pages, ocr_run, progress_cb)
         # The log reports whether text really came back, not just the pre-check.
-        ocr_tried = should_ocr and ocr_run.wants(page_num + 1)
-        ocr_merged = False
-
-        if ocr_tried:
-            if progress_cb:
-                progress_cb("ocr", page_num + 1, total_pages)
-            png_bytes = _render_ocr_png(page, page_num + 1)
-
-            if png_bytes is None:
-                ocr_run.mark_open(page_num + 1)
-            else:
-                # A page that did not get through keeps its text layer and counts as open.
-                ocr_text = clean(ocr_run.ocr_page(png_bytes, page_num + 1)).strip()
-                if ocr_text:
-                    ocr_merged = True
-                    logger.info(
-                        "PDF page {}: OCR extracted {} chars (text-layer had {})",
-                        page_num + 1, len(ocr_text), len(text),
-                    )
-                    # Merge text-layer remnants + OCR output; OCR wins if empty layer
-                    text = (text + "\n" + ocr_text).strip() if text else ocr_text
+        ocr_merged = bool(ocr_text)
+        if ocr_merged:
+            logger.info(
+                "PDF page {}: OCR extracted {} chars (text-layer had {})",
+                page_num + 1, len(ocr_text), len(text),
+            )
+            # Merge text-layer remnants + OCR output; OCR wins if empty layer
+            text = (text + "\n" + ocr_text).strip() if text else ocr_text
 
         logger.info(
             "PDF page {}: text={} chars, image_coverage={:.1%}, ocr_wanted={}, ocr_ran={}",
@@ -272,8 +268,24 @@ def _extract_pdf(
         textpage.close()
         page.close()
     doc.close()
+    return page_texts, page_lines, ocr_run
+
+
+def _extract_pdf(
+    file_path: str,
+    chunk_size: int,
+    overlap: int,
+    progress_cb=None,
+    ocr_report: dict | None = None,
+) -> list[dict]:
+    from src.services.pdf_layout import (
+        boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
+    )
+    # Collect all pages first, then cut, the header only shows in the whole.
+    page_texts, page_lines, ocr_run = _read_pdf_pages(file_path, progress_cb)
 
     # A slide with bullets is cut per group, otherwise the whole page path stays.
+    chunks: list[dict] = []
     boiler = boilerplate_keys(page_lines, page_texts)
     n_grouped = 0
     for i, (lines, text) in enumerate(zip(page_lines, page_texts)):
@@ -290,7 +302,7 @@ def _extract_pdf(
                 chunks.append({"page_number": i + 1, "content": sub})
     logger.info(
         "PDF chunking: {} page(s), {} cut by bullet group, {} boilerplate line(s) dropped → {} chunks",
-        total_pages, n_grouped, len(boiler), len(chunks),
+        len(page_texts), n_grouped, len(boiler), len(chunks),
     )
     if ocr_report is not None and ocr_run is not None:
         report = ocr_run.report()
@@ -313,8 +325,9 @@ def _extract_docx(file_path: str, chunk_size: int) -> list[dict]:
         text = clean(para.text).strip()
         if not text:
             continue
-        if len(current) + len(text) + 1 > chunk_size:
-            chunks.append({"page_number": page_number, "content": current or "[Leere Seite]"})
+        # Only a filled chunk is closed, a first paragraph above the size opens one instead.
+        if current and len(current) + len(text) + 1 > chunk_size:
+            chunks.append({"page_number": page_number, "content": current})
             page_number += 1
             current = text
         else:
@@ -322,7 +335,7 @@ def _extract_docx(file_path: str, chunk_size: int) -> list[dict]:
 
     # flush last chunk
     if current or not chunks:
-        chunks.append({"page_number": page_number, "content": current or "[Leere Seite]"})
+        chunks.append({"page_number": page_number, "content": current or _EMPTY_PAGE})
 
     return chunks
 
@@ -341,13 +354,11 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
                         parts.append(t)
         content = " ".join(parts).strip()
         if not content:
-            chunks.append({"page_number": slide_num, "content": "[Leere Seite]"})
+            chunks.append({"page_number": slide_num, "content": _EMPTY_PAGE})
         else:
             for sub in split_text(content, chunk_size, overlap):
                 chunks.append({"page_number": slide_num, "content": sub})
     return chunks
-
-
 
 
 def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
@@ -355,14 +366,14 @@ def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         text = clean(f.read())
 
     if not text.strip():
-        return [{"page_number": 1, "content": "[Leere Seite]"}]
+        return [{"page_number": 1, "content": _EMPTY_PAGE}]
 
     chunks: list[dict] = []
     start = 0
     page_number = 1
     while start < len(text):
         end = start + chunk_size
-        chunk = text[start:end].strip() or "[Leere Seite]"
+        chunk = text[start:end].strip() or _EMPTY_PAGE
         chunks.append({"page_number": page_number, "content": chunk})
         page_number += 1
         start = end - overlap  # overlap with previous chunk
@@ -373,11 +384,6 @@ def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
 
 
 # ── Audio/Video transcript chunking ─────────────────────────────────────────────
-
-_AUDIO_EXTENSIONS = {"mp3", "mp4", "wav", "flac", "m4a", "webm"}
-# A YouTube source has no file but a transcript, downstream it counts as media.
-_TRANSCRIPT_TYPES = _AUDIO_EXTENSIONS | {"youtube"}
-
 
 def is_media_file(file_type: str) -> bool:
     """True when the source carries a transcript with timestamps."""

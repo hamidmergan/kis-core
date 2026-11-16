@@ -192,6 +192,16 @@ def test_parse_strips_markdown_fence():
     assert parse_turn_response(raw)["message"] == "Wie geht es dir?"
 
 
+def test_parse_survives_a_fence_on_one_line():
+    raw = '```json {"done": false, "message": "Wie geht es dir?"}```'
+    assert parse_turn_response(raw)["message"] == "Wie geht es dir?"
+
+
+def test_parse_reports_a_bare_fence_as_unreadable():
+    with pytest.raises(DiagnosisChatError):
+        parse_turn_response("```")
+
+
 def test_parse_ongoing_turn_drops_stray_level():
     """A level only counts on the final turn; an early one must not be persisted."""
     raw = json.dumps({"done": False, "message": "Weiter?", "level": "C2"})

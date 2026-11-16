@@ -135,13 +135,11 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
 
 def _provider_from_binding(binding, *, timeout: float, retry_on_timeout: bool) -> OpenAICompatEmbeddingProvider:
     """Builds an embedding client for an already-resolved binding."""
+    from src.services import feature_router, provider_transport
+
     provider = binding.provider
-    base_url = provider["base_url"].rstrip("/")
-    if not base_url.endswith("/v1"):
-        base_url = f"{base_url}/v1"
-    from src.services import provider_transport
     return OpenAICompatEmbeddingProvider(
-        base_url=base_url,
+        base_url=feature_router._ensure_v1(provider["base_url"]),
         api_key=provider.get("api_key") or "not-needed",
         model=binding.model or "",
         timeout=timeout,

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import threading
+import time
 from dataclasses import dataclass
 
 from loguru import logger
@@ -258,6 +260,8 @@ def _loaded_window(base_url: str, api_key: str, model: str) -> int | None:
 # A failed measurement is not repeated on every request.
 _RETRY_AFTER_SEC = 300.0
 _failed_at: dict[tuple[int, str], float] = {}
+# One measurement per model at a time, a second request reads what the first one stored.
+_measure_locks: dict[tuple[int, str], threading.Lock] = {}
 
 
 def stored_profile(provider_id: int, model: str) -> ModelProfile | None:
@@ -290,8 +294,16 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
     gemerkt = stored_profile(provider_id, model)
     if gemerkt is not None:
         return gemerkt
+    with _measure_locks.setdefault((provider_id, model), threading.Lock()):
+        return _measure_once(provider, provider_id, model, fallback)
 
-    import time
+
+def _measure_once(provider: dict, provider_id: int, model: str, fallback: ModelProfile) -> ModelProfile:
+    """Measures and stores, unless a request ahead in the line already did or just failed."""
+    gemerkt = stored_profile(provider_id, model)
+    if gemerkt is not None:
+        return gemerkt
+
     schluessel = (provider_id, model)
     letzter = _failed_at.get(schluessel)
     if letzter is not None and (time.monotonic() - letzter) < _RETRY_AFTER_SEC:
@@ -309,6 +321,16 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
         return fallback
 
     _failed_at.pop(schluessel, None)
+    _save_profile(provider_id, model, profil)
+    logger.info(
+        "Modell {} vermessen: Fenster {} ({}), denkt={}, Schalter={!r}",
+        model, profil.window_tokens, profil.source, profil.thinks, profil.think_off,
+    )
+    return profil
+
+
+def _save_profile(provider_id: int, model: str, profil: ModelProfile) -> None:
+    """Stores a measurement, measured is measured even unsaved."""
     from src import database as db
     try:
         db.set_model_limit(
@@ -318,13 +340,8 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
             thinks=profil.thinks,
             think_off=profil.think_off,
         )
-    except Exception as e:  # noqa: BLE001 — measured is measured, even unsaved
+    except Exception as e:  # noqa: BLE001
         logger.warning("Modellvermessung nicht speicherbar: {}", e)
-    logger.info(
-        "Modell {} vermessen: Fenster {} ({}), denkt={}, Schalter={!r}",
-        model, profil.window_tokens, profil.source, profil.thinks, profil.think_off,
-    )
-    return profil
 
 
 def remeasure(provider: dict, model: str) -> ModelProfile | None:
@@ -346,17 +363,7 @@ def remeasure(provider: dict, model: str) -> ModelProfile | None:
     gemerkt = stored_profile(provider_id, model)
     if gemerkt is not None and gemerkt.source == QUELLE_GESETZT:
         profil.window_tokens, profil.source = gemerkt.window_tokens, gemerkt.source
-    from src import database as db
-    try:
-        db.set_model_limit(
-            provider_id, model,
-            window_tokens=profil.window_tokens,
-            source=profil.source,
-            thinks=profil.thinks,
-            think_off=profil.think_off,
-        )
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Modellvermessung nicht speicherbar: {}", e)
+    _save_profile(provider_id, model, profil)
     logger.info(
         "Modell {} neu vermessen: Fenster {} ({}), denkt={}, Schalter={!r}",
         model, profil.window_tokens, profil.source, profil.thinks, profil.think_off,

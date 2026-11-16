@@ -329,3 +329,41 @@ def test_messung_nimmt_das_gemeldete_fenster_wenn_die_probe_keins_nennt(monkeypa
 def test_ohne_wissen_ueber_das_modell_bleibt_das_budget(monkeypatch):
     _fenster(monkeypatch, None, ml.QUELLE_GESETZT)
     assert ml.cap_for_window(250000, ml.CHAT_SHARE) == 250000
+
+
+# ── One measurement at a time ───────────────────────────────────────────────
+
+def test_gleichzeitige_anfragen_messen_ein_modell_nur_einmal(monkeypatch):
+    import threading
+    import time
+
+    from src import database as db
+
+    gespeichert: dict = {}
+    messungen: list = []
+
+    def fake_set(provider_id, model, **werte):
+        gespeichert[(provider_id, model)] = werte
+
+    def fake_measure(base_url, api_key, model):
+        messungen.append(model)
+        time.sleep(0.05)
+        return ml.ModelProfile(8192, ml.QUELLE_GEMESSEN, False, "")
+
+    monkeypatch.setattr(db, "get_model_limit", lambda pid, model: gespeichert.get((pid, model)))
+    monkeypatch.setattr(db, "set_model_limit", fake_set)
+    monkeypatch.setattr(ml, "measure_provider_model", fake_measure)
+    monkeypatch.setattr(ml, "_failed_at", {})
+    monkeypatch.setattr(ml, "_measure_locks", {})
+
+    provider = {"id": 5, "name": "p", "base_url": "http://x"}
+    ergebnisse: list = []
+    faeden = [threading.Thread(target=lambda: ergebnisse.append(ml.ensure_profile(provider, "m")))
+              for _ in range(4)]
+    for f in faeden:
+        f.start()
+    for f in faeden:
+        f.join()
+
+    assert len(messungen) == 1
+    assert [e.window_tokens for e in ergebnisse] == [8192] * 4

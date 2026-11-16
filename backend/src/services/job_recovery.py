@@ -130,7 +130,7 @@ def dispatch_resume(job: dict) -> None:
         task = run_podcast_render.apply_async(
             args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"]], priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
-    elif tuer in ("podcast_script", "praesentation_outline"):
+    elif tuer in _NUR_BEI_UEBERLAST:
         from src.tasks.podcast_tasks._shared import clear_cancel
 
         clear_cancel(job_uuid)
@@ -185,12 +185,17 @@ def dispatch_resume(job: dict) -> None:
         raise RuntimeError(f"Kein Wiederanlauf fuer Dienst {job.get('tool')}")
 
 
-def _tts_params(job: dict) -> dict:
-    """The voice settings of that run, from the job folder and from the progress as a fallback."""
+def _job_params(job: dict, name: str) -> dict:
+    """A params file of the job folder, it raises when the file is gone or broken."""
     from src.storage import get_job_file
 
+    return json.loads(get_job_file(job["user_id"], job["job_uuid"], name))
+
+
+def _tts_params(job: dict) -> dict:
+    """The voice settings of that run, from the job folder and from the progress as a fallback."""
     try:
-        return json.loads(get_job_file(job["user_id"], job["job_uuid"], "tts_params.json"))
+        return _job_params(job, "tts_params.json")
     except Exception:  # noqa: BLE001 - older jobs only carry them in the progress
         params = _progress(job).get("tts_params")
         if not params:
@@ -217,19 +222,15 @@ def recover_after_restart() -> int:
 
 def _pages_params(job: dict) -> dict:
     """The provider of that page's run, an empty choice when the file is gone."""
-    from src.storage import get_job_file
-
     try:
-        return json.loads(get_job_file(job["user_id"], job["job_uuid"], "pages_params.json"))
+        return _job_params(job, "pages_params.json")
     except Exception:  # noqa: BLE001 - the default provider takes over
         return {}
 
 
 def _summary_params(job: dict) -> dict:
     """The build plan and the provider of that run, kept in the job folder."""
-    from src.storage import get_job_file
-
     try:
-        return json.loads(get_job_file(job["user_id"], job["job_uuid"], "summary_params.json"))
+        return _job_params(job, "summary_params.json")
     except Exception as e:  # noqa: BLE001 - without them there is nothing left to resume
         raise RuntimeError("Angaben dieses Auftrags sind nicht mehr da") from e
