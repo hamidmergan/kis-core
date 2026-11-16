@@ -7,9 +7,8 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.features.praesentation import gliederung, store, vorlage
 from src.features.praesentation.schemas import FOLIEN_GRENZEN, Outline
-from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.i18n import get_locale, t
-from src.limits import PRAESENTATION_MAX_SLIDES
+from src.limits import PRAESENTATION_MAX_SLIDES, PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.routes.praesentation._shared import (
     RegenRequest, llm_antwort, nicht_beschaeftigt, own_job, progress_final, verlauf,
 )

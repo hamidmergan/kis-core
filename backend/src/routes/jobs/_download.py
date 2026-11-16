@@ -109,14 +109,15 @@ def download_job_pptx(
         logger.error("PPTX download failed for job {}: {}", job_uuid, e)
         raise HTTPException(status_code=404, detail=t("screencast.pptxExpired", locale))
 
-    pptx_filename = _resolve_artifact_filename(job, ext="pptx")
+    meta = load_result_meta(job["user_id"], job_uuid) or {}
+    pptx_filename = f"{_result_stem(job, meta)}.pptx"
 
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={
             "Content-Length": str(len(data)),
-            "Content-Disposition": f'attachment; filename="{pptx_filename}"',
+            "Content-Disposition": attachment(pptx_filename),
         },
     )
 
@@ -151,16 +152,14 @@ def download_job_docx(
     )
 
 
-def _resolve_artifact_filename(job: dict, ext: str) -> str:
-    """The visible file name of a result."""
-    meta = load_result_meta(job["user_id"], job["job_uuid"]) or {}
-    stem = (
+def _result_stem(job: dict, meta: dict) -> str:
+    """The visible file name of a screencast result, without its ending."""
+    return (
         meta.get("result_stem")
         or meta.get("translated_stem")
         or Path(job.get("original_filename") or "screencast").stem
         or "screencast"
     )
-    return f"{stem}.{ext.lstrip('.')}"
 
 
 class _ZipStreamWriter:
@@ -284,13 +283,7 @@ def download_job_bundle(
     user_id = job["user_id"]
     meta = load_result_meta(user_id, job_uuid) or {}
     audio_count = int(meta.get("audio_count", 0))
-    stem = (
-        meta.get("result_stem")
-        or meta.get("translated_stem")
-        or Path(job.get("original_filename") or "screencast").stem
-        or "screencast"
-    )
-    zip_filename = f"{stem}.zip"
+    stem = _result_stem(job, meta)
     # Providers, models and durations appear only in an admin's archive.
     info_text = baue_info(job, meta, mit_technik=is_admin_user(current_user))
 
@@ -301,6 +294,6 @@ def download_job_bundle(
         ),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{zip_filename}"',
+            "Content-Disposition": attachment(f"{stem}.zip"),
         },
     )

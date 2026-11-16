@@ -33,30 +33,33 @@ from src.translators.latex_source import TEX_BYTES_PER_CHAR, tex_plain_text
 from src.utils.text_extraction import EXTRACTORS
 from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
+from src.routes._shared import enforce_upload_size
 
 router = APIRouter(
     tags=["translate"],
     dependencies=[Depends(require_tool_access("translation"))],
 )
 
+
+async def _reachable_providers() -> list[dict]:
+    from src.dependencies import get_translation_providers
+    from src.services.feature_provider_choices import only_reachable
+    return await only_reachable(get_translation_providers(), "chat")
+
+
 @router.get("/translate/config")
 async def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    from src.dependencies import get_translation_providers
-    from src.services.feature_provider_choices import only_reachable
-    raw_providers = await only_reachable(get_translation_providers(), "chat")
-    providers = [{"id": p["id"], "label": p["name"]} for p in raw_providers]
+    providers = [{"id": p["id"], "label": p["name"]} for p in await _reachable_providers()]
     return {"providers": providers, **_languages(locale)}
 
 
 @router.get("/translate/providers")
 async def get_translate_providers(current_user: dict = Depends(get_current_user)):
     """The reachable providers alone, in the shape every provider dropdown loads."""
-    from src.dependencies import get_translation_providers
-    from src.services.feature_provider_choices import only_reachable
-    providers = await only_reachable(get_translation_providers(), "chat")
+    providers = await _reachable_providers()
     return {
         "providers": [{"id": p["id"], "name": p["name"]} for p in providers],
         "default_id": providers[0]["id"] if providers else None,
@@ -81,6 +84,72 @@ def _languages(locale: str) -> dict:
     }
 
 
+def _too_long(key: str, chars: int, locale: str) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail=t(
+            key,
+            locale,
+            chars=f"{chars:,}".replace(",", "."),
+            maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
+        ),
+    )
+
+
+def _stage_text(text: str, tmpdir: str, locale: str) -> tuple[str, int]:
+    """Writes the pasted text into a file, returns its path and its length."""
+    cleaned = sanitize_pasted_text(text)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail=t("translate.textEmpty", locale))
+    if len(cleaned) > TRANSLATE_MAX_CHARS:
+        raise _too_long("translate.textTooLong", len(cleaned), locale)
+    tmp_path = os.path.join(tmpdir, "input.txt")
+    with open(tmp_path, "wb") as out:
+        out.write(cleaned.encode("utf-8"))
+    return tmp_path, len(cleaned)
+
+
+async def _stage_file(file: UploadFile, tmpdir: str, locale: str) -> tuple[str, str, int | None, int | None]:
+    """Streams the upload to disk and checks it, returns ending, path, characters and pages."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
+
+    tmp_path = os.path.join(tmpdir, f"input{ext}")
+    total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+    if not total:
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    extracted: str | None = None
+    if ext == ".tex":
+        # Markup only adds bytes, so a file far above the text limit is refused before it is parsed.
+        tex_max_bytes = TRANSLATE_MAX_CHARS * TEX_BYTES_PER_CHAR
+        if total > tex_max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=t("file.tooLargeMb", locale, max=max(1, round(tex_max_bytes / (1024 * 1024)))),
+            )
+        # LaTeX may come in any encoding and is counted as the translator will send it, only binary is refused.
+        try:
+            extracted = await asyncio.to_thread(tex_plain_text, tmp_path)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=t("file.contentMismatch", locale)) from None
+    else:
+        validate_or_raise(head, ext, locale)
+    seiten = await asyncio.to_thread(pages_or_raise, ext, tmp_path, locale)
+
+    extractor = EXTRACTORS.get(ext)
+    if extracted is None and extractor is not None:
+        extracted = await asyncio.to_thread(extractor, tmp_path)
+    if extracted is None:
+        return ext, tmp_path, None, seiten
+    if len(extracted) > TRANSLATE_MAX_CHARS:
+        raise _too_long("translate.documentTooLong", len(extracted), locale)
+    return ext, tmp_path, len(extracted), seiten
+
+
 @router.post("/translate")
 async def translate(
     request: Request,
@@ -100,81 +169,18 @@ async def translate(
     if not has_file and not has_text:
         raise HTTPException(status_code=400, detail=t("translate.noInput", locale))
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_upload_bytes():
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
+    enforce_upload_size(request, locale)
 
     # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="translate_upload_") as tmpdir:
-        zeichen: int | None = None
         seiten: int | None = None
         if has_text:
-            cleaned = sanitize_pasted_text(text)
-            if not cleaned:
-                raise HTTPException(status_code=400, detail=t("translate.textEmpty", locale))
-            if len(cleaned) > TRANSLATE_MAX_CHARS:
-                raise HTTPException(
-                    status_code=422,
-                    detail=t(
-                        "translate.textTooLong",
-                        locale,
-                        chars=f"{len(cleaned):,}".replace(",", "."),
-                        maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
-                    ),
-                )
-            zeichen = len(cleaned)
-            ext = ".txt"
-            filename = "text.txt"
-            tmp_path = os.path.join(tmpdir, "input.txt")
-            with open(tmp_path, "wb") as out:
-                out.write(cleaned.encode("utf-8"))
+            ext, filename = ".txt", "text.txt"
+            tmp_path, zeichen = _stage_text(text, tmpdir, locale)
         else:
             assert file is not None
-            if not file.filename:
-                raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
-
-            ext = Path(file.filename).suffix.lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
-
-            tmp_path = os.path.join(tmpdir, f"input{ext}")
-            total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
-            if not total:
-                raise HTTPException(status_code=400, detail=t("file.empty", locale))
-            extracted: str | None = None
-            if ext == ".tex":
-                # Markup only adds bytes, so a file far above the text limit is refused before it is parsed.
-                tex_max_bytes = TRANSLATE_MAX_CHARS * TEX_BYTES_PER_CHAR
-                if total > tex_max_bytes:
-                    raise HTTPException(
-                        status_code=413,
-                        detail=t("file.tooLargeMb", locale, max=max(1, round(tex_max_bytes / (1024 * 1024)))),
-                    )
-                # LaTeX may come in any encoding and is counted as the translator will send it, only binary is refused.
-                try:
-                    extracted = await asyncio.to_thread(tex_plain_text, tmp_path)
-                except ValueError:
-                    raise HTTPException(status_code=400, detail=t("file.contentMismatch", locale)) from None
-            else:
-                validate_or_raise(head, ext, locale)
-            seiten = await asyncio.to_thread(pages_or_raise, ext, tmp_path, locale)
-
-            extractor = EXTRACTORS.get(ext)
-            if extracted is None and extractor is not None:
-                extracted = await asyncio.to_thread(extractor, tmp_path)
-            if extracted is not None:
-                zeichen = len(extracted)
-                if len(extracted) > TRANSLATE_MAX_CHARS:
-                    raise HTTPException(
-                        status_code=422,
-                        detail=t(
-                            "translate.documentTooLong",
-                            locale,
-                            chars=f"{len(extracted):,}".replace(",", "."),
-                            maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
-                        ),
-                    )
             filename = file.filename
+            ext, tmp_path, zeichen, seiten = await _stage_file(file, tmpdir, locale)
 
         effective_source = source_lang or ""
         effective_target = target_lang or DEFAULT_TRANSLATE_TARGET

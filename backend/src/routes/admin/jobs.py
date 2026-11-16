@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 from src import database as db
-from src.celery_app import celery_app
 from src.i18n import get_locale, t
-from src.storage import delete_job_folder
 
 from src.routes.admin._registries import TOOL_LABELS, tools_matching_query
+from src.routes.jobs._cancel import remove_job
+from src.routes.jobs._shared import _SCREENCAST_TOOLS
 
 from src.dependencies_rbac import require_permission
 from src.permissions_registry import PERM_SET_TOOLS_JOBS
@@ -17,10 +17,6 @@ router = APIRouter(tags=["admin: jobs"])
 
 # The job list of the tools.
 _require = require_permission(PERM_SET_TOOLS_JOBS)
-
-# For a screencast only the render time counts, without waiting time.
-_SCREENCAST_TOOLS = {"screencast_render", "screencast_translate"}
-
 
 def _compute_duration(job: dict) -> float | None:
     """Duration in seconds; for screencast tools from render_started_at, otherwise from started_at."""
@@ -78,14 +74,7 @@ def admin_cancel_job(
     if not job:
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
-    if job["celery_task_id"]:
-        try:
-            celery_app.control.revoke(job["celery_task_id"], terminate=True, reply=False)
-        except Exception as e:
-            logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
-
-    db.delete_job(job_uuid)
-    delete_job_folder(job["user_id"], job_uuid)
-
+    # The same way out as the owner's own delete, so no worker and no queue is left behind.
+    remove_job(job)
     logger.info("Admin cancelled job: {}", job_uuid)
     return {"ok": True}

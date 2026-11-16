@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.features.ai_providers.repository.feature_routes import ordered_ids
-from src.routes.admin import providers as admin
+from src.routes.admin import feature_routes, providers as admin
 from src.routes.admin._models import SetFeatureRouteRequest, UpdateProviderRequest
 
 
@@ -50,7 +50,7 @@ def route_env(monkeypatch):
     monkeypatch.setattr(admin.db, "get_provider", lambda pid: _PROVIDERS.get(pid))
     stored = MagicMock(side_effect=lambda feature, **kw: {"feature": feature, **kw})
     monkeypatch.setattr(admin.db, "set_route", stored)
-    monkeypatch.setattr(admin, "_measure_route_model", lambda *a, **kw: None)
+    monkeypatch.setattr(feature_routes, "_measure_route_model", lambda *a, **kw: None)
     monkeypatch.setattr("src.routes.admin._embedding.invalidate_fingerprint_cache", MagicMock())
     return stored
 

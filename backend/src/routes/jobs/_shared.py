@@ -3,10 +3,37 @@
 import json as json_lib
 from pathlib import PurePosixPath
 
+from loguru import logger
+
+from src.core.redis_url import REDIS_URL
 from src.i18n import DEFAULT_LOCALE, t
 from src.storage import file_exists, load_result_meta
 
 
+_CANCEL_FLAG_TTL_SECONDS = 600
+
+
+def _cancel_flag_key(job_uuid: str) -> str:
+    return f"job:cancel:{job_uuid}"
+
+
+def set_cancel_flag(job_uuid: str) -> None:
+    """Marks the job in Redis so the worker stops at its next checkpoint."""
+    try:
+        import redis as _redis
+        _redis.from_url(REDIS_URL).setex(_cancel_flag_key(job_uuid), _CANCEL_FLAG_TTL_SECONDS, "1")
+        logger.info("Cancel flag set in Redis for job={}", job_uuid)
+    except Exception as e:
+        logger.warning("Could not set cancel flag in Redis: {}", e)
+
+
+def clear_cancel_flag(job_uuid: str) -> None:
+    """Removes the mark so a re-queued job is not stopped by an old cancel."""
+    try:
+        import redis as _redis
+        _redis.from_url(REDIS_URL).delete(_cancel_flag_key(job_uuid))
+    except Exception as e:
+        logger.warning("Could not clear cancel flag in Redis: {}", e)
 
 
 _CONTENT_TYPES = {

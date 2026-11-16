@@ -50,7 +50,7 @@ def env(monkeypatch):
     from src.dependencies_rbac import get_user_permissions
     from src.features.praesentation import store
     from src.security.auth import verify_auth
-    import src.routes.praesentation._shared as shared
+    import src.routes._shared as shared
     import src.routes.praesentation.start as start_route
     import src.routes.praesentation.outline as outline_route
     import src.routes.praesentation.slides as slides_route

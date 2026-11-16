@@ -10,6 +10,7 @@ from src.features.feedback import repository as repo
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_USERS_FEEDBACK
 from src.storage import USE_S3, stream_s3_object
+from src.utils import download_header
 
 router = APIRouter(tags=["admin: feedback"])
 
@@ -36,8 +37,9 @@ def get_feedback_attachment(
     if attachment is None:
         raise HTTPException(status_code=404, detail=t("feedback.notFound", locale))
 
-    disposition = f'inline; filename="{attachment["filename"]}"'
     if USE_S3:
+        # The name is whatever the sender's file was called, bare it breaks the header outside Latin-1.
+        disposition = download_header.attachment(attachment["filename"]).replace("attachment", "inline", 1)
         body_iter, content_length, _ = stream_s3_object(attachment["storage_key"])
         return StreamingResponse(
             body_iter,

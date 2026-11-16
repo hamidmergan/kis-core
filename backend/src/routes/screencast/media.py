@@ -1,7 +1,6 @@
 """Media-Endpoints: Slide-Bilder nachrendern, PPTX-Download."""
 
 import base64
-import re
 import tempfile
 from pathlib import Path
 
@@ -9,11 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
+from src.routes._shared import own_job
+from src.routes.screencast._shared import current_pptx
 from src.services.screencast import convert_slides_to_images_async
-from src.storage import get_job_file, load_result_json
+from src.storage import load_result_json
 
 router = APIRouter(tags=["screencast: media"])
 
@@ -25,11 +25,7 @@ async def get_job_slide_images(
     locale: str = Depends(get_locale),
 ):
     """Return slide images (base64) for a translate/demo job - rendered from saved PPTX."""
-    if not re.match(r"^[a-f0-9]{32}$", job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    job = db.get_job(job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    job = own_job(job_uuid, current_user, locale)
 
     # Try to load from result JSON first (fast path for jobs that stored images)
     if job.get("result_path"):
@@ -41,14 +37,8 @@ async def get_job_slide_images(
         except Exception:
             pass
 
-    # Fallback: re-render from saved translated.pptx
-    pptx_bytes: bytes | None = None
-    for filename in ("corrected.pptx", "translated.pptx"):
-        try:
-            pptx_bytes = get_job_file(job["user_id"], job_uuid, filename)
-            break
-        except Exception:
-            pass
+    # Fallback: re-render from the saved deck
+    pptx_bytes = current_pptx(job["user_id"], job_uuid)
     if not pptx_bytes:
         raise HTTPException(status_code=404, detail=t("screencast.pptxUnavailable", locale))
 
@@ -74,19 +64,8 @@ def download_pptx_file(
     locale: str = Depends(get_locale),
 ):
     """Download translated/corrected PPTX from job folder."""
-    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    # Same status for missing and not-owned so job existence cannot be probed.
-    job = db.get_job(translate_job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-    data: bytes | None = None
-    for filename in ("corrected.pptx", "translated.pptx"):
-        try:
-            data = get_job_file(job["user_id"], translate_job_uuid, filename)
-            break
-        except Exception:
-            pass
+    job = own_job(translate_job_uuid, current_user, locale)
+    data = current_pptx(job["user_id"], translate_job_uuid)
     if data is None:
         raise HTTPException(status_code=404, detail=t("screencast.pptxNotFound", locale))
     logger.info("Serving PPTX for job={} ({} bytes)", translate_job_uuid, len(data))

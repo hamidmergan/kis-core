@@ -15,10 +15,9 @@ from src.features.accounts.uid import unique_uid
 from src.i18n import get_locale, t
 from src.features.accounts.passwords import generate_password
 from src.features.accounts.login import authenticate
+from src.routes._shared import set_session_cookie
 
 router = APIRouter(prefix="/access-codes", tags=["access codes"])
-
-SESSION_MAX_AGE = 86400
 
 
 def _require_feature(locale: str) -> None:
@@ -57,15 +56,7 @@ def _enroll_into_code_workspaces(code_id: int, user_id: int) -> None:
 
 def _set_session(response: Response, daten: dict) -> None:
     """Puts the session into a cookie, same shape as the login."""
-    token = get_session_store().create(data=daten)
-    response.set_cookie(
-        key="session",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=SESSION_MAX_AGE,
-        secure=get_settings().production,
-    )
+    set_session_cookie(response, get_session_store().create(data=daten))
 
 
 @router.get("/enabled")

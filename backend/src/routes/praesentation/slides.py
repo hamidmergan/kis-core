@@ -92,7 +92,6 @@ def _bilder(user_id: int, job_uuid: str, s: Slide) -> dict[str, bytes]:
     return aus
 
 
-
 def _stellen_der_folie(user_id: int, job_uuid: str, row: OutlineRow) -> str:
     """The passages the slide was planned on, empty when it has none."""
     if not row.stellen:
@@ -109,6 +108,7 @@ def _material(user_id: int, job_uuid: str) -> str:
     from src.services import sources as quellen
 
     return quellen.as_block(quellen.load_sources(user_id, job_uuid))
+
 
 def _nummern_nachziehen(user_id: int, job_uuid: str, params, analyse, vorher: list[Slide],
                         nachher: list[Slide]) -> list[str]:

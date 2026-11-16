@@ -30,7 +30,7 @@ def client_ohne_sitzung():
 
 def _shared(public: bool):
     return (patch("src.routes.pages.repo.shared_page", return_value=_row(public)),
-            patch("src.routes.pages.load_page", return_value=(PAGE, False)),
+            patch("src.routes.pages_view.load_page", return_value=(PAGE, False)),
             patch("src.routes.pages.pt.readable", return_value=[{"key": "de", "label": "Deutsch"}]))
 
 

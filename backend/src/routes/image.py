@@ -62,6 +62,21 @@ def _validate_provider(feature: str, provider_id: int | None, locale: str) -> No
         raise HTTPException(status_code=400, detail=t("image.invalidProvider", locale))
 
 
+async def _read_image(image: UploadFile, locale: str) -> tuple[bytes, str]:
+    """The uploaded picture and its ending, refused when it is no PNG or JPG, empty or too large."""
+    ext = Path(image.filename).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=t("file.onlyPngJpg", locale))
+
+    content = await image.read()
+    if not content:
+        raise HTTPException(status_code=400, detail=t("image.empty", locale))
+    if len(content) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
+    validate_or_raise(content, ext, locale)
+    return content, ext
+
+
 @router.post("/image/enhance-prompt")
 def enhance_prompt(
     prompt: str = Form(...),
@@ -156,16 +171,7 @@ async def edit_image(
     anzahl = _varianten(varianten, "edit", locale)
     _validate_provider("image_edit", provider_id, locale)
 
-    ext = Path(image.filename).suffix.lower()
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=t("file.onlyPngJpg", locale))
-
-    content = await image.read()
-    if not content:
-        raise HTTPException(status_code=400, detail=t("image.empty", locale))
-    if len(content) > MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
-    validate_or_raise(content, ext, locale)
+    content, ext = await _read_image(image, locale)
     from PIL import Image as PILImage
     with PILImage.open(io.BytesIO(content)) as vorlage:
         breite, hoehe = vorlage.width, vorlage.height
@@ -252,16 +258,7 @@ async def analyze_image(
     anweisung = _gueltig(lambda: optionen.analyse_anweisung(aufgabe, sprache or locale, prompt), locale)
     _validate_provider("vision", provider_id, locale)
 
-    ext = Path(image.filename).suffix.lower()
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=t("file.onlyPngJpg", locale))
-
-    content = await image.read()
-    if not content:
-        raise HTTPException(status_code=400, detail=t("image.empty", locale))
-    if len(content) > MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
-    validate_or_raise(content, ext, locale)
+    content, ext = await _read_image(image, locale)
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

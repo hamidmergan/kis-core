@@ -40,7 +40,7 @@ def test_lesen_liefert_einstellungen_und_abzug(client):
         "vertonter_stand.json": json.dumps({"scripts": ["a"], "folientexte": ["A"]}).encode(),
         "render_scripts.json": json.dumps(["a", "b", "c"]).encode(),
     }
-    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+    with patch("src.database.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=3), \
          patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 2}):
@@ -53,7 +53,7 @@ def test_lesen_liefert_einstellungen_und_abzug(client):
 
 
 def test_ohne_gespeicherten_stand_kommt_null(client):
-    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+    with patch("src.database.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=0), \
          patch(f"{MODUL}.audio_folien_mit_ton", return_value=set()), \
@@ -64,13 +64,13 @@ def test_ohne_gespeicherten_stand_kommt_null(client):
 
 
 def test_fremder_auftrag_wird_nicht_verraten(client):
-    with patch(f"{MODUL}.get_job", return_value={**_JOB, "user_id": 2}):
+    with patch("src.database.get_job", return_value={**_JOB, "user_id": 2}):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 404
 
 
 def test_speichern_schreibt_die_datei(client):
-    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+    with patch("src.database.get_job", return_value=_JOB), \
          patch(f"{MODUL}.save_job_file") as sichern:
         r = client.put(f"/screencast/{UUID}/einstellungen",
                        json={"speed": 1.1, "video_folien": [0, 2], "neu_vertonen": [2]})
@@ -81,7 +81,7 @@ def test_speichern_schreibt_die_datei(client):
 
 
 def test_speichern_auf_fremdem_auftrag_wird_abgelehnt(client):
-    with patch(f"{MODUL}.get_job", return_value={**_JOB, "user_id": 2}), \
+    with patch("src.database.get_job", return_value={**_JOB, "user_id": 2}), \
          patch(f"{MODUL}.save_job_file") as sichern:
         r = client.put(f"/screencast/{UUID}/einstellungen", json={"speed": 1.0})
     assert r.status_code == 404
@@ -116,7 +116,7 @@ def test_einzelabruf_gibt_404_wenn_die_datei_fehlt(client):
 def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
     """audio/ keeps the audio of excluded slides, that must not extend hat_ton."""
     dateien = {"render_scripts.json": json.dumps(["a", "b"]).encode()}
-    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+    with patch("src.database.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=7), \
          patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 1, 5, 6}):
@@ -127,7 +127,7 @@ def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
 
 def test_ohne_skriptdatei_zaehlt_der_ordner(client):
     """If render_scripts.json is lost, the file count is the best information."""
-    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+    with patch("src.database.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=3), \
          patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 1, 2}):

@@ -27,6 +27,7 @@ from src.services.tool_limits import max_upload_bytes
 from src.utils.text_extraction import EXTRACTORS
 from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
+from src.routes._shared import enforce_upload_size
 
 router = APIRouter(
     tags=["tts"],
@@ -93,6 +94,73 @@ def tts_provider_preview(
 # ─── TTS Job ───────────────────────────────────────────────────────────────
 
 
+def _too_long(key: str, chars: int, locale: str) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail=t(
+            key,
+            locale,
+            chars=f"{chars:,}".replace(",", "."),
+            maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+        ),
+    )
+
+
+def _stage_text(text: str, tmpdir: str, locale: str) -> str:
+    """Writes the pasted text into a file and returns its path."""
+    cleaned = sanitize_pasted_text(text)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
+    if len(cleaned) > TTS_MAX_CHARS:
+        raise _too_long("tts.textTooLong", len(cleaned), locale)
+    tmp_path = os.path.join(tmpdir, "input.txt")
+    with open(tmp_path, "wb") as out:
+        out.write(cleaned.encode("utf-8"))
+    return tmp_path
+
+
+async def _stage_file(file: UploadFile, request: Request, tmpdir: str, locale: str) -> tuple[str, str]:
+    """Streams the upload to disk and checks it, returns its ending and its path."""
+    ext = Path(file.filename).suffix.lower()
+    if ext not in TTS_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
+
+    enforce_upload_size(request, locale)
+
+    tmp_path = os.path.join(tmpdir, f"input{ext}")
+    total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+    if not total:
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    validate_or_raise(head, ext, locale)
+
+    extractor = EXTRACTORS.get(ext)
+    if extractor is None:
+        raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
+
+    extracted = await asyncio.to_thread(extractor, tmp_path)
+    if len(extracted) > TTS_MAX_CHARS:
+        raise _too_long("tts.documentTooLong", len(extracted), locale)
+    return ext, tmp_path
+
+
+async def _check_provider(provider_id: int, voice_id: str, current_user: dict, locale: str) -> None:
+    """Refuses a provider that is unknown or down, unless the admin's fallback may take the job."""
+    from src.dependencies import get_tts_client_for_provider
+    from src.services.own_tts.access import check_voice_provider
+    check_voice_provider(provider_id, current_user, locale)
+    try:
+        client = get_tts_client_for_provider(provider_id, current_user.get("user_id"))
+    except RuntimeError:
+        raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+    # The chosen one seen exactly as pick sees it, an own probe could disagree and refuse for nothing.
+    if client is None or not await asyncio.to_thread(tts_job_provider.is_there, provider_id):
+        # The admin's fallback may take over the whole job, the job itself decides at its start.
+        if not (await asyncio.to_thread(pick, provider_id, [voice_id])).fallback:
+            if client is None:
+                raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+            raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+
+
 @router.post("/tts")
 async def text_to_speech(
     request: Request,
@@ -116,72 +184,14 @@ async def text_to_speech(
     # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="tts_upload_") as tmpdir:
         if has_text:
-            cleaned = sanitize_pasted_text(text)
-            if not cleaned:
-                raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
-            if len(cleaned) > TTS_MAX_CHARS:
-                raise HTTPException(
-                    status_code=422,
-                    detail=t(
-                        "tts.textTooLong",
-                        locale,
-                        chars=f"{len(cleaned):,}".replace(",", "."),
-                        maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
-                    ),
-                )
-            ext = ".txt"
-            source_filename = "text.txt"
-            tmp_path = os.path.join(tmpdir, "input.txt")
-            with open(tmp_path, "wb") as out:
-                out.write(cleaned.encode("utf-8"))
+            ext, source_filename = ".txt", "text.txt"
+            tmp_path = _stage_text(text, tmpdir, locale)
         else:
             assert file is not None
-            ext = Path(file.filename).suffix.lower()
-            if ext not in TTS_EXTENSIONS:
-                raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
-
-            content_length = request.headers.get("content-length")
-            if content_length is not None and int(content_length) > max_upload_bytes():
-                raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
-
-            tmp_path = os.path.join(tmpdir, f"input{ext}")
-            total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
-            if not total:
-                raise HTTPException(status_code=400, detail=t("file.empty", locale))
-            validate_or_raise(head, ext, locale)
-
-            extractor = EXTRACTORS.get(ext)
-            if extractor is None:
-                raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
-
-            extracted = await asyncio.to_thread(extractor, tmp_path)
-            if len(extracted) > TTS_MAX_CHARS:
-                raise HTTPException(
-                    status_code=422,
-                    detail=t(
-                        "tts.documentTooLong",
-                        locale,
-                        chars=f"{len(extracted):,}".replace(",", "."),
-                        maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
-                    ),
-                )
             source_filename = file.filename
+            ext, tmp_path = await _stage_file(file, request, tmpdir, locale)
 
-        # Validate provider
-        from src.dependencies import get_tts_client_for_provider
-        from src.services.own_tts.access import check_voice_provider
-        check_voice_provider(provider_id, current_user, locale)
-        try:
-            client = get_tts_client_for_provider(provider_id, current_user.get("user_id"))
-        except RuntimeError:
-            raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-        # The chosen one seen exactly as pick sees it, an own probe could disagree and refuse for nothing.
-        if client is None or not await asyncio.to_thread(tts_job_provider.is_there, provider_id):
-            # The admin's fallback may take over the whole job, the job itself decides at its start.
-            if not (await asyncio.to_thread(pick, provider_id, [voice_id])).fallback:
-                if client is None:
-                    raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-                raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+        await _check_provider(provider_id, voice_id, current_user, locale)
 
         user_id = current_user.get("user_id", 0)
         enforce_open_jobs(user_id, locale, "tts")

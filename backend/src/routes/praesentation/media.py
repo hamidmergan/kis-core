@@ -22,6 +22,11 @@ _SLOT = re.compile(r"^(\d+|body)$")
 _SKIZZE_PX = 640
 
 
+def deck_filename(title: str) -> str:
+    """The file name of a deck from its title, without what a file system refuses."""
+    return (re.sub(r"[^\w\s\-]", "", title).strip() or "Praesentation")[:80] + ".pptx"
+
+
 def _bildplaetze(s: Slide) -> list[str]:
     """Every picture a slide asks for, named the way the store numbers them."""
     plaetze = [str(k) for k in range(len(s.images))]
@@ -107,8 +112,7 @@ def download(job_uuid: str, current_user: dict = Depends(get_current_user),
     if not data:
         raise HTTPException(status_code=404, detail=t("praesentation.noDeck", locale))
     outline = store.load_outline(user_id, job_uuid)
-    name = (re.sub(r"[^\w\s\-]", "", outline.title if outline else "").strip() or "Praesentation")[:80]
     return StreamingResponse(iter([data]), media_type=_PPTX, headers={
         "Content-Length": str(len(data)),
-        "Content-Disposition": attachment(f"{name}.pptx"),
+        "Content-Disposition": attachment(deck_filename(outline.title if outline else "")),
     })

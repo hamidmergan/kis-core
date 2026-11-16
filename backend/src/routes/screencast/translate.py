@@ -30,6 +30,7 @@ from src.services.tool_limits import (
 )
 from src.utils.upload_stream import stream_upload_to_path
 
+from src.routes._shared import enforce_upload_size
 from src.routes.screencast._shared import merke_skriptsprache, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
@@ -56,9 +57,7 @@ async def screencast_translate(
     validate_upload(file.filename, locale)
     maybe_start_cleanup_task()
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_upload_bytes():
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
+    enforce_upload_size(request, locale)
 
     # Stream to disk, a PPTX with media quickly gets huge.
     with tempfile.TemporaryDirectory(prefix="screencast_upload_") as tmpdir:
@@ -95,8 +94,6 @@ async def screencast_translate(
     logger.info("Screencast translate job submitted: job_uuid={}, file={}", job_uuid, filename)
 
     return {"job_uuid": job_uuid}
-
-
 
 
 @router.post("/screencast/upload-corrected")

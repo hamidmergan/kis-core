@@ -1,13 +1,13 @@
 """Resume endpoints: reconstruct the wizard step + existence check for job folder."""
 
 import json
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
+from src.routes._shared import JOB_UUID, own_job
 from src.storage import get_job_file, load_result_json
 
 router = APIRouter(tags=["screencast: resume"])
@@ -59,7 +59,7 @@ def get_resume_data(
     locale: str = Depends(get_locale),
 ):
     """Reconstruct workflow state from job folder for resuming an awaiting_user screencast job."""
-    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+    if not JOB_UUID.match(translate_job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = db.get_job(translate_job_uuid)
     if not job:
@@ -124,11 +124,7 @@ def check_folder_exists(
     locale: str = Depends(get_locale),
 ):
     """Check if the job folder (scripts.txt) still exists in storage. Lightweight pre-flight check."""
-    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    job = db.get_job(translate_job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    job = own_job(translate_job_uuid, current_user, locale)
     try:
         get_job_file(job["user_id"], translate_job_uuid, "scripts.txt")
         return {"exists": True}

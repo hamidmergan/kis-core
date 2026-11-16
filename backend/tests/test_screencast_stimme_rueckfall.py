@@ -501,7 +501,8 @@ def test_ein_neuer_lauf_traegt_keine_alte_festlegung_mit():
          patch(f"{modul}.db.get_job", return_value=job), \
          patch(f"{modul}.job_file_exists", return_value=True), \
          patch(f"{modul}.save_job_file") as sichern, \
-         patch(f"{modul}.save_result_meta"), \
+         patch("src.routes.screencast._shared.save_result_meta"), \
+         patch("src.routes.screencast._shared.load_result_meta", return_value={}), \
          patch(f"{modul}.load_result_meta", return_value={}), \
          patch(f"{modul}.get_job_file", return_value=alt), \
          patch(f"{modul}.clear_render_cache"), \

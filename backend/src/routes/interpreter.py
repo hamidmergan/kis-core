@@ -59,8 +59,8 @@ class TurnIn(BaseModel):
     at: int
 
 
-def translate_text(body: Sentence, locale: str) -> str:
-    """One sentence straight through the provider, no job."""
+def translate_text(body: Sentence, locale: str) -> tuple[TranslationService, str]:
+    """The translator for this sentence and its cleaned text, no job."""
     if body.target_lang not in TRANSLATE_LANGUAGES:
         raise HTTPException(status_code=400, detail=t("interpreter.badTarget", locale))
     text = sanitize_pasted_text(body.text)

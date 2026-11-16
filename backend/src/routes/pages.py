@@ -1,16 +1,15 @@
-"""Pages routes: create, list, edit and share a page, and the read-only view behind a link.
+"""Pages routes of the owner: create, list, edit, translate and share a page.
 
-The owner routes need the pages tool, the shared routes only a login, so a student without
-the tool still reads what a teacher shared.
+They need the pages tool, the read-only view behind a link lives in pages_view.
 """
 
 import asyncio
 import json
-from datetime import datetime, timezone
 import re
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from loguru import logger
 from pydantic import BaseModel
 
@@ -35,24 +34,24 @@ from src.limits import (
     SUMMARY_MAX_SOURCES,
 )
 from src.quotas import enforce_quota
+from src.routes._shared import enforce_upload_size
 from src.routes.material_measure import measure_router
+# Mounted by the app from here, and the old import path of the reader's check.
+from src.routes.pages_view import _dt, _image, _logged_in, shared_router  # noqa: F401
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices, sources
+from src.services.job_files import read_job_text, write_job_text
 from src.services.job_statistik import angaben_lesen
 from src.services.open_jobs import create_counted_job, enforce_open_jobs
-from src.services.tool_limits import max_upload_bytes
-from src.storage import get_job_file, save_job_file
+from src.storage import aia_transcript_key, get_file, save_job_file
 from src.tasks import pages_tasks as pt
 from src.tasks.pages_tasks import PARAMS_FILE, USER_PAGE_FILE, load_page
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
 router = APIRouter(tags=["pages"], dependencies=[Depends(require_tool_access("pages"))])
 router.include_router(measure_router("pages", "summary"))
-shared_router = APIRouter(tags=["pages"])
 
 _UUID = re.compile(r"^[0-9a-f]{32}$")
-_CODE = re.compile(r"^[A-Za-z0-9]{6,32}$")
-_IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
 
 
 def _own_style(image_style: str) -> str:
@@ -78,8 +77,12 @@ def _progress(raw) -> dict:
         return {}
 
 
-def _dt(v) -> str | None:
-    return (v.isoformat() + "Z") if hasattr(v, "isoformat") else v
+def _ready_page(job: dict, locale: str) -> tuple[dict, bool]:
+    """The finished page of a job and whether its owner edited it, 409 while there is none."""
+    page, edited = load_page(job["user_id"], job["job_uuid"])
+    if job["status"] != "success" or page is None:
+        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    return page, edited
 
 
 def _card(user_id: int, row: dict) -> dict:
@@ -156,10 +159,7 @@ async def create_page(
     """Takes the material, files it and starts the page."""
     if provider_id is not None and not feature_provider_choices.is_eligible("chat", provider_id):
         raise HTTPException(status_code=400, detail=t("summary.invalidProvider", locale))
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_upload_bytes():
-        raise HTTPException(status_code=413, detail=t(
-            "file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
+    enforce_upload_size(request, locale)
     user_id = current_user.get("user_id", 0)
     if repo.count_pages(user_id) >= PAGES_MAX_PER_USER:
         raise HTTPException(status_code=409, detail=t("pages.tooMany", locale, max=PAGES_MAX_PER_USER))
@@ -189,7 +189,6 @@ async def create_page(
         "image_style": _own_style(image_style),
     }).encode())
     if instructions.strip():
-        from src.services.job_files import write_job_text
         write_job_text(user_id, job_uuid, INSTRUCTIONS_FILE, instructions.strip()[:2000])
 
     from src.tasks.pages_tasks import run_pages
@@ -214,9 +213,7 @@ def get_page(job_uuid: str, sprache: str = Query(""), current_user: dict = Depen
              locale: str = Depends(get_locale)):
     """The page as last saved, or one of its languages, with the limits the editor enforces."""
     job = _own_job(job_uuid, current_user, locale)
-    page, edited = load_page(job["user_id"], job_uuid)
-    if job["status"] != "success" or page is None:
-        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    page, edited = _ready_page(job, locale)
     if _variant_key(job, page, sprache, locale):
         page = pt.load_variant(job["user_id"], job_uuid, sprache)
     share = repo.get_share(job_uuid) or {}
@@ -268,14 +265,13 @@ def _refresh_workspaces(job_uuid: str, page: dict, user_id: int, locale: str) ->
     """Workspaces holding this page read it again, but only when its text really changed."""
     from src.features.ai_assistant.routes.sources._shared import _enqueue_index_source
     from src.features.pages.text import as_text
-    from src.storage import aia_transcript_key
 
     neu = as_text(page)
     for quelle in repo.linked_sources(job_uuid):
         if quelle["status"] in ("pending", "indexing"):
             continue
         try:
-            alt = get_job_file_text(aia_transcript_key(quelle["file_path"]))
+            alt = get_file(aia_transcript_key(quelle["file_path"])).decode("utf-8")
         except Exception:  # noqa: BLE001 - without the old text the source is simply read again
             alt = None
         if alt == neu:
@@ -283,11 +279,6 @@ def _refresh_workspaces(job_uuid: str, page: dict, user_id: int, locale: str) ->
         db.update_aia_source_status(quelle["uuid"], "pending")
         _enqueue_index_source(quelle["uuid"], user_id, locale)
         logger.info("Pages {}: Workspace-Quelle {} wird neu gelesen", job_uuid[:8], quelle["uuid"][:8])
-
-
-def get_job_file_text(key: str) -> str:
-    from src.storage import get_file
-    return get_file(key).decode("utf-8")
 
 
 @router.get("/pages/{job_uuid}/images/{name}")
@@ -321,7 +312,7 @@ def draw_page_image(job_uuid: str, body: DrawBody, current_user: dict = Depends(
     enforce_tool_burst(user_id, "pages", locale)
     name = f"img_{(max(nummern) + 1) if nummern else 0}.webp"
     if body.wrap:
-        params = json.loads(get_job_file_text_or(user_id, job_uuid, PARAMS_FILE) or "{}")
+        params = json.loads(read_job_text(user_id, job_uuid, PARAMS_FILE) or "{}")
         wunsch = pl.image_prompt(wunsch, params.get("image_style") or "")
     groesse = pl.HERO_SIZE if body.hero else pl.SECTION_SIZE
     pt.mark_draw(user_id, job_uuid, name, "pending")
@@ -336,9 +327,7 @@ def suggest_page_image(job_uuid: str, current_user: dict = Depends(get_current_u
     from src.features.pages.writing import write_hero_prompt
 
     job = _own_job(job_uuid, current_user, locale)
-    page, _ = load_page(job["user_id"], job_uuid)
-    if job["status"] != "success" or page is None:
-        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    page, _ = _ready_page(job, locale)
     enforce_tool_burst(job["user_id"], "pages", locale)
     hero = next((s for s in page["sections"] if s.get("hero")), {})
     vorschlag = asyncio.run(write_hero_prompt(
@@ -354,11 +343,6 @@ def page_image_state(job_uuid: str, name: str, current_user: dict = Depends(get_
     if not schema.IMAGE_NAME.match(name):
         raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
     return {"state": pt.draw_state(job["user_id"], job_uuid, name)}
-
-
-def get_job_file_text_or(user_id: int, job_uuid: str, name: str) -> str | None:
-    from src.services.job_files import read_job_text
-    return read_job_text(user_id, job_uuid, name)
 
 
 def _languages(job: dict, page: dict) -> dict:
@@ -384,10 +368,7 @@ def _languages(job: dict, page: dict) -> dict:
 def page_languages(job_uuid: str, current_user: dict = Depends(get_current_user),
                    locale: str = Depends(get_locale)):
     job = _own_job(job_uuid, current_user, locale)
-    page, _ = load_page(job["user_id"], job_uuid)
-    if job["status"] != "success" or page is None:
-        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
-    return _languages(job, page)
+    return _languages(job, _ready_page(job, locale)[0])
 
 
 class LanguageBody(BaseModel):
@@ -399,9 +380,7 @@ def add_page_language(job_uuid: str, body: LanguageBody, current_user: dict = De
                       locale: str = Depends(get_locale)):
     """Translates the page as last saved, again for a language it already has."""
     job = _own_job(job_uuid, current_user, locale)
-    page, _ = load_page(job["user_id"], job_uuid)
-    if job["status"] != "success" or page is None:
-        raise HTTPException(status_code=409, detail=t("pages.notReady", locale))
+    page, _ = _ready_page(job, locale)
     if body.key not in LANGUAGES or body.key == pt.key_of(page):
         raise HTTPException(status_code=422, detail=t("pages.languageUnknown", locale))
     zustand = pt.language_states(job["user_id"], job_uuid)
@@ -444,93 +423,3 @@ def share_page(job_uuid: str, body: ShareBody, current_user: dict = Depends(get_
             "code": share["code"] if share["enabled"] else None,
             "collection": {"code": repo.collection_code(job["user_id"]),
                            "count": repo.count_shared(job["user_id"])}}
-
-
-def _image(user_id: int, job_uuid: str, name: str, locale: str) -> Response:
-    if not schema.IMAGE_NAME.match(name):
-        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
-    try:
-        data = get_job_file(user_id, job_uuid, name)
-    except Exception:  # noqa: BLE001 - a missing picture is a 404, nothing more
-        raise HTTPException(status_code=404, detail=t("pages.notFound", locale)) from None
-    art = _IMAGE_TYPES[name[name.rfind("."):]]
-    return Response(content=data, media_type=art, headers={"Cache-Control": "private, max-age=86400"})
-
-
-# A shared link is for the people it is given to, search engines leave it out.
-_NOINDEX = {"X-Robots-Tag": "noindex, nofollow, noarchive"}
-
-
-def _logged_in(user: dict) -> bool:
-    """A session that counts as an askFrancis account, an expired test access does not."""
-    if not user.get("user_id"):
-        return False
-    ablauf = user.get("access_expires_at")
-    try:
-        return not ablauf or datetime.fromisoformat(ablauf) > datetime.now()
-    except (TypeError, ValueError):
-        return False
-
-
-def _shared(code: str, user: dict, locale: str) -> tuple[dict, dict]:
-    """The page behind a link, 401 when only an askFrancis account may read it and the reader has none."""
-    row = repo.shared_page(code) if _CODE.match(code) else None
-    page = load_page(row["user_id"], row["job_uuid"])[0] if row and row["status"] == "success" else None
-    if not row or page is None:
-        raise HTTPException(status_code=404, detail=t("pages.notShared", locale), headers=_NOINDEX)
-    if not row["public"] and not _logged_in(user):
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
-    return row, page
-
-
-@shared_router.get("/pages/shared/{code}")
-def shared_page(code: str, response: Response, sprache: str = Query(""),
-                current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
-    """A shared page for whoever its link is meant for, in the asked language, hidden sections left out."""
-    response.headers.update(_NOINDEX)
-    row, page = _shared(code, current_user, locale)
-    gezeigt = pt.in_language(row["user_id"], row["job_uuid"], page, sprache)
-    return {"page": schema.for_viewers(gezeigt), "owner": {"name": row["owner_name"], "code": row["collection_code"]},
-            "limits": schema.limits(), "languages": pt.readable(row["user_id"], row["job_uuid"], page),
-            "language": pt.key_of(gezeigt)}
-
-
-@shared_router.get("/pages/shared/{code}/images/{name}")
-def shared_image(code: str, name: str, current_user: dict = Depends(get_current_user),
-                 locale: str = Depends(get_locale)):
-    row, page = _shared(code, current_user, locale)
-    if name not in pt.viewer_images(row["user_id"], row["job_uuid"], page):
-        raise HTTPException(status_code=404, detail=t("pages.notFound", locale))
-    bild = _image(row["user_id"], row["job_uuid"], name, locale)
-    bild.headers.update(_NOINDEX)
-    return bild
-
-
-@shared_router.get("/pages/collection/{code}")
-def shared_collection(code: str, response: Response, current_user: dict = Depends(get_current_user),
-                      locale: str = Depends(get_locale)):
-    """Every page one person shares, newest first, as cards; without an account only the open ones."""
-    response.headers.update(_NOINDEX)
-    angemeldet = _logged_in(current_user)
-    daten = repo.collection(code, only_public=not angemeldet) if _CODE.match(code) else None
-    own = bool(daten) and daten["user_id"] == current_user.get("user_id", 0)
-    # An overview its owner has not shared is theirs alone, the login may show it is theirs.
-    if daten and not daten["enabled"] and not own and not angemeldet:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
-    if not daten or not (daten["enabled"] or own):
-        raise HTTPException(status_code=404, detail=t("pages.collectionNotFound", locale), headers=_NOINDEX)
-    # Nothing open to show, the login may reveal the pages meant for askFrancis accounts.
-    if not angemeldet and not daten["pages"]:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale), headers=_NOINDEX)
-    karten = []
-    for row in daten["pages"]:
-        page = load_page(daten["user_id"], row["job_uuid"])[0]
-        if not page:
-            continue
-        sichtbar = schema.for_viewers(page)
-        karten.append({"code": row["code"], "title": schema.title_of(sichtbar),
-                       "image": schema.first_image(sichtbar),
-                       "updated_at": page.get("saved_at") or _dt(row["completed_at"] or row["updated_at"])})
-    # The owner gets the way back to their own pages, a reader has the logo.
-    return {"owner": {"name": daten["owner_name"]}, "pages": karten, "own": own,
-            "shared": daten["enabled"]}

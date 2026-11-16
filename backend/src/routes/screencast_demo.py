@@ -6,9 +6,9 @@ voiced by every service of stimmen.json.
 """
 
 import base64
-import io
 import json
 import re
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +20,7 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
+from src.routes.jobs._download import _ZipStreamWriter
 
 router = APIRouter(
     tags=["screencast-demo"],
@@ -209,44 +210,14 @@ def demo_pptx(sprache: str = STANDARD_SPRACHE, _: dict = Depends(get_current_use
     )
 
 
-class _ZipStreamWriter:
-    """File-like object for streaming ZIP construction."""
-
-    def __init__(self):
-        self._buf = io.BytesIO()
-
-    def write(self, data: bytes) -> int:
-        return self._buf.write(data)
-
-    def flush(self):
-        pass
-
-    def tell(self) -> int:
-        return self._buf.tell()
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return self._buf.seek(offset, whence)
-
-    def read(self, n: int = -1) -> bytes:
-        return self._buf.read(n)
-
-    def close(self):
-        pass
-
-
 def _streaming_demo_bundle(ordner: Path):
     """Generator that yields ZIP data file-by-file for the demo bundle."""
-    import zipfile as zf_mod
-
     stream = _ZipStreamWriter()
-    zf = zf_mod.ZipFile(stream, mode="w", compression=zf_mod.ZIP_STORED)
+    zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
 
     def _add_file_and_yield(arcname: str, filepath: Path):
-        pos_before = stream.tell()
         zf.writestr(arcname, filepath.read_bytes())
-        pos_after = stream.tell()
-        stream.seek(pos_before)
-        return stream.read(pos_after - pos_before)
+        return stream.drain()
 
     video = _video(ordner)
     if video:
@@ -265,11 +236,8 @@ def _streaming_demo_bundle(ordner: Path):
             yield _add_file_and_yield(f"images/{f.name}", f)
 
     # Finalize ZIP (central directory)
-    pos_before = stream.tell()
     zf.close()
-    pos_after = stream.tell()
-    stream.seek(pos_before)
-    yield stream.read(pos_after - pos_before)
+    yield stream.drain()
 
 
 @router.get("/screencast-demo/bundle")

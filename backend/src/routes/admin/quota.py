@@ -21,6 +21,22 @@ def _iso_z(ts) -> str | None:
     return (ts.isoformat() + "Z") if ts else None
 
 
+def _entry(quota_type: str, cfg: dict, row: dict | None) -> dict:
+    """One quota as the admin page shows it, without a row the person has not used it yet."""
+    override = row["override"] if row else None
+    # A type that left the defaults keeps the old fallback of 30.
+    limit = override if override is not None else cfg.get("limit", 30)
+    return {
+        "quota_type": quota_type,
+        "label": cfg.get("label", quota_type),
+        "used": row["used"] if row else 0,
+        "limit": limit,
+        "limit_is_unlimited": limit == -1,
+        "override": override,
+        "reset_at": _iso_z(row["reset_at"]) if row else None,
+    }
+
+
 def _ensure_known_quota_type(quota_type: str, locale: str) -> None:
     if quota_type not in QUOTA_DEFAULTS:
         raise HTTPException(
@@ -51,29 +67,10 @@ def get_quota_overview(_admin=Depends(_require)):
             }
         if row["quota_type"] is None:
             # User exists but has no quota entries yet - fill from QUOTA_DEFAULTS
-            for cfg_type, cfg in QUOTA_DEFAULTS.items():
-                effective_limit = cfg["limit"]
-                users[uid]["quotas"].append({
-                    "quota_type": cfg_type,
-                    "label": cfg["label"],
-                    "used": 0,
-                    "limit": effective_limit,
-                    "limit_is_unlimited": effective_limit == -1,
-                    "override": None,
-                    "reset_at": None,
-                })
+            users[uid]["quotas"].extend(_entry(cfg_type, cfg, None) for cfg_type, cfg in QUOTA_DEFAULTS.items())
         else:
             cfg = QUOTA_DEFAULTS.get(row["quota_type"], {})
-            effective_limit = row["override"] if row["override"] is not None else cfg.get("limit", 30)
-            users[uid]["quotas"].append({
-                "quota_type": row["quota_type"],
-                "label": cfg.get("label", row["quota_type"]),
-                "used": row["used"],
-                "limit": effective_limit,
-                "limit_is_unlimited": effective_limit == -1,
-                "override": row["override"],
-                "reset_at": _iso_z(row["reset_at"]),
-            })
+            users[uid]["quotas"].append(_entry(row["quota_type"], cfg, row))
     return {"users": list(users.values())}
 
 
@@ -81,25 +78,10 @@ def get_quota_overview(_admin=Depends(_require)):
 def get_user_quota(user_id: int, _admin=Depends(_require)):
     """All quota types for a specific user."""
     rows = db.quota_get_all_for_user(user_id)
-    result = []
-    for cfg_type, cfg in QUOTA_DEFAULTS.items():
-        row = next((r for r in rows if r["quota_type"] == cfg_type), None)
-        used = row["used"] if row else 0
-        override = row["override"] if row else None
-        reset_at = row["reset_at"] if row else None
-        effective_limit = override if override is not None else cfg["limit"]
-        result.append({
-            "quota_type": cfg_type,
-            "label": cfg["label"],
-            "used": used,
-            "limit": effective_limit,
-            "limit_is_unlimited": effective_limit == -1,
-            "override": override,
-            "reset_at": _iso_z(reset_at),
-        })
+    by_type = {r["quota_type"]: r for r in reversed(rows)}
     return {
         "user_id": user_id,
-        "quotas": result,
+        "quotas": [_entry(cfg_type, cfg, by_type.get(cfg_type)) for cfg_type, cfg in QUOTA_DEFAULTS.items()],
     }
 
 

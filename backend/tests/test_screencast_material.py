@@ -130,7 +130,7 @@ def client(lokal):
     app.dependency_overrides[get_current_user] = lambda: {"user_id": 1, "email": "a@b.de", "role": "user"}
     app.dependency_overrides[get_user_permissions] = lambda: resolve_user_permissions("admin", None, True)
     jobs = {UUID: {"job_uuid": UUID, "user_id": 1}, "c" * 32: {"job_uuid": "c" * 32, "user_id": 2}}
-    with patch("src.routes.screencast.einstellungen.get_job", jobs.get):
+    with patch("src.database.get_job", jobs.get):
         yield TestClient(app)
     app.dependency_overrides.clear()
 

@@ -1,7 +1,5 @@
 """The stand page and the stamp card of a visitor, no account needed."""
 import time
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -17,11 +15,9 @@ from src.features.event.service import (
     visitor_hash,
 )
 from src.i18n import get_locale, t
+from src.utils import local_date
 
 router = APIRouter(prefix="/event", tags=["event"])
-
-# The window of the event block is a calendar day where the event takes place.
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
 
 def _now_ms() -> int:
@@ -53,8 +49,8 @@ def _card(besucher: str, stations: list[dict], jetzt: int) -> dict:
 
 @router.get("/public")
 def public_config():
-    heute = datetime.now(_TZ_BERLIN).date()
-    return public_view(repo.get_config(), heute)
+    # The window of the event block is a calendar day where the event takes place.
+    return public_view(repo.get_config(), local_date.today())
 
 
 @router.get("/card")

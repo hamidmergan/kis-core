@@ -11,10 +11,9 @@ from src.features.accounts.passwords import PasswordTooLongError, hash_password
 from src.features.password_reset import repository as repo
 from src.features.password_reset.service import can_get_reset_link, hash_token, status_of
 from src.i18n import get_locale, t
+from src.routes._shared import MIN_PASSWORD_LENGTH
 
 router = APIRouter(prefix="/password-reset", tags=["password reset"])
-
-MIN_PASSWORD_LENGTH = 8
 
 
 def _open_token_or_error(token: str, locale: str) -> tuple[dict, dict]:

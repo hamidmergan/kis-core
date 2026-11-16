@@ -14,6 +14,7 @@ from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
 from src.storage import clear_audio_cache, delete_prefix, get_job_file, job_prefix, load_result_meta, save_result_meta
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
 
+
 def merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
     """The scripts are in this language, so the voicing has to speak it."""
     if not job_uuid or not target_lang:
@@ -21,9 +22,6 @@ def merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) ->
     save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
                                          "target_lang": target_lang})
 
-
-# Job tools that count toward the screencast in the queue/limit calculation
-SCREENCAST_TOOLS = ["screencast_translate", "screencast_render"]
 
 # One lock per job against parallel generation, limited in number.
 _script_gen_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
@@ -45,6 +43,16 @@ def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
             _script_gen_locks.pop(oldest_key)
     _script_gen_locks.move_to_end(uuid_key)
     return lock
+
+
+def current_pptx(user_id: int, job_uuid: str) -> bytes | None:
+    """The deck of the job, the corrected one when the person uploaded one, None when both are gone."""
+    for filename in ("corrected.pptx", "translated.pptx"):
+        try:
+            return get_job_file(user_id, job_uuid, filename)
+        except Exception:
+            continue
+    return None
 
 
 def prerender_dir(translate_job_uuid: str, dpi: int) -> Path:
@@ -79,18 +87,14 @@ async def prerender_images_task(translate_job_uuid: str, dpi: int = 100) -> None
         return
     user_id = job["user_id"]
 
-    # Read PPTX from job folder (corrected if available, else translated)
     def _hole_pptx() -> Path | None:
-        for filename in ("corrected.pptx", "translated.pptx"):
-            try:
-                pptx_data = get_job_file(user_id, translate_job_uuid, filename)
-            except Exception:
-                continue
-            tmp_f = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
-            tmp_f.write(pptx_data)
-            tmp_f.close()
-            return Path(tmp_f.name)
-        return None
+        pptx_data = current_pptx(user_id, translate_job_uuid)
+        if pptx_data is None:
+            return None
+        tmp_f = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
+        tmp_f.write(pptx_data)
+        tmp_f.close()
+        return Path(tmp_f.name)
 
     # Runs after the response, but still in this process: the download stays off the loop.
     pptx_src = await asyncio.to_thread(_hole_pptx)

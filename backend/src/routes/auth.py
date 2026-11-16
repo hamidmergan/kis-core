@@ -12,6 +12,7 @@ from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
 from src.features.accounts.login import authenticate
 from src.modules import active_modules
+from src.routes._shared import set_session_cookie
 from src.security.auth import ACCESS_EXPIRED, access_expired_error
 from src.services.consent import has_global_consent
 
@@ -81,14 +82,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         "custom_role_id": custom_role_id,
         "access_expires_at": ablauf.isoformat() if ablauf else None,
     })
-    response.set_cookie(
-        key="session",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=86400,
-        secure=settings.production,
-    )
+    set_session_cookie(response, token)
     return {"status": "ok", "username": ldap_username, "display_name": display_name, "role": effective_role}
 
 
@@ -120,14 +114,25 @@ def _close_impersonation(store, data: dict) -> None:
         store.destroy(parent)
 
 
+def _permissions_payload(perms) -> dict:
+    """The rights as the frontend reads them, the full key set decides per page in the sidebar."""
+    return {
+        "allow_admin_panel": perms.allow_admin_panel,
+        "allow_aia": perms.allow_aia,
+        "allow_workspace_create": perms.allow_workspace_create,
+        "allow_ldap_user_create": perms.allow_ldap_user_create,
+        "tools": list(perms.tools),
+        "keys": sorted(perms.keys),
+    }
+
+
 @router.get("/status")
 def auth_status(request: Request):
     settings = get_settings()
 
     if settings.is_local_mode:
-        from src import database as _db
         from src.permissions import resolve_user_permissions
-        local_user = _db.get_user_by_username("local")
+        local_user = database.get_user_by_username("local")
         user_id = local_user["id"] if local_user else 0
         perms = resolve_user_permissions(role="admin", custom_role_id=None, is_env_admin=True)
         return {
@@ -141,15 +146,7 @@ def auth_status(request: Request):
             "display_name": "Admin",
             "email": "",
             "global_consent_accepted": has_global_consent(user_id),
-            "permissions": {
-                "allow_admin_panel": perms.allow_admin_panel,
-                "allow_aia": perms.allow_aia,
-                "allow_workspace_create": perms.allow_workspace_create,
-                "allow_ldap_user_create": perms.allow_ldap_user_create,
-                "tools": list(perms.tools),
-                # The full key set, the sidebar decides per page with it.
-                "keys": sorted(perms.keys),
-            },
+            "permissions": _permissions_payload(perms),
             "modules": sorted(active_modules()),
         }
 
@@ -160,7 +157,6 @@ def auth_status(request: Request):
     if not store.validate(token):
         return {"authenticated": False}
     data = store.get_data(token) or {}
-    settings = get_settings()
     email = (data.get("email") or "").lower()
     is_env_admin = bool(email and settings.admin_email and email == settings.admin_email.lower())
 
@@ -193,14 +189,7 @@ def auth_status(request: Request):
         "is_admin": perms.allow_admin_panel,
         "role": data.get("role", "user"),
         "custom_role_id": data.get("custom_role_id"),
-        "permissions": {
-            "allow_admin_panel": perms.allow_admin_panel,
-            "allow_aia": perms.allow_aia,
-            "allow_workspace_create": perms.allow_workspace_create,
-            "allow_ldap_user_create": perms.allow_ldap_user_create,
-            "tools": list(perms.tools),
-            "keys": sorted(perms.keys),
-        },
+        "permissions": _permissions_payload(perms),
         "modules": sorted(active_modules()),
         "global_consent_accepted": has_global_consent(user_id) if user_id else False,
     }

@@ -94,6 +94,18 @@ class PatchCodePayload(BaseModel):
         return self
 
 
+def _assert_may_hand_out(admin: dict, role: str, custom_role_id: int | None, locale: str) -> None:
+    """A code may only carry a role that exists and that its creator could grant by hand."""
+    if role == "custom":
+        role_row = database.get_custom_role(custom_role_id)
+        if role_row is None:
+            raise HTTPException(status_code=400, detail=t("access.invalidCustomRole", locale))
+        granted = role_row["permissions"]
+    else:
+        granted = SYSTEM_ROLE_PERMISSIONS.get(role, ())
+    assert_may_grant(permissions_of(admin), granted, locale)
+
+
 @router.post("/access-codes")
 def create_access_code(
     payload: CreateCodePayload,
@@ -102,15 +114,7 @@ def create_access_code(
 ):
     _require_feature(locale)
 
-    if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:
-        raise HTTPException(status_code=400, detail=t("access.invalidCustomRole", locale))
-
-    if payload.kis_role == "custom":
-        role_row = database.get_custom_role(payload.custom_role_id)
-        granted = role_row["permissions"] if role_row else []
-    else:
-        granted = SYSTEM_ROLE_PERMISSIONS.get(payload.kis_role, ())
-    assert_may_grant(permissions_of(admin), granted, locale)
+    _assert_may_hand_out(admin, payload.kis_role, payload.custom_role_id, locale)
 
     code = new_code()
     valid_until = datetime.now() + timedelta(days=payload.valid_days)
@@ -206,15 +210,7 @@ def patch_access_code(
         if repo.get_code_by_id(code_id) is None:
             raise HTTPException(status_code=404, detail=t("access.notFound", locale))
 
-        if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:
-            raise HTTPException(status_code=400, detail=t("access.invalidCustomRole", locale))
-
-        if payload.kis_role == "custom":
-            role_row = database.get_custom_role(payload.custom_role_id)
-            granted = role_row["permissions"] if role_row else []
-        else:
-            granted = SYSTEM_ROLE_PERMISSIONS.get(payload.kis_role, ())
-        assert_may_grant(permissions_of(admin), granted, locale)
+        _assert_may_hand_out(admin, payload.kis_role, payload.custom_role_id, locale)
 
         valid_until = datetime.now() + timedelta(days=payload.valid_days)
         if not repo.update_code(
@@ -366,9 +362,7 @@ def reset_access_code_user_password(
 ):
     """Gives an account made from a code a brand new password, never a real staff or admin account."""
     _require_feature(locale)
-    konto = database.get_user_by_id(user_id)
-    if not konto or not konto.get("access_code_id"):
-        raise HTTPException(status_code=403, detail=t("access.notFromCode", locale))
+    konto = _code_account(user_id, locale)
 
     password = generate_password()
     try:
@@ -389,9 +383,7 @@ def access_code_user_activity(
 ):
     """Read-only look at a test account's modules and chat history, never for a real account."""
     _require_feature(locale)
-    konto = database.get_user_by_id(user_id)
-    if not konto or not konto.get("access_code_id"):
-        raise HTTPException(status_code=403, detail=t("access.notFromCode", locale))
+    _code_account(user_id, locale)
 
     return {
         "workspaces": repo.list_workspaces_for_user(user_id),

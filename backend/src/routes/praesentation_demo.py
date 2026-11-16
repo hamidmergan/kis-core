@@ -1,7 +1,6 @@
 """The presentation demo, a finished run from files, without compute and without a job."""
 
 import json
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -13,7 +12,7 @@ from src.features.praesentation import store
 from src.features.praesentation.angaben import angaben as praesentation_angaben
 from src.features.praesentation.schemas import PraesentationParams, Slide
 from src.i18n import get_locale, t
-from src.routes.praesentation.media import _SLIDE_ID, _SLOT, _bildplaetze, _verkleinert
+from src.routes.praesentation.media import _PPTX, _SLIDE_ID, _SLOT, _bildplaetze, _verkleinert, deck_filename
 from src.utils.download_header import attachment
 
 router = APIRouter(
@@ -22,7 +21,6 @@ router = APIRouter(
 )
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "praesentation"
-_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 
 def _laden(locale: str) -> dict:
@@ -97,5 +95,4 @@ def demo_download(_: dict = Depends(get_current_user), locale: str = Depends(get
     if not datei.exists():
         raise HTTPException(status_code=404, detail=t("demo.resultMissing", locale))
     titel = (_laden(locale).get("outline") or {}).get("title", "")
-    name = (re.sub(r"[^\w\s\-]", "", titel).strip() or "Praesentation")[:80]
-    return FileResponse(datei, media_type=_PPTX, headers={"Content-Disposition": attachment(f"{name}.pptx")})
+    return FileResponse(datei, media_type=_PPTX, headers={"Content-Disposition": attachment(deck_filename(titel))})

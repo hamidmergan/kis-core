@@ -10,25 +10,11 @@ from src.features.impersonation import repository as repo
 from src.features.impersonation import service
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_USERS_IMPERSONATE
+from src.routes._shared import set_session_cookie
 
 router = APIRouter(tags=["admin: impersonation"])
 
 _require = require_permission(PERM_SET_USERS_IMPERSONATE)
-
-_COOKIE_MAX_AGE = 86400
-
-
-def _set_session_cookie(response: Response, token: str) -> None:
-    """Same flags as the real login, otherwise the browser drops it."""
-    response.set_cookie(
-        key="session",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=_COOKIE_MAX_AGE,
-        secure=get_settings().production,
-    )
-
 
 @router.post("/users/{user_id}/impersonate")
 def start_impersonation(
@@ -65,7 +51,7 @@ def start_impersonation(
     token = store.create(
         data=service.session_payload(target, actor, log_id, parent_token)
     )
-    _set_session_cookie(response, token)
+    set_session_cookie(response, token)
     logger.info(
         "Impersonation started: {} -> {} (log {})",
         actor.get("username"), target["ldap_username"], log_id,
@@ -106,7 +92,7 @@ def stop_impersonation(
         response.delete_cookie("session")
         raise HTTPException(status_code=409, detail=t("impersonation.ownSessionGone", locale))
 
-    _set_session_cookie(response, parent_token)
+    set_session_cookie(response, parent_token)
     logger.info("Impersonation ended: back to {}", marke.get("username"))
     return {"status": "ok", "display_name": marke.get("display_name")}
 

@@ -11,10 +11,9 @@ from src.features.accounts.provisioning import provision_account
 from src.features.invites import repository as repo
 from src.features.invites.service import status_of
 from src.i18n import get_locale, t
+from src.routes._shared import MIN_PASSWORD_LENGTH, set_session_cookie
 
 router = APIRouter(prefix="/invites", tags=["invites"])
-
-MIN_PASSWORD_LENGTH = 8
 
 
 def _open_invite_or_error(token: str, locale: str) -> dict:
@@ -87,13 +86,6 @@ def redeem_invite(
     display_name = sitzungsdaten["display_name"]
     store = get_session_store()
     sitzung = store.create(data=sitzungsdaten)
-    response.set_cookie(
-        key="session",
-        value=sitzung,
-        httponly=True,
-        samesite="lax",
-        max_age=86400,
-        secure=get_settings().production,
-    )
+    set_session_cookie(response, sitzung)
     logger.info("invite redeemed for uid={}", invite["uid"])
     return {"status": "ok", "username": invite["uid"], "display_name": display_name}

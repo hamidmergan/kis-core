@@ -1,14 +1,13 @@
 """What step 6 needs on entry and what it saves on change."""
 
 import json
-import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from src.dependencies import get_current_user
-from src.features.jobs.repository import get_job
-from src.i18n import get_locale, t
+from src.i18n import get_locale
+from src.routes._shared import own_job
 from src.storage import audio_folien_mit_ton, get_audio_slide_count, get_job_file, load_result_meta, save_job_file
 
 router = APIRouter(tags=["screencast: einstellungen"])
@@ -30,13 +29,8 @@ class EinstellungenRequest(BaseModel):
 
 
 def _auftrag(job_uuid: str, current_user: dict, locale: str) -> int:
-    """The same answer for missing and foreign, otherwise it could be guessed."""
-    if not re.match(r"^[a-f0-9]{32}$", job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    job = get_job(job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-    return job["user_id"]
+    """The owner of the job, who is the caller."""
+    return own_job(job_uuid, current_user, locale)["user_id"]
 
 
 def _lies_json(user_id: int, job_uuid: str, name: str):

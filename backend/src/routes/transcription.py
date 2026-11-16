@@ -22,13 +22,12 @@ from src.utils.file_validation import TRANSCRIPTION_EXTENSIONS, validate_or_rais
 from src.services.tool_limits import max_upload_bytes
 from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
+from src.routes._shared import enforce_upload_size
 
 router = APIRouter(
     tags=["transcription"],
     dependencies=[Depends(require_tool_access("transcription"))],
 )
-
-
 
 _VALID_TASKS = {"transcribe"}
 _VALID_FORMATS = {"text", "srt", "vtt"}
@@ -76,9 +75,7 @@ async def transcribe(
             detail=t("transcription.invalidFormat", locale, format=response_format),
         )
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_upload_bytes():
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
+    enforce_upload_size(request, locale)
 
     # Stream to a temp file, media quickly reach hundreds of MB.
     with tempfile.TemporaryDirectory(prefix="stt_upload_") as tmpdir:

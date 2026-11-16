@@ -21,13 +21,18 @@ router = APIRouter(tags=["admin: maintenance"])
 _require = require_permission(PERM_SET_SYSTEM)
 
 
+def _reindex_progress() -> dict | None:
+    """The stored progress of the last rebuild, None when there is none or it is unreadable."""
+    try:
+        return json.loads(db.get_setting("reindex_progress", "") or "null")
+    except Exception:
+        return None
+
+
 @router.get("/maintenance")
 async def get_maintenance(_admin=Depends(_require)):
     enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
-    try:
-        progress = json.loads(db.get_setting("reindex_progress", "") or "null")
-    except Exception:
-        progress = None
+    progress = _reindex_progress()
 
     # Only read the fingerprint, a cold provider takes up to 50 seconds.
     key = f"fingerprint_{active_embedding_provider_key()}"
@@ -63,11 +68,7 @@ def reindex_all(
     locale: str = Depends(get_locale),
 ):
     """Queue a Celery job to re-embed every KI-Assistent chunk with the current provider."""
-    progress_raw = db.get_setting("reindex_progress", "") or ""
-    try:
-        progress = json.loads(progress_raw) if progress_raw else None
-    except Exception:
-        progress = None
+    progress = _reindex_progress()
     if progress and progress.get("running"):
         raise HTTPException(
             status_code=409,

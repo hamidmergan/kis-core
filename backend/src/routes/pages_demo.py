@@ -10,6 +10,7 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.features.pages import schema
 from src.i18n import get_locale, t
+from src.routes.pages_view import IMAGE_TYPES
 
 router = APIRouter(
     tags=["pages-demo"],
@@ -17,7 +18,6 @@ router = APIRouter(
 )
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "pages"
-_IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
 
 
 def _setup() -> dict:
@@ -71,5 +71,5 @@ def demo_image(name: str, _: dict = Depends(get_current_user), locale: str = Dep
     datei = DEMO_DIR / name
     if seite is None or not schema.IMAGE_NAME.match(name) or name not in schema.images_of(seite) or not datei.is_file():
         raise HTTPException(status_code=404, detail=t("demo.resultMissing", locale))
-    return FileResponse(datei, media_type=_IMAGE_TYPES[datei.suffix],
+    return FileResponse(datei, media_type=IMAGE_TYPES[datei.suffix],
                         headers={"Cache-Control": "private, max-age=86400"})

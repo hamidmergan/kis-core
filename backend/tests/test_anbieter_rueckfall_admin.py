@@ -9,7 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.features.ai_providers.repository.feature_routes import FEATURES
-from src.routes.admin import providers as admin
+from src.routes.admin import feature_routes, provider_transfer, providers as admin
 from src.routes.admin._models import (
     CreateProviderRequest,
     ExportedConfig,
@@ -166,7 +166,7 @@ def route_env(monkeypatch):
     monkeypatch.setattr(admin.db, "get_provider", lambda pid: _PROVIDERS.get(pid))
     stored = MagicMock(side_effect=lambda feature, **kw: {"feature": feature, **kw})
     monkeypatch.setattr(admin.db, "set_route", stored)
-    monkeypatch.setattr(admin, "_measure_route_model", lambda *a, **kw: None)
+    monkeypatch.setattr(feature_routes, "_measure_route_model", lambda *a, **kw: None)
     monkeypatch.setattr("src.routes.admin._embedding.invalidate_fingerprint_cache",
                         MagicMock())
     return stored
@@ -332,7 +332,7 @@ def _route_test_env(monkeypatch, row):
     monkeypatch.setattr("src.services.tts_job_provider.pick",
                         MagicMock(side_effect=AssertionError("route test must not pick")))
     probe = MagicMock(return_value=SimpleNamespace(status="error", error="x", warning=None))
-    monkeypatch.setattr(admin, "run_feature_route_test", probe)
+    monkeypatch.setattr(feature_routes, "run_feature_route_test", probe)
     return probe
 
 
@@ -409,7 +409,7 @@ def _install(monkeypatch, fake):
     for name in ("list_providers", "list_routes", "create_provider", "update_provider",
                  "set_route"):
         monkeypatch.setattr(admin.db, name, getattr(fake, name))
-    monkeypatch.setattr(admin, "probe_provider", lambda *a, **kw: None)
+    monkeypatch.setattr(provider_transfer, "probe_provider", lambda *a, **kw: None)
     monkeypatch.setattr("src.routes.admin._embedding.invalidate_fingerprint_cache",
                         MagicMock())
 

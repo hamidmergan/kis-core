@@ -1,5 +1,7 @@
 """Reads and writes the system-wide settings, providers live in the AI tab."""
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
@@ -25,9 +27,6 @@ from src.limits import (
     AIA_WORKSPACE_MAX_SOURCES,
     AIA_WORKSPACE_MAX_SOURCES_CAP,
 )
-
-import json
-
 from src.routes.admin._models import UpdateSettingsRequest
 from src.services import tool_limits, tool_numbers
 from src.services.aia_diagnosis_chat import (
@@ -65,6 +64,10 @@ router = APIRouter(tags=["admin: settings"])
 
 # Ten years, anything beyond that is a typo rather than a retention rule.
 MAX_DELETE_AFTER_DAYS = 3650
+# Both notices of the start page share this length.
+MAX_NOTICE_CHARS = 1000
+# Below this a context budget holds no usable excerpt.
+MIN_CONTEXT_CHARS = 1000
 
 
 def _permission_for(field_name: str) -> str | None:
@@ -193,221 +196,132 @@ def get_settings(_admin=Depends(require_any_settings)):
     }
 
 
-@router.patch("/settings")
-def update_settings(
-    body: UpdateSettingsRequest,
-    admin=Depends(require_any_settings),
-    locale: str = Depends(get_locale),
-):
-    _assert_fields_allowed(body, permissions_of(admin), locale)
+def _save_flag(key: str, value: bool | None) -> None:
+    if value is not None:
+        db.set_setting(key, "true" if value else "false")
 
-    if body.whitelist_enabled is not None:
-        db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
 
-    # Grace period before an expired test account is deleted, capped against typos.
-    if body.access_account_delete_after_days is not None:
-        value = body.access_account_delete_after_days
-        if value < 0 or value > MAX_DELETE_AFTER_DAYS:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.deleteAfterDaysOutOfRange", locale,
-                         min=0, max=MAX_DELETE_AFTER_DAYS),
-            )
-        db.set_setting("access_account_delete_after_days", str(value))
+def _save_number(key: str, value: int | None, lo: int, hi: int, message: str, locale: str) -> None:
+    """Stores a number inside its range, the range is there against typos."""
+    if value is None:
+        return
+    if value < lo or value > hi:
+        raise HTTPException(status_code=400, detail=t(message, locale, min=lo, max=hi))
+    db.set_setting(key, str(value))
 
-    # The language trainer off hides it everywhere, the per-course choice stays.
-    if body.language_training_enabled is not None:
-        db.set_setting(
-            "language_training_enabled", "true" if body.language_training_enabled else "false"
+
+def _save_text(key: str, value: str | None, max_chars: int, message: str, locale: str,
+               default: str = "") -> None:
+    """Stores a trimmed text up to its length, an empty one saves the default."""
+    if value is None:
+        return
+    stripped = value.strip()
+    if len(stripped) > max_chars:
+        raise HTTPException(status_code=400, detail=t(message, locale, max=max_chars))
+    db.set_setting(key, stripped or default)
+
+
+def _save_level_texts(key: str, value: str | None, levels, locale: str) -> None:
+    """One text per level as JSON, empty resets, otherwise every key must be a known level."""
+    if value is None:
+        return
+    stripped = value.strip()
+    if stripped:
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError:
+            data = None
+        valid = (
+            isinstance(data, dict)
+            and bool(data)
+            and all(k in levels and isinstance(v, str) for k, v in data.items())
         )
-
-    # The notice banner switch is independent of the text, the text is length limited.
-    if body.home_notice_enabled is not None:
-        db.set_setting("home_notice_enabled", "true" if body.home_notice_enabled else "false")
-
-    if body.home_notice_text is not None:
-        stripped = body.home_notice_text.strip()
-        if len(stripped) > 1000:
+        if not valid:
             raise HTTPException(
                 status_code=400,
-                detail=t("admin.settings.homeNoticeTooLong", locale, max=1000),
+                detail=t("admin.settings.diagnosisExamplesInvalid", locale),
             )
-        db.set_setting("home_notice_text", stripped)
+    db.set_setting(key, stripped)
 
-    if body.welcome_modal_enabled is not None:
-        db.set_setting("welcome_modal_enabled", "true" if body.welcome_modal_enabled else "false")
 
-    if body.welcome_modal_text is not None:
-        stripped = body.welcome_modal_text.strip()
-        if len(stripped) > 1000:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.welcomeModalTooLong", locale, max=1000),
-            )
-        db.set_setting("welcome_modal_text", stripped)
-
-    if body.ocr_enabled is not None:
-        db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")
-
-    # An empty prompt saves the default, the assessment is never without instructions.
-    if body.language_diagnosis_prompt is not None:
-        stripped = body.language_diagnosis_prompt.strip()
-        if len(stripped) > MAX_PROMPT_CHARS:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
-            )
-        db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
-
-    # An empty plan resets it, a filled one must be valid.
-    if body.language_diagnosis_question_plan_de is not None:
-        stripped = body.language_diagnosis_question_plan_de.strip()
-        if not stripped:
-            db.set_setting(QUESTION_PLAN_SETTING, "")
-        elif not question_plan_is_valid(stripped):
+def _save_question_plan(value: str | None, locale: str) -> None:
+    """An empty plan resets it, a filled one must be valid."""
+    if value is None:
+        return
+    stripped = value.strip()
+    if stripped:
+        if not question_plan_is_valid(stripped):
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanInvalid", locale),
             )
-        elif (incomplete := first_incomplete_question(stripped)) is not None:
+        if (incomplete := first_incomplete_question(stripped)) is not None:
             # Half a line can no longer be saved, the message names the line number.
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanIncomplete", locale,
                          number=incomplete),
             )
-        elif not question_plan_has_enough_free_text(stripped):
+        if not question_plan_has_enough_free_text(stripped):
             # A plan without enough free text would rest the level on nothing written.
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanTooFewFreeText", locale,
                          min=MIN_FREE_TEXT_QUESTIONS),
             )
-        else:
-            db.set_setting(QUESTION_PLAN_SETTING, stripped)
+    db.set_setting(QUESTION_PLAN_SETTING, stripped)
 
+
+def _save_general(body: UpdateSettingsRequest, locale: str) -> None:
+    """Access, the language trainer switch, the two notices of the start page and OCR."""
+    _save_flag("whitelist_enabled", body.whitelist_enabled)
+    # Grace period before an expired test account is deleted.
+    _save_number("access_account_delete_after_days", body.access_account_delete_after_days,
+                 0, MAX_DELETE_AFTER_DAYS, "admin.settings.deleteAfterDaysOutOfRange", locale)
+    # The language trainer off hides it everywhere, the per-course choice stays.
+    _save_flag("language_training_enabled", body.language_training_enabled)
+    # The notice banner switch is independent of the text, the text is length limited.
+    _save_flag("home_notice_enabled", body.home_notice_enabled)
+    _save_text("home_notice_text", body.home_notice_text, MAX_NOTICE_CHARS,
+               "admin.settings.homeNoticeTooLong", locale)
+    _save_flag("welcome_modal_enabled", body.welcome_modal_enabled)
+    _save_text("welcome_modal_text", body.welcome_modal_text, MAX_NOTICE_CHARS,
+               "admin.settings.welcomeModalTooLong", locale)
+    _save_flag("ocr_enabled", body.ocr_enabled)
+
+
+def _save_language_diagnosis(body: UpdateSettingsRequest, locale: str) -> None:
+    """The assessment: its prompts, the question plan and the level ladder."""
+    too_long = "admin.settings.diagnosisPromptTooLong"
+    # An empty prompt saves the default, the assessment is never without instructions.
+    _save_text("language_diagnosis_prompt", body.language_diagnosis_prompt, MAX_PROMPT_CHARS,
+               too_long, locale, DEFAULT_DIAGNOSIS_PROMPT)
+    _save_question_plan(body.language_diagnosis_question_plan_de, locale)
     # Soft answer length, it only steers the display.
-    if body.language_diagnosis_answer_max_chars is not None:
-        value = body.language_diagnosis_answer_max_chars
-        if value < 1 or value > MAX_MESSAGE_CHARS:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.answerMaxCharsOutOfRange", locale, min=1, max=MAX_MESSAGE_CHARS),
-            )
-        db.set_setting(ANSWER_MAX_CHARS_SETTING, str(value))
+    _save_number(ANSWER_MAX_CHARS_SETTING, body.language_diagnosis_answer_max_chars,
+                 1, MAX_MESSAGE_CHARS, "admin.settings.answerMaxCharsOutOfRange", locale)
+    _save_text(ADAPTIVE_BEHAVIOR_SETTING, body.language_diagnosis_adaptive_behavior, MAX_PROMPT_CHARS,
+               too_long, locale, DEFAULT_ADAPTIVE_BEHAVIOR)
+    _save_text(GRADING_RULES_SETTING, body.language_diagnosis_grading_rules, MAX_PROMPT_CHARS,
+               too_long, locale, DEFAULT_GRADING_RULES)
+    _save_level_texts(LEVEL_EXAMPLES_SETTING, body.language_diagnosis_level_examples, EXAMPLE_LEVELS, locale)
+    _save_level_texts(LEVEL_DESCRIPTIONS_SETTING, body.language_diagnosis_level_descriptions, LEVELS, locale)
 
-    # Empty input resets to the default.
-    if body.language_diagnosis_adaptive_behavior is not None:
-        stripped = body.language_diagnosis_adaptive_behavior.strip()
-        if len(stripped) > MAX_PROMPT_CHARS:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
-            )
-        db.set_setting(ADAPTIVE_BEHAVIOR_SETTING, stripped or DEFAULT_ADAPTIVE_BEHAVIOR)
 
-    # Empty input resets to the default.
-    if body.language_diagnosis_grading_rules is not None:
-        stripped = body.language_diagnosis_grading_rules.strip()
-        if len(stripped) > MAX_PROMPT_CHARS:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
-            )
-        db.set_setting(GRADING_RULES_SETTING, stripped or DEFAULT_GRADING_RULES)
-
-    # Examples per level as JSON, empty resets, otherwise it is validated.
-    if body.language_diagnosis_level_examples is not None:
-        stripped = body.language_diagnosis_level_examples.strip()
-        if not stripped:
-            db.set_setting(LEVEL_EXAMPLES_SETTING, "")
-        else:
-            try:
-                data = json.loads(stripped)
-            except json.JSONDecodeError:
-                data = None
-            valid = (
-                isinstance(data, dict)
-                and bool(data)
-                and all(
-                    k in EXAMPLE_LEVELS and isinstance(v, str)
-                    for k, v in data.items()
-                )
-            )
-            if not valid:
-                raise HTTPException(
-                    status_code=400,
-                    detail=t("admin.settings.diagnosisExamplesInvalid", locale),
-                )
-            db.set_setting(LEVEL_EXAMPLES_SETTING, stripped)
-
-    # Description per level as JSON, empty resets, otherwise it is validated.
-    if body.language_diagnosis_level_descriptions is not None:
-        stripped = body.language_diagnosis_level_descriptions.strip()
-        if not stripped:
-            db.set_setting(LEVEL_DESCRIPTIONS_SETTING, "")
-        else:
-            try:
-                data = json.loads(stripped)
-            except json.JSONDecodeError:
-                data = None
-            valid = (
-                isinstance(data, dict)
-                and bool(data)
-                and all(
-                    k in LEVELS and isinstance(v, str)
-                    for k, v in data.items()
-                )
-            )
-            if not valid:
-                raise HTTPException(
-                    status_code=400,
-                    detail=t("admin.settings.diagnosisExamplesInvalid", locale),
-                )
-            db.set_setting(LEVEL_DESCRIPTIONS_SETTING, stripped)
-
-    # Limit of sources per course room, capped against typos.
-    if body.aia_workspace_max_sources is not None:
-        value = body.aia_workspace_max_sources
-        if value < 1 or value > AIA_WORKSPACE_MAX_SOURCES_CAP:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=AIA_WORKSPACE_MAX_SOURCES_CAP),
-            )
-        db.set_setting("aia_workspace_max_sources", str(value))
-
-    # Context budget of the chat, capped against too small and too large inputs.
-    if body.aia_context_max_chars is not None:
-        value = body.aia_context_max_chars
-        if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
-            )
-        db.set_setting("aia_context_max_chars", str(value))
-
-    # Context of a specific question, the same limits as for the overview.
-    if body.aia_specific_max_chars is not None:
-        value = body.aia_specific_max_chars
-        if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
-            )
-        db.set_setting("aia_specific_max_chars", str(value))
-
+def _save_assistant_limits(body: UpdateSettingsRequest, locale: str) -> None:
+    """Sources, context budgets and the tunable numbers of the learning assistant."""
+    _save_number("aia_workspace_max_sources", body.aia_workspace_max_sources,
+                 1, AIA_WORKSPACE_MAX_SOURCES_CAP, "admin.settings.maxSourcesOutOfRange", locale)
+    # Context budget of the chat, the specific question shares its limits.
+    _save_number("aia_context_max_chars", body.aia_context_max_chars,
+                 MIN_CONTEXT_CHARS, AIA_CONTEXT_HARD_CAP, "admin.settings.contextBudgetOutOfRange", locale)
+    _save_number("aia_specific_max_chars", body.aia_specific_max_chars,
+                 MIN_CONTEXT_CHARS, AIA_CONTEXT_HARD_CAP, "admin.settings.contextBudgetOutOfRange", locale)
     # Context budget of the tools, with its own higher ceiling than the chat's.
-    if body.aia_tool_context_max_chars is not None:
-        value = body.aia_tool_context_max_chars
-        if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.toolContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
-            )
-        db.set_setting("aia_tool_context_max_chars", str(value))
+    _save_number("aia_tool_context_max_chars", body.aia_tool_context_max_chars,
+                 MIN_CONTEXT_CHARS, AIA_TOOL_CONTEXT_HARD_CAP, "admin.settings.toolContextBudgetOutOfRange", locale)
 
-    # Tunable numbers of the tools, each against its own range. A value outside it is
-    # refused here, so no tool ever has to repair one it reads back.
+    # Each tunable number against its own range, so no tool ever has to repair one it reads back.
     for zahl in tool_numbers.NUMBERS:
         wert = getattr(body, zahl.key, None)
         if wert is None:
@@ -430,29 +344,15 @@ def update_settings(
             )
         db.set_setting("aia_learning_tools_language", value)
 
-    # Characters per summary batch, capped against typos.
-    if body.aia_summary_batch_max_chars is not None:
-        value = body.aia_summary_batch_max_chars
-        if value < 10_000 or value > 500_000:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.summaryBatchOutOfRange", locale, min=10_000, max=500_000),
-            )
-        db.set_setting("aia_summary_batch_max_chars", str(value))
+    _save_number("aia_summary_batch_max_chars", body.aia_summary_batch_max_chars,
+                 10_000, 500_000, "admin.settings.summaryBatchOutOfRange", locale)
+    _save_number("aia_source_max_pages", body.aia_source_max_pages,
+                 1, 2000, "admin.settings.maxPagesOutOfRange", locale)
 
-    # Chunks per embedding call no longer live here, the client measures itself.
 
-    # Maximum pages per source, capped from 1 to 2000.
-    if body.aia_source_max_pages is not None:
-        value = body.aia_source_max_pages
-        if value < 1 or value > 2000:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.maxPagesOutOfRange", locale, min=1, max=2000),
-            )
-        db.set_setting("aia_source_max_pages", str(value))
-
-    # Limits of the global tools, there is no unlimited here.
+def _save_tool_limits(body: UpdateSettingsRequest, locale: str) -> None:
+    """Limits of the global tools and the voice settings."""
+    # Only the two count limits know -1 for unlimited.
     for feld, schluessel, unten, oben, darf_unbegrenzt in (
         (body.screencast_max_slides, "screencast_max_slides", 1, 200, False),
         (body.transcription_max_minutes, "transcription_max_minutes", 5, 480, False),
@@ -483,13 +383,20 @@ def update_settings(
         db.set_setting("aia_flashcard_voice_id", body.aia_flashcard_voice_id.strip())
 
     # Too large runs into the timeout, too small fragments the recording.
-    if body.tts_max_chars_per_request is not None:
-        value = body.tts_max_chars_per_request
-        if value < 50 or value > 10_000:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.ttsMaxCharsOutOfRange", locale, min=50, max=10_000),
-            )
-        db.set_setting("tts_max_chars_per_request", str(value))
+    _save_number("tts_max_chars_per_request", body.tts_max_chars_per_request,
+                 50, 10_000, "admin.settings.ttsMaxCharsOutOfRange", locale)
 
+
+@router.patch("/settings")
+def update_settings(
+    body: UpdateSettingsRequest,
+    admin=Depends(require_any_settings),
+    locale: str = Depends(get_locale),
+):
+    """Saves the submitted fields in a fixed order, the first invalid one stops the rest."""
+    _assert_fields_allowed(body, permissions_of(admin), locale)
+    _save_general(body, locale)
+    _save_language_diagnosis(body, locale)
+    _save_assistant_limits(body, locale)
+    _save_tool_limits(body, locale)
     return {"ok": True}

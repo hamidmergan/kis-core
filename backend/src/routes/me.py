@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
+from src.routes._shared import require_user_id
 from src.services.consent import GLOBAL_CONSENT_VERSION, has_global_consent
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -58,9 +59,7 @@ def get_me(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     row = db.get_user_by_id(user_id)
     if not row:
         raise HTTPException(status_code=404, detail=t("user.notFound", locale))
@@ -85,9 +84,7 @@ def accept_global_consent(
     locale: str = Depends(get_locale),
 ):
     """The one notice every account accepts once, before any service becomes reachable."""
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     db.set_global_consent(user_id, GLOBAL_CONSENT_VERSION)
     return {"ok": True}
 
@@ -99,9 +96,7 @@ def update_tour_seen(
     locale: str = Depends(get_locale),
 ):
     """Remembers per account whether the tour was done, so it survives a browser change."""
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     db.set_user_tour_seen(user_id, payload.seen)
     return {"seen": payload.seen}
 
@@ -113,9 +108,7 @@ def update_language_training(
     locale: str = Depends(get_locale),
 ):
     """Answers the start question on the home page, admin switch and permission gate it."""
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     if not db.is_language_training_offered(user_id):
         raise HTTPException(status_code=403, detail=t("ai.languageTraining.disabled", locale))
     db.set_user_language_training(user_id, payload.active)
@@ -129,9 +122,7 @@ def update_language_level(
     locale: str = Depends(get_locale),
 ):
     """Sets the level by hand, the same two switches gate it as the test."""
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     if not db.is_language_training_offered(user_id):
         raise HTTPException(status_code=403, detail=t("ai.languageTraining.off", locale))
     db.set_user_language_level(user_id, payload.level, "self")
@@ -144,8 +135,6 @@ def update_locale(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
+    user_id = require_user_id(user, locale)
     db.update_user_locale(user_id, payload.locale)
     return {"locale": payload.locale}

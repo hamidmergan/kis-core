@@ -16,11 +16,11 @@ from src.i18n import get_locale, t
 from src.services import sources
 from src.limits import SUMMARY_MAX_SOURCES
 from src.quotas import enforce_quota
+from src.routes._shared import enforce_upload_size
 from src.routes.material_measure import measure_router
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
 from src.services.open_jobs import create_counted_job, enforce_open_jobs
-from src.services.tool_limits import max_upload_bytes
 from src.storage import save_job_file
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
@@ -69,10 +69,7 @@ async def summarize(
     if vorlage is None:
         raise HTTPException(status_code=400, detail=t("summary.templateMissing", locale))
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_upload_bytes():
-        raise HTTPException(status_code=413, detail=t(
-            "file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
+    enforce_upload_size(request, locale)
 
     user_id = current_user.get("user_id", 0)
     job_uuid = uuid.uuid4().hex

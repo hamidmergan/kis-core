@@ -16,7 +16,9 @@ from src.routes.admin.accounts import router as _accounts_router
 from src.routes.admin.campus import router as _campus_router
 from src.routes.admin.maintenance import router as _maintenance_router
 from src.routes.admin.model_windows import router as _model_windows_router
+from src.routes.admin.feature_routes import router as _feature_routes_router
 from src.routes.admin.pools import router as _pools_router
+from src.routes.admin.provider_transfer import router as _provider_transfer_router
 from src.routes.admin.providers import router as _providers_router
 from src.routes.admin.quota import router as _quota_router
 from src.routes.admin.roles import router as _roles_router
@@ -39,7 +41,10 @@ router.include_router(_load_router)
 router.include_router(_accounts_router)
 router.include_router(_invites_router)
 router.include_router(_password_reset_router)
+# First: "/providers/export" and "/providers/all" must not be taken for "/providers/{provider_id}".
+router.include_router(_provider_transfer_router)
 router.include_router(_providers_router)
+router.include_router(_feature_routes_router)
 router.include_router(_model_windows_router)
 router.include_router(_quota_router)
 router.include_router(_roles_router)

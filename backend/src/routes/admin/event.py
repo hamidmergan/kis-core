@@ -103,12 +103,11 @@ def save_event(
     locale: str = Depends(get_locale),
 ):
     roh = payload.model_dump(by_alias=True)
-    if roh.get("taskCard") is None:
-        roh["taskCard"] = repo.get_config()["taskCard"]
-    if roh.get("raffle") is None:
-        roh["raffle"] = repo.get_config()["raffle"]
-    if roh.get("cardTexts") is None:
-        roh["cardTexts"] = repo.get_config()["cardTexts"]
+    fehlend = [teil for teil in ("taskCard", "raffle", "cardTexts") if roh.get(teil) is None]
+    if fehlend:
+        gespeichert = repo.get_config()
+        for teil in fehlend:
+            roh[teil] = gespeichert[teil]
     try:
         config = validate_config(roh)
     except EventValidationError as fehler:

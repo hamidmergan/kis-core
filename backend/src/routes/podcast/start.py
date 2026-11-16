@@ -24,8 +24,6 @@ from src.services.tool_limits import max_upload_bytes
 
 router = APIRouter(tags=["podcast"])
 
-_TOOLS = ["podcast"]
-
 
 def _pruefe_params(roh: str, locale: str, user: dict | None = None) -> PodcastParams:
     try:
@@ -46,7 +44,6 @@ def _wacht(user_id: int, current_user: dict, locale: str) -> None:
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 
 
-
 def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
     """The size applies to all files together, not to each one on its own."""
     laenge = request.headers.get("content-length")
@@ -54,8 +51,6 @@ def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
     if laenge is not None and int(laenge) > grenze:
         raise HTTPException(status_code=413, detail=t(
             "podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
-
-
 
 
 def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,

@@ -388,7 +388,7 @@ def test_import_creates_new_provider_without_api_key(monkeypatch):
     create_mock = MagicMock(return_value=_make_provider(10, "Anbieter A"))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
@@ -416,7 +416,7 @@ def test_import_decrypts_envelope_and_sets_key_on_create(monkeypatch):
                                                        api_key="sk-real"))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     provider = _exported_provider("Anbieter A")
@@ -445,7 +445,7 @@ def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
     ))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     provider = _exported_provider("Anbieter A", base_url="https://api.example")
@@ -471,7 +471,7 @@ def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
     update_mock = MagicMock(return_value=existing)
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         update_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     provider = _exported_provider("Anbieter A")
@@ -497,7 +497,7 @@ def test_import_restores_key_into_empty_existing_row(monkeypatch):
     ))
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         update_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     provider = _exported_provider("Anbieter A")
@@ -518,7 +518,7 @@ def test_import_update_preserves_existing_api_key(monkeypatch):
     update_mock = MagicMock(return_value=existing)
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         update_mock)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
@@ -545,7 +545,7 @@ def test_import_creates_route_resolving_provider_names(monkeypatch):
                         lambda: [])
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         lambda **kw: created)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     set_route_mock = MagicMock()
@@ -595,7 +595,7 @@ def test_import_filters_unresolved_user_choices(monkeypatch):
                         lambda: [p])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         lambda *a, **kw: p)
@@ -634,7 +634,7 @@ def test_import_triggers_reprobe_for_each_provider(monkeypatch):
         lambda **kw: _make_provider(99, kw["name"]),
     )
     probe_mock = MagicMock()
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         probe_mock)
 
     cfg = _valid_config(providers=[
@@ -655,7 +655,7 @@ def test_import_invalidates_fingerprint_cache_when_embedding_route_set(monkeypat
                         lambda: [])
     monkeypatch.setattr("src.routes.admin.providers.db.set_route",
                         lambda *a, **kw: None)
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         lambda *a, **kw: p)
@@ -687,7 +687,7 @@ def test_import_response_lists_providers_needing_key(monkeypatch):
         lambda **kw: _make_provider(1, kw["name"], protocol=kw["protocol"],
                                     base_url=kw["base_url"]),
     )
-    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+    monkeypatch.setattr("src.routes.admin.provider_transfer.probe_provider",
                         lambda pid, **kw: None)
 
     cfg = _valid_config(providers=[

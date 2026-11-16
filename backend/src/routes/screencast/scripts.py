@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -17,6 +16,7 @@ from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, job_file_exists, load_result_meta, save_job_file
 from src.services.tool_limits import max_screencast_slides
 
+from src.routes._shared import JOB_UUID, own_job
 from src.routes.screencast._models import (
     GenerateScriptsRequest,
     SaveScriptsRequest,
@@ -35,11 +35,7 @@ def save_scripts(
     locale: str = Depends(get_locale),
 ):
     """Autosave or accept scripts for a screencast job (awaiting_user)."""
-    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    job = db.get_job(translate_job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    job = own_job(translate_job_uuid, current_user, locale)
     if job["status"] not in ("awaiting_user", "success"):
         raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
     filename = "accepted_scripts.json" if body.accepted else "user_scripts.json"
@@ -56,11 +52,7 @@ async def screencast_notizen(
     locale: str = Depends(get_locale),
 ):
     """The speaker notes of the current deck in the script language, one entry per slide."""
-    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    job = db.get_job(translate_job_uuid)
-    if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    job = own_job(translate_job_uuid, current_user, locale)
     for name in ("corrected.pptx", "translated.pptx"):
         try:
             daten = get_job_file(job["user_id"], translate_job_uuid, name)
@@ -133,7 +125,7 @@ async def screencast_generate_scripts(
         except (json.JSONDecodeError, TypeError):
             pass
 
-    uuid_key = body.translate_job_uuid if (body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid)) else None
+    uuid_key = body.translate_job_uuid if (body.translate_job_uuid and JOB_UUID.match(body.translate_job_uuid)) else None
 
     # The caller must own the job, foreign and missing both give 410.
     uuid_user_id: int | None = None
@@ -200,7 +192,7 @@ async def screencast_generate_scripts(
             db.set_generating_scripts_flag(uuid_key, False)
         try:
             save_job_file(uuid_user_id, uuid_key, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 - the scripts still go back to the page
+            logger.warning("Screencast {}: suggested scripts not saved ({})", uuid_key[:8], e)
 
     return {"scripts": scripts}

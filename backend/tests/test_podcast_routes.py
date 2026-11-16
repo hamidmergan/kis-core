@@ -64,7 +64,7 @@ def env(monkeypatch):
     jobs: dict[str, dict] = {}
     import src.routes.podcast.render as render_route
     import src.routes.podcast.start as start_route
-    import src.routes.podcast._shared as shared
+    import src.routes._shared as shared
 
     monkeypatch.setattr(shared.db, "get_job", lambda uuid: jobs.get(uuid))
     monkeypatch.setattr(start_route.db, "count_all_jobs_for_tool", lambda uid, tools: 0)

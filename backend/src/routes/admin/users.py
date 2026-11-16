@@ -108,7 +108,6 @@ def remove_whitelist(
     _admin=Depends(_require_whitelist),
     locale: str = Depends(get_locale),
 ):
-    from src.dependencies import get_settings
     settings = get_settings()
     if email.strip().lower() == settings.admin_email.strip().lower():
         raise HTTPException(
@@ -137,7 +136,7 @@ def update_user_role(
     """Changes the role, you may only grant what you hold yourself."""
     target = db.get_user_by_id(user_id)
     if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
 
     settings = get_settings()
     target_email = (target.get("email") or "").lower()
@@ -165,10 +164,11 @@ def update_user_demo(
     user_id: int,
     body: SetUserDemoRequest,
     _admin=Depends(_require_users),
+    locale: str = Depends(get_locale),
 ):
     """The flag that puts an account's courses into the demo."""
     if not db.get_user_by_id(user_id):
-        raise HTTPException(status_code=404, detail="User nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
     # Whoever loses the flag also loses their participants who joined via the demo.
     for verlorenes_konto in db.set_user_demo(user_id, body.is_demo):
         anzahl = db.delete_demo_enrollments_of_owner(verlorenes_konto)

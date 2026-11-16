@@ -35,7 +35,8 @@ def _senden(client, **extra):
     with patch(f"{modul}.db.get_job", return_value=_JOB), \
          patch(f"{modul}.job_file_exists", return_value=True), \
          patch(f"{modul}.save_job_file") as sichern, \
-         patch(f"{modul}.save_result_meta"), \
+         patch("src.routes.screencast._shared.save_result_meta"), \
+         patch("src.routes.screencast._shared.load_result_meta", return_value={}), \
          patch(f"{modul}.load_result_meta", return_value={}), \
          patch(f"{modul}.get_job_file", side_effect=FileNotFoundError), \
          patch(f"{modul}.clear_render_cache"), \
@@ -95,7 +96,8 @@ def test_die_zeichengrenze_zaehlt_nur_die_gewaehlten_folien(client):
     with patch(f"{modul}.db.get_job", return_value=_JOB), \
          patch(f"{modul}.job_file_exists", return_value=True), \
          patch(f"{modul}.save_job_file"), \
-         patch(f"{modul}.save_result_meta"), \
+         patch("src.routes.screencast._shared.save_result_meta"), \
+         patch("src.routes.screencast._shared.load_result_meta", return_value={}), \
          patch(f"{modul}.load_result_meta", return_value={}), \
          patch(f"{modul}.get_job_file", side_effect=FileNotFoundError), \
          patch(f"{modul}.clear_render_cache"), \
@@ -119,7 +121,8 @@ def test_die_zeichengrenze_greift_fuer_die_gewaehlten_folien(client):
     with patch(f"{modul}.db.get_job", return_value=_JOB), \
          patch(f"{modul}.job_file_exists", return_value=True), \
          patch(f"{modul}.save_job_file"), \
-         patch(f"{modul}.save_result_meta"), \
+         patch("src.routes.screencast._shared.save_result_meta"), \
+         patch("src.routes.screencast._shared.load_result_meta", return_value={}), \
          patch(f"{modul}.load_result_meta", return_value={}), \
          patch(f"{modul}.get_job_file", side_effect=FileNotFoundError), \
          patch(f"{modul}.clear_render_cache"), \

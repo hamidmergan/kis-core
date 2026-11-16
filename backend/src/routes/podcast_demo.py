@@ -11,6 +11,7 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.features.podcast import store
 from src.i18n import get_locale, t
+from src.routes.podcast.media import _LINE_ID
 from src.utils.download_header import utf8_download
 
 router = APIRouter(
@@ -22,7 +23,6 @@ DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "podcast"
 ERGEBNIS = "podcast.mp3"
 # The start of the same script voiced by other services, to hear what better voices could do, per language.
 VERGLEICH_DIR = DEMO_DIR / "vergleich"
-_LINE_ID = re.compile(r"^b[0-9]{1,4}$")
 _VERGLEICH_ID = re.compile(r"^[a-z0-9]+(-[a-z]{2})?$")
 
 
