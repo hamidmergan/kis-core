@@ -48,7 +48,6 @@ function PraesentationPageInner() {
   const [hasActiveJob] = useActiveJobCheck("praesentation");
   const ausListe = useSearchParams().get("job");
   const regen = useRegenAnchor();
-  const [regenArt] = useState<"row" | "slide">("row");
   const [restored, setRestored] = useState(false);
   const [demoDa, setDemoDa] = useState(false);
   // Until the job param is restored and the active-job check has answered, the empty form must not flash.
@@ -216,21 +215,13 @@ function PraesentationPageInner() {
   };
 
   const regenZiel = regen.regeneratingSlide;
-  const regenRow = regenArt === "row" && regenZiel !== null ? state.outline?.rows[regenZiel] ?? null : null;
-  const regenSlide = regenArt === "slide" && regenZiel !== null ? state.slides[regenZiel] ?? null : null;
+  const regenRow = regenZiel !== null ? state.outline?.rows[regenZiel] ?? null : null;
 
   const vorschlagen = async (messages: RegenTurn[]) => {
     const uuid = stateRef.current.jobUuid;
-    if (!uuid) return "";
-    if (regenRow) {
-      const r = await api.regenRow(uuid, regenRow.id, messages, regen.anchorText);
-      return `${r.title}\n${r.gist}`;
-    }
-    if (regenSlide) {
-      const s = await api.regenSlide(uuid, regenSlide.id, messages, regen.anchorText);
-      return JSON.stringify(s);
-    }
-    return "";
+    if (!uuid || !regenRow) return "";
+    const r = await api.regenRow(uuid, regenRow.id, messages, regen.anchorText);
+    return `${r.title}\n${r.gist}`;
   };
 
   const uebernehmen = (mode: RegenApplyMode, content: string) => {
@@ -238,13 +229,6 @@ function PraesentationPageInner() {
       const [title, ...rest] = content.split("\n");
       outlineAendern({ type: "UPDATE_ROW", row: { ...regenRow, title: title.trim() || regenRow.title,
                        gist: applyRegen(regenRow.gist, regen.anchorText, mode, rest.join(" ").trim()) } });
-    } else if (regenSlide) {
-      try {
-        const neu = JSON.parse(content) as Slide;
-        folieAendern({ ...neu, id: regenSlide.id, role: regenSlide.role, layout: regenSlide.layout });
-      } catch {
-        melde(new Error(t("regenChat.notJson")));
-      }
     }
     regen.close();
   };
@@ -392,7 +376,7 @@ function PraesentationPageInner() {
                 onNew={neu}
                 onCancel={() => setNachfrage("abbrechen")} />
             )}
-            {(regenRow || regenSlide) && (
+            {regenRow && (
               <RegenChatModal index={regenZiel ?? 0} namespace="tools.praesentation.regenChat" anchorText={regen.anchorText}
                               onSend={vorschlagen} onApply={uebernehmen} onClose={regen.close} />
             )}

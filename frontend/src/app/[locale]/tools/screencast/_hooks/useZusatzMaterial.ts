@@ -16,10 +16,12 @@ export function useZusatzMaterial(jobUuid: string, aktiv: boolean, fallback: str
   // Whoever comes back to the step sees what the job already reads from.
   useEffect(() => {
     if (!aktiv || !jobUuid) return;
+    let abgebrochen = false;
     fetch(`/api/screencast/${jobUuid}/material`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setHinterlegt(Array.isArray(d.files) ? d.files : []))
+      .then((d) => { if (d && !abgebrochen) setHinterlegt(Array.isArray(d.files) ? d.files : []); })
       .catch(() => {});
+    return () => { abgebrochen = true; };
   }, [aktiv, jobUuid]);
 
   const waehlen = useCallback((w: MaterialWahl) => {

@@ -1,6 +1,9 @@
 export type Step = "content" | "preview" | "done";
 export const STEPS = ["content", "preview", "done"] as const;
 
+/** The id of the built-in template every deck starts with and falls back to. */
+export const STANDARD_VORLAGE = "thl";
+
 export type SourceMode = "files" | "module";
 export type Language = "de" | "en";
 // Mirrors limits.py: PRAESENTATION_MIN_SLIDES and PRAESENTATION_MAX_SLIDES, the model picks its own count inside them.

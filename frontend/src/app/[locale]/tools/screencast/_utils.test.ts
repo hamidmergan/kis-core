@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, sprachIdFuerLocale, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, sprachIdFuerLocale, folienZahlen, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -389,5 +389,25 @@ describe("sprachIdFuerLocale", () => {
 
   it("liefert null bei leerer Auswahl", () => {
     expect(sprachIdFuerLocale("de", [])).toBeNull();
+  });
+});
+
+describe("folienZahlen", () => {
+  const folien: SlideData[] = ["eins zwei", "drei", "vier fuenf sechs"].map((script, index) => ({
+    index, imageBase64: "", extractedText: "", script,
+  }));
+
+  it("zaehlt nur die gewaehlten Folien", () => {
+    const zahlen = folienZahlen(folien, [0, 2], [], []);
+    expect(zahlen.totalWords).toBe(5);
+    expect(zahlen.totalChars).toBe("eins zwei".length + "vier fuenf sechs".length);
+  });
+
+  it("zaehlt geaenderte Folien ohne Haken, aber nur gewaehlte", () => {
+    expect(folienZahlen(folien, [0, 1], [0, 1, 2], [1]).geaenderteOhneHaken).toBe(1);
+  });
+
+  it("liefert Nullen ohne Auswahl", () => {
+    expect(folienZahlen(folien, [], [0], [])).toEqual({ totalWords: 0, totalChars: 0, geaenderteOhneHaken: 0 });
   });
 });

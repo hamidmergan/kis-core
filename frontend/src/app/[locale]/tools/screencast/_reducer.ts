@@ -9,7 +9,6 @@ interface ScreencastFlowState {
   maxReachedIdx: number;
   correctedFileName: string | null;
   lightboxIndex: number | null;
-  isResumedJob: boolean;
 }
 
 export const INITIAL_FLOW_STATE: ScreencastFlowState = {
@@ -21,7 +20,6 @@ export const INITIAL_FLOW_STATE: ScreencastFlowState = {
   maxReachedIdx: 0,
   correctedFileName: null,
   lightboxIndex: null,
-  isResumedJob: false,
 };
 
 export type FlowAction =
@@ -38,7 +36,6 @@ export type FlowAction =
   | { type: "SET_JOB_UUID"; uuid: string }
   | { type: "SET_CORRECTED_FILENAME"; name: string | null }
   | { type: "SET_LIGHTBOX"; index: number | null }
-  | { type: "SET_RESUMED"; resumed: boolean }
   | { type: "ADVANCE_REACHED"; idx: number }
   | { type: "ENTER_STEP"; step: ScreencastStep; loading?: boolean }
   | {
@@ -86,8 +83,6 @@ export function flowReducer(state: ScreencastFlowState, action: FlowAction): Scr
       return { ...state, correctedFileName: action.name };
     case "SET_LIGHTBOX":
       return { ...state, lightboxIndex: action.index };
-    case "SET_RESUMED":
-      return { ...state, isResumedJob: action.resumed };
     case "ADVANCE_REACHED":
       return { ...state, maxReachedIdx: Math.max(state.maxReachedIdx, action.idx) };
     case "ENTER_STEP":
@@ -96,7 +91,6 @@ export function flowReducer(state: ScreencastFlowState, action: FlowAction): Scr
       return {
         ...state,
         translateJobUuid: action.jobUuid,
-        isResumedJob: true,
         slides: action.slides.length ? action.slides : state.slides,
         step: action.step,
         maxReachedIdx: action.stepIdx,

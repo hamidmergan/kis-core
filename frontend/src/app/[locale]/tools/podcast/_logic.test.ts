@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
+import { standAusParams } from "./_api";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import type { Line, PodcastState } from "./_types";
 
@@ -164,3 +165,41 @@ describe("Wann ein neuer Podcast nachfragen muss", () => {
   });
 });
 
+describe("Eine alte Fehlermeldung", () => {
+  const gescheitert: PodcastState = { ...INITIAL_STATE, jobUuid: "j", jobStatus: "failed", error: "Beitrag 3 konnte nicht vertont werden" };
+
+  it("verschwindet, sobald der Auftrag wieder läuft", () => {
+    expect(reducer(gescheitert, { type: "JOB", status: "pending", progress: { step: "tts" }, error: null }).error).toBe("");
+  });
+
+  it("bleibt, solange der Auftrag gescheitert oder angehalten ist", () => {
+    expect(reducer(gescheitert, { type: "JOB", status: "failed", progress: null }).error).toBe(gescheitert.error);
+    expect(reducer(gescheitert, { type: "JOB", status: "paused", progress: null }).error).toBe(gescheitert.error);
+  });
+
+  it("weicht einer neuen Meldung", () => {
+    expect(reducer(gescheitert, { type: "JOB", status: "failed", progress: null, error: "neu" }).error).toBe("neu");
+  });
+});
+
+describe("Die gespeicherten Einstellungen eines Podcasts", () => {
+  const params = {
+    language: "en" as const, instructions: "kurz", length: "long", style: "casual", speed: 1,
+    self_written: false, instruction_unmatched: false,
+    persons: [{ name: "Ada", role: "expert", voice_id: "v1", provider_id: 7 }],
+  };
+
+  it("füllen die Besetzung auf vier Karten auf und zählen nur die gespeicherten", () => {
+    const stand = standAusParams(params);
+    expect(stand.count).toBe(1);
+    expect(stand.persons).toHaveLength(4);
+    expect(stand.persons[0]).toEqual({ name: "Ada", role: "expert", voiceId: "v1", providerId: 7 });
+    expect(stand.persons[1].voiceId).toBe("");
+  });
+
+  it("halten die Anzahl zwischen eins und vier", () => {
+    expect(standAusParams({ ...params, persons: [] }).count).toBe(1);
+    const fuenf = Array.from({ length: 5 }, () => params.persons[0]);
+    expect(standAusParams({ ...params, persons: fuenf }).count).toBe(4);
+  });
+});

@@ -8,12 +8,9 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { useGlossaries } from "@/hooks/useGlossaries";
-
-
 import Spinner from "@/components/ui/Spinner";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
-import UploadStep from "./_steps/UploadStep";
+import UploadStep, { ACCEPTED_EXTENSIONS } from "./_steps/UploadStep";
 import {
   TranslatingStep,
   GeneratingScriptsStep,
@@ -27,16 +24,18 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
-import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
+import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, folienZahlen, laufWaereUmsonst, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
-import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
+import { RENDER_SESSION_KEY, useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { useSchritt6Stand } from "./_hooks/useSchritt6Stand";
 import { useFolienAuswahl } from "./_hooks/useFolienAuswahl";
+import { useSchrittNavigation } from "./_hooks/useSchrittNavigation";
+import { useVertonungsEinstellungen } from "./_hooks/useVertonungsEinstellungen";
+import { triggerUrlDownload } from "@/lib/download";
 import { notifyJobsChanged } from "@/lib/jobs-events";
-import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
-import { wordCount } from "@/lib/text";
+import { DEFAULT_TRANSLATE_TARGET, SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useVoices } from "@/hooks/useVoices";
 import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
@@ -50,10 +49,6 @@ import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import ZusatzMaterial from "./_components/ZusatzMaterial";
 import { useZusatzMaterial } from "./_hooks/useZusatzMaterial";
 
-const ACCEPTED_EXTENSIONS = [".pptx"];
-
-const RENDER_SESSION_KEY = "kis_screencast_active_render";
-
 function ScreencastPageInner() {
   const t = useTranslations("tools.screencast");
   const tHistory = useTranslations("tools.screencast.history");
@@ -66,7 +61,7 @@ function ScreencastPageInner() {
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
   const [nichtDabei, setNichtDabei] = useState<number[]>([]);
   // Both buttons delete the job with its files, now with a confirmation.
-  const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
+  const [pendingExit, setPendingExit] = useState<"cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid, paused: renderAngehalten } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
@@ -89,10 +84,6 @@ function ScreencastPageInner() {
   } = useFileDropzone({ acceptedExtensions: ACCEPTED_EXTENSIONS });
   // No tempo slider any more, a stretched voice echoes, so every video keeps the voice as it is.
   const speed = 1;
-  const [slidePause, setSlidePause] = useState<number>(1.0);
-  const [dpi, setDpi] = useState(96);
-  const [subtitles, setSubtitles] = useState(false);
-
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const {
@@ -134,14 +125,6 @@ function ScreencastPageInner() {
     defaultProviderId,
     defaultVoiceId,
   } = voicesResult;
-  const [voiceId, setVoiceId] = useState("");
-  const [providerId, setProviderId] = useState<number>(0);
-  useEffect(() => {
-    if (defaultProviderId != null && providerId === 0) setProviderId(defaultProviderId);
-  }, [defaultProviderId, providerId]);
-  useEffect(() => {
-    if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
-  }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
   const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon, sprache: auftragsSprache } =
     useSchritt6Stand(translateJobUuid, step === "tts-settings");
@@ -154,6 +137,20 @@ function ScreencastPageInner() {
       : null,
     bereit: standGeladen,
   });
+  const { voiceId, setVoiceId, providerId, setProviderId, slidePause, setSlidePause, dpi, subtitles, setSubtitles } =
+    useVertonungsEinstellungen({
+      jobUuid: translateJobUuid,
+      speichern: standGeladen && step === "tts-settings",
+      gespeichert: gespeicherteEinstellungen,
+      providers,
+      defaultProviderId,
+      defaultVoiceId,
+      targetLang,
+      setTargetLang,
+      speed,
+      imScreencast: auswahl.imScreencast,
+      neuVertonen: auswahl.neuVertonen,
+    });
   // After a reload the selection comes from the result instead of the progress.
   const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien, auswahl.imScreencast);
   const zeigtNeu = hatTon.some(Boolean);
@@ -181,52 +178,11 @@ function ScreencastPageInner() {
   // Step 6 waits for the stored state, otherwise it overwrites a running edit.
   const schritt6Bereit = !translateJobUuid || standGeladen;
 
-  // Whoever comes back tomorrow finds their state instead of the default.
-  const eingestelltRef = useRef(false);
-  useEffect(() => {
-    const e = gespeicherteEinstellungen;
-    if (!e || eingestelltRef.current) return;
-    eingestelltRef.current = true;
-    if (e.provider_id) setProviderId(e.provider_id);
-    if (e.voice_id) setVoiceId(e.voice_id);
-    if (e.target_lang) setTargetLang(e.target_lang);
-    setSlidePause(e.slide_pause);
-    setDpi(e.dpi);
-    setSubtitles(e.subtitles);
-  }, [gespeicherteEinstellungen, setTargetLang]);
-
   // Step 6 no longer asks for the language, a resumed job speaks the one chosen at the start.
   useEffect(() => {
     if (standGeladen && !gespeicherteEinstellungen?.target_lang && auftragsSprache) setTargetLang(auftragsSprache);
   }, [standGeladen, gespeicherteEinstellungen, auftragsSprache, setTargetLang]);
 
-  // Saved on change, not only at render time.
-  useEffect(() => {
-    if (!translateJobUuid || !standGeladen || step !== "tts-settings") return;
-    const zeit = setTimeout(() => {
-      fetch(`/api/screencast/${translateJobUuid}/einstellungen`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider_id: providerId,
-          voice_id: voiceId,
-          voice_label: computeVoiceLabel(providerId, voiceId, providers),
-          target_lang: targetLang,
-          speed,
-          slide_pause: slidePause,
-          dpi,
-          subtitles,
-          video_folien: auswahl.imScreencast,
-          neu_vertonen: auswahl.neuVertonen,
-        }),
-        credentials: "include",
-      }).catch(() => {});
-    }, 600);
-    return () => clearTimeout(zeit);
-  }, [
-    translateJobUuid, standGeladen, step, providerId, voiceId, providers, targetLang,
-    speed, slidePause, dpi, subtitles, auswahl.imScreencast, auswahl.neuVertonen,
-  ]);
   const [skipTranslation, setSkipTranslation] = useState(false);
   const locale = useLocale();
 
@@ -238,6 +194,9 @@ function ScreencastPageInner() {
     if (id) setTargetLang(id);
   }, [languages, locale, setTargetLang]);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
+  const { handleStepClick, zurueckVon } = useSchrittNavigation({
+    step, maxReachedIdx, skipTranslation, hatErgebnis: videoUrl !== null, dispatch,
+  });
 
   const { permissions } = usePermissions();
   const zusatz = useZusatzMaterial(translateJobUuid, step === "user-prompt", tCommon("unknownError"));
@@ -265,7 +224,6 @@ function ScreencastPageInner() {
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); };
   }, []);
-
 
   // Voicing and finished page need the job, an effect fetches it.
   const [resumeIntoRender, setResumeIntoRender] = useState<{ uuid: string; step: "rendering" | "done" } | null>(null);
@@ -321,33 +279,17 @@ function ScreencastPageInner() {
     failedRender.clear();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setSkipTranslation(false);
-    setTargetLang("EN-US");
+    setTargetLang(DEFAULT_TRANSLATE_TARGET);
     scriptInput.reset();
     zusatz.reset();
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
-
-  const gotoIndex = useCallback((index: number) => {
-    const target = indexToStep(index);
-    if (target) dispatch({ type: "SET_STEP", step: target });
-  }, []);
 
   // A run from the history keeps its address, so browser back returns to it.
   const neuAnfangen = useCallback(() => {
     if (new URLSearchParams(window.location.search).has("resume")) window.location.assign(window.location.pathname);
     else resetAll(false);
   }, [resetAll]);
-
-  const handleStepClick = useCallback((index: number) => {
-    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
-    gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
-
-  /** The step back from a page, or null when nothing enterable lies before it. */
-  const zurueckVon = useCallback((index: number): (() => void) | null => {
-    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);
-    return ziel === null ? null : () => gotoIndex(ziel);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
@@ -445,7 +387,6 @@ function ScreencastPageInner() {
     else if (result.scripts) setImportedScripts(result.scripts);
   }, [setImportError, setImportedScripts]);
 
-
   // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
   const handleAcceptScripts = useCallback(() => {
     autosaveScripts(slides.map((s) => s.script), true); // save accepted_scripts.json
@@ -461,12 +402,29 @@ function ScreencastPageInner() {
     }
   }, [translateJobUuid, slides, autosaveScripts, dpi]);
 
-  const abbrechenUndZurueck = useCallback(async () => {
+  /** Lets go of the running job and stops it on the server, null when there was none. */
+  const stoppeLauf = useCallback((loeschen: boolean): Promise<unknown> | null => {
     const uuid = currentJobUuidRef.current;
     currentJobUuidRef.current = null;
     abortControllerRef.current?.abort();
-    if (uuid) {
-      await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+    if (!uuid) return null;
+    const anfrage = loeschen
+      ? fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" })
+      : fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" });
+    return anfrage.catch(() => {});
+  }, []);
+
+  /** Stops a run that is still loading and returns to the step before it. */
+  const ladenAbbrechen = useCallback((loeschen: boolean, zurueck: "upload" | "translation-review") => {
+    if (stoppeLauf(loeschen)) notifyJobsChanged();
+    dispatch({ type: "SET_STEP", step: zurueck });
+    dispatch({ type: "SET_LOADING", loading: false });
+  }, [stoppeLauf]);
+
+  const abbrechenUndZurueck = useCallback(async () => {
+    const gestoppt = stoppeLauf(false);
+    if (gestoppt) {
+      await gestoppt;
       notifyJobsChanged();
     }
     sessionStorage.removeItem(RENDER_SESSION_KEY);
@@ -475,15 +433,11 @@ function ScreencastPageInner() {
     setRenderProgressLabel("");
     dispatch({ type: "SET_STEP", step: "tts-settings" });
     dispatch({ type: "SET_LOADING", loading: false });
-  }, []);
+  }, [stoppeLauf]);
 
   // The backend sets the file name in the header, so a plain link is enough.
   const handleDownload = () => {
-    if (!audioId) return;
-    const a = document.createElement("a");
-    a.href = `/api/jobs/${audioId}/download`;
-    a.download = "";
-    a.click();
+    if (audioId) triggerUrlDownload(`/api/jobs/${audioId}/download`);
   };
 
   // ── Back to script review (from tts-settings) ──
@@ -492,29 +446,12 @@ function ScreencastPageInner() {
     dispatch({ type: "SET_STEP", step: "script-review" });
   };
 
-  // ── Track max reached step ──
-  useEffect(() => {
-    dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
-  }, [step]);
-
   const showStepIndicator = step !== "upload" && step !== "error";
 
   // Only the chosen slides count, otherwise the start button stays locked after unticking.
-  const gewaehlteFolien = new Set(auswahl.imScreencast);
-  const totalWords = slides.reduce(
-    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + wordCount(s.script) : sum),
-    0,
-  );
-  const totalChars = slides.reduce(
-    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + (s.script?.length ?? 0) : sum),
-    0,
-  );
+  const { totalWords, totalChars, geaenderteOhneHaken } =
+    folienZahlen(slides, auswahl.imScreencast, auswahl.geaendert, auswahl.neuVertonen);
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
-  // Changed but not yet ticked: the audio would otherwise stay the old one.
-  const geaenderteOhneHaken = auswahl.geaendert.filter(
-    (i) => auswahl.imScreencast.includes(i) && !auswahl.neuVertonen.includes(i),
-  ).length;
-
 
   return (
     <ProtectedRoute>
@@ -601,17 +538,7 @@ function ScreencastPageInner() {
         {!resumeBusy && step === "translating" && (
           <TranslatingStep
             skipTranslation={skipTranslation}
-            onCancel={() => {
-              const uuid = currentJobUuidRef.current;
-              currentJobUuidRef.current = null;
-              abortControllerRef.current?.abort();
-              if (uuid) {
-                fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-                notifyJobsChanged();
-              }
-              dispatch({ type: "SET_STEP", step: "upload" });
-              dispatch({ type: "SET_LOADING", loading: false });
-            }}
+            onCancel={() => ladenAbbrechen(true, "upload")}
           />
         )}
 
@@ -700,17 +627,7 @@ function ScreencastPageInner() {
         {!resumeBusy && step === "generating-scripts" && (
           <GeneratingScriptsStep
             slideCount={slides.length}
-            onCancel={() => {
-              const uuid = currentJobUuidRef.current;
-              currentJobUuidRef.current = null;
-              abortControllerRef.current?.abort();
-              if (uuid) {
-                fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-                notifyJobsChanged();
-              }
-              dispatch({ type: "SET_STEP", step: "translation-review" });
-              dispatch({ type: "SET_LOADING", loading: false });
-            }}
+            onCancel={() => ladenAbbrechen(false, "translation-review")}
           />
         )}
 

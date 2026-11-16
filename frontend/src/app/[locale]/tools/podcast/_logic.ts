@@ -1,3 +1,4 @@
+import { wordCount } from "@/lib/text";
 import { STEPS, type JobStatus, type Line, type PodcastState, type Source, type Step } from "./_types";
 
 /** States in which the job moves on by itself, so the page keeps asking. */
@@ -8,7 +9,7 @@ const WORDS_PER_MINUTE = 140;
 
 export const stepIndex = (step: Step): number => STEPS.indexOf(step);
 
-export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
+export { wordCount };
 export const wordsOf = (lines: Line[]): number => lines.reduce((n, l) => n + wordCount(l.text), 0);
 export const minutesOf = (lines: Line[]): number => Math.max(1, Math.round(wordsOf(lines) / WORDS_PER_MINUTE));
 

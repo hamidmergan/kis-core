@@ -1,6 +1,7 @@
 "use client";
 
-import type { JobProgress, JobStatus, Line, PodcastState } from "./_types";
+import { defaultPersons } from "./_reducer";
+import type { JobProgress, JobStatus, Line, Person, PodcastState } from "./_types";
 
 interface PodcastParamsView {
   language: "de" | "en";
@@ -33,14 +34,38 @@ async function fehlerText(res: Response): Promise<string> {
   return typeof detail === "string" ? detail : "";
 }
 
-/** Step one: material and cast go out, a job comes back. */
-export async function startPodcast(state: PodcastState, llmProviderId: number | null): Promise<string> {
-  const persons = state.persons.slice(0, state.count).map((p) => ({
+/** The cast the way the server takes it, only as many persons as the podcast has. */
+const besetzung = (state: PodcastState) =>
+  state.persons.slice(0, state.count).map((p) => ({
     name: p.name.trim(),
     role: p.role,
     voice_id: p.voiceId,
     provider_id: p.providerId,
   }));
+
+/** What the saved settings of a podcast mean for the page, the cast filled up to four cards. */
+export function standAusParams(p: PodcastParamsView): Pick<PodcastState, "language" | "instructions" | "length" | "style" | "speed" | "count" | "persons"> {
+  const personen: Person[] = p.persons.map((x) => ({
+    name: x.name,
+    role: x.role as Person["role"],
+    voiceId: x.voice_id,
+    providerId: x.provider_id,
+  }));
+  return {
+    language: p.language,
+    instructions: p.instructions,
+    length: p.length as PodcastState["length"],
+    style: p.style as PodcastState["style"],
+    speed: p.speed,
+    count: Math.min(4, Math.max(1, personen.length)) as PodcastState["count"],
+    // The saved cast first, the rest keeps its defaults so four cards stay fillable.
+    persons: [...personen, ...defaultPersons().slice(personen.length)],
+  };
+}
+
+/** Step one: material and cast go out, a job comes back. */
+export async function startPodcast(state: PodcastState, llmProviderId: number | null): Promise<string> {
+  const persons = besetzung(state);
   const form = new FormData();
   form.append("params", JSON.stringify({
     language: state.language,
@@ -64,12 +89,7 @@ export async function startPodcast(state: PodcastState, llmProviderId: number | 
 
 /** A new cast for a podcast that already exists, material and language stay as they were. */
 export async function savePodcastParams(jobUuid: string, state: PodcastState): Promise<void> {
-  const persons = state.persons.slice(0, state.count).map((p) => ({
-    name: p.name.trim(),
-    role: p.role,
-    voice_id: p.voiceId,
-    provider_id: p.providerId,
-  }));
+  const persons = besetzung(state);
   const res = await fetch(`/api/podcast/${jobUuid}/params`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

@@ -85,9 +85,6 @@ export const startBuild = (uuid: string) => post(`/api/praesentation/${uuid}/bui
 export const saveSlide = (uuid: string, slide: Slide) =>
   put(`/api/praesentation/${uuid}/slides/${slide.id}`, slide).then((r) => json<Slide>(r));
 
-export const regenSlide = (uuid: string, id: string, messages: { role: string; content: string }[], selectedText: string) =>
-  post(`/api/praesentation/${uuid}/slides/${id}/regen`, { messages, selected_text: selectedText }).then((r) => json<Slide>(r));
-
 export const regenImage = (uuid: string, id: string, prompts: string[]) =>
   post(`/api/praesentation/${uuid}/slides/${id}/image`, { prompts }).then((r) => json<unknown>(r));
 

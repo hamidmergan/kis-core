@@ -10,7 +10,7 @@ import type { useRenderResult } from "@/hooks/useRenderResult";
 import { computeVoiceLabel, laufStempelAusMeta, mitLaufStempel, renderProgress, type RenderProgress } from "../_utils";
 import type { FlowAction } from "../_reducer";
 
-const RENDER_SESSION_KEY = "kis_screencast_active_render";
+export const RENDER_SESSION_KEY = "kis_screencast_active_render";
 
 export interface RenderFlowMessages {
   stuck: string;
@@ -332,7 +332,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   }, []);
 
   return {
-    onRenderProgress,
     handleStartRender,
     handleRetryRender,
     newSignal,

@@ -6,7 +6,7 @@ import ExitConfirmModal from "./ExitConfirmModal";
 
 interface Props {
   slides: SlideData[];
-  pendingExit: "restart" | "cancel" | "render" | null;
+  pendingExit: "cancel" | "render" | null;
   onExitCancel: () => void;
   onExitConfirm: () => void;
   lightboxIndex: number | null;
@@ -36,7 +36,6 @@ export default function ScreencastOverlays({
           onIndexChange={onLightboxIndexChange}
         />
       )}
-
     </>
   );
 }

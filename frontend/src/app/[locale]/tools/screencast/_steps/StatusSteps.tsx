@@ -5,6 +5,7 @@ import { ErgebnisInfoKnopf, useErgebnisAngaben, type Auftrag } from "@/component
 import { sprachName } from "@/lib/format";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
+import { triggerUrlDownload } from "@/lib/download";
 import { mitLaufStempel } from "../_utils";
 
 const cancelIcon = (
@@ -156,12 +157,7 @@ export function DoneStep({
   const gelesen = useErgebnisAngaben(demoAuftrag === undefined && audioId ? audioId : null);
   const auftrag = demoAuftrag === undefined ? gelesen : demoAuftrag;
   // The link deliberately does not sit in the page, otherwise the top loader runs forever.
-  const onDownloadZip = () => {
-    const a = document.createElement("a");
-    a.href = zipUrl ?? `/api/jobs/${audioId}/bundle`;
-    a.download = "";
-    a.click();
-  };
+  const onDownloadZip = () => triggerUrlDownload(zipUrl ?? `/api/jobs/${audioId}/bundle`);
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
       <div className="relative rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">

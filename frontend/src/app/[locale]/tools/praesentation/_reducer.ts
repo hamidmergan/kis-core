@@ -1,5 +1,5 @@
 import { LAEUFT, stepIndex } from "./_logic";
-import type { JobProgress, JobStatus, Language, Outline, OutlineRow, PraesentationState, Slide, Source, Step } from "./_types";
+import { STANDARD_VORLAGE, type JobProgress, type JobStatus, type Language, type Outline, type OutlineRow, type PraesentationState, type Slide, type Source, type Step } from "./_types";
 
 export const INITIAL_STATE: PraesentationState = {
   step: "content",
@@ -11,7 +11,7 @@ export const INITIAL_STATE: PraesentationState = {
   language: "de",
   notes: false,
   notesInclude: true,
-  templateId: "thl",
+  templateId: STANDARD_VORLAGE,
   jobUuid: null,
   jobStatus: "idle",
   progress: null,
@@ -49,10 +49,8 @@ export type Action =
   | { type: "UPDATE_ROW"; row: OutlineRow }
   | { type: "MOVE_ROW"; id: string; delta: -1 | 1 }
   | { type: "DELETE_ROW"; id: string }
-  | { type: "ADD_ROW"; title: string }
   | { type: "UPDATE_SLIDE"; slide: Slide }
   | { type: "MOVE_SLIDE"; id: string; delta: -1 | 1 }
-  | { type: "DELETE_SLIDE"; id: string }
   | { type: "PREVIEW_FRESH"; id: string }
   | { type: "IN_ARBEIT"; ids: string[] }
   | { type: "FAIL"; error: string };
@@ -131,20 +129,10 @@ export function reducer(state: PraesentationState, action: Action): Praesentatio
     case "DELETE_ROW":
       if (!state.outline) return state;
       return { ...state, outline: { ...state.outline, rows: state.outline.rows.filter((r) => r.id !== action.id) } };
-    case "ADD_ROW": {
-      if (!state.outline) return state;
-      // Before the closing slide, with a placeholder id the server replaces on save.
-      const rows = [...state.outline.rows];
-      const neu: OutlineRow = { id: `neu${rows.length}`, role: "text", title: action.title, gist: "" };
-      rows.splice(Math.max(rows.length - 1, 0), 0, neu);
-      return { ...state, outline: { ...state.outline, rows } };
-    }
     case "UPDATE_SLIDE":
       return { ...state, slides: state.slides.map((s) => (s.id === action.slide.id ? action.slide : s)) };
     case "MOVE_SLIDE":
       return { ...state, slides: move(state.slides, action.id, action.delta) };
-    case "DELETE_SLIDE":
-      return { ...state, slides: state.slides.filter((s) => s.id !== action.id) };
     case "PREVIEW_FRESH":
       return { ...state, previews: { ...state.previews, [action.id]: (state.previews[action.id] ?? 0) + 1 } };
     case "IN_ARBEIT":

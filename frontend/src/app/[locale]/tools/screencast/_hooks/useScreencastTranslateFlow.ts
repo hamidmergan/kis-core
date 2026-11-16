@@ -4,7 +4,7 @@ import { useCallback, type Dispatch, type MutableRefObject } from "react";
 import { api, parseDetail, pollJob } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
-import { triggerBlobDownload } from "../_utils";
+import { triggerBlobDownload } from "@/lib/download";
 import type { FlowAction } from "../_reducer";
 
 interface TranslateResponse {

@@ -53,7 +53,6 @@ export type Action =
   | { type: "SET_PERSON"; index: number; person: Partial<Person> }
   | { type: "SET_LENGTH"; length: Length }
   | { type: "SET_STYLE"; style: Style }
-  | { type: "SET_SPEED"; speed: number }
   | { type: "STARTING" }
   | { type: "STARTED"; jobUuid: string }
   | { type: "JOB"; status: JobStatus; progress: JobProgress | null; error?: string | null; seconds?: number | null }
@@ -95,15 +94,14 @@ export function reducer(state: PodcastState, action: Action): PodcastState {
       return { ...state, length: action.length };
     case "SET_STYLE":
       return { ...state, style: action.style };
-    case "SET_SPEED":
-      return { ...state, speed: action.speed };
     case "STARTING":
       return { ...enter(state, "script"), starting: true, error: "", lines: [], voicedIds: [], progress: null, seconds: null };
     case "STARTED":
       return { ...state, starting: false, jobUuid: action.jobUuid, jobStatus: "pending" };
     case "JOB": {
       const next = { ...state, jobStatus: action.status, progress: action.progress, starting: false };
-      if (action.error) next.error = action.error;
+      // A stale error must not survive a run that is going again or already done.
+      next.error = action.error || (action.status === "failed" || action.status === "paused" ? state.error : "");
       if (action.seconds != null) next.seconds = action.seconds;
       if (action.status === "success") return enter(next, "done");
       return next;

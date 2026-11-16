@@ -12,7 +12,7 @@ import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
 import { ProviderPicker, showProviderField } from "@/components/tools/ProviderSelect";
 import StepFooter from "./StepFooter";
 
-const ACCEPTED_EXTENSIONS = [".pptx"];
+export const ACCEPTED_EXTENSIONS = [".pptx"];
 
 type Zeile = "file" | "language" | "glossary" | "provider";
 

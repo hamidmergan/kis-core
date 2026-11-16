@@ -10,18 +10,18 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { useVoices } from "@/hooks/useVoices";
 import { useRouter } from "@/i18n/navigation";
-import { DEMO_JOB, fetchDemo } from "../podcast/_api";
+import { DEMO_JOB, fetchDemo, standAusParams } from "../podcast/_api";
 import PodcastStepper from "../podcast/_components/PodcastStepper";
 import Stimmvergleich from "../podcast/_components/Stimmvergleich";
 import { demoSkript, demoVertonung, warte, type DemoView } from "../podcast/_demo";
 import { closedForGood, isBusy, reachable } from "../podcast/_logic";
-import { INITIAL_STATE, defaultPersons, reducer } from "../podcast/_reducer";
+import { INITIAL_STATE, reducer } from "../podcast/_reducer";
 import CastStep from "../podcast/_steps/CastStep";
 import ContentStep from "../podcast/_steps/ContentStep";
 import DoneStep from "../podcast/_steps/DoneStep";
 import ScriptStep from "../podcast/_steps/ScriptStep";
 import VoicingStep from "../podcast/_steps/VoicingStep";
-import { STEPS, type Line, type Person, type PodcastState, type Step } from "../podcast/_types";
+import { STEPS, type Line, type Step } from "../podcast/_types";
 
 const BEENDEN = "inline-flex items-center rounded px-3.5 py-1.5 text-xs font-semibold border-2 border-transparent hover:border-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
 const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
@@ -43,17 +43,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
     fetchDemo()
       .then((v) => {
         setView(v);
-        const p = v.params;
-        if (!p) return;
-        const personen: Person[] = p.persons.map((x) => ({
-          name: x.name, role: x.role as Person["role"], voiceId: x.voice_id, providerId: x.provider_id,
-        }));
-        dispatch({ type: "RESTORE", state: {
-          language: p.language, instructions: p.instructions,
-          length: p.length as PodcastState["length"], style: p.style as PodcastState["style"], speed: p.speed,
-          count: Math.min(4, Math.max(1, personen.length)) as PodcastState["count"],
-          persons: [...personen, ...defaultPersons().slice(personen.length)],
-        } });
+        if (v.params) dispatch({ type: "RESTORE", state: standAusParams(v.params) });
       })
       .catch(() => setFehlt(true));
     return () => abortRef.current?.abort();

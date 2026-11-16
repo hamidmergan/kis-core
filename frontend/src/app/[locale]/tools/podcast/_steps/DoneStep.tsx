@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { ErgebnisInfoKnopf, useErgebnisAngaben, type Auftrag } from "@/components/jobs/ErgebnisInfo";
+import { triggerUrlDownload } from "@/lib/download";
 import { sprachName } from "@/lib/format";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
@@ -46,14 +47,6 @@ export default function DoneStep(props: DoneStepProps) {
   const minutes = seconds != null ? Math.max(1, Math.round(seconds / 60)) : minutesOf(lines);
   const offen = linesToVoice(lines, voicedIds).length;
 
-  // The finished file is downloaded, not streamed: a link keeps the loader quiet.
-  const speichern = (url: string, name: string) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-  };
-
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
       <div className="relative rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
@@ -93,11 +86,11 @@ export default function DoneStep(props: DoneStepProps) {
       {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
       <div className="flex flex-col">
         <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 -mb-4 rounded-b-xl px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:flex-wrap sm:justify-center sm:gap-3">
-          <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={`${LINK} justify-center`}>
+          <button type="button" onClick={() => jobUuid && triggerUrlDownload(resultUrl(jobUuid), "podcast.mp3")} className={`${LINK} justify-center`}>
             {downloadIcon}
             {t("download")}
           </button>
-          <button type="button" onClick={() => jobUuid && speichern(transcriptUrl(jobUuid), "podcast.txt")} className={`${LINK} justify-center`}>
+          <button type="button" onClick={() => jobUuid && triggerUrlDownload(transcriptUrl(jobUuid), "podcast.txt")} className={`${LINK} justify-center`}>
             {downloadIcon}
             {t("transcript")}
           </button>

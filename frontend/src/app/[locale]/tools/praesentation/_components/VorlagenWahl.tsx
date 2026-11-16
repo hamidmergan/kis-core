@@ -9,7 +9,7 @@ import Spinner from "@/components/ui/Spinner";
 import { deleteVorlage, listVorlagen, vorlagePreviewUrl } from "../_api";
 import VorlageBearbeiten from "./VorlageBearbeiten";
 import VorlageHochladen from "./VorlageHochladen";
-import type { Vorlage } from "../_types";
+import { STANDARD_VORLAGE, type Vorlage } from "../_types";
 
 // Empty placeholder boxes, the way PowerPoint's own slide master view shows them without content.
 const FOLIENMASTER_SKIZZE = (
@@ -51,7 +51,7 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGew
 
   const loeschen = async (id: string) => {
     await deleteVorlage(id).catch(() => undefined);
-    if (templateId === id) onTemplate("thl");
+    if (templateId === id) onTemplate(STANDARD_VORLAGE);
     laden();
   };
 

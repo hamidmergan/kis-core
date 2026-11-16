@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 
 interface ExitConfirmModalProps {
-  mode: "cancel" | "restart" | "render";
+  mode: "cancel" | "render";
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -14,7 +14,6 @@ interface ExitConfirmModalProps {
 // Cancelling the render deletes nothing, hence its own texts instead of the discard warning.
 const TEXTE = {
   cancel: { titel: "exit.cancelTitle", text: "exit.body", warnung: "exit.warning", ja: "exit.confirm", nein: "common.cancel" },
-  restart: { titel: "exit.restartTitle", text: "exit.body", warnung: "exit.warning", ja: "exit.confirm", nein: "common.cancel" },
   render: { titel: "exit.renderTitle", text: "exit.renderBody", warnung: "exit.renderWarning", ja: "exit.renderConfirm", nein: "exit.renderKeep" },
 } as const;
 

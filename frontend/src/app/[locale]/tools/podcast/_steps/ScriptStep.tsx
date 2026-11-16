@@ -33,7 +33,6 @@ interface ScriptStepProps {
   selfWritten: boolean;
   /** The instruction named something the material does not cover. */
   instructionUnmatched: boolean;
-  /** The contribution whose text is marked, so the chat can work on that spot. */
   onUpdate: (id: string, text: string) => void;
   onSpeaker: (id: string, speaker: number) => void;
   onDelete: (id: string) => void;

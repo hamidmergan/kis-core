@@ -7,11 +7,10 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useTickEventTask } from "@/lib/event/tasks";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
 import { useRouter } from "@/i18n/navigation";
 import { parseDetail } from "@/lib/api";
 import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
-import { wordCount } from "@/lib/text";
+import { triggerUrlDownload } from "@/lib/download";
 import { useVoices } from "@/hooks/useVoices";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
 import { useScriptEditing } from "@/hooks/useScriptEditing";
@@ -29,8 +28,9 @@ import type { Auftrag } from "@/components/jobs/ErgebnisInfo";
 import Lightbox from "../screencast/_components/Lightbox";
 import ZusatzMaterial, { KEIN_MATERIAL } from "../screencast/_components/ZusatzMaterial";
 import { useFolienAuswahl } from "../screencast/_hooks/useFolienAuswahl";
+import { useSchrittNavigation } from "../screencast/_hooks/useSchrittNavigation";
 import { flowReducer, INITIAL_FLOW_STATE } from "../screencast/_reducer";
-import { sprachIdFuerLocale } from "../screencast/_utils";
+import { folienZahlen, sprachIdFuerLocale } from "../screencast/_utils";
 
 const DEMO_API = "/api/screencast-demo";
 const KEIN_TON: boolean[] = [];
@@ -47,13 +47,6 @@ function warte(ms: number, signal: AbortSignal): Promise<void> {
       reject(new DOMException("aborted", "AbortError"));
     });
   });
-}
-
-function herunterladen(href: string) {
-  const a = document.createElement("a");
-  a.href = href;
-  a.download = "";
-  a.click();
 }
 
 /** The real screencast steps on a prepared run, only own files are locked. */
@@ -88,11 +81,13 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   // What the prepared video of the chosen language was made with, for the info next to the result.
   const [auftrag, setAuftrag] = useState<Auftrag | null>(null);
   useEffect(() => {
+    let abgebrochen = false;
     setAuftrag(null);
     fetch(`${DEMO_API}/angaben?sprache=${sprache}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => data && setAuftrag(data))
+      .then((data) => { if (data && !abgebrochen) setAuftrag(data); })
       .catch(() => {});
+    return () => { abgebrochen = true; };
   }, [sprache]);
   const video = `${DEMO_API}/video?sprache=${sprache}`;
 
@@ -132,9 +127,9 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  useEffect(() => {
-    dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
-  }, [step]);
+  const { handleStepClick, zurueckVon } = useSchrittNavigation({
+    step, maxReachedIdx, skipTranslation, hatErgebnis: videoUrl !== null, dispatch,
+  });
 
   const neuerLauf = () => {
     abortRef.current?.abort();
@@ -245,30 +240,12 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
     dispatch({ type: "ENTER_STEP", step: ziel, loading: false });
   };
 
-  const gotoIndex = useCallback((index: number) => {
-    const target = indexToStep(index);
-    if (target) dispatch({ type: "SET_STEP", step: target });
-  }, []);
-
-  const handleStepClick = useCallback((index: number) => {
-    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
-    gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
-
-  const zurueckVon = (index: number): (() => void) | null => {
-    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);
-    return ziel === null ? null : () => gotoIndex(ziel);
-  };
-
   const rueckblick = step === "rendering" && videoUrl !== null;
   const gewaehlt = new Set(auswahl.imScreencast);
   const nichtDabei = slides.map((_, i) => i).filter((i) => !gewaehlt.has(i));
-  const totalWords = slides.reduce((sum, s, i) => (gewaehlt.has(i) ? sum + wordCount(s.script) : sum), 0);
-  const totalChars = slides.reduce((sum, s, i) => (gewaehlt.has(i) ? sum + (s.script?.length ?? 0) : sum), 0);
+  const { totalWords, totalChars, geaenderteOhneHaken } =
+    folienZahlen(slides, auswahl.imScreencast, auswahl.geaendert, auswahl.neuVertonen);
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
-  const geaenderteOhneHaken = auswahl.geaendert.filter(
-    (i) => gewaehlt.has(i) && !auswahl.neuVertonen.includes(i),
-  ).length;
   const zeigtKopf = step !== "upload" && step !== "error";
   const beenden = () => {
     abortRef.current?.abort();
@@ -348,7 +325,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             skipTranslation={skipTranslation}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={async () => {
-              herunterladen(`${DEMO_API}/pptx?sprache=${sprache}`);
+              triggerUrlDownload(`${DEMO_API}/pptx?sprache=${sprache}`);
               return true;
             }}
             onUploadCorrectedPptx={() => {}}
@@ -484,7 +461,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             videoUrl={videoUrl}
             audioId=""
             laufStempel=""
-            onDownloadMp4={() => herunterladen(`${video}&download=true`)}
+            onDownloadMp4={() => triggerUrlDownload(`${video}&download=true`)}
             onReset={onNeu}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
             zipUrl={`${DEMO_API}/bundle?sprache=${sprache}`}

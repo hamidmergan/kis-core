@@ -2,6 +2,10 @@ import type { JobStatus } from "@/lib/api";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import type { SlideData } from "@/types";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
+import { wordCount } from "@/lib/text";
+
+// Other areas still import the download helper from here.
+export { triggerBlobDownload } from "@/lib/download";
 
 export function computeVoiceLabel(
   providerId: number,
@@ -92,17 +96,6 @@ export async function checkJobFolderExists(jobUuid: string): Promise<boolean> {
   } catch {
     return true; // Network error — let backend decide
   }
-}
-
-export function triggerBlobDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> {
@@ -250,8 +243,6 @@ export function ausgeschlosseneFolien(
   return Array.from({ length: anzahl }, (_, i) => i).filter((i) => !dabei.has(i));
 }
 
-/** Maps the interface language onto an offered language code, null otherwise. */
-/** The speaker notes of the job's current deck, one per slide. */
 /** The notes in the script language, or the server's reason why not (empty when it gave none). */
 export async function holeNotizen(jobUuid: string): Promise<string[] | { fehler: string }> {
   const res = await fetch(`/api/screencast/${jobUuid}/notizen`, { credentials: "include" }).catch(() => null);
@@ -260,6 +251,7 @@ export async function holeNotizen(jobUuid: string): Promise<string[] | { fehler:
   return { fehler: typeof daten?.detail === "string" ? daten.detail : "" };
 }
 
+/** Maps the interface language onto an offered language code, null otherwise. */
 export function sprachIdFuerLocale(
   locale: string,
   languages: { id: string }[],
@@ -267,4 +259,27 @@ export function sprachIdFuerLocale(
   const praefix = locale.toLowerCase().split("-")[0];
   const treffer = languages.find((l) => l.id.toLowerCase().split("-")[0] === praefix);
   return treffer ? treffer.id : null;
+}
+
+/** What step 6 counts over the chosen slides: words, characters and changed slides that keep their old audio. */
+export function folienZahlen(
+  slides: SlideData[],
+  imScreencast: number[],
+  geaendert: number[],
+  neuVertonen: number[],
+): { totalWords: number; totalChars: number; geaenderteOhneHaken: number } {
+  const gewaehlt = new Set(imScreencast);
+  const neu = new Set(neuVertonen);
+  let totalWords = 0;
+  let totalChars = 0;
+  slides.forEach((s, i) => {
+    if (!gewaehlt.has(i)) return;
+    totalWords += wordCount(s.script);
+    totalChars += s.script?.length ?? 0;
+  });
+  return {
+    totalWords,
+    totalChars,
+    geaenderteOhneHaken: geaendert.filter((i) => gewaehlt.has(i) && !neu.has(i)).length,
+  };
 }

@@ -22,10 +22,10 @@ import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
-import { cancelJob, demoAvailable, fetchJob, fetchPodcast, retryJob, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
+import { cancelJob, demoAvailable, fetchJob, fetchPodcast, retryJob, savePodcastParams, saveScript, standAusParams, startPodcast, startRender, type PodcastView } from "./_api";
 import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
-import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
-import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
+import { INITIAL_STATE, reducer } from "./_reducer";
+import { STEPS, type Line, type Step } from "./_types";
 
 // Same quiet discard link as the screencast tool.
 const DISCARD = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
@@ -63,34 +63,25 @@ function PodcastPageInner() {
   stateRef.current = state;
 
   /** Lines, cast and the voiced list always come from the server, never from a guess. */
-  const holeStand = useCallback(async (jobUuid: string, uebernehmen = true) => {
-    const view = await fetchPodcast(jobUuid);
-    if (uebernehmen) dispatch({ type: "LINES", lines: view.lines, voicedIds: view.voiced });
+  const uebernehmeStand = useCallback((view: PodcastView) => {
+    dispatch({ type: "LINES", lines: view.lines, voicedIds: view.voiced });
     if (view.params) {
-      const personen = view.params.persons.map((p) => ({
-        name: p.name,
-        role: p.role as Person["role"],
-        voiceId: p.voice_id,
-        providerId: p.provider_id,
-      }));
       dispatch({
         type: "RESTORE",
         state: {
-          language: view.params.language,
-          instructions: view.params.instructions,
-          length: view.params.length as PodcastState["length"],
-          style: view.params.style as PodcastState["style"],
-          speed: view.params.speed,
-          count: Math.min(4, Math.max(1, personen.length)) as PodcastState["count"],
+          ...standAusParams(view.params),
           selfWritten: view.params.self_written,
           instructionUnmatched: view.params.instruction_unmatched,
-          // The saved cast first, the rest keeps its defaults so four cards stay fillable.
-          persons: [...personen, ...defaultPersons().slice(personen.length)],
         },
       });
     }
-    return view;
   }, []);
+
+  const holeStand = useCallback(async (jobUuid: string) => {
+    const view = await fetchPodcast(jobUuid);
+    uebernehmeStand(view);
+    return view;
+  }, [uebernehmeStand]);
 
   // Without a job in the address the visit starts fresh.
   useEffect(() => {
@@ -102,11 +93,15 @@ function PodcastPageInner() {
     }
     // The page just wrote its own job into the address, there is nothing to load.
     if (ausListe === stateRef.current.jobUuid) return;
+    // Leaving for another address while this one loads must not bring its job back.
+    let abgebrochen = false;
     setOeffnenGescheitert(false);
     dispatch({ type: "RESTORE", state: { jobUuid: ausListe } });
-    holeStand(ausListe)
+    fetchPodcast(ausListe)
       .then(async (view) => {
         const meta = view.status === "success" ? await fetchJob(ausListe).catch(() => null) : null;
+        if (abgebrochen) return;
+        uebernehmeStand(view);
         dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error,
                    seconds: meta?.meta?.seconds ?? null });
         if (view.status === "pending" || view.status === "running" || view.status === "waiting_retry") {
@@ -122,13 +117,15 @@ function PodcastPageInner() {
         }
       })
       .catch(() => {
+        if (abgebrochen) return;
         // Job expired or deleted, the page falls back to a fresh start and says so.
         dispatch({ type: "RESET" });
         setOeffnenGescheitert(true);
         window.history.replaceState(null, "", window.location.pathname);
       })
-      .finally(() => setHydrated(true));
-  }, [holeStand, ausListe]);
+      .finally(() => { if (!abgebrochen) setHydrated(true); });
+    return () => { abgebrochen = true; };
+  }, [uebernehmeStand, ausListe]);
 
   useEffect(() => {
     demoAvailable().then(setDemoDa);

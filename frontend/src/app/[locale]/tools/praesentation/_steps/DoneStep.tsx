@@ -4,6 +4,7 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Spinner from "@/components/ui/Spinner";
+import { triggerUrlDownload } from "@/lib/download";
 import type { Auftrag } from "@/components/jobs/ErgebnisInfo";
 import FolienBetrachter from "../_components/FolienBetrachter";
 import PraesentationInfo from "../_components/PraesentationInfo";
@@ -79,12 +80,7 @@ export default function DoneStep(p: DoneStepProps) {
   }
 
   // The link deliberately does not sit in the page, otherwise the top loader runs forever.
-  const herunterladen = () => {
-    const a = document.createElement("a");
-    a.href = downloadUrl(p.jobUuid);
-    a.download = "";
-    a.click();
-  };
+  const herunterladen = () => triggerUrlDownload(downloadUrl(p.jobUuid));
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] py-4">
