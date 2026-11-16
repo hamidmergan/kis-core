@@ -3,7 +3,7 @@
 import { useId } from "react";
 import type { MascotState } from "./Mascot";
 
-export interface FrancisProps {
+interface FrancisProps {
   size?: number;
   state?: MascotState;
   className?: string;

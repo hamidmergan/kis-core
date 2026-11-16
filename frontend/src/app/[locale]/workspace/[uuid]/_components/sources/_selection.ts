@@ -3,7 +3,7 @@ import type { Source } from "../../_types";
 /** A source is only selectable once reading is finished. */
 export const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
 
-export type GroupState = "none" | "some" | "all";
+type GroupState = "none" | "some" | "all";
 
 /** Three states of a group checkbox, unfinished files count nowhere unless the caller says otherwise. */
 export function groupState(list: Source[], selected: string[], selectable = isFullyReady): GroupState {

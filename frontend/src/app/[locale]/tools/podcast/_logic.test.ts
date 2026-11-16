@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closedForGood, failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
+import { failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import type { Line, PodcastState } from "./_types";
 

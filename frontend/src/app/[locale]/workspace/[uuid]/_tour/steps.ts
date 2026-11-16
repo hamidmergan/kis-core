@@ -11,7 +11,7 @@
  * is missing the step is skipped instead of pointing into the void, see
  * useTour.
  */
-export interface TourStep {
+interface TourStep {
   /** Value of the data-tour attribute the step points at. */
   anchor: string;
   /** Key below workspace.detail.tour.steps in the message files. */

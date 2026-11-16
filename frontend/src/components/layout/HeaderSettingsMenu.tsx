@@ -32,13 +32,12 @@ interface HeaderSettingsMenuProps {
   showLogout?: boolean;
   /** Jumps to the FAQ band on the start page. */
   showFaq?: boolean;
-  hasHomeNotice?: boolean;
   /** Open feedback waits in the admin area. */
   adminNotice?: boolean;
   onLogout?: () => void;
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, showFaq = false, hasHomeNotice = false, adminNotice = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, showFaq = false, adminNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");

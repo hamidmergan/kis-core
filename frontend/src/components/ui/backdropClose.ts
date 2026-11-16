@@ -2,7 +2,7 @@ import type { MouseEvent } from "react";
 
 /** A click outside closes, selecting in a field does not, so the click start counts too. */
 
-export type BackdropPress = { startedOnBackdrop: boolean };
+type BackdropPress = { startedOnBackdrop: boolean };
 
 /** The marker for one dialog, it belongs in a ``useRef`` and has to survive redraws. */
 export function newBackdropPress(): BackdropPress {

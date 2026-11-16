@@ -6,12 +6,8 @@ export type Language = "de" | "en";
 // Mirrors limits.py: PRAESENTATION_MIN_SLIDES and PRAESENTATION_MAX_SLIDES, the model picks its own count inside them.
 export const MIN_SLIDES = 3;
 export const MAX_SLIDES = 30;
-// Mirrors schemas.py: MAX_TEXT_ITEMS, MAX_TABLE_ROWS, MAX_CHART_CATEGORIES, MAX_NOTES_CHARS, MAX_SERIES_NAME_CHARS, MAX_PROMPT_CHARS, MAX_TITLE_CHARS, MAX_GIST_CHARS.
-export const MAX_ITEMS = 8;
-export const MAX_ROWS = 6;
-export const MAX_CATEGORIES = 6;
+// Mirrors schemas.py: MAX_NOTES_CHARS, MAX_PROMPT_CHARS, MAX_TITLE_CHARS, MAX_GIST_CHARS.
 export const MAX_NOTES = 1500;
-export const MAX_SERIES_NAME = 60;
 export const MAX_PROMPT = 600;
 export const MAX_TITLE = 120;
 export const MAX_GIST = 300;
@@ -36,12 +32,12 @@ export interface Outline {
   rows: OutlineRow[];
 }
 
-export interface Series {
+interface Series {
   name: string;
   values: number[];
 }
 
-export type BodyKind =
+type BodyKind =
   | "bullets" | "table" | "chart" | "image" | "cards" | "bars" | "highlight"
   | "steps" | "figures" | "levels" | "symbols";
 

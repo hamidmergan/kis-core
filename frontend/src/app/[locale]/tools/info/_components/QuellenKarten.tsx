@@ -7,7 +7,7 @@ import Modal from "@/components/ui/Modal";
 import type { CampusQuelle } from "../_types";
 
 /** The link with a text fragment, so supporting browsers jump to the passage. */
-export function quellenLink(q: CampusQuelle): string | null {
+function quellenLink(q: CampusQuelle): string | null {
   if (!q.url) return null;
   if (!q.fragment) return q.url;
   return `${q.url}#:~:text=${encodeURIComponent(q.fragment)}`;
@@ -29,8 +29,8 @@ function standText(date: string | null, locale: string): string | null {
 }
 
 /** Quiet one-line chip, shared by the source and place chips. */
-export const CHIP_KLASSE = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-transparent bg-background text-xs min-w-0 max-w-full no-underline";
-export const CHIP_HOVER = "hover:border-kb focus:border-kb transition-colors";
+const CHIP_KLASSE = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-transparent bg-background text-xs min-w-0 max-w-full no-underline";
+const CHIP_HOVER = "hover:border-kb focus:border-kb transition-colors";
 
 /** Domain or file name with the date, shown under each source in the dialog. */
 function quellenInfo(q: CampusQuelle, locale: string, t: ReturnType<typeof useTranslations>) {

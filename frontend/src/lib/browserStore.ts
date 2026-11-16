@@ -24,19 +24,19 @@ export interface Prefs {
   welcomeSeen?: number[];
 }
 
-export interface WorkspaceUi {
+interface WorkspaceUi {
   panels?: Record<string, boolean>;
   closedChapters?: string[];
   /** Last write, the oldest workspaces are dropped first. */
   at: number;
 }
 
-export interface PendingTranslation {
+interface PendingTranslation {
   ts: number;
   lang: string;
 }
 
-export interface UserData {
+interface UserData {
   /** Diagnosis chat draft per user id. */
   diagnosis?: Record<string, unknown[]>;
   /** Running transcript translation per source uuid. */

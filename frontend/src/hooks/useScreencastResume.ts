@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ScreencastStep, SlideData } from "@/types";
 
-export interface ScreencastResumePayload {
+interface ScreencastResumePayload {
   jobUuid: string;
   slides: SlideData[];
   step: ScreencastStep;

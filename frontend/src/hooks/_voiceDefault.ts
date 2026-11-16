@@ -1,7 +1,7 @@
 import type { ProviderWithVoices } from "./useVoices";
 
 /** The voice the server names as the admin's standard, as it arrives from the voice list. */
-export type ServerDefaultVoice = { provider_id: number; voice_id: string } | null | undefined;
+type ServerDefaultVoice = { provider_id: number; voice_id: string } | null | undefined;
 
 /** The server's standard voice while it is listed, otherwise the first voice of the first provider. */
 export function preselectedVoice(

@@ -1,7 +1,7 @@
 export type Side = "left" | "right";
 export type LangCode = "DE" | "EN-US";
 /** Pending: typed and not sent for translation yet. */
-export type TurnStatus = "transcribing" | "pending" | "translating" | "done" | "failed";
+type TurnStatus = "transcribing" | "pending" | "translating" | "done" | "failed";
 
 /** One thing somebody said or typed, kept in both languages. */
 export interface Turn {

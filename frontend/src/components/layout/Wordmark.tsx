@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 /** The name of the platform as text, for places that need it as a string. */
-export const BRAND_NAME = "askFrancis";
+const BRAND_NAME = "askFrancis";
 
 // The wordmark has no bird, so it is flatter: these heights keep the width the old logo had.
 const SIZES = { sm: { plate: "logo-plate logo-plate--sm", img: "h-3.5", francis: "h-[1.625rem]" }, md: { plate: "logo-plate", img: "h-[1.0625rem]", francis: "h-[2.125rem]" } } as const;

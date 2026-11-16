@@ -3,7 +3,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { dateQualifier, effectiveDueDate, todayISO, urgencyColor } from "./utils";
 import { YearLabel } from "./YearLabel";
 
-export interface DatedEntry {
+interface DatedEntry {
   id: number | string;
   due_date: string | null;
   /** When set, the appointment runs until this day. */

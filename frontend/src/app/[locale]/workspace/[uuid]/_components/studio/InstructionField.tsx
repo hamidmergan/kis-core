@@ -3,7 +3,7 @@
 import { FIELD } from "@/app/[locale]/tools/podcast/_steps/ContentStep";
 
 /** Mirrors AIA_INSTRUCTION_MAX_CHARS in the backend, the schema cuts there too. */
-export const INSTRUCTION_MAX_CHARS = 500;
+const INSTRUCTION_MAX_CHARS = 500;
 
 /** The optional instruction to a tool, the same field the podcast has. */
 export function InstructionField({ id, value, onChange, disabled, label, placeholder }: {

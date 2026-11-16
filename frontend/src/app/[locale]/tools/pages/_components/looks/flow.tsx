@@ -11,8 +11,6 @@ import "./flow.css";
 type Steps = Extract<Block, { kind: "steps" }>;
 type Cycle = Extract<Block, { kind: "cycle" }>;
 type Timeline = Extract<Block, { kind: "timeline" }>;
-type Tree = Extract<Block, { kind: "tree" }>;
-type Levels = Extract<Block, { kind: "levels" }>;
 
 /** CSS custom properties as inline style. */
 const vars = (v: Record<string, string | number>): CSSProperties => v as CSSProperties;

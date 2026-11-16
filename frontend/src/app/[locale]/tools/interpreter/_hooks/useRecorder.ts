@@ -7,7 +7,7 @@ import { createVoiceMeter, type VoiceMeter } from "../_voiceActivity";
 
 export type RecorderError = "mic" | "stt";
 
-export interface RecordingSession {
+interface RecordingSession {
   providerId: number | null;
   /** The language spoken into this microphone, so Whisper does not have to guess it. */
   language: string;

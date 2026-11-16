@@ -8,7 +8,7 @@ export type TaskId = (typeof TASK_IDS)[number];
 type ClientTaskId = Exclude<TaskId, "question">;
 
 /** What the server sends the services page, only accounts from the card's access code see it. */
-export type TaskView =
+type TaskView =
   | { visible: false }
   | {
       visible: true;
@@ -26,7 +26,7 @@ async function request(path: string, init?: RequestInit): Promise<TaskView> {
   return (await res.json()) as TaskView;
 }
 
-export const taskApi = {
+const taskApi = {
   read: () => request(""),
   tick: (id: ClientTaskId) => request(`/${id}`, { method: "POST" }),
 };

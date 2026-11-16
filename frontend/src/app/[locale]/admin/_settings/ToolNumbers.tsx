@@ -12,7 +12,7 @@ import { useSetting, useSettingGroup, type SettingHandle } from "./SettingsProvi
 import { NumberSetting } from "./fields";
 
 /** One number as the backend describes it. */
-export interface ToolNumber {
+interface ToolNumber {
   key: string;
   tool: string;
   default: number;
@@ -21,7 +21,7 @@ export interface ToolNumber {
 }
 
 /** The numbers of one tool, empty while the settings are still loading. */
-export function useToolNumbers(tool: string): ToolNumber[] {
+function useToolNumbers(tool: string): ToolNumber[] {
   const { settings } = useSettingGroup([]);
   const alle = (settings?.tool_numbers ?? []) as ToolNumber[];
   return alle.filter((n) => n.tool === tool);

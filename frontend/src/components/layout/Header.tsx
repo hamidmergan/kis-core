@@ -44,7 +44,6 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   const [mayInterfaces, setMayInterfaces] = useState(false);
   const [mayFeedback, setMayFeedback] = useState(false);
   // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
-  const [hasHomeNotice, setHasHomeNotice] = useState(false);
   // The start-page card can be dismissed for good, the menu row is the way back to it.
   const [evaluationActive, setEvaluationActive] = useState(false);
   // The tour lives in the demo course, the menu only offers it while one exists.
@@ -67,25 +66,6 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
       setMayFeedback(hasPerm(s.permissions, PERM.usersFeedback));
     });
   }, [showLogout, hasSession]);
-
-  useEffect(() => {
-    if (!showLogout) return;
-    let cancelled = false;
-    api
-      .fetch("/api/health/labels", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const text = typeof data.home_notice_text === "string" ? data.home_notice_text : "";
-        setHasHomeNotice(data.home_notice_enabled === true && text.trim().length > 0);
-      })
-      .catch(() => {
-        /* ignore - menu row just stays hidden */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [showLogout]);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -182,7 +162,6 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                   areaKey={areaKey}
                   showLogout={hasSession && !isLocalMode}
                   showFaq={hasSession}
-                  hasHomeNotice={hasHomeNotice}
                   adminNotice={hasSession && isAdmin && feedbackNotice}
                   onLogout={handleLogout}
                 />
@@ -203,7 +182,6 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
                 hasTools={hasTools}
                 hasAia={hasAia}
                 isLocalMode={isLocalMode}
-                hasHomeNotice={hasHomeNotice}
                 adminNotice={isAdmin && feedbackNotice}
                 onLogout={handleLogout}
               />

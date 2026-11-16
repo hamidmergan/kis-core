@@ -16,7 +16,7 @@ export function sourceNumbers(sources?: ExerciseSetSource[] | null): Record<stri
 }
 
 /** Which files the items really cite, the rest of the picked list is only dimmed. */
-export function usedFilenames(items?: ExerciseItem[] | null): Set<string> {
+function usedFilenames(items?: ExerciseItem[] | null): Set<string> {
   const out = new Set<string>();
   for (const item of items || []) {
     if (item.source_label) out.add(item.source_label);

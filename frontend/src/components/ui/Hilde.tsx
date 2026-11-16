@@ -3,7 +3,7 @@
 import { useId } from "react";
 import type { MascotState } from "./Mascot";
 
-export interface HildeProps {
+interface HildeProps {
   size?: number;
   state?: MascotState;
   className?: string;

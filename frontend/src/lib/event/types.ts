@@ -1,6 +1,6 @@
 import type { ToolKey } from "@/lib/modules";
 
-export type Lang = "de" | "en";
+type Lang = "de" | "en";
 export type Text2 = Record<Lang, string>;
 export type IconKey = ToolKey | "francis" | "info" | "gift" | "star" | "lightbulb" | "qrCode" | "platform";
 

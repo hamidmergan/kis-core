@@ -7,7 +7,7 @@ export const DIAGNOSIS_ANSWER_MAX_CHARS = 2000;
 export const DIAGNOSIS_QUESTION_COUNT = 12;
 
 // The six levels, each as its own code.
-export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
 export interface ChatTurn {
   role: "assistant" | "user";

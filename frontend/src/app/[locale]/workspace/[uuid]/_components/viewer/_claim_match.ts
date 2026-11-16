@@ -1,12 +1,12 @@
 // Finds the spot on a PDF page that a chip's claim rests on, pure and testable.
 
-export interface Span {
+interface Span {
   start: number;
   /** Exclusive end. */
   end: number;
 }
 
-export interface ClaimMatch {
+interface ClaimMatch {
   /** A sentence or paragraph, or only the strongest words when none stands out. */
   kind: "passage" | "keywords";
   spans: Span[];
@@ -51,7 +51,7 @@ interface Token {
   value?: number;
 }
 
-export interface NumberHit {
+interface NumberHit {
   value: number;
   start: number;
   end: number;

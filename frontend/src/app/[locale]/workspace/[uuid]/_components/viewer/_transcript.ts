@@ -30,7 +30,7 @@ export interface TextCue extends TimedCue {
   text: string;
 }
 
-export interface CueBlock {
+interface CueBlock {
   start: number;
   end: number;
   /** Index of the first cue in the block. */
@@ -184,7 +184,7 @@ export function buildTranscriptOptions(
 }
 
 /** A translation started more than this long ago counts as lost. */
-export const PENDING_TRANSLATION_TTL_MS = 10 * 60 * 1000;
+const PENDING_TRANSLATION_TTL_MS = 10 * 60 * 1000;
 
 /** The language a running translation waits for, null when there is none. */
 export function readPendingTranslation(raw: string | null, now: number): string | null {
@@ -198,7 +198,7 @@ export function readPendingTranslation(raw: string | null, now: number): string 
   }
 }
 
-export type TranslationProbe =
+type TranslationProbe =
   | { kind: "done" }
   | { kind: "wait" }
   | { kind: "failed"; error: string };
@@ -245,7 +245,7 @@ export function claimOverlap(tokens: string[], line: string): number {
 const COMMON_SHARE = 0.15;
 const MIN_CORPUS_LINES = 8;
 
-export function discriminatingTokens(tokens: string[], corpus: string[]): string[] {
+function discriminatingTokens(tokens: string[], corpus: string[]): string[] {
   if (corpus.length < MIN_CORPUS_LINES) return tokens;
   const hays = corpus.map((l) => l.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " "));
   const limit = hays.length * COMMON_SHARE;
@@ -311,7 +311,7 @@ export function claimLineIndices(claim: string, lines: string[], corpus?: string
 
 // --- Everything one citation jump points at ---------------------------------------------
 
-export interface CitationFocus {
+interface CitationFocus {
   /** First cue of the cited chunk, -1 when there are no cues yet. */
   idx: number;
   /** Last cue of the cited chunk. Equal to `idx` when no chunk end is known. */

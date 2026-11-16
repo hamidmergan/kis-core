@@ -40,7 +40,7 @@ export async function transcribeWindow(blob: Blob, filename: string, providerId:
   return (data.text ?? "").trim();
 }
 
-export interface SessionState {
+interface SessionState {
   id: string;
   left_lang: LangCode;
   right_lang: LangCode;
@@ -66,7 +66,7 @@ export interface SessionSummary {
   first_side: Side;
 }
 
-export interface SessionMeta {
+interface SessionMeta {
   left_lang?: LangCode;
   right_lang?: LangCode;
   left_name?: string;

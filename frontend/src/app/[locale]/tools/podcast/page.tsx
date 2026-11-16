@@ -414,11 +414,9 @@ function PodcastPageInner() {
               <DoneStep
                 jobUuid={state.jobUuid}
                 lines={state.lines}
-                persons={state.persons}
                 count={state.count}
                 voicedIds={state.voicedIds}
                 jobStatus={state.jobStatus}
-                progress={state.progress}
                 seconds={state.seconds}
                 onVoice={vertonen}
                 onEditScript={() => dispatch({ type: "GO", step: "script" })}

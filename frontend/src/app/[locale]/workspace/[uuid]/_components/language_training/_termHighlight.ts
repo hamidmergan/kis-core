@@ -1,6 +1,6 @@
 /** Splits an example sentence into pieces and marks the learned word in it. */
 
-export type ExampleSegment = { text: string; focus: boolean };
+type ExampleSegment = { text: string; focus: boolean };
 
 // Words that can stand before the actual form and mark nothing themselves.
 const LEADING_RE = /^(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|ich|du|er|sie|es|wir|ihr|man|hat|habe|hast|haben|ist|bin|bist|sind|war|waren|sich|zu)\b\s*/i;

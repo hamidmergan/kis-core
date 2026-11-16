@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { MapPin } from "@phosphor-icons/react";
 import MapModal from "./MapModal";
 
-export interface OrtKarteDaten {
+interface OrtKarteDaten {
   id: string;
   code: string | null;
   title: { de?: string; en?: string };

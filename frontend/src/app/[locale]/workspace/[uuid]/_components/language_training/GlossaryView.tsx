@@ -8,7 +8,7 @@ import type { GlossaryEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
-export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
+function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
   const t = useTranslations("workspace.detail.languageTraining.glossary");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

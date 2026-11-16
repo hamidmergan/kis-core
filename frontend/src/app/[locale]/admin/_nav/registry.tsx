@@ -19,16 +19,16 @@ import {
 } from "@phosphor-icons/react";
 
 /** Which product a page concerns. */
-export type World = "tools" | "aia" | "both" | "dev";
+type World = "tools" | "aia" | "both" | "dev";
 
 /** Rank of an area, the sidebar draws a line between two ranks. */
-export type Rank = "product" | "admin" | "dev";
+type Rank = "product" | "admin" | "dev";
 
 /** Order of the ranks in the sidebar. */
 export const RANKS: Rank[] = ["product", "admin", "dev"];
 
 /** Tabs only where one subject splits into two views. */
-export interface AdminTab {
+interface AdminTab {
   slug: string;
   /** Key under admin.sections.<area>.<page>.tabs */
   labelKey: string;
@@ -263,7 +263,7 @@ export const SECTIONS: AdminSection[] = [
   },
 ];
 
-export interface Resolved {
+interface Resolved {
   section: AdminSection;
   page?: AdminPage;
   /** Path without the /admin prefix, always complete, for redirects. */
@@ -303,12 +303,12 @@ export function home(): Resolved | null {
 }
 
 /** The sidebar filters itself so nobody sees a door behind a 403. */
-export function pageAllowed(page: AdminPage, keys: string[]): boolean {
+function pageAllowed(page: AdminPage, keys: string[]): boolean {
   return keys.includes(page.perm);
 }
 
 /** Tabs without a permission of their own hang off their carrier's permission. */
-export function tabAllowed(tab: AdminTab, ownerPerm: string | undefined, keys: string[]): boolean {
+function tabAllowed(tab: AdminTab, ownerPerm: string | undefined, keys: string[]): boolean {
   if (tab.perm) return keys.includes(tab.perm);
   return !!ownerPerm && keys.includes(ownerPerm);
 }
@@ -322,7 +322,7 @@ export function allowedTabs(
   return (tabs ?? []).filter((t) => tabAllowed(t, ownerPerm, keys));
 }
 
-export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
+function sectionAllowed(section: AdminSection, keys: string[]): boolean {
   if (section.pages) return section.pages.some((p) => pageAllowed(p, keys));
   if (section.tabs?.some((t) => t.perm)) return allowedTabs(section.tabs, section.perm, keys).length > 0;
   return !!section.perm && keys.includes(section.perm);

@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { canManage, type WorkspaceAccess } from "@/app/[locale]/workspace/_shared";
 
-export interface ModuleEntry {
+interface ModuleEntry {
   uuid: string;
   title: string;
 }
 
-export interface ModuleSource {
+interface ModuleSource {
   uuid: string;
   filename: string;
 }

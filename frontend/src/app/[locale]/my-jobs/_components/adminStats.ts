@@ -15,7 +15,7 @@ const REIHENFOLGE = [
   "zusammenfuegen",
 ];
 
-export interface Phasenzeile {
+interface Phasenzeile {
   phase: string;
   dauerS: number | null;
   fehler: string | null;

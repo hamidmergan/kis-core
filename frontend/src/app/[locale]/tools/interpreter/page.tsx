@@ -15,7 +15,7 @@ import { createSession, deleteSession, fetchSession, listSessions, patchSession,
 import { createMirror } from "./_mirror";
 import { useConversation } from "./_hooks/useConversation";
 import { useInterpreterConfig } from "./_hooks/useInterpreterConfig";
-import { otherLang, otherSide, type LangCode, type LanguageOption, type Side, type Turn } from "./_types";
+import { otherLang, type LangCode, type LanguageOption, type Side, type Turn } from "./_types";
 
 const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
 

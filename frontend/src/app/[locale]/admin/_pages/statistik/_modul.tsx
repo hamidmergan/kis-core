@@ -100,7 +100,6 @@ export function ModulAnsicht({
   pfad?: string;
 }) {
   const t = useTranslations("admin.statistik");
-  const kachel = useTranslations("workspace.detail.studio.tiles");
   const [roh, setRoh] = useState<Detail | null>(null);
   const [fehler, setFehler] = useState(false);
   const [mitLehrenden, setMitLehrenden] = useState(true);

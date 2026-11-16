@@ -57,7 +57,6 @@ const WORDS: { de: Words; en: Words } = {
     high: "high", low: "low", before: "Before", after: "After", step: "Step",
   },
 };
-export type PageWord = keyof Words;
 
 /** The fixed words in the page's language, English for every language but German. */
 export function usePageWords(): Words {

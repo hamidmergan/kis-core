@@ -73,7 +73,7 @@ export default function CampusChat({
             messages.map((m, i) => (
               // Extra space where the speaker changes.
               <div key={m.id ?? `m-${i}`} className={i > 0 && messages[i - 1].role !== m.role ? "mt-5" : undefined}>
-                <CampusNachricht msg={m} mapUrl={config?.map_url ?? ""} isLatest={i === messages.length - 1} />
+                <CampusNachricht msg={m} mapUrl={config?.map_url ?? ""} />
               </div>
             ))
           )}

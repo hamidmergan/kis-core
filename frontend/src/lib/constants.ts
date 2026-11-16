@@ -10,7 +10,7 @@ export const MAX_TRANSCRIPTION_BYTES = MAX_TRANSCRIPTION_MB * 1024 * 1024;
 export const MAX_TRANSCRIPTION_MINUTES = 100;
 
 /** Max upload size for images (image edit/analyze). */
-export const MAX_IMAGE_MB = 20;
+const MAX_IMAGE_MB = 20;
 export const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 
 /** Max script chars for screencast (mirrors backend SCREENCAST_MAX_CHARS in limits.py). */

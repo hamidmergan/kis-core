@@ -22,7 +22,7 @@ export type Feature =
   | "screencast_translate"
   | "transcript_translate";
 
-export type Protocol = string;
+type Protocol = string;
 
 export type ProviderMeta = {
   protocols: Array<{ id: Protocol; fixed_capabilities: Capability[] }>;
@@ -61,7 +61,7 @@ export type Provider = {
 };
 
 /** What was measured on a model, source says how reliable it is. */
-export type ModelLimits = {
+type ModelLimits = {
   window_tokens: number;
   source: "gemessen" | "unbekannt" | "gelernt" | "gesetzt";
   thinks: boolean;
@@ -104,7 +104,7 @@ export type FeatureRoute = {
 
 // ─── Export / Import ──────────────────────────────────────────────────────
 
-export type ImportPreviewProvider = {
+type ImportPreviewProvider = {
   name: string;
   action: "create" | "update";
   needs_api_key: boolean;
@@ -114,7 +114,7 @@ export type ImportPreviewProvider = {
   encrypted_key_recoverable: boolean;
 };
 
-export type ImportPreviewRoute =
+type ImportPreviewRoute =
   | { feature: string; action: "create" | "update"; resolved_provider: string }
   | { feature: string; action: "skip_unresolved"; reason: string };
 

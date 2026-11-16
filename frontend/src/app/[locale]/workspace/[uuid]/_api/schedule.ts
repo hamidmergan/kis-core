@@ -30,7 +30,7 @@ export async function generateSchedule(
   return r.json();
 }
 
-export interface ScheduleJob {
+interface ScheduleJob {
   id: number;
   status: "pending" | "running" | "success" | "failed";
   error: string | null;
@@ -49,7 +49,7 @@ export async function fetchScheduleJob(
   return r.json();
 }
 
-export interface ActiveScheduleJob {
+interface ActiveScheduleJob {
   active: boolean;
   id?: number;
   status?: "pending" | "running";

@@ -4,7 +4,7 @@ import { useContext, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Lightbulb, Warning, X } from "@phosphor-icons/react";
 import type { Block, BlockKind, CardIcon, Limits } from "../../_lib/types";
-import type { Look, LookProps, Looks } from "./registry";
+import type { Look, Looks } from "./registry";
 import { Grow } from "./shared";
 import { EditCtx, Txt } from "../Txt";
 import "./text.css";

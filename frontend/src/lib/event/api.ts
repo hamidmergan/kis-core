@@ -3,7 +3,7 @@ import type { Card, EventConfig, EventStats, PublicEvent, RaffleEntry } from "@/
 const VISITOR_KEY = "kis.event.visitor";
 
 /** A random id that stays in this browser, the server only ever sees its hash. */
-export function visitorId(): string {
+function visitorId(): string {
   try {
     const known = localStorage.getItem(VISITOR_KEY);
     if (known && /^[A-Za-z0-9_-]{16,64}$/.test(known)) return known;

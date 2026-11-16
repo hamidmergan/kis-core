@@ -1,10 +1,10 @@
 /** Groups the permission table's groups into their chapters, without reordering. */
 
-export interface InChapter {
+interface InChapter {
   chapter?: string;
 }
 
-export interface ChapterBlock<T> {
+interface ChapterBlock<T> {
   chapter?: string;
   groups: T[];
 }

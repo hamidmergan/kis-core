@@ -8,7 +8,7 @@ export type Theme = "light" | "dark";
 const COOKIE_KEY = "kis-theme";
 const CHANGE_EVENT = "kis-theme:change";
 
-export function readTheme(): Theme {
+function readTheme(): Theme {
   return readPrefs().theme === "dark" ? "dark" : "light";
 }
 

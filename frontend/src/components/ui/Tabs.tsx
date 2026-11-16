@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 
-export interface TabItem<TKey extends string = string> {
+interface TabItem<TKey extends string = string> {
   key: TKey;
   label: ReactNode;
   disabled?: boolean;

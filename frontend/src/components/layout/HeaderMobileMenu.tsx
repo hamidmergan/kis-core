@@ -32,13 +32,12 @@ interface HeaderMobileMenuProps {
   hasTools?: boolean;
   hasAia?: boolean;
   isLocalMode?: boolean;
-  hasHomeNotice?: boolean;
   /** Open feedback waits in the admin area. */
   adminNotice?: boolean;
   onLogout: () => void;
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, hasHomeNotice = false, adminNotice = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, adminNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");

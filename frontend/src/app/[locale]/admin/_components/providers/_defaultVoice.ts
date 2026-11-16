@@ -1,6 +1,6 @@
 import type { Provider } from "./_types";
 
-export type VoiceOption = { value: string; label: string };
+type VoiceOption = { value: string; label: string };
 
 /** The voices of the starred provider, all voices while no listed provider carries the star. */
 export function defaultVoiceOptions(eligible: Provider[], starId: number | null): VoiceOption[] {

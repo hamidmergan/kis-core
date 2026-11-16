@@ -1,7 +1,7 @@
 /** One badge colour per speaker, so every list marks the same person the same way. */
 const TINTS = ["blue", "amber", "emerald", "rose"] as const;
 
-export interface SpeakerColor {
+interface SpeakerColor {
   bg: string;
   fg: string;
 }

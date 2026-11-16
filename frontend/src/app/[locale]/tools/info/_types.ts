@@ -10,7 +10,7 @@ export interface CampusQuelle {
   fragment: string | null;
 }
 
-export interface CampusOrt {
+interface CampusOrt {
   id: string;
   code: string | null;
   title: { de?: string; en?: string };

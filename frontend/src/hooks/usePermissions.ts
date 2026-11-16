@@ -5,7 +5,7 @@ import { checkAuthStatus } from "@/lib/auth";
 import { EMPTY_PERMS } from "@/lib/permissions";
 import type { UserPermissions, SystemRole } from "@/types";
 
-export interface PermissionsState {
+interface PermissionsState {
   loaded: boolean;
   permissions: UserPermissions;
   role: SystemRole | undefined;

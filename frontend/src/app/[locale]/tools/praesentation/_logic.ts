@@ -72,7 +72,7 @@ export interface Skizze {
 const RAHMEN = new Set(["deckblatt", "abschnitt", "abschluss"]);
 
 /** A slide inserted later exists before its text does, it counts as written once it carries content. */
-export const istGeschrieben = (s: Slide): boolean =>
+const istGeschrieben = (s: Slide): boolean =>
   s.body !== null || s.columns.length > 0 || s.images.length > 0 || RAHMEN.has(s.role);
 
 /** One card per planned slide, in the order of the outline, filled with the slide once it is written. */

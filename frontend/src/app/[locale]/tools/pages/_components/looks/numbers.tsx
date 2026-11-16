@@ -251,7 +251,7 @@ const drawn = (b: ChartBlock) => (b.chart_type === "pie" ? b.series.slice(0, 1) 
 const maxOf = (series: ChartBlock["series"]) => Math.max(0, ...series.flatMap((s) => s.values.map(val)));
 const isLine = (b: ChartBlock) => b.chart_type === "line";
 
-function Legend({ b, p, limits, series, keyCls }: LookProps<"chart"> & { series: ChartBlock["series"]; keyCls: (k: number) => string }) {
+function Legend({ p, limits, series, keyCls }: LookProps<"chart"> & { series: ChartBlock["series"]; keyCls: (k: number) => string }) {
   if (series.length < 2) return null;
   return (
     <div className="v-nu-ch-leg">

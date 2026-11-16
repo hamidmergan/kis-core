@@ -1,6 +1,6 @@
 import type { ScreencastStep, SlideData } from "@/types";
 
-export interface ScreencastFlowState {
+interface ScreencastFlowState {
   step: ScreencastStep;
   loading: boolean;
   errorMessage: string;

@@ -1,5 +1,5 @@
 /** Today is not an error, hence the accent blue and the same colour as today's grid cell. */
-export const URGENCY_TODAY = "var(--kb-dark)";
+const URGENCY_TODAY = "var(--kb-dark)";
 export const URGENCY_SOON = "var(--warn)";
 
 export function todayISO(): string {

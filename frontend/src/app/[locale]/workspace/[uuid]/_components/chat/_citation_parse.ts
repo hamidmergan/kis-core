@@ -64,7 +64,7 @@ export function sanitizeCitationsForMarkdown(text: string): string {
 
 // Empty 【…】 brackets are dropped, real citations stay.
 const _STRAY_LENTICULAR = /\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}))[^】]*】/g;
-export function stripStrayCitations(text: string): string {
+function stripStrayCitations(text: string): string {
   return text.replace(_STRAY_LENTICULAR, "");
 }
 

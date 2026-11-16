@@ -6,7 +6,7 @@ export const QUALITAETEN = ["entwurf", "standard", "hoch"] as const;
 export const STILE = ["keiner", "foto", "illustration", "skizze", "aquarell", "3d", "flach", "thl"] as const;
 export const AUFGABEN = ["beschreiben", "text", "frage"] as const;
 export const SCHNELLAKTIONEN = ["weiss", "skizze", "ohneText", "kraeftig", "thl"] as const;
-export const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
+const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 
 export type Format = (typeof FORMATE)[number];
 export type Groesse = (typeof GROESSEN)[number];

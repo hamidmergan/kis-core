@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { VertonterStand } from "../_utils";
 
-export interface GespeicherteEinstellungen {
+interface GespeicherteEinstellungen {
   provider_id: number;
   voice_id: string;
   voice_label: string;

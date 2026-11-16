@@ -16,7 +16,7 @@ export interface ProviderWithVoices {
   voices: Voice[];
 }
 
-export interface UseVoicesResult {
+interface UseVoicesResult {
   loaded: boolean;
   providers: ProviderWithVoices[];
   defaultProviderId: number | null;

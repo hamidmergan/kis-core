@@ -115,7 +115,7 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
 
 
 // Draws a blue frame around the page that was jumped to.
-export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number) {
+function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
   const anno = r.getPlugin?.("annotation")?.provides?.();
@@ -305,7 +305,7 @@ export function drawCitationHighlight(
 
 
 // Highlights exactly the quote, without a fuzzy fallback.
-export function tryHighlightOnPage(
+function tryHighlightOnPage(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, doc: any, engine: any, docMgr: any, scroll: any,

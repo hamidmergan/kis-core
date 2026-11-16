@@ -6,7 +6,7 @@ import Francis from "./Francis";
 export type MascotState = "idle" | "thinking" | "found" | "confused" | "wave";
 export type MascotVariant = "hilde" | "francis";
 
-export interface MascotProps {
+interface MascotProps {
   variant: MascotVariant;
   size?: number;
   state?: MascotState;

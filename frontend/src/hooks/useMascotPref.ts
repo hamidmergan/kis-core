@@ -20,7 +20,7 @@ function readLocalVariant(): MascotVariant {
   return isVariant(raw) ? raw : DEFAULT_VARIANT;
 }
 
-export interface MascotPref {
+interface MascotPref {
   /** Which character to render. A mascot is always shown. */
   variant: MascotVariant;
   setVariant: (variant: MascotVariant) => void;

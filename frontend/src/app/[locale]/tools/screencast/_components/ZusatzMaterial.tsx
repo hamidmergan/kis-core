@@ -16,9 +16,9 @@ import { MAX_MATERIAL_CHARS } from "@/lib/materialMeasure";
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 /** Mirrors SCREENCAST_MAX_SOURCES in the backend. */
-export const MAX_MATERIAL_DATEIEN = 10;
+const MAX_MATERIAL_DATEIEN = 10;
 
-export type MaterialModus = "files" | "module";
+type MaterialModus = "files" | "module";
 
 export interface MaterialWahl {
   mode: MaterialModus;

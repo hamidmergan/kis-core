@@ -1,6 +1,6 @@
 /** The three cases of renaming as testable logic next to the field. */
 
-export type RenameAction =
+type RenameAction =
   /** Nothing to do, simply close the field, not an error but a cancel. */
   | { kind: "abort" }
   /** Save with exactly this name. */

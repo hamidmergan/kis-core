@@ -55,9 +55,9 @@ export function renderProgress(status: JobStatus): RenderProgress {
   return { kind: "fallback" };
 }
 
-export type ScriptImportError = "invalidExtension" | "mustBeArray" | "parseError";
+type ScriptImportError = "invalidExtension" | "mustBeArray" | "parseError";
 
-export type ScriptJsonParseResult =
+type ScriptJsonParseResult =
   | { scripts: string[]; error?: never }
   | { scripts?: never; error: ScriptImportError };
 
@@ -147,7 +147,7 @@ export function sprachZuletztDerRueckfall(stand: VertonterStand | null): boolean
   return !!stand?.tts_pin?.fallback;
 }
 
-export type FolienMarke = "skript" | "folie" | null;
+type FolienMarke = "skript" | "folie" | null;
 
 /** If both changed the script is reported, that is the reason that concerns the user. */
 export function markeFuerFolie(

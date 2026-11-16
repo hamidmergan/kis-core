@@ -2,7 +2,7 @@
 
 export type StatusTone = "brand" | "success" | "error" | "warn" | "muted";
 
-export type JobStatusDisplay =
+type JobStatusDisplay =
   | { kind: "action"; key: "awaitingUser" | "paused" }
   | { kind: "mark"; key: string; tone: StatusTone; pulse?: true };
 

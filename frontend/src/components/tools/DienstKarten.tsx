@@ -1,6 +1,6 @@
 "use client";
 
-export interface DienstKarte {
+interface DienstKarte {
   id: string;
   anbieter: string;
   /** The voice or voices, already worded. */

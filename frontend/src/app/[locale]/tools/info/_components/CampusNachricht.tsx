@@ -13,11 +13,9 @@ import type { CampusNachricht as Nachricht } from "../_types";
 function CampusNachrichtInner({
   msg,
   mapUrl,
-  isLatest,
 }: {
   msg: Nachricht;
   mapUrl: string;
-  isLatest: boolean;
 }) {
   const t = useTranslations("tools.campus");
   const [copied, setCopied] = useState(false);

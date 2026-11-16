@@ -14,7 +14,7 @@ export interface DemoMaterial {
 export type DemoView = PraesentationView & DemoMaterial;
 
 /** What the page holds at one moment of a run. */
-export interface DemoStand {
+interface DemoStand {
   outline: Outline | null;
   slides: Slide[];
   images: Record<string, string[]>;

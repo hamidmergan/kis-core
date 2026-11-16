@@ -16,7 +16,7 @@ export function setAt(page: Page, path: string, value: unknown): void {
 }
 
 /** Removes an item from its list, a single field is emptied instead. */
-export function deleteAt(page: Page, path: string): void {
+function deleteAt(page: Page, path: string): void {
   const keys = path.split(".");
   const last = keys.pop()!;
   const parent = keys.reduce<unknown>((o, k) => (o as Record<string, unknown>)[k], page) as Node;

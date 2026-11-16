@@ -1,7 +1,7 @@
 /** Own and tutored modules one below the other, with a row in between. */
 
 /** What someone has to do with a module, there is no third option here. */
-export type Zugriff = "owner" | "tutor";
+type Zugriff = "owner" | "tutor";
 
 /** Own first, tutored after, unchanged inside the group. */
 export function gruppiert<T extends { access: Zugriff }>(module: T[]): T[] {

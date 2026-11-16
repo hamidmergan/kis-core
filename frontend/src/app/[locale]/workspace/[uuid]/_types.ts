@@ -1,4 +1,4 @@
-export type IndexingStage =
+type IndexingStage =
   | "parsing"
   | "ocr"
   | "chunking"
@@ -12,7 +12,7 @@ export interface IndexingProgress {
 }
 
 /** How text recognition went, open pages can be caught up on. */
-export interface OcrInfo {
+interface OcrInfo {
   enabled: boolean;
   done: number;
   open: number[];
@@ -222,7 +222,7 @@ export interface ExerciseItemSource {
   highlight_text?: string;
 }
 
-export interface ExerciseItemExtras {
+interface ExerciseItemExtras {
   /** Pattern pair of the reshaping, on the exercise because mixed sets share none. */
   pattern_front?: string;
   pattern_back?: string;
@@ -304,7 +304,7 @@ export interface StreakInfo {
   last_active_date: string | null;
 }
 
-export interface ExerciseOverview {
+interface ExerciseOverview {
   total_sets: number;
   total_cards: number;
   total_attempts: number;
@@ -335,9 +335,9 @@ export interface StudentStats {
 }
 
 export type ScheduleEntryType = "deadline" | "termin";
-export type ScheduleEntryOrigin = "llm" | "manual";
+type ScheduleEntryOrigin = "llm" | "manual";
 
-export interface ScheduleSourceRef {
+interface ScheduleSourceRef {
   source_uuid: string;
   page_number: number | null;
   start_time: number | null;

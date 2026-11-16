@@ -6,9 +6,9 @@ export const GRACE_MS = 300;
 /** Once a line is painted it stays this long, long enough to actually be read. */
 export const MIN_MS = 1200;
 
-export type PhaseKey = "searching" | "generating";
+type PhaseKey = "searching" | "generating";
 
-export interface PhaseInput {
+interface PhaseInput {
   /** Milliseconds since the question was sent. */
   elapsedMs: number;
   /** When the qmap event arrived, which is when the search finished. */

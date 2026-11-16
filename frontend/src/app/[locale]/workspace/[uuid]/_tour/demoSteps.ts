@@ -11,7 +11,7 @@
  * tour only shows them.
  */
 
-export type StudioReiter = "tools" | "glossary" | "notes" | "statistik" | "schedule";
+type StudioReiter = "tools" | "glossary" | "notes" | "statistik" | "schedule";
 
 export interface TourAktionen {
   /** Ticks this material and unticks every other one. */
@@ -46,8 +46,8 @@ export interface DemoSchritt {
 }
 
 /** The two materials the tour works with, both from the first unit and named by the start of their file name, nurWaehlen unfolds the chapter before the tour scrolls to the row. */
-export const DEMO_PDF = "DEMO_Folien_01";
-export const DEMO_VIDEO = "DEMO_Vorlesung_01";
+const DEMO_PDF = "DEMO_Folien_01";
+const DEMO_VIDEO = "DEMO_Vorlesung_01";
 
 const anker = (name: string) => (): Element | null =>
   document.querySelector(`[data-tour="${name}"]`);

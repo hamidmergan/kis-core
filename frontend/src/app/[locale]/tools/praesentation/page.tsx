@@ -48,7 +48,7 @@ function PraesentationPageInner() {
   const [hasActiveJob] = useActiveJobCheck("praesentation");
   const ausListe = useSearchParams().get("job");
   const regen = useRegenAnchor();
-  const [regenArt, setRegenArt] = useState<"row" | "slide">("row");
+  const [regenArt] = useState<"row" | "slide">("row");
   const [restored, setRestored] = useState(false);
   const [demoDa, setDemoDa] = useState(false);
   // Until the job param is restored and the active-job check has answered, the empty form must not flash.
@@ -56,7 +56,6 @@ function PraesentationPageInner() {
   const stateRef = useRef(state);
   stateRef.current = state;
   const aenderung = useRef(0);
-  const bautRef = useRef(false);
 
   /** Reads outline, slides and previews, and puts the page on the step the job is at. */
   const holeStand = useCallback(async (uuid: string, schrittSetzen = false) => {
@@ -178,20 +177,6 @@ function PraesentationPageInner() {
       // Only adopt while nothing newer happened, the server hands out the ids.
       if (marke === aenderung.current) dispatch({ type: "RESTORE", state: { outline: gespeichert } });
     });
-  };
-
-  const bauen = async () => {
-    if (bautRef.current) return;
-    bautRef.current = true;
-    try {
-      await flushSaves();
-      const s = stateRef.current;
-      if (!s.jobUuid || !s.outline) return;
-      await api.saveOutline(s.jobUuid, s.outline);
-      await api.startBuild(s.jobUuid);
-      dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } });
-      dispatch({ type: "GO", step: "preview" });
-    } catch (e) { melde(e); } finally { bautRef.current = false; }
   };
 
   const folieAendern = (slide: Slide) => {

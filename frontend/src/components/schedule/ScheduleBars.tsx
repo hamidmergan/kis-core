@@ -3,7 +3,7 @@
 import type { Segment } from "./_ranges";
 
 /** Height of a bar. */
-export const BAR_HEIGHT = 18;
+const BAR_HEIGHT = 18;
 /** One gap for everything, matching the grid gap of the bar layer. */
 export const BAR_GAP = 4;
 /** Padding 4 plus day number 17, the cell has no border any more. */

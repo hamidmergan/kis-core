@@ -18,7 +18,7 @@ type Kontext = {
 };
 
 /** The keys that let an account change who may do what. */
-export const RECHTE_VERWALTUNG: string[] = [
+const RECHTE_VERWALTUNG: string[] = [
   PERM.usersPending,
   PERM.usersWhitelist,
   PERM.usersAll,

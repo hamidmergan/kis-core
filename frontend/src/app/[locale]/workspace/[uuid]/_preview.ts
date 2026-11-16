@@ -1,4 +1,4 @@
-export interface PreviewInput {
+interface PreviewInput {
   /** Real relationship to this course, owner or tutor. */
   realIsOwner: boolean;
   isDemoWorkspace: boolean;
@@ -8,7 +8,7 @@ export interface PreviewInput {
   override: boolean | null;
 }
 
-export interface PreviewState {
+interface PreviewState {
   /** Switch offered at all. */
   canPreview: boolean;
   previewOn: boolean;

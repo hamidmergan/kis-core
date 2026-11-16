@@ -64,7 +64,7 @@ export function genericErrorMessage(): string {
   return fallback("genericError");
 }
 
-export class QuotaError extends Error {
+class QuotaError extends Error {
   quota_type: string;
   label: string;
   reset_at: string | null;
@@ -91,7 +91,7 @@ export function parseDetail(detail: unknown, fallback: string): string {
 }
 
 // Takes the file name from the header, otherwise the fallback.
-export function filenameFromDisposition(disposition: string | null, fallback: string): string {
+function filenameFromDisposition(disposition: string | null, fallback: string): string {
   if (disposition) {
     const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
     if (utf8Match) return decodeURIComponent(utf8Match[1].trim());

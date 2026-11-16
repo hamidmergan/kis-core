@@ -190,7 +190,7 @@ export function Saeulen({
 /* Horizontal bars                                                     */
 /* ------------------------------------------------------------------ */
 
-export interface BalkenZeile {
+interface BalkenZeile {
   label: string;
   wert: number;
   /** An extra number on the right, such as 'finished' next to 'started'. */

@@ -5,7 +5,7 @@ import { backendApi, downloadJobAsBlob, parseDetail, pollJob } from "@/lib/api";
 import { cancelJob } from "@/components/jobs/JobCancelButton";
 
 /** What a picture was made with, as far as the backend stored it. */
-export interface BildAngaben {
+interface BildAngaben {
   stil?: string;
   format?: string;
   qualitaet?: string;

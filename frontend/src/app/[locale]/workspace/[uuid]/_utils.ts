@@ -2,9 +2,9 @@ import { BookOpenText, FilePdf, FileDoc, FileVideo, FileAudio, YoutubeLogo } fro
 import type { LernKarte, QuizQuestion } from "./_types";
 import { isYoutubeSource, youtubeVideoId } from "@/lib/youtube";
 
-export const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"]);
-export const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".youtube"]);
-export const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
+const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"]);
+const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".youtube"]);
+const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
 
 export function _embedQmapIntoCitations(content: string, qmap: { qnum: number; uuid: string }[]): string {
   if (!qmap.length) return content;

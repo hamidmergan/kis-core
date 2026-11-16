@@ -9,7 +9,7 @@
 /** Loudness below this counts as silence, roughly a quiet room. */
 export const SPEECH_LEVEL = 0.008;
 
-export interface VoiceTracker {
+interface VoiceTracker {
   /** One loudness reading between 0 and 1. */
   sample: (level: number) => void;
   /** Was there a voice since the last time this was asked? Asking resets it. */

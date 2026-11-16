@@ -4,7 +4,7 @@ import { createContext, createElement, memo, useContext, useEffect, useLayoutEff
 import { useTranslations } from "next-intl";
 
 /** What every editable text needs from the editor, a reader gets the inert default. */
-export interface EditContext {
+interface EditContext {
   editing: boolean;
   /** Counts every change of the page, so a text left showing an undone value is set again. */
   rev: number;

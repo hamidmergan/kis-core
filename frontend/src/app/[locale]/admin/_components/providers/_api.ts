@@ -34,7 +34,7 @@ export async function fetchProviders(): Promise<Provider[]> {
   return data.providers;
 }
 
-export type CreateProviderInput = {
+type CreateProviderInput = {
   name: string;
   protocol: string;
   base_url: string;
@@ -55,7 +55,7 @@ export async function createProvider(input: CreateProviderInput): Promise<Provid
   return data.provider;
 }
 
-export type UpdateProviderInput = Partial<{
+type UpdateProviderInput = Partial<{
   name: string;
   base_url: string;
   api_key: string | null;
@@ -154,7 +154,7 @@ export async function setModelWindow(
   return jsonOrThrow<ModelWindow>(res);
 }
 
-export type FeatureTestResult = {
+type FeatureTestResult = {
   status: "ok" | "error";
   error: string | null;
   warning?: string | null;
@@ -168,7 +168,7 @@ export async function testFeatureRoute(feature: Feature, providerId?: number): P
   return jsonOrThrow<FeatureTestResult>(res);
 }
 
-export type DiscoverVoicesResult = {
+type DiscoverVoicesResult = {
   voices: Array<{ voice_id: string; name: string; language: string }>;
   discoverable: boolean;
 };

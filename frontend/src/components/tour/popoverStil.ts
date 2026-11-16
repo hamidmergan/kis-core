@@ -1,7 +1,7 @@
 import type { PopoverDOM } from "driver.js";
 
 /** Phosphor X in bold, the icon of the app, driver.js only offers a text times sign. */
-export const SCHLIESSEN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>`;
+const SCHLIESSEN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>`;
 
 /** driver.js builds its own buttons, this hands them the app classes, shared by both tours. */
 export function knoepfeAngleichen(popover: PopoverDOM, schliessenLabel: string) {

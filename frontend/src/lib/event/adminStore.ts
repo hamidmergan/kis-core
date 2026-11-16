@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { eventApi } from "@/lib/event/api";
 import type { EventConfig } from "@/lib/event/types";
 
-export type SaveStatus = "idle" | "saving" | "saved" | "failed";
+type SaveStatus = "idle" | "saving" | "saved" | "failed";
 interface State {
   config: EventConfig | null;
   loadFailed: boolean;
@@ -50,7 +50,7 @@ async function flush() {
 }
 
 /** Applies the change at once and saves it shortly after the last edit. */
-export function updateEventConfig(patch: Partial<EventConfig> | ((c: EventConfig) => EventConfig)) {
+function updateEventConfig(patch: Partial<EventConfig> | ((c: EventConfig) => EventConfig)) {
   const current = state.config;
   if (!current) return;
   const config = typeof patch === "function" ? patch(current) : { ...current, ...patch };

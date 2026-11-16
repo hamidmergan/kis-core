@@ -2,7 +2,7 @@
 
 import type { JobProgress, JobStatus, Line, PodcastState } from "./_types";
 
-export interface PodcastParamsView {
+interface PodcastParamsView {
   language: "de" | "en";
   instructions: string;
   persons: { name: string; role: string; voice_id: string; provider_id: number }[];

@@ -5,7 +5,7 @@ import { ErgebnisInfoKnopf, useErgebnisAngaben, type Auftrag } from "@/component
 import { sprachName } from "@/lib/format";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
-import { ROLES, type JobProgress, type JobStatus, type Line, type Person, type PersonCount, type Role } from "../_types";
+import { ROLES, type JobStatus, type Line, type PersonCount, type Role } from "../_types";
 
 const downloadIcon = (
   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -18,11 +18,9 @@ const GHOST = "px-6 py-2 text-sm text-foreground-soft border border-border round
 interface DoneStepProps {
   jobUuid: string | null;
   lines: Line[];
-  persons: Person[];
   count: PersonCount;
   voicedIds: string[];
   jobStatus: JobStatus;
-  progress: JobProgress | null;
   seconds: number | null;
   onVoice: () => void;
   onEditScript: () => void;
@@ -32,7 +30,7 @@ interface DoneStepProps {
 }
 
 export default function DoneStep(props: DoneStepProps) {
-  const { jobUuid, lines, persons, count, voicedIds, jobStatus, progress, seconds,
+  const { jobUuid, lines, count, voicedIds, jobStatus, seconds,
           onVoice, onEditScript, onReset } = props;
   const locale = useLocale();
   const t = useTranslations("tools.podcast.done");

@@ -1,5 +1,5 @@
 /** What a link turns its users into, a tutor manages and students only learn. */
-export type LinkRole = "student" | "tutor";
+type LinkRole = "student" | "tutor";
 
 /** How someone reaches a workspace. Ownership and tutoring both mean "manage". */
 export type WorkspaceAccess = "owner" | "tutor" | "student";
@@ -44,15 +44,6 @@ export interface KiTutorWorkspace {
   enroll_code: string | null;
   enroll_code_expires: string | null;
   created_at: string | null;
-}
-
-export interface WorkspaceStats {
-  overview: {
-    total_enrolled: number;
-    active_30d: number;
-    total_chat_messages: number;
-    total_exercise_sets: number;
-  };
 }
 
 export const MAX_ACCESS_LINKS = 10;

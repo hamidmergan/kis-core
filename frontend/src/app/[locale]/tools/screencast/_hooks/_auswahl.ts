@@ -4,7 +4,7 @@ export interface GespeicherteAuswahl {
   neu_vertonen: number[];
 }
 
-export interface Startauswahl {
+interface Startauswahl {
   imScreencast: number[];
   neuVertonen: number[];
 }
