@@ -19,7 +19,6 @@ export type Feature =
   | "image_gen"
   | "image_edit"
   | "doc_translate"
-  | "screencast_translate"
   | "transcript_translate";
 
 type Protocol = string;

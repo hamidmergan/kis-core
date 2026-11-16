@@ -4,10 +4,10 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy, Warning } from "@phosphor-icons/react";
+import { Warning } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
-import { copyTextFromPromise } from "@/lib/clipboard";
+import CopyTextButton from "./CopyTextButton";
 import { resetUrl } from "./resetUrl";
 
 type Props = {
@@ -20,7 +20,6 @@ export default function ResetLinkDialog({ userId, userName, onClose }: Props) {
   const t = useTranslations("admin.users.resetLink");
   const [link, setLink] = useState<{ token: string; expires_at: string } | null>(null);
   const [fehler, setFehler] = useState("");
-  const [kopiert, setKopiert] = useState(false);
 
   useEffect(() => {
     let abgebrochen = false;
@@ -44,12 +43,6 @@ export default function ResetLinkDialog({ userId, userName, onClose }: Props) {
   }, [userId, t]);
 
   const url = link ? resetUrl(window.location.origin, link.token) : "";
-
-  function copy() {
-    copyTextFromPromise(Promise.resolve(url));
-    setKopiert(true);
-    setTimeout(() => setKopiert(false), 1500);
-  }
 
   return (
     <Modal
@@ -82,14 +75,7 @@ export default function ResetLinkDialog({ userId, userName, onClose }: Props) {
                 <code className="flex-1 min-w-0 truncate font-mono text-sm bg-surface border border-border rounded-md px-3 py-2 select-all">
                   {url}
                 </code>
-                <button
-                  type="button"
-                  onClick={copy}
-                  className="px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap"
-                >
-                  {kopiert ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
-                  {kopiert ? t("copied") : t("copy")}
-                </button>
+                <CopyTextButton text={() => url} copyLabel={t("copy")} copiedLabel={t("copied")} />
               </div>
             </div>
             <div className="flex items-start gap-2 bg-warn-bg text-warn-strong rounded-md px-3 py-2">

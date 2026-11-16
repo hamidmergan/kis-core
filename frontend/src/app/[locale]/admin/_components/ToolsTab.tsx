@@ -18,19 +18,25 @@ export default function ToolsTab() {
   useEffect(() => {
     fetch("/api/admin/tools", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setTools(d.tools ?? []));
+      .then((d) => setTools(d.tools ?? []))
+      .catch(() => {});
   }, []);
 
   const toggle = async (key: string, enabled: boolean) => {
+    const apply = (value: boolean) =>
+      setTools((prev) => prev?.map((tool) => (tool.key === key ? { ...tool, enabled: value } : tool)) ?? null);
     setSaving(key);
-    setTools((prev) => prev?.map((tool) => (tool.key === key ? { ...tool, enabled } : tool)) ?? null);
+    apply(enabled);
     try {
-      await fetch(`/api/admin/tools/${key}`, {
+      const res = await fetch(`/api/admin/tools/${key}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       });
+      if (!res.ok) apply(!enabled);
+    } catch {
+      apply(!enabled);
     } finally {
       setSaving(null);
     }

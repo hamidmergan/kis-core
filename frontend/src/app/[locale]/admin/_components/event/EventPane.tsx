@@ -13,14 +13,15 @@ import EventTileEditor from "./EventTileEditor";
 export default function EventPane() {
   const t = useTranslations("eventAdmin.event");
   const [config] = useEventConfig();
+  const block = eventActive(config.eventBlock) ? config.eventBlock : null;
   return (
     <div className="flex flex-col gap-4">
       <EventBlockCard />
       <EventTileEditor />
       <SettingCard title={t("preview")}>
         <div className="mt-4 flex flex-col gap-4" data-testid="event-preview">
-          <EventBanner block={eventActive(config.eventBlock) ? config.eventBlock : null} />
-          <EventBlock block={eventActive(config.eventBlock) ? config.eventBlock : null} />
+          <EventBanner block={block} />
+          <EventBlock block={block} />
         </div>
       </SettingCard>
     </div>

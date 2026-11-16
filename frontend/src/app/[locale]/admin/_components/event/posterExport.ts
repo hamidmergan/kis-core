@@ -1,4 +1,4 @@
-import { triggerBlobDownload } from "../../../tools/screencast/_utils";
+import { triggerBlobDownload } from "@/lib/download";
 
 /** A5 in millimetres, the SVG viewBox uses the same units. */
 export const POSTER_MM = { w: 148, h: 210 } as const;

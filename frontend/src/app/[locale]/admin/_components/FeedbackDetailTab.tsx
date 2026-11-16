@@ -36,8 +36,8 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setEntry((prev) => (prev ? { ...prev, status: vorher } : prev));
       setError(t("saveError"));
       return;
@@ -50,8 +50,8 @@ export default function FeedbackDetailTab({ id, onBack }: { id: number; onBack: 
     const r = await fetch(`/api/admin/feedback/${entry.id}`, {
       method: "DELETE",
       credentials: "include",
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setError(t("deleteError"));
       return;
     }

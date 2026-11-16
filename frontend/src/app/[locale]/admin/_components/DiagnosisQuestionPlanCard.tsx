@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretRight, X } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
@@ -56,6 +56,8 @@ export default function DiagnosisQuestionPlanCard() {
   const [generating, setGenerating] = useState(false);
   const [askGenerate, setAskGenerate] = useState(false);
   const { saving, error, setError, patch } = useSettingsPatch(t("saveFailed"));
+  // The plan as the server holds it, null until loaded.
+  const savedKey = useRef<string | null>(null);
 
   // For an old cloze the correct options become the answer key.
   const toRows = (items: PlanItem[]): Row[] =>
@@ -83,7 +85,9 @@ export default function DiagnosisQuestionPlanCard() {
         const def: PlanItem[] = d.language_diagnosis_question_plan_default ?? [];
         setDefaultPlan(def);
         const stored = (d.language_diagnosis_question_plan_de || "").trim();
-        setRows(toRows(stored ? (JSON.parse(stored) as PlanItem[]) : def));
+        const loaded = toRows(stored ? (JSON.parse(stored) as PlanItem[]) : def);
+        setRows(loaded);
+        savedKey.current = planKey(loaded);
       })
       .catch(() => setRows([]));
   }, []);
@@ -104,8 +108,13 @@ export default function DiagnosisQuestionPlanCard() {
     return item;
   };
 
+  const planKey = (list: Row[]) => JSON.stringify(list.map(serialize));
+
+  // Unchanged rows are not sent, otherwise merely leaving a field freezes the default plan.
   const saveRows = (next: Row[]) => {
-    void patch({ language_diagnosis_question_plan_de: JSON.stringify(next.map(serialize)) });
+    const key = planKey(next);
+    if (key === savedKey.current) return;
+    void patch({ language_diagnosis_question_plan_de: key }).then((ok) => { if (ok) savedKey.current = key; });
   };
 
   if (rows === null) return null;
@@ -172,8 +181,9 @@ export default function DiagnosisQuestionPlanCard() {
     saveRows(next);
   };
   const reset = () => {
-    setRows(toRows(defaultPlan));
-    void patch({ language_diagnosis_question_plan_de: "" });
+    const next = toRows(defaultPlan);
+    setRows(next);
+    void patch({ language_diagnosis_question_plan_de: "" }).then((ok) => { if (ok) savedKey.current = planKey(next); });
   };
 
   // The AI writes the sentence once, after that it is as if typed by hand.

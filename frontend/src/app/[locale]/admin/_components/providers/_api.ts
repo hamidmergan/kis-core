@@ -1,4 +1,4 @@
-import { genericErrorMessage } from "@/lib/api";
+import { filenameFromDisposition, genericErrorMessage, parseDetail } from "@/lib/api";
 import type {
   ClearAllResult,
   Feature,
@@ -15,11 +15,18 @@ import type {
 
 const BASE = "/api/admin";
 
-async function jsonOrThrow<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(body || genericErrorMessage());
+/** The sentence of an error answer: its detail when the body is JSON, otherwise the body itself. */
+async function errorText(res: Response): Promise<string> {
+  const body = await res.text();
+  try {
+    return parseDetail(JSON.parse(body).detail, body);
+  } catch {
+    return body || genericErrorMessage();
   }
+}
+
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error(await errorText(res));
   return res.json() as Promise<T>;
 }
 
@@ -195,12 +202,11 @@ export async function discoverVoices(
 
 export async function fetchExportConfig(): Promise<{ config: unknown; filename: string }> {
   const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
-  if (!res.ok) {
-    throw new Error((await res.text()) || genericErrorMessage());
-  }
-  const disposition = res.headers.get("Content-Disposition") || "";
-  const match = /filename="?([^"]+)"?/.exec(disposition);
-  const filename = match ? match[1] : `kis-ai-config-${new Date().toISOString().slice(0, 10)}.json`;
+  if (!res.ok) throw new Error(await errorText(res));
+  const filename = filenameFromDisposition(
+    res.headers.get("Content-Disposition"),
+    `kis-ai-config-${new Date().toISOString().slice(0, 10)}.json`,
+  );
   const config = await res.json();
   return { config, filename };
 }

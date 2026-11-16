@@ -1,7 +1,7 @@
 /** The order of the providers per feature, the first usable one is the standard. */
 import { describe, expect, it } from "vitest";
 
-import { eligibleProviders, fullOrder, modelsOf, moved, movedVisible, orderedProviders } from "./_routeOptions";
+import { eligibleProviders, fullOrder, modelsOf, movedVisible, orderedProviders } from "./_routeOptions";
 import type { FeatureRoute, Provider } from "./_types";
 
 function anbieter(id: number, extra: Partial<Provider> = {}): Provider {
@@ -72,18 +72,6 @@ describe("orderedProviders", () => {
 
   it("vertraegt eine fehlende Route", () => {
     expect(ids(orderedProviders("chat", undefined, liste))).toEqual([1, 2, 3]);
-  });
-});
-
-describe("moved", () => {
-  it("tauscht mit dem Nachbarn", () => {
-    expect(moved([1, 2, 3], 2, -1)).toEqual([2, 1, 3]);
-    expect(moved([1, 2, 3], 2, 1)).toEqual([1, 3, 2]);
-  });
-
-  it("bleibt am Rand stehen", () => {
-    expect(moved([1, 2, 3], 1, -1)).toEqual([1, 2, 3]);
-    expect(moved([1, 2, 3], 3, 1)).toEqual([1, 2, 3]);
   });
 });
 

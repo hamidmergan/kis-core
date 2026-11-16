@@ -17,6 +17,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
     fetch("/api/admin/whitelist", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setEmails(d.emails ?? []))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,12 +37,14 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
         body: JSON.stringify({ email: newEmail.trim() }),
       });
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         setError(d.detail || t("whitelist.addError"));
         return;
       }
       setEmails((prev) => [...prev, newEmail.trim().toLowerCase()]);
       setNewEmail("");
+    } catch {
+      setError(t("whitelist.addError"));
     } finally {
       setAdding(false);
     }
@@ -55,11 +58,13 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
         credentials: "include",
       });
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         setError(d.detail || t("whitelist.removeError"));
         return;
       }
       setEmails((prev) => prev.filter((e) => e !== email));
+    } catch {
+      setError(t("whitelist.removeError"));
     } finally {
       setRemoving(null);
     }

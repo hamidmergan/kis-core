@@ -63,23 +63,15 @@ export default function CreateAccountDialog({ onClose }: Props) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const body =
-      form.role.kind === "system"
-        ? {
-            uid: form.uid,
-            given_name: form.given_name,
-            surname: form.surname,
-            email: form.email.trim() || null,
-            kis_role: form.role.value,
-          }
-        : {
-            uid: form.uid,
-            given_name: form.given_name,
-            surname: form.surname,
-            email: form.email.trim() || null,
-            kis_role: "custom",
-            custom_role_id: form.role.customRoleId,
-          };
+    const body = {
+      uid: form.uid,
+      given_name: form.given_name,
+      surname: form.surname,
+      email: form.email.trim() || null,
+      ...(form.role.kind === "system"
+        ? { kis_role: form.role.value }
+        : { kis_role: "custom", custom_role_id: form.role.customRoleId }),
+    };
     try {
       const r = await fetch("/api/admin/accounts", {
         method: "POST",
@@ -134,7 +126,7 @@ export default function CreateAccountDialog({ onClose }: Props) {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 bg-warning-bg text-warning-strong text-sm rounded-md px-3 py-2">
+            <div className="flex items-start gap-2 bg-warn-bg text-warn-strong text-sm rounded-md px-3 py-2">
               <Warning size={18} weight="bold" className="mt-0.5 shrink-0" />
               <span>{t("successWarning")}</span>
             </div>

@@ -8,8 +8,6 @@ import { Check, LinkSimple, PencilSimple, QrCode, Trash, Users } from "@phosphor
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import IconButton from "@/components/ui/IconButton";
-import StatusMark from "@/components/ui/StatusMark";
-import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useSetting } from "../_settings/SettingsProvider";
 import { NumberSetting } from "../_settings/fields";
@@ -19,42 +17,6 @@ import AccessCodeQr from "./AccessCodeQr";
 import AccessCodeUsersDialog, { type KontenUmfang } from "./AccessCodeUsersDialog";
 
 type Zustand = "active" | "disabled" | "expired" | "full";
-type KontoZustand = "active" | "expired" | "disabled";
-
-type Konto = {
-  id: number;
-  ldap_username: string;
-  created_at: string;
-  access_expires_at: string | null;
-  active: boolean;
-  status: KontoZustand;
-  /** When the nightly sweep removes the account, null while nothing removes it. */
-  delete_at: string | null;
-};
-
-type ModulBezug = "owner" | "enrolled";
-
-type ModulEintrag = {
-  workspace_id: number;
-  title: string;
-  relation: ModulBezug;
-  since: string;
-};
-
-type NachrichtEintrag = {
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-  failed: boolean;
-  aborted: boolean;
-  workspace_title: string;
-};
-
-const TON_BEZUG: Record<ModulBezug, StatusTone> = {
-  owner: "brand",
-  enrolled: "muted",
-};
-
 type Code = {
   id: number;
   code: string;
@@ -85,10 +47,6 @@ function datum(wert: string): string {
   return new Date(wert).toLocaleDateString("de-DE");
 }
 
-function datumZeit(wert: string): string {
-  return new Date(wert).toLocaleString("de-DE");
-}
-
 /** 24 hours and more show as whole days, less stays in hours. */
 function zugangsdauer(stunden: number | null, t: ReturnType<typeof useTranslations>): string {
   if (stunden == null) return t("accessUnlimited");
@@ -110,11 +68,6 @@ export default function AccessCodesTab() {
   const [qrCode, setQrCode] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
   const [konten, setKonten] = useState<KontenUmfang | null>(null);
-  const [aktivitaetKonto, setAktivitaetKonto] = useState<Konto | null>(null);
-  const [aktivitaetModule, setAktivitaetModule] = useState<ModulEintrag[]>([]);
-  const [aktivitaetNachrichten, setAktivitaetNachrichten] = useState<NachrichtEintrag[]>([]);
-  const [aktivitaetLoading, setAktivitaetLoading] = useState(false);
-  const [aktivitaetError, setAktivitaetError] = useState("");
 
   const laden = useCallback(() => {
     fetch("/api/admin/access-codes", { credentials: "include" })
@@ -141,6 +94,7 @@ export default function AccessCodesTab() {
 
   async function umschalten(code: Code) {
     setUmschaltend(code.id);
+    setError("");
     try {
       const r = await fetch(`/api/admin/access-codes/${code.id}`, {
         method: "PATCH",
@@ -153,6 +107,8 @@ export default function AccessCodesTab() {
         return;
       }
       laden();
+    } catch {
+      setError(t("saveError"));
     } finally {
       setUmschaltend(null);
     }
@@ -163,33 +119,12 @@ export default function AccessCodesTab() {
     const r = await fetch(`/api/admin/access-codes/${code.id}`, {
       method: "DELETE",
       credentials: "include",
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setError(t("saveError"));
       return;
     }
     setCodes((prev) => prev.filter((e) => e.id !== code.id));
-  }
-
-  function aktivitaetOeffnen(konto: Konto) {
-    setAktivitaetKonto(konto);
-    setAktivitaetLoading(true);
-    setAktivitaetError("");
-    fetch(`/api/admin/access-codes/users/${konto.id}/activity`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
-      .then((d) => {
-        setAktivitaetModule(d.workspaces ?? []);
-        setAktivitaetNachrichten(d.messages ?? []);
-      })
-      .catch(() => setAktivitaetError(t("activityLoadError")))
-      .finally(() => setAktivitaetLoading(false));
-  }
-
-  function aktivitaetSchliessen() {
-    setAktivitaetKonto(null);
-    setAktivitaetModule([]);
-    setAktivitaetNachrichten([]);
-    setAktivitaetError("");
   }
 
   const aktiv = codes.filter((e) => e.status === "active").length;
@@ -393,93 +328,6 @@ export default function AccessCodesTab() {
       </Modal>
 
       {konten && <AccessCodeUsersDialog umfang={konten} onClose={() => setKonten(null)} />}
-
-      <Modal
-        open={!!aktivitaetKonto}
-        onClose={aktivitaetSchliessen}
-        title={aktivitaetKonto?.ldap_username}
-        size="xl"
-        footer={
-          <button
-            type="button"
-            onClick={aktivitaetSchliessen}
-            className="px-4 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)]"
-          >
-            {t("close")}
-          </button>
-        }
-      >
-        <div data-testid="access-code-activity-view" className="overflow-x-hidden">
-          {aktivitaetError && <p className="text-xs text-error mb-2">{aktivitaetError}</p>}
-
-          {aktivitaetLoading ? (
-            <Spinner className="flex justify-center py-8" />
-          ) : aktivitaetModule.length === 0 && aktivitaetNachrichten.length === 0 ? (
-            <p className="text-sm text-muted-soft text-center py-6">{t("activityEmpty")}</p>
-          ) : (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-muted mb-2">{t("activityModulesTitle")}</h3>
-                {aktivitaetModule.length === 0 ? (
-                  <p className="text-sm text-muted-soft">{t("activityModulesEmpty")}</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {aktivitaetModule.map((m) => (
-                      <li key={m.workspace_id} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="truncate">{m.title}</span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <StatusMark tone={TON_BEZUG[m.relation]} className="text-xs">
-                            {t(m.relation === "owner" ? "activityRelationOwner" : "activityRelationJoined")}
-                          </StatusMark>
-                          <span className="text-xs text-muted-soft">{datum(m.since)}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-muted mb-2">{t("activityMessagesTitle")}</h3>
-                {aktivitaetNachrichten.length === 0 ? (
-                  <p className="text-sm text-muted-soft">{t("activityMessagesEmpty")}</p>
-                ) : (
-                  <>
-                    <p className="text-2xs text-muted-soft mb-2">{t("activityMessagesCapped")}</p>
-                    <div className="space-y-3">
-                      {aktivitaetNachrichten.map((n, i) => (
-                        <div
-                          key={i}
-                          className={`flex flex-col gap-1 ${n.role === "user" ? "items-end" : "items-start"}`}
-                        >
-                          <div className="text-2xs text-muted-soft">
-                            {n.workspace_title} · {datumZeit(n.created_at)}
-                          </div>
-                          <div
-                            className="max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words"
-                            style={
-                              n.role === "user"
-                                ? { backgroundColor: "var(--kb)", color: "white" }
-                                : { backgroundColor: "var(--surface)", border: "1px solid var(--border)" }
-                            }
-                          >
-                            {n.content || t("activityNoContent")}
-                          </div>
-                          {n.failed ? (
-                            <StatusMark tone="error" className="text-xs">{t("activityFailed")}</StatusMark>
-                          ) : n.aborted ? (
-                            <StatusMark tone="warn" className="text-xs">{t("activityAborted")}</StatusMark>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </Modal>
 
       {dialogOffen && (
         <CreateAccessCodeDialog onClose={() => setDialogOffen(false)} onCreated={laden} />

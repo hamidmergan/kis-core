@@ -5,7 +5,8 @@ export function useSettingsPatch(fallbackError: string) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const patch = async (payload: Record<string, unknown>) => {
+  /** Resolves to true when the server took the values. */
+  const patch = async (payload: Record<string, unknown>): Promise<boolean> => {
     setSaving(true);
     setError(null);
     try {
@@ -23,6 +24,10 @@ export function useSettingsPatch(fallbackError: string) {
         } catch { /* ignore */ }
         setError(detail);
       }
+      return res.ok;
+    } catch {
+      setError(fallbackError);
+      return false;
     } finally {
       setSaving(false);
     }

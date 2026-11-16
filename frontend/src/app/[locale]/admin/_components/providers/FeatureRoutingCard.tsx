@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CaretDown, CaretUp, CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, Lightning, Spinner } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
+import { TestButton, TestStatusLine, resultToState, type TestState } from "./RouteTest";
 import { eligibleProviders, modelsOf, orderedProviders } from "./_routeOptions";
 import type { Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 
@@ -32,17 +33,17 @@ const FELD =
 
 function SamplingRow({
   werte,
-  disabled,
   onChange,
 }: {
   werte: Sampling | undefined;
-  disabled: boolean;
   onChange: (werte: Sampling | null) => void;
 }) {
   const t = useTranslations("admin.providers");
   const setze = (schluessel: "temperature" | "top_p", roh: string) => {
     const naechste: Sampling = { ...(werte ?? {}) };
     const zahl = roh.trim() === "" ? NaN : Number(roh);
+    // Only a real change saves, merely leaving the field must not send a request.
+    if ((Number.isNaN(zahl) ? undefined : zahl) === werte?.[schluessel]) return;
     if (Number.isNaN(zahl)) delete naechste[schluessel];
     else naechste[schluessel] = zahl;
     onChange(Object.keys(naechste).length ? naechste : null);
@@ -52,7 +53,7 @@ function SamplingRow({
       <span className="text-2xs text-muted-soft whitespace-nowrap">{t("routes.temperature")}</span>
       <input
         key={`temp-${werte?.temperature ?? ""}`}
-        type="number" step="0.05" min="0" max="2" disabled={disabled}
+        type="number" step="0.05" min="0" max="2"
         defaultValue={werte?.temperature ?? ""}
         onBlur={(e) => setze("temperature", e.target.value)}
         placeholder={t("routes.samplingAuto")}
@@ -61,7 +62,7 @@ function SamplingRow({
       <span className="text-2xs text-muted-soft whitespace-nowrap">top_p</span>
       <input
         key={`topp-${werte?.top_p ?? ""}`}
-        type="number" step="0.05" min="0" max="1" disabled={disabled}
+        type="number" step="0.05" min="0" max="1"
         defaultValue={werte?.top_p ?? ""}
         onBlur={(e) => setze("top_p", e.target.value)}
         placeholder={t("routes.samplingAuto")}
@@ -77,13 +78,6 @@ function hatWerte(werte: Sampling | undefined): boolean {
 }
 
 type ProviderTestStates = Record<number, TestState>;
-
-type TestState =
-  | { kind: "idle" }
-  | { kind: "running" }
-  | { kind: "ok" }
-  | { kind: "warning"; message: string }
-  | { kind: "error"; message: string };
 
 // Display order in the routing table.
 const FEATURE_ORDER: Feature[] = [
@@ -135,28 +129,9 @@ export default function FeatureRoutingCard({
     return m;
   }, [providers]);
 
-  const resultToState = (res: { status: "ok" | "error"; error: string | null; warning?: string | null }): TestState => {
-    if (res.status === "ok") {
-      return res.warning ? { kind: "warning", message: res.warning } : { kind: "ok" };
-    }
-    return { kind: "error", message: res.error || "unknown error" };
-  };
-
-  const onTest = useCallback(async (feature: Feature) => {
-    setTestStates((s) => ({ ...s, [feature]: { kind: "running" } }));
-    try {
-      const res = await testFeatureRoute(feature);
-      setTestStates((s) => ({ ...s, [feature]: resultToState(res) }));
-    } catch (e) {
-      setTestStates((s) => ({
-        ...s,
-        [feature]: { kind: "error", message: (e as Error).message || "request failed" },
-      }));
-    }
-  }, []);
-
-  const onTestProvider = useCallback(async (feature: Feature, providerId: number) => {
-    const key = `${feature}-${providerId}`;
+  // Tests the route as routed, or one provider of it, and keeps the result under its own key.
+  const runTest = useCallback(async (feature: Feature, providerId?: number) => {
+    const key = providerId == null ? feature : `${feature}-${providerId}`;
     setTestStates((s) => ({ ...s, [key]: { kind: "running" } }));
     try {
       const res = await testFeatureRoute(feature, providerId);
@@ -179,17 +154,17 @@ export default function FeatureRoutingCard({
         // Rows that list their providers test each of them, the toggle rows test the route once.
         if (!meta.user_choice_features.includes(feature) || SPLIT_USER_CHOICE_FEATURES.has(feature)) {
           for (const p of eligibleProviders(feature, providers)) {
-            await onTestProvider(feature, p.id);
+            await runTest(feature, p.id);
           }
         } else {
           if (route?.provider_id == null) continue;
-          await onTest(feature);
+          await runTest(feature);
         }
       }
     } finally {
       setRunAllBusy(false);
     }
-  }, [runAllBusy, meta.features, meta.user_choice_features, routes, providers, onTest, onTestProvider]);
+  }, [runAllBusy, meta.features, meta.user_choice_features, routes, providers, runTest]);
 
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
@@ -243,8 +218,8 @@ export default function FeatureRoutingCard({
               testState={testStates[feature] ?? { kind: "idle" }}
               providerTestStates={providerTestStates}
               testsLocked={runAllBusy}
-              onTest={() => onTest(feature)}
-              onTestProvider={(pid) => onTestProvider(feature, pid)}
+              onTest={() => runTest(feature)}
+              onTestProvider={(pid) => runTest(feature, pid)}
               onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
               onChangeSampling={(pid, werte) => onChangeSampling(feature, pid, werte)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
@@ -359,7 +334,6 @@ function FeatureRow({
             <div className="flex justify-end pr-1">
               <SamplingRow
                 werte={route?.provider_sampling?.[String(primary.id)]}
-                disabled={false}
                 onChange={(werte) => onChangeSampling(primary.id, werte)}
               />
             </div>
@@ -418,7 +392,6 @@ function FeatureRow({
                   <div className="flex justify-end pr-1">
                     <SamplingRow
                       werte={route?.provider_sampling?.[String(p.id)]}
-                      disabled={false}
                       onChange={(werte) => onChangeSampling(p.id, werte)}
                     />
                   </div>
@@ -452,89 +425,3 @@ function MoveButton({ direction, disabled, onClick }: { direction: "up" | "down"
     </button>
   );
 }
-
-function TestButton({
-  state,
-  disabled,
-  onClick,
-}: {
-  state: TestState;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const t = useTranslations("admin.providers");
-  const running = state.kind === "running";
-  const label = t("routes.test");
-  const ok = state.kind === "ok";
-  const warn = state.kind === "warning";
-  const err = state.kind === "error";
-  const tone = ok
-    ? "text-success hover:outline hover:outline-2 hover:outline-success"
-    : warn
-      ? "text-warn hover:outline hover:outline-2 hover:outline-warn"
-      : err
-        ? "text-error hover:outline hover:outline-2 hover:outline-error"
-        : "text-muted hover:text-kb hover:outline hover:outline-2 hover:outline-kb";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || running}
-      title={label}
-      aria-label={label}
-      className={`w-8 h-8 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${tone}`}
-    >
-      {running ? (
-        <Spinner size={14} weight="bold" className="animate-spin" />
-      ) : ok ? (
-        <CheckCircle size={14} weight="bold" />
-      ) : warn ? (
-        <Warning size={14} weight="bold" />
-      ) : err ? (
-        <XCircle size={14} weight="bold" />
-      ) : (
-        <Lightning size={14} weight="bold" />
-      )}
-    </button>
-  );
-}
-
-function TestStatusLine({ state }: { state: TestState }) {
-  const t = useTranslations("admin.providers");
-  if (state.kind === "ok") {
-    return <p className="text-2xs text-success mt-1">{t("routes.testOk")}</p>;
-  }
-  if (state.kind === "warning") {
-    const knownWarnings = new Set([
-      "stt_model_not_validated_by_provider",
-      "stt_endpoint_verified_model_unvalidated",
-    ]);
-    const msg = knownWarnings.has(state.message)
-      ? t(`routes.testErrors.${state.message}` as Parameters<typeof t>[0])
-      : state.message;
-    return <p className="text-2xs text-warn mt-1">{msg}</p>;
-  }
-  if (state.kind === "error") {
-    const knownCodes = new Set([
-      "model_name_not_set",
-      "tts_speech_endpoint_not_found",
-      "endpoint_not_found",
-      "auth_rejected",
-      "server_error",
-      "unreachable",
-      "no_voices_configured",
-    ]);
-    let msg: string;
-    if (knownCodes.has(state.message)) {
-      msg = t(`routes.testErrors.${state.message}` as Parameters<typeof t>[0]);
-    } else {
-      const invalidModel = state.message.match(/^unsupported model:\s*(.+)$/i);
-      msg = invalidModel
-        ? t("routes.testErrors.invalid_model", { model: invalidModel[1] })
-        : state.message;
-    }
-    return <p className="text-2xs text-error mt-1">{msg}</p>;
-  }
-  return null;
-}
-

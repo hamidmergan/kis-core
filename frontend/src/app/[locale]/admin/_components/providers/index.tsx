@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { triggerBlobDownload } from "@/lib/download";
 import type { Feature, FeatureRoute, ModelWindows, Provider, ProviderMeta, Sampling } from "./_types";
 import { eligibleProviders, fullOrder, modelsOf, movedVisible } from "./_routeOptions";
 import {
@@ -23,7 +24,7 @@ import {
   type SetRouteInput,
 } from "./_api";
 import ProviderListCard from "./ProviderListCard";
-import ProviderFormDialog from "./ProviderFormDialog";
+import ProviderFormDialog, { type ProviderFormData } from "./ProviderFormDialog";
 import FeatureRoutingCard from "./FeatureRoutingCard";
 import ExportImportDialog from "./ExportImportDialog";
 import ClearAllConfirmDialog from "./ClearAllConfirmDialog";
@@ -74,16 +75,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
 
   // ── provider mutations ──────────────────────────────────────────────────
   const handleSubmit = useCallback(
-    async (data: {
-      name: string;
-      protocol: string;
-      base_url: string;
-      api_key: string | null;
-      voices: import("./_types").Voice[];
-      initial_capabilities?: string[];
-      capabilities?: string[];
-      concurrency?: Record<string, number>;
-    }) => {
+    async (data: ProviderFormData) => {
       if (dialog.open && dialog.mode === "edit") {
         // When editing, send only changed fields, null leaves the key in place.
         const patch: Record<string, unknown> = {
@@ -236,15 +228,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
     const stamped = dot >= 0
       ? `${filename.slice(0, dot)}-${time}${filename.slice(dot)}`
       : `${filename}-${time}`;
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = stamped;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(new Blob([JSON.stringify(config, null, 2)], { type: "application/json" }), stamped);
     setDialog({ open: false });
   }, []);
 
@@ -256,10 +240,6 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
 
   const handleOpenExportImport = useCallback((initialTab: "export" | "import") => {
     setDialog({ open: true, mode: "export-import", initialTab });
-  }, []);
-
-  const handleClearAllRequest = useCallback(() => {
-    setClearAllOpen(true);
   }, []);
 
   const handleClearAllConfirm = useCallback(async () => {
@@ -313,7 +293,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
                     type="button"
                     onClick={() => {
                       setMenuOpen(false);
-                      handleClearAllRequest();
+                      setClearAllOpen(true);
                     }}
                     className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >

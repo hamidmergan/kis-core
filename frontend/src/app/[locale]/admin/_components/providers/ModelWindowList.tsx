@@ -67,7 +67,7 @@ function WindowRow({
       await setModelWindow(model.provider_id, model.model_name, wert);
       await onSaved();
     } catch (err) {
-      setError(detail((err as Error).message));
+      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -104,13 +104,4 @@ function WindowRow({
       {error && <p className="text-2xs text-error">{error}</p>}
     </div>
   );
-}
-
-// The backend answers errors as JSON with a detail field.
-function detail(nachricht: string): string {
-  try {
-    return JSON.parse(nachricht).detail ?? nachricht;
-  } catch {
-    return nachricht;
-  }
 }

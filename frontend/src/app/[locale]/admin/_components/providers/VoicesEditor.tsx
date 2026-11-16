@@ -102,7 +102,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
       </div>
 
       {discoverError && (
-        <p className="text-xs text-destructive">{discoverError}</p>
+        <p className="text-xs text-error">{discoverError}</p>
       )}
 
       {/* Accordion voice list */}
@@ -157,7 +157,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleRemove(i); }}
-                    className="text-muted-soft hover:text-destructive shrink-0 leading-none"
+                    className="text-muted-soft hover:text-error shrink-0 leading-none"
                     aria-label={t("voices.remove")}
                   >
                     ✕

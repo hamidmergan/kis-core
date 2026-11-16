@@ -11,14 +11,12 @@ const FEATURE_CAPABILITY: Record<Feature, Capability> = {
   image_gen: "image_gen",
   image_edit: "image_edit",
   doc_translate: "translation",
-  screencast_translate: "translation",
   transcript_translate: "translation",
 };
 
 // For translating a chat capable provider counts too.
 const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
   doc_translate: ["chat"],
-  screencast_translate: ["chat"],
   transcript_translate: ["chat"],
 };
 
@@ -45,16 +43,6 @@ export function orderedProviders(feature: Feature, route: RouteOrder | undefined
     .map((id) => listed.find((p) => p.id === id))
     .filter((p): p is Provider => p !== undefined);
   return [...front, ...listed.filter((p) => !front.includes(p))];
-}
-
-/** The order after moving one provider a step up (-1) or down (+1). */
-export function moved(order: number[], providerId: number, step: -1 | 1): number[] {
-  const from = order.indexOf(providerId);
-  const to = from + step;
-  if (from < 0 || to < 0 || to >= order.length) return order;
-  const next = [...order];
-  [next[from], next[to]] = [next[to], next[from]];
-  return next;
 }
 
 /**

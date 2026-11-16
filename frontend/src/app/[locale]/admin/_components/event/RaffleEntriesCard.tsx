@@ -11,6 +11,7 @@ import { eventApi } from "@/lib/event/api";
 import { ROUTES } from "@/lib/event/routes";
 import type { RaffleEntry } from "@/lib/event/types";
 import { isFullAdmin } from "@/lib/permissions";
+import { triggerBlobDownload } from "@/lib/download";
 import { BTN_SECONDARY, INPUT } from "./fields";
 
 const ZONE = "Europe/Berlin";
@@ -63,12 +64,7 @@ export default function RaffleEntriesCard() {
     // A leading formula character would run in a spreadsheet, the apostrophe keeps it as text.
     const cell = (s: string) => `"${(/^[=+\-@]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
     const lines = ["email,entered_at", ...entries.map((e) => `${cell(e.email)},${new Date(e.enteredAt).toISOString()}`)];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "verlosung.csv";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    triggerBlobDownload(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }), "verlosung.csv");
   };
 
   const when = new Intl.DateTimeFormat(locale, { timeZone: ZONE, dateStyle: "short", timeStyle: "short" });

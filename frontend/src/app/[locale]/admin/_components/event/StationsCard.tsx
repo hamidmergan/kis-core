@@ -57,11 +57,9 @@ export default function StationsCard({ onQr }: { onQr: (id: string) => void }) {
       title={t("title")}
       description={t("description")}
       control={
-        <>
-          <button type="button" onClick={add} className={BTN_PRIMARY} data-testid="station-add">
-            {t("add")}
-          </button>
-        </>
+        <button type="button" onClick={add} className={BTN_PRIMARY} data-testid="station-add">
+          {t("add")}
+        </button>
       }
     >
       <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">

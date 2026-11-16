@@ -7,7 +7,7 @@ import StatusMark from "@/components/ui/StatusMark";
 import ModelWindowList from "./ModelWindowList";
 import type { ModelWindows, Provider } from "./_types";
 
-const _PROBE_ERROR_CODES = new Set([
+const PROBE_ERROR_CODES = new Set([
   "unreachable",
   "auth_rejected",
   "server_error",
@@ -125,7 +125,6 @@ function EmptyState({
   );
 }
 
-
 function ProviderRow({
   provider,
   onEdit,
@@ -194,7 +193,7 @@ function ProviderRow({
         </div>
         {provider.probe_status === "error" && provider.probe_error && (
           <p className="mt-2 text-2xs text-error">
-            {_PROBE_ERROR_CODES.has(provider.probe_error)
+            {PROBE_ERROR_CODES.has(provider.probe_error)
               ? t(`probeErrors.${provider.probe_error}` as Parameters<typeof t>[0])
               : provider.probe_error}
           </p>

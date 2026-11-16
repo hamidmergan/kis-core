@@ -14,21 +14,23 @@ import {
   concurrencyToFields,
 } from "./_concurrency";
 
+export type ProviderFormData = {
+  name: string;
+  protocol: string;
+  base_url: string;
+  api_key: string | null;
+  voices: Voice[];
+  initial_capabilities?: string[];
+  capabilities?: string[];
+  concurrency?: Record<string, number>;
+};
+
 type Props = {
   meta: ProviderMeta;
   mode: "create" | "edit";
   initial?: Provider;
   onClose: () => void;
-  onSubmit: (data: {
-    name: string;
-    protocol: string;
-    base_url: string;
-    api_key: string | null;
-    voices: Voice[];
-    initial_capabilities?: string[];
-    capabilities?: string[];
-    concurrency?: Record<string, number>;
-  }) => Promise<void>;
+  onSubmit: (data: ProviderFormData) => Promise<void>;
 };
 
 const DEFAULT_BASE_URL: Record<string, string> = {
@@ -125,12 +127,11 @@ export default function ProviderFormDialog({
     }
     setSubmitting(true);
     try {
-      const keyValue = apiKey === "" ? (isEdit ? null : null) : apiKey;
       await onSubmit({
         name: trimmedName,
         protocol,
         base_url: trimmedUrl,
-        api_key: keyValue,
+        api_key: apiKey === "" ? null : apiKey,
         voices,
         // Create: send pre-selection when user picked something; empty = auto-detect.
         initial_capabilities: !isEdit && selectedCaps.size > 0

@@ -9,9 +9,11 @@ import { useSettingsPatch } from "./useSettingsPatch";
 
 type PerLevel = Record<string, string>;
 
+const DEFAULT_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
 export default function DiagnosisLevelsCard() {
   const t = useTranslations("admin.diagnosisLevelsCard");
-  const [levels, setLevels] = useState<string[]>(["A1", "A2", "B1", "B2", "C1", "C2"]);
+  const [levels, setLevels] = useState<string[]>(DEFAULT_LEVELS);
   const [descriptions, setDescriptions] = useState<PerLevel | null>(null);
   const [examples, setExamples] = useState<PerLevel>({});
   const [savedDescriptions, setSavedDescriptions] = useState("");
@@ -32,7 +34,7 @@ export default function DiagnosisLevelsCard() {
       .then((r) => r.json())
       .then((d) => {
         const lvls: string[] = Array.isArray(d.language_diagnosis_example_levels)
-          ? d.language_diagnosis_example_levels : ["A1", "A2", "B1", "B2", "C1", "C2"];
+          ? d.language_diagnosis_example_levels : DEFAULT_LEVELS;
         setLevels(lvls);
 
         const descDefs: PerLevel = d.language_diagnosis_level_descriptions_default ?? {};
@@ -57,14 +59,13 @@ export default function DiagnosisLevelsCard() {
   const commitDescriptions = () => {
     const key = keyOf(descriptions, levels);
     if (key === savedDescriptions) return;
-    setSavedDescriptions(key);
-    void patch({ language_diagnosis_level_descriptions: key });
+    // Only a stored text counts as saved, a failed save runs again on the next blur.
+    void patch({ language_diagnosis_level_descriptions: key }).then((ok) => { if (ok) setSavedDescriptions(key); });
   };
   const commitExamples = () => {
     const key = keyOf(examples, levels);
     if (key === savedExamples) return;
-    setSavedExamples(key);
-    void patch({ language_diagnosis_level_examples: key });
+    void patch({ language_diagnosis_level_examples: key }).then((ok) => { if (ok) setSavedExamples(key); });
   };
   const reset = () => {
     const descs = { ...descriptionDefaults };

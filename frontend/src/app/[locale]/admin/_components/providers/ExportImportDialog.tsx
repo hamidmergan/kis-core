@@ -414,23 +414,21 @@ function ApiKeyRestoreNotice({ preview }: { preview: ImportPreviewResult }) {
 function PreviewBody({ preview }: { preview: ImportPreviewResult }) {
   const t = useTranslations("admin.providers.exportImport.preview");
   return (
-    <>
-      <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">
-          {t("providersHeading", { count: preview.providers.length })}
-        </h3>
-        <ul className="space-y-3">
-          {preview.providers.map((p) => (
-            <li key={p.name}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
-                <PreviewBadge action={p.action} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </>
+    <section>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">
+        {t("providersHeading", { count: preview.providers.length })}
+      </h3>
+      <ul className="space-y-3">
+        {preview.providers.map((p) => (
+          <li key={p.name}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
+              <PreviewBadge action={p.action} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

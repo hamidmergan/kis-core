@@ -17,6 +17,7 @@ export default function PendingTab() {
     fetch("/api/admin/users/pending", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setUsers(d.users ?? []))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -27,8 +28,11 @@ export default function PendingTab() {
   const approve = async (user: PendingUser) => {
     setApproving(user.id);
     try {
-      await fetch(`/api/admin/users/${user.id}/approve`, { method: "POST", credentials: "include" });
-      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      const res = await fetch(`/api/admin/users/${user.id}/approve`, { method: "POST", credentials: "include" });
+      // A refused approval keeps the row, otherwise it only looks approved.
+      if (res.ok) setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    } catch {
+      // The row stays for another try.
     } finally {
       setApproving(null);
     }

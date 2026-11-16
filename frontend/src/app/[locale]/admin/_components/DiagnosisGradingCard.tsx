@@ -32,10 +32,10 @@ export default function DiagnosisGradingCard() {
   if (rules === null) return null;
 
   // Save only on a real change, otherwise just looking freezes the default.
-  const commit = () => {
+  const commit = async () => {
     if (rules === savedRules) return;
-    setSavedRules(rules);
-    void patch({ language_diagnosis_grading_rules: rules });
+    // Only a stored text counts as saved, a failed save runs again on the next blur.
+    if (await patch({ language_diagnosis_grading_rules: rules })) setSavedRules(rules);
   };
   const reset = () => {
     setRules(fallback);
@@ -51,7 +51,7 @@ export default function DiagnosisGradingCard() {
       <textarea
         value={rules}
         onChange={(e) => { setRules(e.target.value); setError(null); }}
-        onBlur={commit}
+        onBlur={() => void commit()}
         disabled={saving}
         rows={9}
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"

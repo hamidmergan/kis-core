@@ -96,6 +96,8 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
       }
       const d = await r.json();
       setNeuePasswoerter((prev) => ({ ...prev, [konto.id]: d.password }));
+    } catch {
+      setError(t("resetError"));
     } finally {
       setResettingId(null);
     }
@@ -116,6 +118,8 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
         return;
       }
       laden();
+    } catch {
+      setError(t("saveError"));
     } finally {
       setSchaltend(null);
     }
@@ -138,9 +142,13 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: rueckfrage.art, code_id: umfang.id }),
             });
-      if (!r.ok) setError(t("saveError"));
       setRueckfrage(null);
       laden();
+      // After the reload, which clears the error line when it starts.
+      if (!r.ok) setError(t("saveError"));
+    } catch {
+      setError(t("saveError"));
+      setRueckfrage(null);
     } finally {
       setArbeitet(false);
     }

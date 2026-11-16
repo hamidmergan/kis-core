@@ -42,8 +42,8 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, status: entry.status } : e)));
       setError(t("saveError"));
       return;
@@ -55,8 +55,8 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
     const r = await fetch(`/api/admin/feedback/${entry.id}`, {
       method: "DELETE",
       credentials: "include",
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setError(t("deleteError"));
       return;
     }

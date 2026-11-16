@@ -77,8 +77,8 @@ export default function InvitesTab() {
     const r = await fetch(`/api/admin/invites/${invite.id}`, {
       method: "DELETE",
       credentials: "include",
-    });
-    if (!r.ok) {
+    }).catch(() => null);
+    if (!r?.ok) {
       setError(t("withdrawError"));
       return;
     }

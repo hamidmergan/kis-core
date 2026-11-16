@@ -55,33 +55,20 @@ export default function EvaluationTab() {
       .catch(() => {});
   }, []);
 
-  async function toggleActive(active: boolean) {
-    if (!config) return;
-    setConfig({ ...config, active });
+  /** Flips one switch at once and takes it back when the server refuses. */
+  async function toggleFlag(flag: "active" | "for_all", path: string, value: boolean) {
+    const apply = (next: boolean) => setConfig((prev) => (prev ? { ...prev, [flag]: next } : prev));
+    apply(value);
     try {
-      await fetch("/api/admin/evaluation/active", {
+      const r = await fetch(`/api/admin/evaluation/${path}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active }),
+        body: JSON.stringify({ [flag]: value }),
       });
+      if (!r.ok) apply(!value);
     } catch {
-      setConfig({ ...config, active: !active });
-    }
-  }
-
-  async function toggleForAll(for_all: boolean) {
-    if (!config) return;
-    setConfig({ ...config, for_all });
-    try {
-      await fetch("/api/admin/evaluation/for-all", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ for_all }),
-      });
-    } catch {
-      setConfig({ ...config, for_all: !for_all });
+      apply(!value);
     }
   }
 
@@ -138,8 +125,8 @@ export default function EvaluationTab() {
         setError(typeof body?.detail === "string" ? body.detail : t("saveError"));
         return;
       }
-      const saved: Config = await r.json();
-      setConfig(saved);
+      const stored: Config = await r.json();
+      setConfig(stored);
       setSaved(true);
     } catch {
       setError(t("saveError"));
@@ -172,14 +159,14 @@ export default function EvaluationTab() {
           title={t("activeLabel")}
           description={t("activeHint")}
           checked={config.active}
-          onToggle={() => toggleActive(!config.active)}
+          onToggle={() => toggleFlag("active", "active", !config.active)}
         />
         <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
           <ToggleRow
             title={t("forAllLabel")}
             description={t("forAllHint")}
             checked={config.for_all}
-            onToggle={() => toggleForAll(!config.for_all)}
+            onToggle={() => toggleFlag("for_all", "for-all", !config.for_all)}
           />
         </div>
       </div>
@@ -244,15 +231,13 @@ export default function EvaluationTab() {
               </div>
               {/* Only choice and multi pick from a fixed list, a free text field has none. */}
               {frage.type !== "text" && (
-                <>
-                  <textarea
-                    value={(frage.options ?? []).join("\n")}
-                    onChange={(e) => updateQuestion(frage.id, { options: e.target.value.split("\n") })}
-                    rows={3}
-                    placeholder={t("optionsPlaceholder")}
-                    className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
-                  />
-                </>
+                <textarea
+                  value={(frage.options ?? []).join("\n")}
+                  onChange={(e) => updateQuestion(frage.id, { options: e.target.value.split("\n") })}
+                  rows={3}
+                  placeholder={t("optionsPlaceholder")}
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
+                />
               )}
             </div>
           ))}

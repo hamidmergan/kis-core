@@ -50,14 +50,19 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   );
 
   useEffect(() => {
+    // A slower answer to an older filter must not replace the newer list.
+    let current = true;
     setLoading(true);
     fetch(`/api/admin/users?${query}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
+        if (!current) return;
         setUsers(d.users ?? []);
         setTotal(d.total ?? 0);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
   }, [query, refreshKey]);
 
   useEffect(() => {
@@ -150,7 +155,6 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       ));
     }
   }
-
 
   return (
     <div className="space-y-3">

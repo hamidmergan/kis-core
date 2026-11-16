@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 import { JobStatusBadge, type AdminJob } from "../_shared";
 import Pager from "./Pager";
 import { useListFilter } from "./useListFilter";
@@ -31,26 +32,34 @@ export default function JobsTab() {
     if (!confirm(t("jobs.cancelConfirm"))) return;
     setCancelling(jobUuid);
     try {
-      await fetch(`/api/admin/jobs/${jobUuid}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/admin/jobs/${jobUuid}`, { method: "DELETE", credentials: "include" });
+      // A refused cancel keeps the row, the job is still running.
+      if (!res.ok) return;
       setJobs((prev) => prev.filter((j) => j.job_uuid !== jobUuid));
       setTotal((n) => n - 1);
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
+    } catch {
+      // The row stays for another try.
     } finally {
       setCancelling(null);
     }
   };
 
   useEffect(() => {
+    // A slower answer to an older filter must not replace the newer list.
+    let current = true;
     setLoading(true);
     fetch(`/api/admin/jobs?${query}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
+        if (!current) return;
         setJobs(d.jobs ?? []);
         setTotal(d.total ?? 0);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
   }, [query]);
-
 
   return (
     <div className="space-y-3">
