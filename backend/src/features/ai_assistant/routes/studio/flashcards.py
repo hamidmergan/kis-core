@@ -1,17 +1,17 @@
 """KI-Assistent routes - flashcards."""
 
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from langfuse.decorators import observe
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
-from src.i18n import get_locale, t
+from src.i18n import get_locale
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: studio"])
@@ -26,14 +26,7 @@ def generate_flashcards(
 ):
     """Create a flashcards exercise set via Celery."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)

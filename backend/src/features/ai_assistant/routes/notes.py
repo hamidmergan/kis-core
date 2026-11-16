@@ -77,6 +77,7 @@ def _generate_note_title(llm, content: str, language: str = "German") -> Optiona
     return title
 
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: notes"])
 
@@ -87,14 +88,7 @@ def get_notes(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     notes = db.get_aia_notes(workspace["id"], user_id)
     return [
@@ -120,14 +114,7 @@ def create_note(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     if db.count_aia_notes(workspace["id"], user_id) >= AIA_NOTES_MAX_PER_USER:
         raise HTTPException(

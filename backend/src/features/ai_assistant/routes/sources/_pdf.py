@@ -1,12 +1,13 @@
 """PDF-specific operations: TOC, text search."""
 import asyncio
 from ._shared import (
-    Path, APIRouter, Depends, HTTPException, db, get_current_user,
-    get_locale, t, get_file,
+    Path, APIRouter, Depends, get_current_user,
+    get_locale, get_file,
     _load_workspace_source,
 )
 
 from src.utils.pdfium_lock import PDFIUM_LOCK
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -20,14 +21,7 @@ def get_pdf_toc(
 ):
     """Return the stored table of contents from the DB."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
@@ -43,14 +37,7 @@ async def search_pdf(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 

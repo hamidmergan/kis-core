@@ -34,6 +34,14 @@ def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = D
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 
+def _require_workspace_member(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
+    """Allows owner or enrolled people, without the lock of an inactive course room."""
+    workspace = _visible_workspace(workspace_uuid, locale)
+    if workspace["user_id"] != user_id and not db.is_student_enrolled(workspace["id"], user_id):
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    return workspace
+
+
 def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     """Allows owner or enrolled people, an inactive course room answers with 423."""
     workspace = _visible_workspace(workspace_uuid, locale)

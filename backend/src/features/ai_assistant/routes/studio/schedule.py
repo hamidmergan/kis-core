@@ -12,22 +12,12 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.scheduling import farben
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: studio"])
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
-
-def _require_module_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-    return workspace
-
 
 def _parse_date(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[date]:
     if not s:
@@ -187,7 +177,7 @@ def get_schedule(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale=locale)
 
     entries = db.get_schedule_entries(workspace["id"], user_id)
     processed_ids = db.get_processed_source_ids(workspace["id"], user_id)
@@ -213,7 +203,7 @@ def generate_schedule(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale=locale)
 
     if not body.source_ids:
         raise HTTPException(status_code=400, detail=t("ai.source.noneSelected", locale))
@@ -238,7 +228,7 @@ def get_active_schedule_job_route(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale=locale)
     job = db.get_active_schedule_job(workspace["id"], user_id)
     if not job:
         return {"active": False}
@@ -258,7 +248,7 @@ def get_schedule_job(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id, locale=locale)
+    _require_workspace_member(workspace_uuid, user_id, locale=locale)
     job = db.get_schedule_job(job_id, user_id)
     if not job:
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
@@ -283,7 +273,7 @@ def create_entry(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale=locale)
 
     if body.type not in ("deadline", "termin"):
         raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
@@ -320,7 +310,7 @@ def update_entry(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id, locale=locale)
+    _require_workspace_member(workspace_uuid, user_id, locale=locale)
 
     existing = db.get_schedule_entry(entry_id, user_id)
     if not existing:
@@ -376,7 +366,7 @@ def delete_entry(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id, locale=locale)
+    _require_workspace_member(workspace_uuid, user_id, locale=locale)
     if not db.delete_schedule_entry(entry_id, user_id):
         raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
     return {"ok": True}
@@ -391,7 +381,7 @@ def delete_all(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale=locale)
     count = db.delete_all_schedule_entries(workspace["id"], user_id)
     # Only the owner's reset also empties the shared pool, an enrolled person's never does.
     if workspace["user_id"] == user_id:

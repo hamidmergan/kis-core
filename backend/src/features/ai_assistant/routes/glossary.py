@@ -24,6 +24,7 @@ from src.features.ai_assistant.routes._text import (
 )
 from src.features.ai_assistant import schemas
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: glossary"])
 
@@ -34,14 +35,7 @@ def get_glossary(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     return {"entries": entries}
@@ -54,14 +48,7 @@ def delete_glossary_entry_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    _require_workspace_member(workspace_uuid, user_id, locale)
 
     if not db.delete_glossary_entry(entry_id, user_id):
         raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
@@ -74,14 +61,7 @@ def delete_all_glossary_endpoint(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     count = db.delete_all_glossary_entries(workspace["id"], user_id)
     return {"ok": True, "deleted": count}
@@ -169,14 +149,7 @@ async def extract_glossary_from_selection(
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)

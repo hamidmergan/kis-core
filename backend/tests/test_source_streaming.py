@@ -4,6 +4,7 @@ import unicodedata
 import pytest
 from fastapi import HTTPException
 
+from src import database as db
 from src.features.ai_assistant.routes.sources import _streaming
 from src.features.ai_assistant.routes.sources._streaming import (
     _inline_content_disposition,
@@ -59,8 +60,8 @@ def test_youtube_source_has_no_file(monkeypatch):
     workspace = {"id": 7, "uuid": "w1", "user_id": 42}
     source = {"file_type": "youtube", "filename": "x.youtube", "file_path": "k"}
 
-    monkeypatch.setattr(_streaming.db, "get_aia_workspace", lambda uuid: workspace)
-    monkeypatch.setattr(_streaming.db, "is_student_enrolled", lambda ws_id, user_id: False)
+    monkeypatch.setattr(db, "get_aia_workspace", lambda uuid: workspace)
+    monkeypatch.setattr(db, "is_student_enrolled", lambda ws_id, user_id: False)
     monkeypatch.setattr(_streaming, "_load_workspace_source", lambda *a, **k: source)
 
     class Request:

@@ -11,7 +11,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.stats import LANGUAGE_TRAINING_TOOLS
 from src.features.ai_assistant.tasks._helpers import LEARNING_TOOLS
@@ -64,14 +64,7 @@ def create_exercise_set(
 ):
     """Create a new exercise set - returns immediately, generates via Celery."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     # Without switch and level for this person, a window left open builds nothing any more.
     if body.tool in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_ready(user_id):

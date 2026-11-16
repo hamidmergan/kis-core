@@ -83,6 +83,7 @@ from src.features.ai_assistant.routes._text import (
     _tail_repeats,
 )
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: chat"])
 
@@ -116,14 +117,8 @@ async def chat(
     enforce_burst(user_id, locale)
 
     _started_at = _time.monotonic()
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
     is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     # The tutor language per course room and person drives the refusal sentence.
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}

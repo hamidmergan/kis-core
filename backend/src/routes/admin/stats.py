@@ -70,7 +70,7 @@ def get_stats(
 @router.get("/ai-assistant/stats")
 def get_aia_stats(
     days: int = Query(default=30, ge=1, le=365),
-    mode: str | None = Query(default=None, regex="^(source|glossary)$"),
+    mode: str | None = Query(default=None, pattern="^(source|glossary)$"),
     _admin=Depends(_require_aia_usage),
 ):
     """Aggregated KI-Assistent statistics for the admin dashboard."""

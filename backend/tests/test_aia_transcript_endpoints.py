@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.services.subtitle_converter import segments_to_vtt
+from src import database as db
 from src.features.ai_assistant.routes.sources import _streaming
 
 SEGMENTE = [{"start": 0.0, "end": 2.0, "text": "Hallo Welt"}]
@@ -22,8 +23,8 @@ def quelle(lokal, monkeypatch):
         "file_path": str(ordner / "abc.mp4"), "language": "de",
     }
 
-    monkeypatch.setattr(_streaming.db, "get_aia_workspace", lambda uuid: WORKSPACE)
-    monkeypatch.setattr(_streaming.db, "is_student_enrolled", lambda ws_id, user_id: False)
+    monkeypatch.setattr(db, "get_aia_workspace", lambda uuid: WORKSPACE)
+    monkeypatch.setattr(db, "is_student_enrolled", lambda ws_id, user_id: False)
     monkeypatch.setattr(_streaming, "_load_workspace_source", lambda *a, **k: source)
 
     def vtt_anlegen(lang: str) -> None:

@@ -10,7 +10,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member, _resolve_source_ids
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 
@@ -25,14 +25,7 @@ def generate_mindmap(
 ):
     """Queue mindmap generation as a background Celery task."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
@@ -103,14 +96,7 @@ def get_mindmap(
 ):
     """Poll mindmap generation status."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     mindmap = db.get_aia_mindmap(mindmap_id)
     if not mindmap or mindmap["workspace_id"] != workspace["id"]:
@@ -126,14 +112,7 @@ def get_latest_mindmap(
 ):
     """Get the latest mindmap for this workspace."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     mindmap = db.get_latest_aia_mindmap(workspace["id"], user_id)
     if not mindmap:
@@ -150,14 +129,7 @@ def list_mindmaps(
 ):
     """List all saved mindmaps for this workspace."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     rows = db.get_all_aia_mindmaps(workspace["id"], user_id)
     return [

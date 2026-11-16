@@ -3,7 +3,7 @@ import asyncio
 import re
 
 from ._shared import (
-    Path, APIRouter, Depends, HTTPException, Request, logger, db, get_current_user,
+    Path, APIRouter, Depends, HTTPException, Request, logger, get_current_user,
     get_locale, t, FileResponse,
     Response, StreamingResponse, USE_S3,
     file_exists, get_file, list_keys, stream_s3_object, _require_workspace_manage,
@@ -12,6 +12,7 @@ from ._shared import (
 )
 from src.features.ai_assistant import schemas
 from src.storage import aia_vtt_error_key, delete_file
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_member
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -32,14 +33,7 @@ def stream_source_file(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
     # A YouTube source has no file, the player embeds the video instead.
@@ -154,14 +148,7 @@ async def get_transcript_vtt(
 ):
     """Return a WebVTT transcript for a media source in the requested language."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
@@ -192,14 +179,7 @@ async def get_transcript_exists(
 ):
     """Return {exists: bool} for a transcript file. Used for clean polling without 404 spam."""
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
@@ -229,14 +209,7 @@ async def get_transcript_langs(
     from src.i18n import TRANSCRIPT_LANGUAGES
 
     user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    workspace = _require_workspace_member(workspace_uuid, user_id, locale)
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
