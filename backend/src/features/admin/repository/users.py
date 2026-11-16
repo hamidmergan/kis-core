@@ -100,15 +100,6 @@ def remove_from_whitelist(email: str) -> None:
             cur.execute("DELETE FROM whitelist WHERE LOWER(email) = LOWER(%s)", (email.strip(),))
         conn.commit()
 
-def is_email_whitelisted(email: str) -> bool:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM whitelist WHERE LOWER(email) = LOWER(%s)", (email.strip(),)
-            )
-            return cur.fetchone() is not None
-
-
 # --- Settings (key/value store) ---
 
 def get_all_users(
@@ -246,5 +237,3 @@ def set_global_consent(user_id: int, version: int) -> None:
                 (version, user_id),
             )
         conn.commit()
-
-

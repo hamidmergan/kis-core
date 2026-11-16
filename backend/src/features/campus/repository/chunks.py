@@ -28,13 +28,6 @@ def replace_chunks(page_id: int, chunks: list[dict]) -> list[int]:
     return ids
 
 
-def set_embedding(chunk_id: int, embedding: list[float]) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE campus_chunks SET embedding = %s::vector WHERE id = %s", (str(list(embedding)), chunk_id))
-        conn.commit()
-
-
 def set_embeddings(pairs: list[tuple[int, list[float]]]) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:

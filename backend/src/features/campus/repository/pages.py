@@ -109,15 +109,6 @@ def delete_page(page_id: int) -> None:
         conn.commit()
 
 
-def delete_pages_of_kind(kind: str) -> int:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM campus_pages WHERE kind = %s", (kind,))
-            n = cur.rowcount
-        conn.commit()
-    return n
-
-
 def page_stats() -> dict:
     """Counts per kind and status plus the chunk total, for the admin page."""
     with get_connection() as conn:

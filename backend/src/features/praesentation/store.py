@@ -9,7 +9,7 @@ import re
 from src.features.praesentation import vorlage
 from src.features.praesentation.schemas import Outline, PraesentationParams, Slide
 from src.storage import (
-    get_job_file, job_file_exists, job_prefix, save_job_file,
+    get_job_file, job_file_exists, save_job_file,
 )
 
 MAP_FILE = "grundlage.json"
@@ -35,10 +35,6 @@ def preview_name(slide_id: str) -> str:
 
 def slide_source_name(slide_id: str) -> str:
     return f"{SLIDE_SOURCE_DIR}/{slide_id}.txt"
-
-
-def deck_key(user_id: int, job_uuid: str) -> str:
-    return f"{job_prefix(user_id, job_uuid)}/{DECK_FILE}"
 
 
 def _read_json(user_id: int, job_uuid: str, name: str):

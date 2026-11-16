@@ -1,11 +1,9 @@
 """Two text recognition providers with the same interface, chosen in the admin area."""
 
 import base64
-import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import httpx
 from loguru import logger
 
 
@@ -67,31 +65,6 @@ class OpenAICompatOcrProvider(OcrProvider):
 
     def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
         return _call_vlm(self._client, self._model, image_bytes, mime_type, self._sampling)
-
-
-class DoclingOcrProvider(OcrProvider):
-    """Text recognition via the Docling API, much faster than an image model."""
-
-    _PICTURE_REF_RE = re.compile(r"^picture-\d+\.png\s*$", re.MULTILINE)
-    _IMAGE_COMMENT_RE = re.compile(r"<!--\s*image\s*-->")
-
-    def __init__(self, base_url: str, api_key: str, timeout: float = 120.0) -> None:
-        self._endpoint = f"{base_url.rstrip('/')}/documents/convert"
-        self._api_key = api_key
-        self._timeout = timeout
-
-    def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
-        ext = mime_type.rsplit("/", 1)[-1] or "png"
-        files = {"document": (f"page.{ext}", image_bytes, mime_type)}
-        headers = {"Authorization": f"Bearer {self._api_key}"}
-        with httpx.Client(timeout=self._timeout) as client:
-            response = client.post(self._endpoint, files=files, headers=headers)
-        response.raise_for_status()
-        markdown = (response.json().get("markdown") or "").strip()
-        # Docling image placeholders do not belong in the chunk text.
-        markdown = self._IMAGE_COMMENT_RE.sub("", markdown)
-        markdown = self._PICTURE_REF_RE.sub("", markdown)
-        return markdown.strip()
 
 
 def get_ocr_provider() -> Optional[OcrProvider]:

@@ -52,14 +52,6 @@ def is_admin_user(user: dict) -> bool:
     return user.get("role") == "admin"
 
 
-async def get_admin_user(request: Request, locale: str = Depends(get_locale)) -> dict:
-    """Like get_current_user but raises 403 when the user is not an admin."""
-    user = await get_current_user(request)
-    if not is_admin_user(user):
-        raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
-    return user
-
-
 @lru_cache
 def get_session_store():
     from src.services.session import SessionStore
@@ -87,11 +79,6 @@ def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, st
 def _resolve_llm_binding() -> feature_router.FeatureBinding:
     """Resolves the active chat binding, raises FeatureNotConfigured without a route."""
     return feature_router.resolve("chat")
-
-
-def _resolve_llm_provider() -> tuple[str, str, str, str]:
-    """Resolves the active chat model, raises FeatureNotConfigured without a route."""
-    return _binding_tuple(_resolve_llm_binding())
 
 
 def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
@@ -315,5 +302,3 @@ def resolve_deepl_api_key() -> str | None:
     if not provider:
         return None
     return provider.get("api_key") or None
-
-

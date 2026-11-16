@@ -431,11 +431,6 @@ def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int
     return _capped(budget_chars, share, profile_for_feature(feature))
 
 
-def cap_for_provider_model(budget_chars: int, share: float, provider_id: int, model: str) -> int:
-    """Trims a budget down to what this exact provider's model provably takes."""
-    return _capped(budget_chars, share, stored_profile(provider_id, model))
-
-
 def cap_for_window(budget_chars: int, share: float, feature: str = "chat") -> int:
     """Trims a budget to a window entered by hand or measured, a learned one may stem from a rate limit."""
     profil = profile_for_feature(feature)

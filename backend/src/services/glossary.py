@@ -31,11 +31,6 @@ class GlossaryService:
                 replacements[token] = target
         return updated, replacements
 
-    def terms_in(self, text: str) -> List[str]:
-        """The source terms that really occur in the text, longest first."""
-        return [source for pattern, _token, _target, source in self._patterns
-                if pattern.search(text)]
-
     def restore_text(self, text: str, replacements: Dict[str, str]) -> str:
         restored = text
         for token, target in replacements.items():
