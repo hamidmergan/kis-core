@@ -529,7 +529,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             # In the overview an enumeration whose evidence carries only one item stays chip free.
             _cited = agg[0].get("content") or ""
             if overview and _holds_for_every_sentence(
-                    block_text, lambda s: _enum_chip_unbacked(s, _cited)):
+                    block_text, lambda s, cited=_cited: _enum_chip_unbacked(s, cited)):
                 continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance,
                                     guarantee_dist=guarantee, line=block_text,

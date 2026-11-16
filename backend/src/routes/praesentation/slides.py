@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.features.praesentation import bau, folien, gliederung, store, vorlage, vorschau
+from src.features.praesentation import bau, folien, store, vorlage, vorschau
 from src.features.praesentation.schemas import (
     MAX_BILDER_JE_FOLIE, MAX_GIST_CHARS, MAX_PROMPT_CHARS, MAX_TITLE_CHARS,
     Outline, OutlineRow, Slide, bildstellen,
@@ -187,7 +187,6 @@ def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
     outline = store.load_outline(user_id, job_uuid) or Outline()
     row = next((r for r in outline.rows if r.id == slide_id), None) or OutlineRow(id=alt.id, role=alt.role, title=alt.title)
     form = vorlage.form_fuer(analyse.layout(alt.layout), analyse)
-    wunsch = next((tr.content for tr in reversed(body.messages) if tr.role == "user"), "")
     # A slide added later carries material of its own, it beats the material of the run.
     quelle = (store.load_slide_source(user_id, job_uuid, slide_id)
               or _stellen_der_folie(user_id, job_uuid, row)

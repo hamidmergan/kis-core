@@ -1,6 +1,5 @@
 """Grammar exercise from source text, the sentences are rebuilt instead of copied."""
 
-import json
 import random
 import re
 

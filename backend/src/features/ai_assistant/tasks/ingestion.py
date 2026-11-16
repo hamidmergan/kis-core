@@ -176,7 +176,6 @@ def _page_chunks(file_path: str) -> list[dict]:
 
 def _convert_office_source(source_uuid: str, file_path: str, file_type: str, filename: str, locale: str):
     """Turns a stored docx or pptx into a PDF in place, so everything after reads one format."""
-    import os
     import tempfile
     from pathlib import Path
 

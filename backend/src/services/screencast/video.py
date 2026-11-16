@@ -5,7 +5,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.services.screencast.outro import KI_HINWEIS
+from src.services.ai_hinweis import AI_HINWEIS_TEXT as KI_HINWEIS
 from src.services.screencast.process import run_proc
 
 # Padding on the image length so the audio and not the image decides the end.

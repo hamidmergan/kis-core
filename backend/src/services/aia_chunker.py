@@ -1,6 +1,5 @@
 """Document chunker for KI Tutor - extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
-import re
 import time
 
 from src.services.text_pieces import (

@@ -134,7 +134,6 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     # A requeued run takes the seat along and gives it back itself.
     platz_weiter = False
     klein = False
-    import json as _json
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
     # The generated content follows the management setting.

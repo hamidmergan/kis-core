@@ -18,8 +18,6 @@ from src.i18n import t
 from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
-    SUMMARY_MAX_SOURCES,
-    SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
 from src.services import sources
@@ -32,8 +30,6 @@ from src.services.job_files import (
 from src.services.job_recovery import attempt_failed, still_mine
 from src.utils import local_date
 from src.storage import (
-    job_file_exists,
-    open_input_file,
     save_job_file,
     save_result_and_evict,
     save_result_file,

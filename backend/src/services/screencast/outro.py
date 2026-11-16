@@ -4,7 +4,6 @@ from pathlib import Path
 
 from PIL import Image
 
-from src.services.ai_hinweis import AI_HINWEIS_TEXT as KI_HINWEIS
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 OUTRO_SOURCE = ASSETS_DIR / "screencast-outro.png"

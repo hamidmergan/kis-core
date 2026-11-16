@@ -38,7 +38,7 @@ def generate_flashcards(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
+    _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
     first_uuid = body.active_source_ids[0] if body.active_source_ids else None
 
     placeholder = db.create_exercise_set_placeholder(

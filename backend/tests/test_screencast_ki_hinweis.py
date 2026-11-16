@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from src.services.screencast.outro import KI_HINWEIS, rahme_clips
+from src.services.ai_hinweis import AI_HINWEIS_TEXT as KI_HINWEIS
+from src.services.screencast.outro import rahme_clips
 from src.services.screencast.video import apply_faststart
 
 _HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None

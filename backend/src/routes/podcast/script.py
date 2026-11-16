@@ -5,7 +5,6 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from src import database as db
 from src.dependencies import get_current_user
 from src.features.podcast import store
 from src.features.podcast.schemas import Line, PodcastParams

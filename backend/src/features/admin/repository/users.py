@@ -9,6 +9,7 @@ import psycopg2.pool
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+from src.core.db._common import _de_date_to_utc
 from src.core.db.pool import get_connection
 
 

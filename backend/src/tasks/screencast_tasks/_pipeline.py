@@ -243,7 +243,6 @@ def _run_render_pipeline(
             ton_zahlen["sprache"] = target_lang
             tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen, ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt, clock=clock, on_beat=lambda: db.touch_job_heartbeat(job_uuid)))
         audio_paths = [r[0] for r in tts_results]
-        alignments = [r[1] for r in tts_results]
 
         # Slides the stage did not reach, plus the montage, belong to the next stage.
         offen = [i for i, p in enumerate(audio_paths) if p is not None and not p.exists()]

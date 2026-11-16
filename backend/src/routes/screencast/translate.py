@@ -30,7 +30,7 @@ from src.services.tool_limits import (
 )
 from src.utils.upload_stream import stream_upload_to_path
 
-from src.routes.screencast._shared import SCREENCAST_TOOLS, merke_skriptsprache, validate_upload, vertonung_verwerfen
+from src.routes.screencast._shared import merke_skriptsprache, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
 

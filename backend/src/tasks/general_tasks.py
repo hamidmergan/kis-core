@@ -10,7 +10,6 @@ from PIL import Image as PILImage
 
 from src.celery_app import celery_app
 from src import database as db
-from src.i18n import t
 from src.storage import (delete_file, get_file, open_input_file, save_job_file, save_result_file,
                          save_result_and_evict, save_result_meta)
 from src.utils.heartbeat import job_heartbeat

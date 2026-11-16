@@ -1,6 +1,5 @@
 """Flashcards-Generierung aus Quelltext (mode='source')."""
 
-import json
 
 from loguru import logger
 

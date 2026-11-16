@@ -11,6 +11,8 @@ _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
+from .access_links import get_workspace_by_access_link_code
+
 
 def enroll_student(
     workspace_id: int, user_id: int, enrolled_until: datetime | None,
