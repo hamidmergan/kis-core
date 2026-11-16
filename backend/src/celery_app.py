@@ -1,5 +1,4 @@
 import gc
-import os
 
 from celery import Celery, Task
 from celery.schedules import crontab
@@ -7,6 +6,7 @@ from celery.signals import (
     task_failure, task_prerun, task_revoked, worker_before_create_process, worker_process_init, worker_ready,
 )
 from loguru import logger
+from src.core.redis_url import CELERY_RESULT_URL, REDIS_URL
 
 # A task whose worker dies goes back in line (task_reject_on_worker_lost), but a task that
 # kills its worker every time must not circle forever: after this many starts it gives up.
@@ -19,7 +19,7 @@ def start_allowed(task_id: str, retries: int, r=None) -> bool:
     try:
         if r is None:
             import redis as _redis_lib
-            r = _redis_lib.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+            r = _redis_lib.from_url(REDIS_URL,
                                     socket_connect_timeout=1, socket_timeout=2)
         key = _START_KEY.format(task_id, retries)
         n = r.incr(key)
@@ -45,8 +45,8 @@ class _GuardedTask(Task):
 celery_app = Celery(
     "kis",
     task_cls=_GuardedTask,
-    broker="redis://kis-redis:6379/0",
-    backend="redis://kis-redis:6379/1",
+    broker=REDIS_URL,
+    backend=CELERY_RESULT_URL,
     include=[
         "src.tasks.tts_tasks",
         "src.tasks.general_tasks",

@@ -1,7 +1,6 @@
 import os
 import time
 from contextlib import contextmanager
-from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
@@ -10,8 +9,6 @@ from loguru import logger
 
 from src.limits import DB_POOL_MAX_CONNECTIONS
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 _pool: psycopg2.pool.ThreadedConnectionPool | None = None
 

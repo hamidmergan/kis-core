@@ -1,14 +1,12 @@
 """Shared constants and the job row formatter for the /jobs endpoints."""
 
 import json as json_lib
-import os
 from pathlib import PurePosixPath
 
 from src.i18n import DEFAULT_LOCALE, t
 from src.storage import file_exists, load_result_meta
 
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 
 _CONTENT_TYPES = {

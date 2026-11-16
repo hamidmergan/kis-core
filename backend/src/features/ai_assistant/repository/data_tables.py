@@ -1,13 +1,9 @@
-import os
-from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
 
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 

@@ -1,13 +1,12 @@
 """Records who is here right now and which days someone was here."""
-import os
 import time
 from datetime import datetime, timezone
 
 from loguru import logger
 
+from src.core.redis_url import REDIS_URL
 from src.core.db.pool import get_connection
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _PREFIX = "kis:seen:"
 
 # A value below this mark cannot be a timestamp.
@@ -24,7 +23,7 @@ def _redis():
     if _client is None:
         import redis as _redis_lib
         _client = _redis_lib.from_url(
-            _REDIS_URL, socket_connect_timeout=1, socket_timeout=1
+            REDIS_URL, socket_connect_timeout=1, socket_timeout=1
         )
     return _client
 

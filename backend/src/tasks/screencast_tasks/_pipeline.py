@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import os
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,6 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from src import database as db
+from src.core.redis_url import REDIS_URL
 from src.limits import RENDER_MAX_WORKERS, STAGE_SECONDS
 from src.services.job_recovery import still_mine
 from src.tasks._stage import StageContinue, StageLost
@@ -157,7 +157,7 @@ def _run_render_pipeline(
     def _cancel_watcher() -> None:
         try:
             import redis as _redis
-            _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
+            _r = _redis.from_url(REDIS_URL)
             while not _stop_watcher.wait(0.5):
                 exists = bool(_r.exists(f"job:cancel:{job_uuid}"))
                 if exists:

@@ -1,11 +1,11 @@
 """What both podcast tasks need."""
 
-import os
 
 import redis
 from loguru import logger
+from src.core.redis_url import REDIS_URL
 
-_r = redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
+_r = redis.from_url(REDIS_URL)
 
 
 class JobCancelled(Exception):

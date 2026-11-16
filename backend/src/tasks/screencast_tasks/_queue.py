@@ -1,11 +1,11 @@
 """Per-user queue for screencast jobs, dispatches the next waiting job."""
 
 import json
-import os
 
 from loguru import logger
 
 from src import database as db
+from src.core.redis_url import REDIS_URL
 from src.storage import get_job_file
 
 
@@ -35,7 +35,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
             scripts = json.loads(get_job_file(user_id, job_uuid, "render_scripts.json"))
             try:
                 import redis as _redis
-                _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
+                _r = _redis.from_url(REDIS_URL)
                 _r.delete(f"job:cancel:{job_uuid}")
             except Exception:
                 pass

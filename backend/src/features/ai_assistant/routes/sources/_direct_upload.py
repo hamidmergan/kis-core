@@ -5,13 +5,13 @@ file costs this box neither bandwidth nor memory and leaves the page connection 
 """
 import json
 import math
-import os
 import uuid
 from urllib.parse import urlsplit
 
 from fastapi import Request
 from pydantic import BaseModel, Field
 
+from src.core.redis_url import REDIS_URL
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.storage import (
     S3_UPLOAD_PROXY,
@@ -52,7 +52,6 @@ _MAX_URLS_PER_CALL = 20
 _SESSION_SECONDS = 24 * 60 * 60
 _SESSION_PREFIX = "kis:aia:direct-upload:"
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 _CONTENT_TYPES = {
     ".mp3": "audio/mpeg", ".mp4": "video/mp4", ".wav": "audio/wav",
@@ -65,7 +64,7 @@ _CONTENT_TYPES = {
 
 def _redis():
     import redis as _redis_lib
-    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _save_session(token: str, session: dict) -> None:

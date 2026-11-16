@@ -1,10 +1,10 @@
 """Source upload / retry / delete."""
 import asyncio
-import os
 import tempfile
 import time
 import uuid
 
+from src.core.redis_url import REDIS_URL
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.utils.file_validation import validate_or_raise
 from src.utils.upload_stream import stream_upload_to_path
@@ -28,13 +28,12 @@ _UPLOAD_SET_KEY = "kis:uploads:inflight"
 # How long a slot is valid at most, an orphan heals by itself afterwards.
 _UPLOAD_STALE_SECONDS = 15 * 60
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 
 def _redis():
     """Redis client with short timeouts, same pattern as rate_limit.py."""
     import redis as _redis_lib
-    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _max_concurrent_uploads() -> int:

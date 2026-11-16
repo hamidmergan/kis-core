@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 from contextlib import asynccontextmanager
 
@@ -10,6 +9,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src import database as db
+from src.core.redis_url import REDIS_URL
 from src.database import init_db
 from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
@@ -64,7 +64,7 @@ def _broker_was_emptied() -> bool:
     try:
         import redis as _redis_lib
         r = _redis_lib.from_url(
-            os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+            REDIS_URL,
             socket_connect_timeout=1,
             socket_timeout=1,
         )

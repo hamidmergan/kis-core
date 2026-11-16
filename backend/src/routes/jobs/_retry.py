@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
+from src.core.redis_url import REDIS_URL
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
 from src.services.open_jobs import enforce_open_jobs
@@ -124,7 +125,7 @@ def retry_job(
         ])
         try:
             import redis as _redis
-            _r = _redis.from_url("redis://kis-redis:6379/0")
+            _r = _redis.from_url(REDIS_URL)
             _r.delete(f"job:cancel:{job_uuid}")
         except Exception as e:
             logger.warning("Could not clear cancel flag in Redis: {}", e)

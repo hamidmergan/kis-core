@@ -1,14 +1,10 @@
-import os
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
 
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 from src.core.db.schema_campus import create_campus_hnsw, create_campus_tables
 from src.limits import IMAGE_PROVIDER_MAX_CONCURRENT, TTS_PROVIDER_MAX_CONCURRENT

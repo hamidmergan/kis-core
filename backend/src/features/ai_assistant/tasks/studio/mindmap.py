@@ -5,6 +5,7 @@ from pathlib import Path
 from langfuse.decorators import observe
 from loguru import logger
 
+from src.core.redis_url import REDIS_URL
 from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
@@ -72,9 +73,8 @@ class _Zwischenstand:
         self._key = f"kis:mindmap-stand:{mindmap_id}"
 
     def _redis(self):
-        import os
         import redis
-        return redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+        return redis.from_url(REDIS_URL,
                               socket_connect_timeout=2, socket_timeout=2)
 
     def get(self, feld: str, default=None):

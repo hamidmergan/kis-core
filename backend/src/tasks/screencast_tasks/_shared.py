@@ -1,10 +1,10 @@
 """Shared helpers for screencast tasks: cancel check, TTS client, service resolver."""
 
 import json
-import os
 import uuid
 from loguru import logger
 
+from src.core.redis_url import REDIS_URL
 from src.services import tts_job_provider
 from src.storage import get_job_file, is_missing, save_job_file
 
@@ -18,7 +18,7 @@ def _assert_not_cancelled(job_uuid: str) -> None:
     cancelled = False
     try:
         import redis as _redis
-        _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
+        _r = _redis.from_url(REDIS_URL)
         cancelled = bool(_r.exists(f"job:cancel:{job_uuid}"))
     except Exception as e:
         logger.warning("Cancel check Redis error: {}", e)

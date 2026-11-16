@@ -1,20 +1,19 @@
-import os
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from loguru import logger
 
+from src.core.redis_url import REDIS_URL
 from src.core.db.pool import get_connection
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 
 def _notify_job_update(job_uuid: str) -> None:
     """Publish to Redis so SSE clients receive a real-time update."""
     try:
         import redis as _redis
-        r = _redis.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+        r = _redis.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT user_id FROM jobs WHERE job_uuid = %s", (job_uuid,))

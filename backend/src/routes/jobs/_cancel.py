@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
+from src.core.redis_url import REDIS_URL
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
@@ -37,7 +38,7 @@ def cancel_job_render(
     # Set a Redis cancellation flag so the worker stops at the next checkpoint
     try:
         import redis as _redis
-        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r = _redis.from_url(REDIS_URL)
         _r.setex(f"job:cancel:{job_uuid}", 600, "1")  # 10 min TTL
         logger.info("Cancel flag set in Redis for job={}", job_uuid)
     except Exception as e:
@@ -76,7 +77,7 @@ def cancel_job(
     # The cancel marker in Redis, otherwise the worker keeps running.
     try:
         import redis as _redis
-        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r = _redis.from_url(REDIS_URL)
         _r.setex(f"job:cancel:{job_uuid}", 600, "1")
     except Exception as e:
         logger.warning("Could not set cancel flag in Redis: {}", e)
@@ -88,7 +89,7 @@ def cancel_job(
     # Notify the interface about the changed list.
     try:
         import redis as _redis_notify
-        _rn = _redis_notify.from_url("redis://kis-redis:6379/0", socket_connect_timeout=1, socket_timeout=1)
+        _rn = _redis_notify.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
         _rn.publish(f"jobs:{job['user_id']}", "update")
         _rn.close()
     except Exception as e:

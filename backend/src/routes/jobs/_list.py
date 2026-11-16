@@ -11,8 +11,8 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale
 from src.security import presence
 
+from src.core.redis_url import REDIS_URL
 from src.routes.jobs._shared import (
-    _REDIS_URL,
     _expand_tool_filter,
     _format_job_rows,
     _tools_matching_query,
@@ -64,7 +64,7 @@ async def job_stream(
         jobs, total = db.get_jobs_by_user(user_id, limit=20)
         yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale, is_admin), 'total': total})}\n\n"
 
-        r = aioredis.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        r = aioredis.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
         pubsub = r.pubsub()
         await pubsub.subscribe(f"jobs:{user_id}")
         last_sent = time.monotonic()

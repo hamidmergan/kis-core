@@ -1,11 +1,7 @@
-import os
-from zoneinfo import ZoneInfo
 
 from psycopg2.extras import RealDictCursor
 
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 # Which tool belongs to which of the two areas, the exercise routes read the same list.

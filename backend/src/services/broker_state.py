@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 
 from loguru import logger
+from src.core.redis_url import REDIS_URL
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 # Every queue a worker listens on, see task_routes in celery_app.py.
 QUEUES = ("general", "long", "tts", "screencast", "aia", "aia_ingest", "control")
@@ -27,7 +26,7 @@ _UNACKED_KEY = "unacked"
 
 def _redis():
     import redis as _redis_lib
-    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=5)
+    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=5)
 
 
 def _task_id(raw) -> str | None:

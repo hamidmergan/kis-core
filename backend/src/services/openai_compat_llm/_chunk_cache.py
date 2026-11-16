@@ -1,11 +1,10 @@
 """Remembers the Whisper result per part so a second attempt repeats nothing."""
 
 import json
-import os
 
 import redis
+from src.core.redis_url import REDIS_URL
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 
 _client: redis.Redis | None = None
@@ -14,7 +13,7 @@ _client: redis.Redis | None = None
 def _r() -> redis.Redis:
     global _client
     if _client is None:
-        _client = redis.Redis.from_url(_REDIS_URL, decode_responses=True)
+        _client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
     return _client
 
 

@@ -1,6 +1,4 @@
 import math
-import os
-from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
@@ -8,8 +6,6 @@ import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 # Minimum similarity for the typo tolerant fallback.
 _FUZZY_WORD_SIM = 0.45
 from src.core.db.pool import get_connection

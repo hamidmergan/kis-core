@@ -1,6 +1,5 @@
 """Burst block for the chat: counter in Redis, block in the database."""
 
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -8,6 +7,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from loguru import logger
 
+from src.core.redis_url import REDIS_URL
 from src.core.db.pool import get_connection
 from src.i18n import t
 from src.limits import (
@@ -21,14 +21,13 @@ from src.limits import (
     UPLOAD_HOURLY_WINDOW_SECONDS,
 )
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
 
 def _redis():
     """Redis client with short timeouts (pattern matches the rest of the project)."""
     import redis as _redis_lib
-    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _get_blocked_until(user_id: int) -> Optional[datetime]:

@@ -10,8 +10,8 @@ import uuid
 from contextlib import contextmanager
 
 from loguru import logger
+from src.core.redis_url import REDIS_URL
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _KEY = "kis:provider-slots:{}"
 
 # A seat older than this belongs to a worker that died mid request and is freed.
@@ -36,7 +36,7 @@ class ProviderFull(RuntimeError):
 
 def _redis():
     import redis as _redis_lib
-    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=2)
+    return _redis_lib.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=2)
 
 
 def _try_sit(r, key: str, ticket: str, limit: int, stale_seconds: float) -> bool:

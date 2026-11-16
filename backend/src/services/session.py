@@ -3,12 +3,11 @@
 import hashlib
 import hmac
 import json
-import os
 import secrets
 
 from loguru import logger
+from src.core.redis_url import REDIS_URL
 
-_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _KEY_PREFIX = "kis:session:"
 
 
@@ -25,7 +24,7 @@ class SessionStore:
         if self._client is None:
             import redis as _redis_lib
             self._client = _redis_lib.from_url(
-                _REDIS_URL, socket_connect_timeout=1, socket_timeout=1
+                REDIS_URL, socket_connect_timeout=1, socket_timeout=1
             )
         return self._client
 
