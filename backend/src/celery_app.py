@@ -228,7 +228,7 @@ def on_worker_ready(**kwargs):
         logger.info("Worker startup: removed {} stale temp dirs from {}", cleaned, tmp)
 
 
-def _mark_task_failed(task_id: str, reason: str) -> None:
+def _mark_task_failed(task_id: str, reason: str | tuple[str, dict]) -> None:
     """Counts one failed attempt for a running job, found via its Celery id."""
     try:
         from src import database as db

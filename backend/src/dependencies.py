@@ -22,8 +22,7 @@ async def get_current_user(request: Request) -> dict:
     """Session data of the logged-in user."""
     settings = get_settings()
     if settings.is_local_mode:
-        from src import database as _db
-        local_user = _db.get_user_by_username("local")
+        local_user = db.get_user_by_username("local")
         if local_user:
             return {
                 "user_id": local_user["id"],
@@ -117,7 +116,6 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
 
 def get_tts_providers_with_voices(user: dict | None = None) -> list[dict]:
     """All enabled providers with speech output including their voices, then the person's own ones."""
-    from src import database as db
     from src.services.own_tts.access import own_voice_providers
     providers = db.list_providers_with_capability("tts")
     shared = [p for p in providers if p.get("protocol") == "openai_compat"]
@@ -171,21 +169,23 @@ async def get_reachable_tts_providers_with_voices(user: dict | None = None) -> l
     return [p for p, ok in zip(providers, flags) if ok]
 
 
+def _route_model(route: dict | None, provider_id: int) -> str:
+    """The model a route names for this provider, its own entry before the route's general one."""
+    route = route or {}
+    return (route.get("provider_models") or {}).get(str(provider_id)) or route.get("model_name") or ""
+
+
 def tts_model_for_provider(provider_id: int) -> str:
     """Which speech model sits behind this provider, or an empty string."""
-    from src import database as db
     from src.services import own_tts
     provider = db.get_provider(provider_id)
     if provider and own_tts.is_own(provider):
         return own_tts.model_for(provider)
-    route = db.get_route("tts")
-    provider_models = (route.get("provider_models") if route else None) or {}
-    return provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+    return _route_model(db.get_route("tts"), provider_id)
 
 
 def get_tts_client_for_provider(provider_id: int, user_id: int | None = None):
     """The voice client for this provider, None when it is gone, off or someone else's own interface."""
-    from src import database as db
     from src.services import own_tts
     from src.services.openai_compat_tts import OpenAICompatTTSClient
     provider = db.get_provider(provider_id)
@@ -209,7 +209,6 @@ def get_tts_client_for_provider(provider_id: int, user_id: int | None = None):
 
 def _voice_language_for(provider_id: int, voice_id: str) -> str:
     """Looks up the language for a provider and voice pair, empty string otherwise."""
-    from src import database as db
     provider = db.get_provider(provider_id)
     if not provider:
         return ""
@@ -254,36 +253,30 @@ def get_translate_client_for_provider(
     if not provider or not provider.get("enabled"):
         return None, GlossaryService()
 
-    route = db.get_route(feature)
-    provider_models = (route.get("provider_models") if route else None) or {}
-    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
-    provider_sampling = (route.get("provider_sampling") if route else None) or {}
-    sampling = dict(provider_sampling.get(str(provider_id)) or {})
-
     glossary = GlossaryService()
+    if glossary_entries:
+        glossary.set_entries(glossary_entries)
     if provider.get("protocol") == "deepl":
         from src.services.deepl_client import DeepLClient
-        if glossary_entries:
-            glossary.set_entries(glossary_entries)
         return DeepLClient(provider.get("api_key") or ""), glossary
-    else:
-        from src.services import provider_transport
-        from src.services.llm_translation_client import LLMTranslationClient
-        base_url = feature_router._ensure_v1(provider["base_url"])
-        if glossary_entries:
-            glossary.set_entries(glossary_entries)
-        binding = feature_router.FeatureBinding(feature=feature, provider=provider, model=model)
-        client = LLMTranslationClient(
-            api_key=provider.get("api_key") or "not-needed",
-            base_url=base_url,
-            model=model,
-            provider=provider["name"],
-            sampling=sampling,
-            http_client=provider_transport.sdk_http_client(binding),
-        )
-        # A thinking model translates many times slower and may answer empty, so its thinking goes off.
-        feature_router._attach_model_profile(client, binding)
-        return client, glossary
+
+    from src.services import provider_transport
+    from src.services.llm_translation_client import LLMTranslationClient
+    route = db.get_route(feature) or {}
+    model = _route_model(route, provider_id)
+    sampling = dict((route.get("provider_sampling") or {}).get(str(provider_id)) or {})
+    binding = feature_router.FeatureBinding(feature=feature, provider=provider, model=model)
+    client = LLMTranslationClient(
+        api_key=provider.get("api_key") or "not-needed",
+        base_url=feature_router._ensure_v1(provider["base_url"]),
+        model=model,
+        provider=provider["name"],
+        sampling=sampling,
+        http_client=provider_transport.sdk_http_client(binding),
+    )
+    # A thinking model translates many times slower and may answer empty, so its thinking goes off.
+    feature_router._attach_model_profile(client, binding)
+    return client, glossary
 
 
 # ─── DeepL resolvers ───────────────────────────────────────────────────────

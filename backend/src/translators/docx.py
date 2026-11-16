@@ -51,9 +51,7 @@ def translate_docx(
         output.seek(0)
         return output.getvalue()
 
-    except ValueError:
-        raise
-    except (OpenAIError, ProviderFull):
+    except (ValueError, OpenAIError, ProviderFull):
         # A busy or unreachable provider is no broken file, the job waits and tries again.
         raise
     except Exception as e:

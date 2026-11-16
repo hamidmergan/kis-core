@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from src.database import get_connection
 from src.i18n import DEFAULT_LOCALE, t
 from src.limits import QUOTA_DEFAULTS
+from src.utils.local_date import LOCAL_TZ
 
 
 def _iso_z(ts: Optional[datetime]) -> Optional[str]:
@@ -126,8 +127,7 @@ def enforce_quota(user_id: int, quota_type: str, is_admin: bool, locale: str = D
         reset_text = ""
         if reset_at:
             try:
-                from zoneinfo import ZoneInfo
-                dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Berlin"))
+                dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00")).astimezone(LOCAL_TZ)
                 reset_text = t("quota.resetAt", locale, time=dt.strftime("%H:%M"))
             except Exception:
                 pass

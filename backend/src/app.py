@@ -9,15 +9,15 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src import database as db
+from src.core.db.pool import run_once_across_processes
 from src.core.redis_url import REDIS_URL
 from src.database import init_db
-from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.features.campus.routes import public as campus_public
 from src.features.campus.routes import router as campus_router
+from src.limits import REQUEST_THREAD_LIMIT
 from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
-from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
 from src.routes import access_codes, admin, auth, evaluation, event, event_tasks, feedback, glossaries, health, image, interpreter, invites, password_reset, jobs, aia, ki_status, me, own_interfaces, pages, pages_demo, podcast, podcast_demo, praesentation, praesentation_demo, providers_status, screencast, screencast_demo, summary, summary_demo, transcription, translate, tts
 
@@ -31,6 +31,12 @@ _BEISPIEL_ADMIN_PASSWORT = "adminpw"
 # Cache the maintenance flag, otherwise every request waits on a database query.
 _MAINTENANCE_TTL_S = 5.0
 _maintenance_cache: dict = {"enabled": False, "checked_at": -1e9}
+
+# Any fixed number, it only has to be unique project wide.
+_LOCK_INIT_DB = 815_001
+
+# Marker in Redis that makes a lost broker recognisable.
+_BROKER_MARKER_KEY = "kis:broker:generation"
 
 
 def _configure_logging() -> None:
@@ -47,16 +53,6 @@ def _configure_logging() -> None:
         level="INFO",
         colorize=True,
     )
-
-
-# The hourly cleanup now runs through kis-celery-beat.
-
-
-# Any fixed number, it only has to be unique project wide.
-_LOCK_INIT_DB = 815_001
-
-# Marker in Redis that makes a lost broker recognisable.
-_BROKER_MARKER_KEY = "kis:broker:generation"
 
 
 def _broker_was_emptied() -> bool:

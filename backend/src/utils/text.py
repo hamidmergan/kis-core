@@ -23,8 +23,6 @@ def _decode_whitespace(text: str, leading: str, trailing: str) -> str:
     return leading + text + trailing
 
 
-# ── Single-text helpers (used by Markdown, LaTeX, filename translation) ──────
-
 # ── Batch helpers for PPTX / DOCX (1 DeepL call per document) ───────────────
 
 class _RunRef:
@@ -123,7 +121,4 @@ def translate_refs(
         )
     by_source = dict(zip(unique, translated_unique))
     apply_translations(refs, [by_source[t] for t in texts])
-
-
-# ── Legacy single-paragraph helper (used by Markdown / LaTeX translators) ───
 

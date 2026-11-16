@@ -4,7 +4,6 @@ import filetype
 from loguru import logger
 
 # Unused here, but eight routes take these limits from here.
-from src.utils.pdfium_lock import PDFIUM_LOCK
 from src.limits import (  # noqa: F401
     MAX_SCREENCAST_SLIDES,
     MAX_TRANSCRIPTION_BYTES,
@@ -14,7 +13,7 @@ from src.limits import (  # noqa: F401
     TRANSLATE_MAX_UPLOAD_BYTES,
     TTS_MAX_CHARS,
 )
-
+from src.utils.pdfium_lock import PDFIUM_LOCK
 
 ALLOWED_EXTENSIONS = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

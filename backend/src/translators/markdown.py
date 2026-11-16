@@ -51,21 +51,13 @@ def translate_markdown_preserve_code_blocks(
 ) -> str:
     parts = _split_markdown_by_code_fences(text)
 
-    # Collect all non-code chunks and their indices
-    indices: List[int] = []
-    texts_to_translate: List[str] = []
-    for i, (is_code, chunk) in enumerate(parts):
-        if not is_code and chunk and chunk.strip():
-            indices.append(i)
-            texts_to_translate.append(chunk)
+    chunks = [chunk for _, chunk in parts]
+    indices = [i for i, (is_code, chunk) in enumerate(parts) if not is_code and chunk and chunk.strip()]
 
     # Single batch call for all translatable chunks
-    if texts_to_translate:
-        translated = service.translate_batch(texts_to_translate, source_lang, target_lang)
-        parts_list = list(parts)
-        for i, t in zip(indices, translated):
-            is_code, original = parts_list[i]
-            parts_list[i] = (is_code, t)
-        parts = parts_list  # type: ignore
+    if indices:
+        translated = service.translate_batch([chunks[i] for i in indices], source_lang, target_lang)
+        for i, text_out in zip(indices, translated):
+            chunks[i] = text_out
 
-    return "".join(chunk for _, chunk in parts)
+    return "".join(chunks)

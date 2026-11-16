@@ -1,9 +1,7 @@
 """Tables of the campus assistant: crawled pages, their chunks, places of the map, chats."""
-import logging
+from loguru import logger
 
 from src.core.db.pool import get_connection
-
-_log = logging.getLogger(__name__)
 
 # The hnsw index covers one embedding width, the same one the assistant uses.
 CAMPUS_EMBED_INDEX_DIM = 2560
@@ -106,4 +104,4 @@ def create_campus_hnsw() -> None:
                 conn.commit()
             except Exception as e:
                 conn.rollback()
-                _log.warning("campus hnsw index skipped/failed: {}", e)
+                logger.warning("campus hnsw index skipped/failed: {}", e)

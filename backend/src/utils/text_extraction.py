@@ -6,7 +6,9 @@ from pathlib import Path
 
 from docx import Document
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
+from pptx.enum.shapes import PP_PLACEHOLDER
+
+from src.utils.pptx_text import iter_shape_paragraphs
 
 Source = bytes | str | Path
 
@@ -110,31 +112,13 @@ def pptx_slide_texts(content: Source) -> list[str]:
         for shape in slide.shapes:
             if shape.is_placeholder and shape.placeholder_format.type in _PPTX_FURNITURE:
                 continue
-            _collect_shape_text(shape, texts)
+            texts.extend(t for t in (p.text.strip() for p in iter_shape_paragraphs(shape)) if t)
         folien.append("\n".join(texts))
     return folien
 
 
 def extract_text_pptx(content: Source) -> str:
     return "\n".join(t for t in pptx_slide_texts(content) if t)
-
-
-def _collect_shape_text(shape, texts: list) -> None:
-    if shape.has_text_frame:
-        for paragraph in shape.text_frame.paragraphs:
-            text = paragraph.text.strip()
-            if text:
-                texts.append(text)
-    if shape.has_table:
-        for row in shape.table.rows:
-            for cell in row.cells:
-                for paragraph in cell.text_frame.paragraphs:
-                    text = paragraph.text.strip()
-                    if text:
-                        texts.append(text)
-    if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
-        for subshape in shape.shapes:
-            _collect_shape_text(subshape, texts)
 
 
 def extract_text_txt(content: Source) -> str:

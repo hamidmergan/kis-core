@@ -1,12 +1,10 @@
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
 from loguru import logger
 
-from src.core.redis_url import REDIS_URL
 from src.core.db.pool import get_connection
-
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
+from src.core.redis_url import REDIS_URL
+from src.utils.local_date import LOCAL_TZ
 
 
 def _notify_job_update(job_uuid: str) -> None:
@@ -29,6 +27,6 @@ def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
     """Turns a German local date into a UTC timestamp for comparison."""
     year, month, day = int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10])
     hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)
-    local_dt = datetime(year, month, day, hour, minute, second, tzinfo=_TZ_BERLIN)
+    local_dt = datetime(year, month, day, hour, minute, second, tzinfo=LOCAL_TZ)
     return local_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 

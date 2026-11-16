@@ -212,6 +212,31 @@ def test_praefix_loeschen_meldet_null_wenn_nichts_da_ist(lokal):
     assert storage.delete_prefix("users/1/jobs/gibtesnicht") == 0
 
 
+def test_ordner_loeschen_laesst_laengere_nachbarn_stehen(lokal):
+    """A missing folder with a trailing slash must not match users/50 for users/5."""
+    (lokal / "users/50/jobs/j1").mkdir(parents=True)
+    (lokal / "users/50/jobs/j1/output.mp4").write_bytes(b"v")
+
+    assert storage.delete_user_folder(5) == 0
+    assert storage.list_keys("users/5/") == []
+    assert (lokal / "users/50/jobs/j1/output.mp4").exists()
+
+
+def test_feedback_anhaenge_loeschen_trifft_nur_den_einen_eintrag_lokal(lokal):
+    (lokal / "feedback/10").mkdir(parents=True)
+    (lokal / "feedback/10/a.png").write_bytes(b"x")
+
+    assert storage.delete_feedback_attachments(1) == 0
+    assert (lokal / "feedback/10/a.png").exists()
+
+
+def test_feedback_anhaenge_loeschen_trifft_nur_den_einen_eintrag_s3(s3):
+    client = s3(["feedback/1/a.png", "feedback/10/b.png", "feedback/12/c.png"])
+
+    assert storage.delete_feedback_attachments(1) == 1
+    assert client.loeschauftraege == [["feedback/1/a.png"]]
+
+
 # ─── Auflisten ─────────────────────────────────────────────────────────────
 
 def test_auflisten_findet_geschwisterdateien(lokal):

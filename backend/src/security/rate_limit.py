@@ -2,7 +2,6 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from loguru import logger
@@ -20,8 +19,7 @@ from src.limits import (
     UPLOAD_HOURLY_MAX,
     UPLOAD_HOURLY_WINDOW_SECONDS,
 )
-
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
+from src.utils.local_date import LOCAL_TZ
 
 
 def _redis():
@@ -57,7 +55,7 @@ def _set_blocked_until(user_id: int, blocked_until: datetime) -> None:
 
 def _format_block_message(blocked_until: datetime, locale: str = "de") -> str:
     """Localized error message with local Berlin time."""
-    local = blocked_until.astimezone(_TZ_BERLIN)
+    local = blocked_until.astimezone(LOCAL_TZ)
     return t("rateLimit.blocked", locale, time=local.strftime("%H:%M"))
 
 
@@ -108,7 +106,7 @@ def enforce_burst(user_id: int, locale: str = "de") -> None:
     logger.warning(
         "Chat burst triggered: user={} count={}/{} -> blocked until {}",
         user_id, count, RATE_LIMIT_BURST_REQUESTS,
-        new_block_until.astimezone(_TZ_BERLIN).strftime("%H:%M:%S"),
+        new_block_until.astimezone(LOCAL_TZ).strftime("%H:%M:%S"),
     )
     raise HTTPException(
         status_code=429,
@@ -169,7 +167,7 @@ def enforce_tool_burst(user_id: int, tool_key: str, locale: str = "de") -> None:
     logger.warning(
         "Tool burst triggered: tool={} user={} count={}/{} -> blocked until {}",
         tool_key, user_id, count, TOOL_BURST_REQUESTS,
-        new_block_until.astimezone(_TZ_BERLIN).strftime("%H:%M:%S"),
+        new_block_until.astimezone(LOCAL_TZ).strftime("%H:%M:%S"),
     )
     raise HTTPException(
         status_code=429,
@@ -199,8 +197,6 @@ def check_upload_limit(user_id: int, locale: str = "de") -> None:
         count = int(r.get(redis_key) or 0)
         ttl = r.ttl(redis_key)
         r.close()
-    except HTTPException:
-        raise
     except Exception as e:
         logger.warning("Upload hourly limit Redis error (user={}): {}", user_id, e)
         return  # fail-open

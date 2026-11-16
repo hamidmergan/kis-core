@@ -628,37 +628,32 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
     return text.format(**params) if params else text
 
 
-# Backfills the submodules, imported late against cycles.
+# Backfills the submodules, a broken fragment fails the start instead of showing bare keys.
 def _load_fragments() -> None:
-    try:
-        from src._i18n_fragments import (  # noqa: F401
-            access_codes,
-            admin,
-            ai_assistant,
-            campus,
-            consent,
-            evaluation,
-            event,
-            feedback,
-            impersonation,
-            invites,
-            jobs,
-            own_interfaces,
-            pages,
-            password_reset,
-            praesentation,
-            screencast,
-        )
+    from src._i18n_fragments import (
+        access_codes,
+        admin,
+        ai_assistant,
+        campus,
+        consent,
+        evaluation,
+        event,
+        feedback,
+        impersonation,
+        invites,
+        jobs,
+        own_interfaces,
+        pages,
+        password_reset,
+        praesentation,
+        screencast,
+    )
 
-        for module in (
-            ai_assistant, jobs, admin, invites, access_codes, impersonation, feedback, evaluation, praesentation,
-            screencast, own_interfaces, event, campus, pages, consent, password_reset,
-        ):
-            entries = getattr(module, "MESSAGES", None)
-            if entries:
-                register_messages(entries)
-    except ImportError:
-        pass
+    for module in (
+        ai_assistant, jobs, admin, invites, access_codes, impersonation, feedback, evaluation, praesentation,
+        screencast, own_interfaces, event, campus, pages, consent, password_reset,
+    ):
+        register_messages(module.MESSAGES)
 
 
 _load_fragments()

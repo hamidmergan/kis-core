@@ -9,6 +9,7 @@ from pathlib import Path
 from loguru import logger
 
 from src.database import get_connection, update_job_result, delete_job
+from src.limits import DB_BACKUP_KEEP_DAYS, DB_BACKUP_KEEP_MONTHS, DB_BACKUP_KEEP_WEEKS
 
 # --- Local storage paths ---
 STORAGE_ROOT = Path("/app/storage")
@@ -109,10 +110,18 @@ def delete_prefix(prefix: str) -> int:
             return 1
         return 0
 
+    return sum(_remove(match) for match in _local_matches(prefix))
+
+
+def _local_matches(prefix: str) -> list[Path]:
+    """Local paths under a prefix: the folder itself, else every sibling whose name starts with it."""
     target = STORAGE_ROOT / prefix
     if target.is_dir():
-        return _remove(target)
-    return sum(_remove(match) for match in target.parent.glob(target.name + "*"))
+        return [target]
+    # A trailing slash names one folder, a missing one must never match its longer-named siblings.
+    if prefix.endswith("/"):
+        return []
+    return list(target.parent.glob(target.name + "*"))
 
 
 def _local_path(key: str) -> Path:
@@ -145,16 +154,20 @@ def _store_from_path(key: str, local_path: str) -> str:
     return str(path)
 
 
+# Parts of an abandoned direct upload are dropped by the bucket itself after a day.
+_ABORT_STALE_MULTIPART_RULE = {
+    "ID": "multipart-abort-1d",
+    "Filter": {"Prefix": ""},
+    "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1},
+    "Status": "Enabled",
+}
+
+
 def init_lifecycle_policy() -> None:
     """Sets the bucket's retention rules, both in one call."""
     if not USE_S3:
         return
     from botocore.exceptions import ClientError
-    from src.limits import (
-            DB_BACKUP_KEEP_DAYS,
-            DB_BACKUP_KEEP_MONTHS,
-            DB_BACKUP_KEEP_WEEKS,
-        )
     rules = [
         {
             "ID": "tmp-expire-1d",
@@ -198,15 +211,6 @@ def init_lifecycle_policy() -> None:
         logger.warning(
             "Could not set bucket lifecycle policy (continuing without): {}", e
         )
-
-
-# Parts of an abandoned direct upload are dropped by the bucket itself after a day.
-_ABORT_STALE_MULTIPART_RULE = {
-    "ID": "multipart-abort-1d",
-    "Filter": {"Prefix": ""},
-    "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1},
-    "Status": "Enabled",
-}
 
 
 @lru_cache(maxsize=1)
@@ -456,7 +460,7 @@ def list_keys(prefix: str) -> list[str]:
             keys.extend(obj["Key"] for obj in page.get("Contents", []))
         return keys
     target = STORAGE_ROOT / prefix
-    treffer = target.rglob("*") if target.is_dir() else target.parent.glob(target.name + "*")
+    treffer = target.rglob("*") if target.is_dir() else _local_matches(prefix)
     return [str(f) for f in treffer if f.is_file()]
 
 
@@ -546,7 +550,8 @@ def save_feedback_attachment_from_path(
 
 def delete_feedback_attachments(feedback_id: int) -> int:
     """Delete every attachment of one feedback entry, returns the count."""
-    return delete_prefix(feedback_prefix(feedback_id))
+    # The slash keeps entry 1 from taking the folders of entries 10, 11 and so on with it.
+    return delete_prefix(f"{feedback_prefix(feedback_id)}/")
 
 
 # Storage of a job folder.
@@ -587,10 +592,7 @@ def is_missing(exc: BaseException) -> bool:
 
 def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
     """Read an arbitrary named file from a job's folder."""
-    key = f"{job_prefix(user_id, job_uuid)}/{filename}"
-    if USE_S3:
-        return get_file(key)
-    return _local_path(key).read_bytes()
+    return get_key_file(f"{job_prefix(user_id, job_uuid)}/{filename}")
 
 
 def save_result_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
@@ -631,8 +633,8 @@ def open_input_file(input_path: str, suffix: str = ""):
         # Streams to disk, a long video must never sit in the worker's memory as a whole.
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
             tmp_path = f.name
-        _s3().download_file(_S3_BUCKET, input_path, tmp_path)
         try:
+            _s3().download_file(_S3_BUCKET, input_path, tmp_path)
             yield tmp_path
         finally:
             Path(tmp_path).unlink(missing_ok=True)
