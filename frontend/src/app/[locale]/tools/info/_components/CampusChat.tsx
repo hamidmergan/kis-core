@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowDown } from "@phosphor-icons/react";
-import { Signpost } from "@phosphor-icons/react";
+import { ArrowDown, Signpost } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import { ChatInputBar } from "@/app/[locale]/workspace/[uuid]/_components/chat/ChatInputBar";
 import CampusNachricht from "./CampusNachricht";

@@ -8,6 +8,11 @@ export const AUFGABEN = ["beschreiben", "text", "frage"] as const;
 export const SCHNELLAKTIONEN = ["weiss", "skizze", "ohneText", "kraeftig", "thl"] as const;
 const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 
+// The classes every text field, small button and start button of the image tool shares.
+export const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
+export const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors";
+export const START_KNOPF = "mt-4 w-full px-4 py-3 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+
 export type Format = (typeof FORMATE)[number];
 export type Groesse = (typeof GROESSEN)[number];
 

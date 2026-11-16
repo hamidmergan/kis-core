@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { X } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
+import { clone } from "../_lib/paths";
 import { HEADINGS, LAYOUTS, type Block, type Heading, type Layout, type Limits } from "../_lib/types";
 
 const FIELD = "px-3 py-1.5 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft";
@@ -122,7 +123,7 @@ export function ImageModal({ open, isNew, prompt, suggesting, max, onClose, onDr
   );
 }
 
-type DataBlock = Extract<Block, { kind: "chart" | "bars" | "mindmap" | "wordcloud" }>;
+export type DataBlock = Extract<Block, { kind: "chart" | "bars" | "mindmap" | "wordcloud" }>;
 
 /** One row of the data table: its texts, its numbers and the button that removes it. */
 function Row({ cells, onRemove, removable, removeLabel }: { cells: React.ReactNode[]; onRemove: () => void; removable: boolean; removeLabel: string }) {
@@ -153,7 +154,7 @@ export function DataModal({ block, limits, onClose, onApply }: { block: DataBloc
   useEffect(() => setB(block), [block]);
   if (!b) return <Modal open={false} onClose={onClose}><span /></Modal>;
   const set = (fn: (x: DataBlock) => void) => setB((old) => {
-    const next = JSON.parse(JSON.stringify(old)) as DataBlock;
+    const next = clone(old) as DataBlock;
     fn(next);
     return next;
   });

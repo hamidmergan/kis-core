@@ -105,24 +105,6 @@
   .kis-page table.stack td + td { margin-top: 8px; }
   .kis-page table.stack td[data-label]::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
 }
-.kis-page .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--pg-ink-soft); margin-top: 8px; }
-.kis-page .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-.kis-page .legend i.s0 { background: var(--pg-fill); }
-.kis-page .legend i.s1 { background: var(--pg-amber); }
-.kis-page svg .grid-line { stroke: var(--pg-cell); }
-.kis-page svg .axis { fill: var(--muted); font-family: inherit; }
-.kis-page svg .axis-title { fill: var(--pg-ink-soft); font-family: inherit; font-weight: 600; }
-.kis-page svg .s0 { stroke: var(--pg-fill); }
-.kis-page svg .s1 { stroke: var(--pg-amber); }
-.kis-page svg .bar { fill: var(--pg-fill); }
-.kis-page svg .dot { fill: var(--pg-cell); stroke: var(--pg-fill); }
-.kis-page svg .hit { fill: transparent; cursor: pointer; }
-.kis-page svg .bar { cursor: pointer; transition: opacity 0.15s; }
-.kis-page svg .bar.on { opacity: 0.8; }
-.kis-page svg .tip rect { fill: var(--foreground); }
-.kis-page svg .tip .tip-head { fill: var(--background); opacity: 0.75; font-family: inherit; }
-.kis-page svg .tip .tip-value { fill: var(--background); font-weight: 700; font-family: inherit; font-variant-numeric: tabular-nums; }
-.kis-page svg .tip-ring { fill: none; stroke: var(--pg-fill); }
 .kis-page .mm-list { display: none; list-style: none; margin: 0; padding: 0; }
 .kis-page .mm-list > li { padding: 10px 0; border-top: 2px solid var(--pg-line); }
 .kis-page .mm-list > li:first-child { border-top: none; }

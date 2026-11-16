@@ -7,7 +7,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { AnbieterReihe, Band, Chips, Reihe } from "../_components/Einstellungen";
 import type { PromptEntwurf } from "../_components/PromptFeld";
-import { FORMATE, GROESSEN, QUALITAETEN, STILE, pixelLabel, type Format, type Groesse } from "../_utils";
+import { FORMATE, GROESSEN, QUALITAETEN, START_KNOPF, STILE, pixelLabel, type Format, type Groesse } from "../_utils";
 
 interface Props {
   entwurf: PromptEntwurf;
@@ -87,7 +87,7 @@ export default function GenerateTab({ entwurf, laeuft, offen, onToggle, onStart,
         type="button"
         onClick={erzeugen}
         disabled={!prompt.trim() || beschaeftigt}
-        className="mt-4 w-full px-4 py-3 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className={START_KNOPF}
       >
         {laeuft ? tCommon("processing") : anzahl > 1 ? t("submitMany", { n: anzahl }) : t("submit")}
       </button>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi } from "@/lib/api";
 import type { CampusNachricht } from "../_types";
+import { readLines } from "./_stream";
 
 interface Options {
   chatId: number | null;
@@ -58,6 +59,9 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
     };
   }, [chatId]);
 
+  // Leaving the page ends a running answer.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const updateLast = useCallback((patch: Partial<CampusNachricht>) => {
     setMessages((prev) => {
       const updated = [...prev];
@@ -99,11 +103,12 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
           body: JSON.stringify({ question: text, ...(chatId !== null && { chat_id: chatId }) }),
         });
         if (res.ok && res.body) {
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
           let pending = "";
           let raf: number | null = null;
+          const dropFrame = () => {
+            if (raf != null) cancelAnimationFrame(raf);
+            raf = null;
+          };
           const flush = () => {
             if (!pending) return;
             const chunk = pending;
@@ -130,7 +135,7 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
                   onChatCreated(evt.meta.chat_id, evt.meta.title);
                 }
               } else if (evt.done) {
-                if (raf != null) { cancelAnimationFrame(raf); raf = null; }
+                dropFrame();
                 flush();
                 updateLast({
                   id: evt.message_id,
@@ -143,7 +148,7 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
                 setQuestionCount((n) => n + 1);
               } else if (evt.error) {
                 // Tokens still waiting for the next frame must not land behind the error text.
-                if (raf != null) { cancelAnimationFrame(raf); raf = null; }
+                dropFrame();
                 pending = "";
                 const key = evt.code === "upstream_busy" ? "upstreamBusy" : "genericError";
                 updateLast({ content: t(key), failed: true, streaming: false });
@@ -152,17 +157,8 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
               // A broken line is skipped, the next one still counts.
             }
           };
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            resetTimer();
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-            for (const line of lines) handle(line);
-          }
-          if (buffer.trim()) handle(buffer);
-          if (raf != null) { cancelAnimationFrame(raf); raf = null; }
+          await readLines(res.body, handle, resetTimer);
+          dropFrame();
           flush();
         } else if (res.status === 429) {
           let msg = t("tooManyRequests");
@@ -177,8 +173,8 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
           updateLast({ content: t("genericError"), failed: true, streaming: false });
         }
       } catch {
+        // A stopped answer keeps its text, the end below takes the cursor away.
         if (timedOut) updateLast({ content: t("genericError"), failed: true, streaming: false });
-        else updateLast({ streaming: false });
       } finally {
         if (timer) clearTimeout(timer);
         abortRef.current = null;

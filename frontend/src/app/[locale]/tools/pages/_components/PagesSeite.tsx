@@ -1,18 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { ArrowRight, BookOpenText, Info, Trash, X } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
+import { ArrowRight, Info } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
-import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
-import Checkbox from "@/components/ui/Checkbox";
 import Modal from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProviderSelect from "@/components/tools/ProviderSelect";
-import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import StilChips from "@/components/tools/StilChips";
+import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
 import { Link, useRouter } from "@/i18n/navigation";
 import { backendApi, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
@@ -23,16 +22,13 @@ import { useModules } from "@/hooks/useModules";
 import { usePermissions } from "@/hooks/usePermissions";
 import * as api from "../_lib/api";
 import type { PageCard, PagesList } from "../_lib/types";
-import { CopyButton, ShareSwitch } from "./Sharing";
-import { ErgebnisInfoKnopf } from "@/components/jobs/ErgebnisInfo";
-import StilChips from "@/components/tools/StilChips";
-import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
+import { PageKarte, RUNNING } from "./PageCard";
+import { DemoSources, FileSources, ModuleSources } from "./PageSources";
 
 type SourceMode = "files" | "module";
 const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
 // A page in the making is asked for this often.
 const POLL_MS = 3000;
-const RUNNING = new Set(["pending", "queued", "running", "waiting_retry"]);
 // Cards per list page, the newest come first.
 const PER_PAGE = 9;
 // The demo badge, the same amber as on every other tool with a demo.
@@ -47,36 +43,12 @@ interface DemoSetup {
   card: Omit<PageCard, "job_uuid" | "status" | "progress" | "error" | "shared" | "public" | "code"> | null;
 }
 
-/** The card picture: the page's first picture, a book when it has none. */
-export function Thumb({ src, className = "aspect-video" }: { src: string | null; className?: string }) {
-  return (
-    <div className={`relative overflow-hidden ${className}`} style={{ background: "var(--tile-bg)" }}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- served by our own route behind the session
-        <img src={src} alt="" className="block w-full h-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--kb60)" }}>
-          <BookOpenText size={44} weight="regular" aria-hidden="true" className="w-8 h-8 sm:w-11 sm:h-11" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function useDate() {
-  const locale = useLocale();
-  return (iso: string | null) =>
-    iso ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso)) : "";
-}
-
 /** The pages tool, and with demo the same page on the one prepared page of the demo module. */
 export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const t = useTranslations("tools.pages");
   const tDemo = useTranslations("tools.pagesDemo");
   const tCommon = useTranslations("common");
-  const tResult = useTranslations("common.result");
   const router = useRouter();
-  const date = useDate();
   const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/pages/providers");
   const { permissions } = usePermissions();
   const [list, setList] = useState<PagesList | null>(null);
@@ -90,7 +62,6 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const [sending, setSending] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [dragActive, setDragActive] = useState(false);
   const [toDelete, setToDelete] = useState<PageCard | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -99,7 +70,6 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   // Also read outside the demo, so the badge shows only when a prepared page is there.
   const [demoSetup, setDemoSetup] = useState<DemoSetup | null>(null);
   const listRef = useRef<HTMLElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = list?.extensions ?? FALLBACK_EXTENSIONS;
   const maxSources = list?.maxSources ?? 10;
@@ -108,8 +78,6 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
   const { modules, sources } = useModules(mode === "module" && !demo ? moduleId : "");
   const messung = useMaterialMeasure("pages", mode, files, moduleId, sourceIds);
   const hatInhalt = mode === "files" ? files.length > 0 : sourceIds.length > 0;
-  const full = files.length >= maxSources;
-  const voll = sourceIds.length >= maxSources;
 
   const load = useCallback(() => api.listPages().then(setList).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
@@ -199,11 +167,12 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
 
   const toggleShare = async (p: PageCard, on: boolean) => {
     const res = await api.setShare(p.job_uuid, on).catch(() => null);
-    if (!res || !list) return;
-    setList({
-      ...list,
-      collection: { ...list.collection, ...res.collection },
-      pages: list.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, public: res.public, code: res.code } : x)),
+    if (!res) return;
+    // A poll may have replaced the list while the call ran, so the change goes into the list of now.
+    setList((now) => now && {
+      ...now,
+      collection: { ...now.collection, ...res.collection },
+      pages: now.pages.map((x) => (x.job_uuid === p.job_uuid ? { ...x, shared: res.shared, public: res.public, code: res.code } : x)),
     });
   };
 
@@ -234,14 +203,6 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
     setToDelete(null);
     notifyJobsChanged();
     load();
-  };
-
-  const stepText = (p: PageCard) => {
-    const s = p.progress?.step;
-    if (!s || !t.has(`step.${s}`)) return t("creating");
-    return typeof p.progress.part === "number" && typeof p.progress.total === "number" && p.progress.part > 0
-      ? t(`step.${s}Counted`, { part: p.progress.part, total: p.progress.total })
-      : t(`step.${s}`);
   };
 
   return (
@@ -276,129 +237,19 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
             )}
 
             {demo ? (
-              <div className="space-y-4">
-                <Select id="pages-module" ariaLabel="Workspace" value="demo" onChange={() => {}} disabled
-                  options={[{ value: "demo", label: demoSetup?.workspace ?? "" }]} />
-                <div>
-                  <ul className="space-y-2">
-                    {(demoSetup?.files ?? []).map((name) => (
-                      <li key={name}>
-                        <Checkbox checked disabled onChange={() => {}} label={name} className="min-w-0 max-w-full"
-                          labelClassName="text-sm text-foreground truncate min-w-0" />
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
-                </div>
-              </div>
+              <DemoSources workspace={demoSetup?.workspace ?? ""} files={demoSetup?.files ?? []} />
             ) : mode === "files" ? (
-              <>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t("selectFileAria")}
-                  onClick={() => !sending && !full && inputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if ((e.key === "Enter" || e.key === " ") && !sending && !full) { e.preventDefault(); inputRef.current?.click(); }
-                  }}
-                  onDrop={(e) => { e.preventDefault(); setDragActive(false); if (!sending) addFiles(Array.from(e.dataTransfer.files)); }}
-                  onDragOver={(e) => { e.preventDefault(); if (!sending && !full) setDragActive(true); }}
-                  onDragLeave={() => setDragActive(false)}
-                  className={[
-                    "border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-background",
-                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
-                    dragActive ? "border-kb bg-info-bg" : files.length ? "border-kb60" : "border-border hover:border-kb",
-                    sending || full ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                  ].join(" ")}
-                >
-                  <p className="text-sm font-medium text-muted">
-                    {tCommon("dropOrBrowse")} <span className="text-kb underline">{tCommon("browse")}</span>
-                  </p>
-                  <p className="text-xs text-muted-soft mt-1">{t("formats", { exts: extensions.join(", "), max: maxSources })}</p>
-                </div>
-                <input
-                  ref={inputRef}
-                  type="file"
-                  multiple
-                  accept={extensions.join(",")}
-                  onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); if (inputRef.current) inputRef.current.value = ""; }}
-                  className="hidden"
-                  aria-hidden="true"
-                />
-                {files.length > 0 && (
-                  <div className="mt-4">
-                    <MaterialGauge bilanz={messung} max={messung.max} />
-                    <ul className="space-y-1">
-                      {files.map((f, i) => (
-                        <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="truncate">{f.name}</span>
-                            <span className="flex items-center gap-3 shrink-0 whitespace-nowrap">
-                              <MeasureNote messung={messung.forFile(f)} />
-                              {!sending && (
-                                <button type="button" onClick={() => setFiles((alt) => alt.filter((_, j) => j !== i))}
-                                  className="text-xs text-muted hover:text-foreground">
-                                  {t("removeFile")}
-                                </button>
-                              )}
-                            </span>
-                          </div>
-                          <MeasureError messung={messung.forFile(f)} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
+              <FileSources files={files} extensions={extensions} maxSources={maxSources} sending={sending} messung={messung}
+                onAdd={addFiles} onRemove={(i) => setFiles((alt) => alt.filter((_, j) => j !== i))} />
             ) : modules === null ? (
               <Spinner className="justify-center py-10" />
             ) : modules.length === 0 ? (
               <EmptyState size="sm" text={t("noModules")} />
             ) : (
-              <div className="space-y-4">
-                <Select
-                  id="pages-module"
-                  ariaLabel="Workspace"
-                  value={moduleId}
-                  onChange={(uuid) => { setModuleId(uuid); setSourceIds([]); }}
-                  disabled={sending}
-                  placeholder={tCommon("pleaseSelect")}
-                  options={modules.map((m) => ({ value: m.uuid, label: m.title }))}
-                />
-                {moduleId && (sources === null ? (
-                  <Spinner className="justify-center py-6" />
-                ) : sources.length === 0 ? (
-                  <EmptyState size="sm" text={t("noSources")} />
-                ) : (
-                  <div>
-                    {sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
-                    <ul className="space-y-2">
-                      {sources.map((q) => (
-                        <li key={q.uuid}>
-                          <div className="flex items-center justify-between gap-3">
-                            {/* The card is narrow, a long name is cut so the count stays inside it. */}
-                            <span className="min-w-0 flex-1" title={q.filename}>
-                              <Checkbox
-                                checked={sourceIds.includes(q.uuid)}
-                                disabled={sending || (voll && !sourceIds.includes(q.uuid))}
-                                onChange={() => setSourceIds((alt) => alt.includes(q.uuid) ? alt.filter((id) => id !== q.uuid) : alt.length >= maxSources ? alt : [...alt, q.uuid])}
-                                label={q.filename}
-                                className="min-w-0 max-w-full"
-                                labelClassName="text-sm text-foreground truncate min-w-0"
-                              />
-                            </span>
-                            {sourceIds.includes(q.uuid) && (
-                              <span className="shrink-0 whitespace-nowrap"><MeasureNote messung={messung.forSource(q.uuid)} /></span>
-                            )}
-                          </div>
-                          {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>{t("tooManySources", { max: maxSources })}</p>
-                  </div>
-                ))}
-              </div>
+              <ModuleSources modules={modules} sources={sources} moduleId={moduleId} sourceIds={sourceIds} maxSources={maxSources}
+                sending={sending} messung={messung}
+                onModule={(uuid) => { setModuleId(uuid); setSourceIds([]); }}
+                onToggle={(uuid) => setSourceIds((alt) => alt.includes(uuid) ? alt.filter((id) => id !== uuid) : alt.length >= maxSources ? alt : [...alt, uuid])} />
             )}
             {uploadError && <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>}
 
@@ -473,98 +324,20 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
                   <EmptyState size="sm" text={demo ? tDemo("keinErgebnis") : t("empty")} />
                 ) : (
                   <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-                    {shown.map((p) => {
-                      const open = p.status === "success";
-                      const go = () => open && router.push(demo ? "/tools/pages-demo/ansicht" : `/tools/pages/${p.job_uuid}`);
-                      return (
-                        <article
-                          key={p.job_uuid}
-                          data-testid="page-card"
-                          tabIndex={open ? 0 : undefined}
-                          onClick={go}
-                          onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) go(); }}
-                          className={`flex flex-col rounded-xl border border-border-soft overflow-hidden bg-background outline-2 outline-transparent transition-[outline-color] ${open ? "cursor-pointer hover:outline-kb focus-visible:outline-kb" : ""}`}
-                          style={{ outlineStyle: "solid" }}
-                        >
-                          <div className="flex flex-1 sm:block">
-                            <Thumb
-                              src={p.image ? `${demo ? "/api/pages-demo/images" : api.imageBase({ uuid: p.job_uuid })}/${p.image}` : null}
-                              className="w-28 shrink-0 self-start mt-3 ml-3 rounded-lg aspect-[4/3] sm:w-auto sm:m-0 sm:rounded-none sm:aspect-video"
-                            />
-                            <div className="px-3.5 pt-3 pb-1 flex-1 min-w-0">
-                              {p.title && <div className="font-semibold leading-snug text-foreground line-clamp-2 break-words" title={p.title}>{p.title}</div>}
-                              <div className="text-xs text-muted mt-0.5 truncate" title={p.sources}>{p.sources}</div>
-                              {open && <div className="text-xs text-muted mt-0.5">{t("changedOn", { date: date(p.updated_at) })}</div>}
-                              {RUNNING.has(p.status) && <div className="text-xs text-muted mt-0.5">{stepText(p)} …</div>}
-                              {p.status === "paused" && <div className="text-xs text-warn-strong mt-0.5">{t("paused")}</div>}
-                              {p.status === "failed" && <div className="text-xs text-error mt-0.5 line-clamp-2">{p.error || t("failed")}</div>}
-                              {retryError?.uuid === p.job_uuid && <div className="text-xs text-error mt-0.5 line-clamp-2" role="alert">{retryError.message}</div>}
-                            </div>
-                          </div>
-                          {RUNNING.has(p.status) ? (
-                            <div className="flex items-center justify-between gap-2 mx-3.5 mb-3 mt-2" onClick={(e) => e.stopPropagation()}>
-                              <Spinner size="xs" label={undefined} />
-                              {!demo && <button
-                                type="button"
-                                onClick={() => cancel(p)}
-                                disabled={cancelling === p.job_uuid}
-                                className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0 disabled:opacity-50"
-                                style={{ backgroundColor: "var(--surface-dim)" }}
-                                title={t("cancelDelete")}
-                                aria-label={t("cancelDelete")}
-                              >
-                                <X size={13} weight="bold" />
-                              </button>}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5 pb-3 min-h-[50px]" onClick={(e) => e.stopPropagation()}>
-                              {open && !demo ? <ShareSwitch on={p.shared} isPublic={p.public} onToggle={(on) => toggleShare(p, on)} />
-                                : !demo && (p.status === "failed" || p.status === "paused") ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => retry(p)}
-                                    disabled={retrying === p.job_uuid}
-                                    className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md disabled:opacity-50"
-                                  >
-                                    {retrying === p.job_uuid ? "..." : t(p.status === "paused" ? "continue" : "retry")}
-                                  </button>
-                                ) : <span />}
-                              <div className="flex items-center gap-1.5">
-                                {open && p.shared && p.code && (
-                                  <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />
-                                )}
-                                {open && (
-                                  <ErgebnisInfoKnopf
-                                    size="md"
-                                    auftrag={{ angaben: p.info, erstellt: p.created_at, datei: p.sources }}
-                                    zeilen={[
-                                      { label: tResult("sources"), wert: (
-                                        <ul className="space-y-0.5">{p.sources.split(", ").map((n, i) => <li key={i}>{n}</li>)}</ul>
-                                      ) },
-                                      { label: "Workspace", wert: p.info.workspace },
-                                      { label: tResult("instructions"), wert: p.info.anweisung },
-                                      { label: tResult("textProvider"), wert: p.info.anbieter },
-                                      { label: tResult("imageProvider"), wert: p.info.bildanbieter },
-                                      { label: tResult("imageStyle"), wert: p.info.bildstil },
-                                    ]}
-                                  />
-                                )}
-                                {!demo && <button
-                                  type="button"
-                                  onClick={() => setToDelete(p)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
-                                  style={{ backgroundColor: "var(--surface-dim)" }}
-                                  title={t("delete")}
-                                  aria-label={t("delete")}
-                                >
-                                  <Trash size={13} weight="bold" />
-                                </button>}
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
+                    {shown.map((p) => (
+                      <PageKarte
+                        key={p.job_uuid}
+                        p={p}
+                        demo={demo}
+                        cancelling={cancelling === p.job_uuid}
+                        retrying={retrying === p.job_uuid}
+                        retryError={retryError?.uuid === p.job_uuid ? retryError.message : null}
+                        onShare={(on) => toggleShare(p, on)}
+                        onCancel={() => cancel(p)}
+                        onRetry={() => retry(p)}
+                        onDelete={() => setToDelete(p)}
+                      />
+                    ))}
                   </div>
                 )}
                 <Pagination total={total} offset={start} limit={PER_PAGE} onOffsetChange={goTo} />

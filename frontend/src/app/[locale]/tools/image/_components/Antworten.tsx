@@ -6,10 +6,7 @@ import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import BildInfo from "./BildInfo";
 import type { Antwort } from "./useBildFragen";
-import { kopieren as inZwischenablage, speichern } from "../_utils";
-
-const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors";
-const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
+import { FELD, KNOPF, kopieren as inZwischenablage, speichern } from "../_utils";
 
 /** The answers about the large picture, while describing with a further question below them. */
 export default function Antworten({ antworten, laeuft, label, fehler, dateiname, onNachfrage }: {

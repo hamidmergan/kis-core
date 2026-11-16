@@ -1,10 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { sizedWords } from "../_lib/cloud";
 import type { Block } from "../_lib/types";
 
-type ChartBlock = Extract<Block, { kind: "chart" }>;
 type MindBlock = Extract<Block, { kind: "mindmap" }>;
 type CloudBlock = Extract<Block, { kind: "wordcloud" }>;
 
@@ -15,108 +15,6 @@ export function useNumber() {
     new Intl.NumberFormat(locale, digits == null ? { maximumFractionDigits: 2 } : {
       minimumFractionDigits: digits, maximumFractionDigits: digits,
     }).format(v);
-}
-
-/** A tidy top for the value axis just above the largest value, divisible into four steps. */
-function niceMax(v: number): number {
-  if (v <= 0) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  const step = [1, 1.2, 1.6, 2, 2.4, 3, 4, 5, 6, 8, 10].find((m) => m * p >= v) ?? 10;
-  return step * p;
-}
-
-export function Chart({ b }: { b: ChartBlock }) {
-  const num = useNumber();
-  // The point or bar under the pointer, its value shows in a small box above it.
-  const [hover, setHover] = useState<{ s: number; i: number } | null>(null);
-  // In a narrow field the drawing shrinks, its letters grow by this factor to stay readable.
-  const ref = useRef<SVGSVGElement>(null);
-  const [f, setF] = useState(1);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => setF(Math.min(2.2, Math.max(1, 1000 / (el.clientWidth || 1000))));
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  const W = 1000, H = 380 + 60 * (f - 1), L = 64 * f, R = 20, T0 = 30 * f, B = 56 * f;
-  const n = b.categories.length;
-  const max = niceMax(Math.max(...b.series.flatMap((s) => s.values)));
-  const sx = (i: number) => L + (n === 1 ? 0.5 : i / (n - 1)) * (W - L - R);
-  const sy = (v: number) => H - B - (v / max) * (H - T0 - B);
-  const bw = (W - L - R) / n;
-  const bar = b.chart_type === "bar";
-  const at = (s: number, i: number) => ({
-    x: bar ? L + i * bw + bw / 2 : sx(i),
-    y: sy(b.series[s].values[i]),
-  });
-  const tip = (s: number, i: number) => {
-    const name = b.series.length > 1 && b.series[s].name ? `${b.series[s].name}: ` : "";
-    return { head: b.x_label ? `${b.x_label}: ${b.categories[i]}` : b.categories[i], value: `${name}${num(b.series[s].values[i])}${b.y_label ? ` ${b.y_label}` : ""}` };
-  };
-  const show = (s: number, i: number) => ({
-    onMouseEnter: () => setHover({ s, i }),
-    onMouseLeave: () => setHover(null),
-    onClick: () => setHover((h) => (h && h.s === s && h.i === i ? null : { s, i })),
-  });
-
-  return (
-    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.caption} className="chart">
-      {[0, 1, 2, 3, 4].map((k) => {
-        const v = (max * k) / 4, y = sy(v);
-        return (
-          <g key={k}>
-            <line className="grid-line" x1={L} x2={W - R} y1={y} y2={y} strokeWidth={2} />
-            <text className="axis" x={L - 10} y={y + 5 * f} textAnchor="end" fontSize={14 * f}>{num(v)}</text>
-          </g>
-        );
-      })}
-      {bar
-        ? b.series[0].values.map((v, i) => {
-            const h = (v / max) * (H - T0 - B);
-            return (
-              <rect key={i} className={`bar${hover?.i === i ? " on" : ""}`} x={L + i * bw + bw * 0.2} y={H - B - h}
-                width={bw * 0.6} height={Math.max(h, 1)} rx={6} {...show(0, i)}>
-                <title>{`${b.categories[i]}: ${num(v)}`}</title>
-              </rect>
-            );
-          })
-        : b.series.map((s, k) => (
-            <g key={k}>
-              <polyline className={`s${k}`} fill="none" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"
-                strokeDasharray={k ? "10 8" : undefined} points={s.values.map((v, i) => `${sx(i)},${sy(v)}`).join(" ")} />
-              {!k && s.values.map((v, i) => <circle key={i} className="dot" cx={sx(i)} cy={sy(v)} r={7} strokeWidth={3} />)}
-              {/* Wide invisible targets, a line is hard to hit with the pointer. */}
-              {s.values.map((v, i) => (
-                <circle key={`h${i}`} className="hit" cx={sx(i)} cy={sy(v)} r={18} {...show(k, i)}>
-                  <title>{`${b.categories[i]}: ${num(v)}`}</title>
-                </circle>
-              ))}
-            </g>
-          ))}
-      {b.categories.map((c, i) => (
-        <text key={i} className="axis" x={bar ? L + i * bw + bw / 2 : sx(i)} y={H - B + 24 * f} textAnchor="middle" fontSize={14 * f}>{c}</text>
-      ))}
-      {b.x_label && <text className="axis-title" x={W - R} y={H - 8} textAnchor="end" fontSize={14 * f}>{b.x_label}</text>}
-      {b.y_label && <text className="axis-title" x={L} y={T0 - 10} fontSize={14 * f}>{b.y_label}</text>}
-      {hover && (() => {
-        const p = at(hover.s, hover.i), tx = tip(hover.s, hover.i);
-        const w = (Math.max(tx.head.length, tx.value.length) * 8.6 + 28) * f, h = 52 * f;
-        const x = Math.min(Math.max(p.x - w / 2, L), W - R - w);
-        const y = Math.max(p.y - h - 16, 4);
-        return (
-          <g className="tip" pointerEvents="none">
-            {!bar && <circle className="tip-ring" cx={p.x} cy={p.y} r={11} strokeWidth={3} />}
-            <rect x={x} y={y} width={w} height={h} rx={10} />
-            <text x={x + 14 * f} y={y + 21 * f} fontSize={13 * f} className="tip-head">{tx.head}</text>
-            <text x={x + 14 * f} y={y + 41 * f} fontSize={16 * f} className="tip-value">{tx.value}</text>
-          </g>
-        );
-      })()}
-    </svg>
-  );
 }
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
@@ -226,19 +124,16 @@ export function WordCloud({ b }: { b: CloudBlock }) {
       const narrow = svg.getBoundingClientRect().width < 620;
       const W = narrow ? 560 : 1000, H = narrow ? 520 : 400;
       svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-      const ws = b.words;
-      const max = ws[0][1], min = ws[ws.length - 1][1];
-      const size = (n: number) => 16 + Math.sqrt((n - min) / (max - min || 1)) * 50;
       const placed: { x: number; y: number; w: number; h: number }[] = [];
       const hit = (r: { x: number; y: number; w: number; h: number }) =>
         placed.some((p) => r.x < p.x + p.w + 8 && r.x + r.w + 8 > p.x && r.y < p.y + p.h + 3 && r.y + r.h + 3 > p.y);
-      ws.forEach(([w, n], i) => {
+      sizedWords(b.words).forEach(({ word, size }, i) => {
         const el = document.createElementNS("http://www.w3.org/2000/svg", "text");
         el.setAttribute("text-anchor", "middle");
         el.setAttribute("dominant-baseline", "central");
-        el.setAttribute("font-size", String(size(n)));
+        el.setAttribute("font-size", String(size));
         el.setAttribute("class", `cw ${i < 5 ? "cw0" : i < 12 ? "cw1" : "cw2"}`);
-        el.textContent = w;
+        el.textContent = word;
         svg.appendChild(el);
         const bb = el.getBBox(), bw = bb.width, bh = bb.height * 0.78;
         for (let k = 0; k < 3000; k++) {

@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import { backendApi } from "@/lib/api";
-import type { LanguageChoice, Limits, Page } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import type { LanguageChoice, Limits, Page } from "../_lib/types";
 import PageView from "./PageView";
+import { GoneNote, PageLoading } from "./ViewStates";
 
 interface Data {
   page: Page;
@@ -31,9 +31,16 @@ export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { works
   const base = `/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/page`;
 
   useEffect(() => {
+    let cancelled = false;
     backendApi.fetch(`${base}?sprache=${encodeURIComponent(lang)}`)
-      .then(async (r) => (r.ok ? setData(await r.json()) : setGone(true)))
-      .catch(() => setGone(true));
+      .then(async (r) => {
+        const body = r.ok ? await r.json() : null;
+        if (cancelled) return;
+        if (body) setData(body);
+        else setGone(true);
+      })
+      .catch(() => { if (!cancelled) setGone(true); });
+    return () => { cancelled = true; };
   }, [base, lang]);
 
   // A citation names a section by its number, the page jumps there once it is drawn.
@@ -41,21 +48,20 @@ export default function WorkspacePageView({ workspaceUuid, sourceUuid }: { works
     if (!data || !section) return;
     const id = data.anchors[section - 1];
     const el = id ? document.getElementById(id) : null;
-    if (el) window.setTimeout(() => el.scrollIntoView({ block: "start" }), 50);
+    if (!el) return;
+    const timer = window.setTimeout(() => el.scrollIntoView({ block: "start" }), 50);
+    return () => window.clearTimeout(timer);
   }, [data, section]);
 
   if (gone) {
     return (
       <>
         <div className="max-w-6xl mx-auto px-4 pt-8"><ToolBackLink href={`/workspace/${workspaceUuid}`} label="Workspace" /></div>
-        <div className="max-w-md mx-auto mt-[12vh] px-4 text-center">
-          <h1 className="text-xl font-bold mb-1.5">{t("pageGone")}</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("askOwner")}</p>
-        </div>
+        <GoneNote title={t("pageGone")} />
       </>
     );
   }
-  if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
+  if (!data) return <PageLoading />;
   return (
     <>
       <PageView

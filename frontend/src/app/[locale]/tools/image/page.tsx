@@ -8,7 +8,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import Tabs from "@/components/ui/Tabs";
 import GenerateTab from "./_tabs/GenerateTab";
 import EditTab from "./_tabs/EditTab";
-import AnalyzeTab, { type FrageStart } from "./_tabs/AnalyzeTab";
+import AnalyzeTab from "./_tabs/AnalyzeTab";
 import Antworten from "./_components/Antworten";
 import BilderLeiste from "./_components/BilderLeiste";
 import Buehne from "./_components/Buehne";
@@ -17,7 +17,7 @@ import PromptBox from "./_components/PromptBox";
 import PromptFeld, { usePromptEntwurf } from "./_components/PromptFeld";
 import { useBildAuftraege, type BildErgebnis } from "./_components/useBildAuftraege";
 import { useBilder } from "./_components/useBilder";
-import { useBildFragen } from "./_components/useBildFragen";
+import { useBildFragen, type Frage } from "./_components/useBildFragen";
 import { validateImageFile } from "./_utils";
 
 type Tab = "generate" | "edit" | "analyze";
@@ -90,7 +90,7 @@ function ImagePageInner() {
       neuesBild({ ...neu, bearbeitet: true, vorlageUrl: URL.createObjectURL(quelle) }, erstes));
   };
 
-  const startFragen = async (frage: FrageStart) => {
+  const startFragen = async (frage: Frage) => {
     if (!bild) return;
     if (await fragen.fragen(bild, frage)) zumErgebnis();
   };

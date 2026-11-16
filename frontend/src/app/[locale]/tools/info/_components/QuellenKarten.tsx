@@ -33,11 +33,10 @@ const CHIP_KLASSE = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bor
 const CHIP_HOVER = "hover:border-kb focus:border-kb transition-colors";
 
 /** Domain or file name with the date, shown under each source in the dialog. */
-function quellenInfo(q: CampusQuelle, locale: string, t: ReturnType<typeof useTranslations>) {
+function quellenDetail(q: CampusQuelle, locale: string, t: ReturnType<typeof useTranslations>): string {
   const stand = standText(q.fetched_at, locale);
   const sub = q.kind === "document" ? q.filename ?? t("document") : q.url ? domain(q.url) : "";
-  const detail = sub && `${sub}${stand ? `, ${t("stand", { date: stand })}` : ""}`;
-  return { detail };
+  return sub && `${sub}${stand ? `, ${t("stand", { date: stand })}` : ""}`;
 }
 
 export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) {
@@ -55,14 +54,14 @@ export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) 
         <ul className="flex flex-col gap-2" data-testid="campus-sources-list">
           {quellen.map((q) => {
             const href = quellenLink(q);
-            const info = quellenInfo(q, locale, t);
+            const detail = quellenDetail(q, locale, t);
             const Icon = q.kind === "document" ? FileText : q.kind === "place" ? MapPin : Globe;
             const inner = (
               <>
                 <Icon size={18} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium break-words" style={{ color: "var(--foreground)" }}>{q.title}</span>
-                  {info.detail && <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>{info.detail}</span>}
+                  {detail && <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>{detail}</span>}
                 </span>
                 {href && <ArrowSquareOut size={14} weight="bold" style={{ color: "var(--muted)", flexShrink: 0 }} />}
               </>

@@ -5,26 +5,24 @@ import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import { Eye, PencilSimple, Trash } from "@phosphor-icons/react";
 import Tabs from "@/components/ui/Tabs";
-import Spinner from "@/components/ui/Spinner";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
 import { clone, dropEmptyBlocks, getAt, imageCount, removeAt, setAt } from "../_lib/paths";
 import { LAYOUTS, type Block, type Heading, type Languages, type Layout, type Limits, type OwnPage, type Page } from "../_lib/types";
-import ToolBackLink from "@/components/ui/ToolBackLink";
-import { DataModal, ImageModal, LayoutModal } from "./EditModals";
+import { DataModal, ImageModal, LayoutModal, type DataBlock } from "./EditModals";
 import { readableOf } from "./Languages";
 import PageView, { type FieldKind } from "./PageView";
 import { ShareButton, ShareModal } from "./Sharing";
 import { EditCtx } from "./Txt";
+import { PageLoading } from "./ViewStates";
 
 // A picture being drawn is asked for at this pace until it is there.
 const DRAW_POLL_MS = 3000;
-
-type ImageBlock = Extract<Block, { kind: "image" }>;
-type DataBlock = Extract<Block, { kind: "chart" | "bars" | "mindmap" | "wordcloud" }>;
-
 // Undo keeps this many steps, typing in one field is one step.
 const UNDO_STEPS = 20;
+
+type ImageBlock = Extract<Block, { kind: "image" }>;
 
 interface History {
   rev: number;
@@ -69,16 +67,25 @@ export default function Editor({ uuid }: { uuid: string }) {
   const [languages, setLanguages] = useState<Languages | null>(null);
   const [languagesKnown, setLanguagesKnown] = useState(false);
   useEffect(() => {
+    let cancelled = false;
     setLanguagesKnown(false);
-    api.getLanguages(uuid).then(setLanguages).catch(() => {}).finally(() => setLanguagesKnown(true));
+    api.getLanguages(uuid)
+      .then((l) => { if (!cancelled) setLanguages(l); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLanguagesKnown(true); });
+    return () => { cancelled = true; };
   }, [uuid, locale]);
   // The page opens in the language set in the settings when it has it, else in its own; null is its own.
   const lang = languages && locale !== languages.own.key
     && languages.languages.some((l) => l.key === locale && l.state === "done") ? locale : null;
   useEffect(() => {
     if (!languagesKnown) return;
+    let cancelled = false;
     setLoaded(null);
-    api.getPage(uuid, lang).then(setLoaded).catch((e: Error) => setLoadError(e.message || t("loadFailed")));
+    api.getPage(uuid, lang)
+      .then((p) => { if (!cancelled) setLoaded(p); })
+      .catch((e: Error) => { if (!cancelled) setLoadError(e.message || t("loadFailed")); });
+    return () => { cancelled = true; };
   }, [uuid, lang, languagesKnown, t]);
 
   if (loadError) {
@@ -89,14 +96,8 @@ export default function Editor({ uuid }: { uuid: string }) {
       </>
     );
   }
-  if (!loaded) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>
-    );
-  }
-  return (
-    <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages} />
-  );
+  if (!loaded) return <PageLoading />;
+  return <Loaded key={lang ?? ""} uuid={uuid} data={loaded} lang={lang} languages={languages} />;
 }
 
 interface LoadedProps {
@@ -154,6 +155,10 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
     if (el?.isContentEditable) el.blur();
   };
 
+  // The page as it is after the last render, for a save that waits one tick.
+  const pageRef = useRef(h.page);
+  pageRef.current = h.page;
+
   const undo = () => { flush(); dispatch({ type: "undo" }); };
   const redo = () => { flush(); dispatch({ type: "redo" }); };
 
@@ -173,9 +178,6 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
       setSaving(false);
     }
   };
-  const pageRef = useRef(h.page);
-  pageRef.current = h.page;
-
   const onSection = (i: number, action: "up" | "down" | "hide" | "del") => {
     flush();
     const other = action === "up" ? i - 1 : action === "down" ? i + 1 : -1;
@@ -321,6 +323,8 @@ function Loaded({ uuid, data, lang, languages }: LoadedProps) {
     try {
       const res = await api.setShare(uuid, on, isPublic);
       setShare({ shared: res.shared, isPublic: res.public, code: res.code });
+    } catch {
+      // The switch stays where it was, the person may try again.
     } finally {
       setShareBusy(false);
     }

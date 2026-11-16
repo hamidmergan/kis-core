@@ -5,27 +5,16 @@ import { useLocale, useTranslations } from "next-intl";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { AnbieterReihe, Band, Chips, Reihe } from "../_components/Einstellungen";
 import type { BildErgebnis } from "../_components/useBildAuftraege";
-import { AUFGABEN } from "../_utils";
-
-type Aufgabe = (typeof AUFGABEN)[number];
-
-export interface FrageStart {
-  aufgabe: Aufgabe;
-  text: string;
-  titel: string;
-  sprache: "de" | "en";
-  providerId: number | null;
-}
+import type { Frage } from "../_components/useBildFragen";
+import { AUFGABEN, FELD, START_KNOPF } from "../_utils";
 
 interface Props {
   bild: BildErgebnis | null;
   laeuft: boolean;
   offen: boolean;
   onToggle: () => void;
-  onStart: (frage: FrageStart) => void;
+  onStart: (frage: Frage) => void;
 }
-
-const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
 
 /** The describe form, it asks about the large picture on the right, the answer appears below that picture. */
 export default function AnalyzeTab({ bild, laeuft, offen, onToggle, onStart }: Props) {
@@ -33,8 +22,8 @@ export default function AnalyzeTab({ bild, laeuft, offen, onToggle, onStart }: P
   const tCommon = useTranslations("common");
   const locale = useLocale();
   const { providers, providerId, setProviderId, loading: providersLoading } = useFeatureProviders("/image/providers/analyze");
-  const [aufgabe, setAufgabe] = useState<Aufgabe>("beschreiben");
-  const [sprache, setSprache] = useState<"de" | "en">(locale === "en" ? "en" : "de");
+  const [aufgabe, setAufgabe] = useState<Frage["aufgabe"]>("beschreiben");
+  const [sprache, setSprache] = useState<Frage["sprache"]>(locale === "en" ? "en" : "de");
   const [frage, setFrage] = useState("");
 
   const starten = () => {
@@ -64,7 +53,7 @@ export default function AnalyzeTab({ bild, laeuft, offen, onToggle, onStart }: P
         type="button"
         onClick={starten}
         disabled={!bild || laeuft || (aufgabe === "frage" && !frage.trim())}
-        className="mt-4 w-full px-4 py-3 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className={START_KNOPF}
       >
         {laeuft ? tCommon("processing") : t(`submits.${aufgabe}`)}
       </button>

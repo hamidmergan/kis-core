@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { backendApi, downloadJobAsBlob, parseDetail, pollJob } from "@/lib/api";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 import { cancelJob } from "@/components/jobs/JobCancelButton";
 
 /** What a picture was made with, as far as the backend stored it. */
@@ -85,7 +86,7 @@ export function useBildAuftraege(spinner: string, laenger: string, unbekannt: st
       }
       jobsRef.current = jobs;
       if (daten.teilweise) setTeilweise({ gestartet: jobs.length, gewuenscht: Number(formular.get("varianten")) });
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       let erstes = true;
       const ausgang = await Promise.allSettled(jobs.map(async (jobUuid) => {
         const status = await pollJob(jobUuid, undefined, 3000, controller.signal, () => setLabel(laenger), 60_000);
@@ -93,7 +94,7 @@ export function useBildAuftraege(spinner: string, laenger: string, unbekannt: st
         onBild({ key: jobUuid, jobUuid, url: URL.createObjectURL(blob), blob, filename, ...ausMeta(status.meta) }, erstes);
         erstes = false;
       }));
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       if (controller.signal.aborted) return;
       const gescheitert = ausgang.find((a): a is PromiseRejectedResult => a.status === "rejected");
       if (gescheitert) {

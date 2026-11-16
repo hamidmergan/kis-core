@@ -18,9 +18,8 @@ export default function Vorschau() {
   const [tab, setTab] = useState<"looks" | "echt" | Design>("looks");
   // ?seite=magazine opens a sample page directly, for screenshots.
   useEffect(() => {
-    const d = new URLSearchParams(window.location.search).get("seite") as Design | null;
-    if (d && DESIGNS.includes(d)) setTab(d);
-    if (new URLSearchParams(window.location.search).get("seite") === "echt") setTab("echt");
+    const d = new URLSearchParams(window.location.search).get("seite");
+    if (d === "echt" || DESIGNS.includes(d as Design)) setTab(d as Design | "echt");
   }, []);
   let n = 0;
   return (

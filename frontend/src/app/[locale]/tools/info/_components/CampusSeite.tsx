@@ -20,6 +20,7 @@ export default function CampusSeite() {
   const [collapsed, setCollapsed] = useState(false);
   const [config, setConfig] = useState<CampusConfig | null>(null);
   const verlauf = useChatVerlauf();
+  const { reload, upsertTop } = verlauf;
 
   useEffect(() => {
     try {
@@ -30,14 +31,13 @@ export default function CampusSeite() {
   }, []);
 
   const toggleCollapsed = () => {
-    setCollapsed((v) => {
-      try {
-        localStorage.setItem(COLLAPSED_KEY, v ? "0" : "1");
-      } catch {
-        // The choice then only lasts for this visit.
-      }
-      return !v;
-    });
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      // The choice then only lasts for this visit.
+    }
   };
 
   useEffect(() => {
@@ -48,13 +48,13 @@ export default function CampusSeite() {
     (chatId: number, title: string) => {
       setActiveId(chatId);
       const now = new Date().toISOString().replace("Z", "");
-      verlauf.upsertTop({ id: chatId, title, question_count: 1, created_at: now, updated_at: now });
+      upsertTop({ id: chatId, title, question_count: 1, created_at: now, updated_at: now });
     },
-    [verlauf],
+    [upsertTop],
   );
   const onAnswered = useCallback(() => {
-    verlauf.reload();
-  }, [verlauf]);
+    void reload();
+  }, [reload]);
 
   const chat = useCampusChat({ chatId: activeId, onChatCreated, onAnswered });
 

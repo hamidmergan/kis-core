@@ -2,7 +2,6 @@
 
 import { Fragment, createContext, useContext } from "react";
 import { useTranslations } from "next-intl";
-import ToolBackLink from "@/components/ui/ToolBackLink";
 import {
   ArrowCounterClockwise,
   ArrowDown,
@@ -21,6 +20,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import { HEADINGS, type Block, type Design, type Heading, type Limits, type Page, type Section } from "../_lib/types";
 import { EditCtx, Txt } from "./Txt";
 import { LOOKS, looksOf, sectionLooks, type SectionLook } from "./looks";
@@ -34,6 +34,17 @@ const FIELDS: { kind: FieldKind; icon: typeof Info }[] = [
   { kind: "text", icon: TextT }, { kind: "image", icon: ImageIcon }, { kind: "table", icon: Table },
   { kind: "chart", icon: ChartBar }, { kind: "list", icon: ListBullets }, { kind: "note", icon: Info },
 ];
+
+/** The fixed parts of a page carry these ids, every other section belongs to the subject. */
+const FRAME_IDS = new Set(["cover", "gist", "map", "words"]);
+const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
+const EXPLAINED = new Set(["map", "words"]);
+
+/** A long title gets a smaller size, so it never breaks into a tower of single words. */
+const titleSize = (title: string) =>
+  (title.length > 48 ? " t-xl" : title.length > 26 ? " t-l" : "")
+  // A very long word would break in the middle on a phone, the title shrinks there instead.
+  + (Math.max(...title.split(/\s+/).map((w) => w.length)) > 13 ? " t-word" : "");
 
 /** The look chosen for every block, keyed "section.block". */
 const LookOf = createContext<Map<string, number>>(new Map());
@@ -219,11 +230,6 @@ function Tools({ s, i, n, edit }: { s: Section; i: number; n: number; edit: Edit
   );
 }
 
-/** The fixed parts of a page carry these ids, every other section belongs to the subject. */
-const FRAME_IDS = new Set(["cover", "gist", "map", "words"]);
-const isContent = (s: Section) => !s.hero && !FRAME_IDS.has(s.id);
-const EXPLAINED = new Set(["map", "words"]);
-
 interface SectionProps {
   /** How a section of the subject is built, absent for the frame. */
   build?: SectionLook;
@@ -241,12 +247,6 @@ interface SectionProps {
   /** The page's picture stands as a section of its own above the title. */
   hasCover?: boolean;
 }
-
-/** A long title gets a smaller size, so it never breaks into a tower of single words. */
-const titleSize = (title: string) =>
-  (title.length > 48 ? " t-xl" : title.length > 26 ? " t-l" : "")
-  // A very long word would break in the middle on a phone, the title shrinks there instead.
-  + (Math.max(...title.split(/\s+/).map((w) => w.length)) > 13 ? " t-word" : "");
 
 function SectionView({ s, i, n, limits, imageBase, nums, edit, build, chapter, hasCover, tint }: SectionProps) {
   const t = useTranslations("tools.pages");

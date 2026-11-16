@@ -18,10 +18,10 @@ const send = (path: string, method: "PUT" | "POST" | "DELETE", body?: unknown) =
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-export const listPages = () => backendApi.fetch("/pages").then((r) => json<PagesList>(r));
 /** The language as a query, nothing for the page's own. */
 const lang = (key?: string | null) => (key ? `?sprache=${encodeURIComponent(key)}` : "");
 
+export const listPages = () => backendApi.fetch("/pages").then((r) => json<PagesList>(r));
 export const getPage = (uuid: string, key?: string | null) =>
   backendApi.fetch(`/pages/${uuid}${lang(key)}`).then((r) => json<OwnPage>(r));
 export const savePage = (uuid: string, page: Page, key?: string | null) =>
@@ -41,6 +41,7 @@ export const setCollectionShare = (on: boolean) =>
   send("/pages/collection-share", "PUT", { on }).then((r) => json<{ shared: boolean }>(r));
 export const deletePage = (uuid: string) => send(`/jobs/${uuid}`, "DELETE").then((r) => json<unknown>(r));
 export const retryPage = (uuid: string) => send(`/jobs/${uuid}/retry`, "POST").then((r) => json<unknown>(r));
+
 /** A link only an askFrancis account may open was opened without one. */
 export class LoginNeeded extends Error {}
 

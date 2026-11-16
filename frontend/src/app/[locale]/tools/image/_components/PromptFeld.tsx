@@ -3,9 +3,7 @@
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, parseDetail } from "@/lib/api";
-
-const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
-const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+import { FELD, KNOPF } from "../_utils";
 
 export interface PromptEntwurf {
   prompt: string;
@@ -48,7 +46,7 @@ export function usePromptEntwurf(onFehler: (text: string) => void): PromptEntwur
 }
 
 /** The prompt field with its worded-out version, it stands where the new picture will appear. */
-export default function PromptFeld({ entwurf, disabled }: { entwurf: PromptEntwurf; disabled?: boolean }) {
+export default function PromptFeld({ entwurf }: { entwurf: PromptEntwurf }) {
   const t = useTranslations("tools.image.generate");
   const { prompt, ausformuliert, formuliert, setPrompt, setAusformuliert, ausformulieren } = entwurf;
 
@@ -63,7 +61,8 @@ export default function PromptFeld({ entwurf, disabled }: { entwurf: PromptEntwu
         placeholder={t("promptPlaceholder")}
         className={`${FELD} mb-2`}
       />
-      <button type="button" onClick={() => void ausformulieren()} disabled={!prompt.trim() || formuliert || disabled} className={KNOPF}>
+      <button type="button" onClick={() => void ausformulieren()} disabled={!prompt.trim() || formuliert}
+        className={`${KNOPF} disabled:opacity-50 disabled:cursor-not-allowed`}>
         {formuliert ? t("enhancing") : t("enhance")}
       </button>
       {ausformuliert && (

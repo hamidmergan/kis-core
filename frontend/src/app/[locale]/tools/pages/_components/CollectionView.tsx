@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRouter } from "@/i18n/navigation";
 import * as api from "../_lib/api";
 import type { Collection } from "../_lib/types";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { CollectionShareModal, ShareButton } from "./Sharing";
-import { Thumb, useDate } from "./PagesSeite";
+import { Thumb, useDate } from "./PageCard";
+import { GoneNote, PageLoading } from "./ViewStates";
 
 /** Every page one person shares, as cards, newest first. Private pages never show up here. */
 export default function CollectionView({ code }: { code: string }) {
@@ -22,11 +22,14 @@ export default function CollectionView({ code }: { code: string }) {
   const [shareBusy, setShareBusy] = useState(false);
 
   useEffect(() => {
-    api.getCollection(code).then(setData).catch((e) => {
+    let cancelled = false;
+    api.getCollection(code).then((d) => { if (!cancelled) setData(d); }).catch((e) => {
+      if (cancelled) return;
       // A link for askFrancis accounts only, after the login the person lands here again.
       if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/u/${code}`)}`);
       else setGone(true);
     });
+    return () => { cancelled = true; };
   }, [code, router]);
 
   const toggleShare = async (on: boolean) => {
@@ -41,26 +44,15 @@ export default function CollectionView({ code }: { code: string }) {
     }
   };
 
-  if (gone) {
-    return (
-      <>
-        <div className="max-w-md mx-auto mt-[12vh] px-4 text-center">
-          <h1 className="text-xl font-bold mb-1.5">{t("collectionMissing")}</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("askOwner")}</p>
-        </div>
-      </>
-    );
-  }
-  if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
+  if (gone) return <GoneNote title={t("collectionMissing")} />;
+  if (!data) return <PageLoading />;
   return (
     <>
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-16">
         {data.own && <ToolBackLink href="/tools/pages" label={t("back")} />}
         <div className="flex items-center gap-3 mb-5">
           <h1 className="text-xl font-bold flex-1">{t("collectionHeading", { name: data.owner.name })}</h1>
-          {data.own && (
-            <ShareButton on={data.shared} onClick={() => setShareOpen(true)} />
-          )}
+          {data.own && <ShareButton on={data.shared} onClick={() => setShareOpen(true)} />}
         </div>
         {data.pages.length === 0 ? (
           <EmptyState size="sm" text={t("collectionEmpty")} />

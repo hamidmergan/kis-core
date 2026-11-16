@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { backendApi, downloadJobAsBlob } from "@/lib/api";
+import { JOBS_CHANGED_EVENT, notifyJobsChanged } from "@/lib/jobs-events";
 import { ausMeta, type BildErgebnis, type Beschreibung } from "./useBildAuftraege";
 
 interface Eintrag {
@@ -46,7 +47,7 @@ export function useBilder() {
   const vorlageVersucht = useRef(new Set<string>());
   // Answers about an upload of this visit, that upload already shows them, the list must not add it twice.
   const uebernommen = useRef(new Set<string>());
-  const wurzeln = useRef(new Map<string, string>());
+  const wurzeln = useRef(new Set<string>());
 
   const laden = useCallback(async () => {
     try {
@@ -113,11 +114,11 @@ export function useBilder() {
   useEffect(() => {
     void laden();
     const neu = () => { void laden(); };
-    window.addEventListener("kis-jobs-changed", neu);
+    window.addEventListener(JOBS_CHANGED_EVENT, neu);
     const karte = geladen.current;
     const urls = eigeneUrls.current;
     return () => {
-      window.removeEventListener("kis-jobs-changed", neu);
+      window.removeEventListener(JOBS_CHANGED_EVENT, neu);
       karte.forEach(freigeben);
       urls.forEach((u) => URL.revokeObjectURL(u));
     };
@@ -151,7 +152,7 @@ export function useBilder() {
     frisch.current.delete(bild.key);
     setBilder((alt) => alt.filter((b) => b.key !== bild.key));
     if (eintrag) freigeben(eintrag);
-    window.dispatchEvent(new Event("kis-jobs-changed"));
+    notifyJobsChanged();
   }, []);
 
   /** The kept source of an older edit, fetched once when the picture is first shown. */
@@ -182,7 +183,7 @@ export function useBilder() {
   /** A started answer, the first one about an upload names that upload in the job list from now on. */
   const vormerken = useCallback((key: string, jobUuid: string) => {
     if (!key.startsWith(EIGEN) || wurzeln.current.has(key)) return;
-    wurzeln.current.set(key, jobUuid);
+    wurzeln.current.add(key);
     uebernommen.current.add(jobUuid);
   }, []);
 

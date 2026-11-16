@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import Spinner from "@/components/ui/Spinner";
 import ScrollTopButton from "@/app/[locale]/_components/landing/ScrollTopButton";
 import * as api from "../_lib/api";
 import type { SharedPage } from "../_lib/types";
 import PageView from "./PageView";
+import { GoneNote, PageLoading } from "./ViewStates";
 
 /** A shared page as its link's readers see it, only the preview, never the editor. */
 export default function SharedView({ code }: { code: string }) {
@@ -19,24 +19,18 @@ export default function SharedView({ code }: { code: string }) {
   const lang = useLocale();
 
   useEffect(() => {
-    api.getShared(code, lang).then(setData).catch((e) => {
+    let cancelled = false;
+    api.getShared(code, lang).then((d) => { if (!cancelled) setData(d); }).catch((e) => {
+      if (cancelled) return;
       // A link for askFrancis accounts only, after the login the person lands here again.
       if (e instanceof api.LoginNeeded) router.replace(`/login?next=${encodeURIComponent(`/p/${code}`)}`);
       else setGone(true);
     });
+    return () => { cancelled = true; };
   }, [code, lang, router]);
 
-  if (gone) {
-    return (
-      <>
-        <div className="max-w-md mx-auto mt-[12vh] px-4 text-center">
-          <h1 className="text-xl font-bold mb-1.5">{t("notSharedTitle")}</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("askOwner")}</p>
-        </div>
-      </>
-    );
-  }
-  if (!data) return <div className="flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
+  if (gone) return <GoneNote title={t("notSharedTitle")} />;
+  if (!data) return <PageLoading />;
   return (
     <>
       <PageView

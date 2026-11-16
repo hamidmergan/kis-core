@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { backendApi, downloadJobAsBlob, parseDetail, pollJob } from "@/lib/api";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { BildErgebnis, Beschreibung } from "./useBildAuftraege";
 import type { AUFGABEN } from "../_utils";
 
@@ -11,7 +12,7 @@ export interface Antwort {
   text: string;
 }
 
-interface Frage {
+export interface Frage {
   aufgabe: (typeof AUFGABEN)[number];
   text: string;
   /** The heading of the answer, the task name or the question itself. */
@@ -54,9 +55,9 @@ export function useBildFragen(spinner: string, laenger: string, unbekannt: strin
       }
       const daten = await antwort.json();
       onAuftrag(bild.key, daten.job_uuid);
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       await pollJob(daten.job_uuid, undefined, 3000, undefined, () => setLabel(laenger), 60_000);
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       const { blob } = await downloadJobAsBlob(daten.job_uuid);
       const eintrag = { jobUuid: daten.job_uuid, frage: frage.titel, text: await blob.text() };
       setAntworten((alt) => ({ ...alt, [bild.key]: [...(alt[bild.key] ?? []), eintrag] }));

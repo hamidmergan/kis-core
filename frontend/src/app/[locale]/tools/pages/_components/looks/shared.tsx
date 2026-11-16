@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
 import { Plus } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
@@ -42,25 +42,46 @@ export const PageEdit = createContext<EditControls | null>(null);
 /** The language the page is written in, its fixed words follow it, not the reader's. */
 export const PageLang = createContext("de");
 
-type Words = Record<"figure" | "table" | "vs" | "wrong" | "right" | "situation" | "approach" | "result" | "both" | "high" | "low" | "before" | "after" | "step", string>;
+type Words = Record<"figure" | "table" | "vs" | "wrong" | "right" | "situation" | "approach" | "result" | "both" | "high" | "low" | "step", string>;
 
 // The fixed words a page draws itself, in the page's language.
 const WORDS: { de: Words; en: Words } = {
   de: {
     figure: "Abbildung", table: "Tabelle", vs: "vs", wrong: "Falsch", right: "Richtig",
     situation: "Ausgangslage", approach: "Vorgehen", result: "Ergebnis", both: "Gemeinsam",
-    high: "hoch", low: "gering", before: "Vorher", after: "Nachher", step: "Schritt",
+    high: "hoch", low: "gering", step: "Schritt",
   },
   en: {
     figure: "Figure", table: "Table", vs: "vs", wrong: "Wrong", right: "Right",
     situation: "Situation", approach: "Approach", result: "Result", both: "Shared",
-    high: "high", low: "low", before: "Before", after: "After", step: "Step",
+    high: "high", low: "low", step: "Step",
   },
 };
 
 /** The fixed words in the page's language, English for every language but German. */
 export function usePageWords(): Words {
   return useContext(PageLang) === "de" ? WORDS.de : WORDS.en;
+}
+
+/** CSS custom properties as inline style. */
+export const vars = (v: Record<string, string | number>): CSSProperties => v as CSSProperties;
+
+/** The items of a list, every one deletable on its own. */
+export function Items({ p, items, max }: { p: string; items: string[]; max: number }) {
+  return (
+    <>
+      {items.map((t, i) => (
+        <li key={i} data-d={`${p}.${i}`}><Txt path={`${p}.${i}`} value={t} max={max} /></li>
+      ))}
+    </>
+  );
+}
+
+/** The caption of a drawing that carries no number, shown to readers only when it has a text. */
+export function PlainCaption({ p, b, limits }: { p: string; b: { caption: string }; limits: Limits }) {
+  const { editing } = useContext(EditCtx);
+  if (!b.caption && !editing) return null;
+  return <figcaption><Txt path={`${p}.caption`} value={b.caption} max={limits.short} /></figcaption>;
 }
 
 /** The numbered caption under a figure or table, absent when it has no number. */

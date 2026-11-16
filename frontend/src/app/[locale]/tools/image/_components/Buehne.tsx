@@ -8,9 +8,7 @@ import BildInfo from "./BildInfo";
 import Platzhalter from "./Platzhalter";
 import VorherNachher from "./VorherNachher";
 import type { BildErgebnis } from "./useBildAuftraege";
-import { alsJpg, speichern } from "../_utils";
-
-const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors";
+import { KNOPF, alsJpg, speichern } from "../_utils";
 
 interface Props {
   bild: BildErgebnis | null;

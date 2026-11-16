@@ -6,7 +6,7 @@ import JobCancelButton from "@/components/jobs/JobCancelButton";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { AnbieterReihe, Band, Chips, Reihe } from "../_components/Einstellungen";
 import type { BildErgebnis } from "../_components/useBildAuftraege";
-import { FORMATE, GROESSEN, QUALITAETEN, SCHNELLAKTIONEN, pixelLabel, type Format, type Groesse } from "../_utils";
+import { FELD, FORMATE, GROESSEN, KNOPF, QUALITAETEN, SCHNELLAKTIONEN, START_KNOPF, pixelLabel, type Format, type Groesse } from "../_utils";
 
 interface Props {
   bild: BildErgebnis | null;
@@ -16,9 +16,6 @@ interface Props {
   onStart: (formular: FormData) => void;
   onCancel: () => void;
 }
-
-const FELD = "w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft hover:border-kb focus:outline-none focus:border-kb transition-colors";
-const KNOPF = "px-2.5 py-1 text-xs font-medium rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors disabled:opacity-50";
 
 /** The edit form, it always works on the large picture on the right, one result each time. */
 export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCancel }: Props) {
@@ -58,7 +55,7 @@ export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCanc
       />
       <div className="flex flex-wrap gap-1.5">
         {SCHNELLAKTIONEN.map((s) => (
-          <button key={s} type="button" disabled={laeuft} onClick={() => setPrompt(t(`quickPrompts.${s}`))} className={KNOPF}>
+          <button key={s} type="button" disabled={laeuft} onClick={() => setPrompt(t(`quickPrompts.${s}`))} className={`${KNOPF} disabled:opacity-50`}>
             {t(`quickActions.${s}`)}
           </button>
         ))}
@@ -84,7 +81,7 @@ export default function EditTab({ bild, laeuft, offen, onToggle, onStart, onCanc
         type="button"
         onClick={bearbeiten}
         disabled={!bild || !prompt.trim() || laeuft}
-        className="mt-4 w-full px-4 py-3 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className={START_KNOPF}
       >
         {laeuft ? tCommon("processing") : t("submit")}
       </button>

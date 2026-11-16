@@ -7,7 +7,6 @@ import type { CampusChatEintrag } from "../_types";
 /** The chat list of the person, with rename and delete. */
 export function useChatVerlauf() {
   const [chats, setChats] = useState<CampusChatEintrag[]>([]);
-  const [loaded, setLoaded] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -15,8 +14,6 @@ export function useChatVerlauf() {
       setChats(list);
     } catch {
       // The list stays as it was, the chat itself still works.
-    } finally {
-      setLoaded(true);
     }
   }, []);
 
@@ -40,5 +37,5 @@ export function useChatVerlauf() {
     setChats((prev) => [entry, ...prev.filter((c) => c.id !== entry.id)]);
   }, []);
 
-  return { chats, loaded, reload, rename, remove, upsertTop };
+  return { chats, reload, rename, remove, upsertTop };
 }
