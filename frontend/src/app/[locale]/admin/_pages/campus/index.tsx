@@ -8,6 +8,7 @@ import { backendApi, parseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import PagesList from "./PagesList";
+import { appendFile } from "@/lib/directUpload";
 
 interface Settings {
   sitemap_url: string;
@@ -115,8 +116,10 @@ export default function CampusAdminPage() {
     setDocError(null);
     try {
       const body = new FormData();
-      body.append("file", file);
+      // A large document goes in parts straight into the bucket, a small one with the request.
+      const forgetUpload = await appendFile(body, { tool: "campus", file });
       const res = await backendApi.fetch(path, { method: "POST", body });
+      forgetUpload();
       if (!res.ok) {
         let msg = t("saveFailed");
         try {

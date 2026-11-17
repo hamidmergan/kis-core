@@ -28,9 +28,8 @@ from src.services.tool_limits import (
     max_screencast_slides,
     max_upload_bytes,
 )
-from src.utils.upload_stream import stream_upload_to_path
 
-from src.routes._shared import enforce_upload_size
+from src.routes._shared import enforce_upload_size, input_name, stage_input
 from src.routes.screencast._shared import merke_skriptsprache, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
@@ -45,7 +44,8 @@ def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de
 @router.post("/screencast/translate")
 async def screencast_translate(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    upload_token: str | None = Form(None),
     glossary_json: str = Form(""),
     source_lang: str = Form("DE"),
     target_lang: str = Form("EN-US"),
@@ -54,7 +54,9 @@ async def screencast_translate(
     locale: str = Depends(get_locale),
 ):
     """Queue a translate job: translate PPTX DE→EN, extract slide texts (+ images)."""
-    validate_upload(file.filename, locale)
+    # A large deck arrives as the token of a direct upload, a small one as the file itself.
+    incoming = await asyncio.to_thread(input_name, file, upload_token, "screencast", current_user.get("user_id", 0), locale)
+    validate_upload(incoming, locale)
     maybe_start_cleanup_task()
 
     enforce_upload_size(request, locale)
@@ -62,7 +64,8 @@ async def screencast_translate(
     # Stream to disk, a PPTX with media quickly gets huge.
     with tempfile.TemporaryDirectory(prefix="screencast_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, "input.pptx")
-        total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+        total, head = await stage_input(file, upload_token, "screencast", current_user.get("user_id", 0),
+                                        tmp_path, max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ".pptx", locale)
@@ -74,7 +77,7 @@ async def screencast_translate(
         _enforce_queue_and_quota(user_id, current_user, locale)
 
         job_uuid = uuid.uuid4().hex
-        filename = file.filename or "screencast.pptx"
+        filename = incoming or "screencast.pptx"
         create_counted_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
         input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ".pptx", tmp_path)
         db.set_job_input_path(job_uuid, input_path)
@@ -99,26 +102,29 @@ async def screencast_translate(
 @router.post("/screencast/upload-corrected")
 async def screencast_upload_corrected(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    upload_token: str | None = Form(None),
     translate_job_uuid: str = Form(""),
     target_lang: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Upload a corrected PPTX, save to temp storage + job folder, extract texts and slide images."""
-    validate_upload(file.filename, locale)
+    incoming = await asyncio.to_thread(input_name, file, upload_token, "screencast", current_user.get("user_id", 0), locale)
+    validate_upload(incoming, locale)
     maybe_start_cleanup_task()
 
     # One temp copy serves everything: check, text extraction, job folder and rendering.
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         pptx_path = tmp / "upload.pptx"
-        total, head = await stream_upload_to_path(file, str(pptx_path), max_upload_bytes(), locale)
+        total, head = await stage_input(file, upload_token, "screencast", current_user.get("user_id", 0),
+                                        str(pptx_path), max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ".pptx", locale)
 
-        logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, total)
+        logger.info("Screencast/upload-corrected: '{}' ({} bytes)", incoming, total)
 
         # Validate job ownership if translate_job_uuid provided
         if translate_job_uuid:
@@ -169,13 +175,13 @@ async def screencast_upload_corrected(
             user_id = current_user.get("user_id", 0)
             _enforce_queue_and_quota(user_id, current_user, locale)
             translate_job_uuid = uuid.uuid4().hex
-            create_counted_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
+            create_counted_job(translate_job_uuid, user_id, "screencast_translate", incoming or "screencast.pptx", locale=locale)
             await asyncio.to_thread(save_job_file_from_path, user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
             save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             db.update_job_status(translate_job_uuid, "awaiting_user")
             # Without a translation the language chosen at the start is the one to speak.
             merke_skriptsprache(user_id, translate_job_uuid, target_lang)
-            logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
+            logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, incoming)
 
         img_dir = tmp / "images"
         img_dir.mkdir()

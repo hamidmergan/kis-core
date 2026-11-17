@@ -25,6 +25,16 @@ def tool_access(tool: str):
     return authorize
 
 
+def permission_access(*keys: str):
+    """The same permission check an admin route runs, for uploads that belong to the admin area."""
+    from src.dependencies_rbac import require_permission
+    check = require_permission(*keys)
+
+    async def authorize(user: dict, perms: Permissions, context: dict, locale: str) -> None:
+        await check(user=user, locale=locale)
+    return authorize
+
+
 def rule_for(tool: str, locale: str) -> du.UploadRule:
     rule = du.RULES.get(tool)
     if rule is None:

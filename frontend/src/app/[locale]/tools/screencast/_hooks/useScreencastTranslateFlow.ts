@@ -5,6 +5,7 @@ import { api, parseDetail, pollJob } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
 import { triggerBlobDownload } from "@/lib/download";
+import { appendFile } from "@/lib/directUpload";
 import type { FlowAction } from "../_reducer";
 
 interface TranslateResponse {
@@ -95,7 +96,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     if (skipTranslation) {
       try {
         const formData = new FormData();
-        formData.append("file", file);
+        // A large deck goes in parts straight into the bucket, a small one with the request.
+        const forgetUpload = await appendFile(formData, { tool: "screencast", file, signal });
         formData.append("target_lang", targetLang);
         const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
@@ -103,6 +105,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           credentials: "include",
           signal,
         });
+        forgetUpload();
         if (!response.ok) {
           const error = await response.json().catch(() => ({ detail: messages.unknownError }));
           throw new Error(parseDetail(error.detail, messages.unknownError));
@@ -134,7 +137,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     // ── Different-language path: translate via DeepL ──
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      const forgetUpload = await appendFile(formData, { tool: "screencast", file, signal });
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
       if (translationProviderId != null) formData.append("provider_id", String(translationProviderId));
@@ -148,6 +151,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         credentials: "include",
         signal,
       });
+      forgetUpload();
       if (!uploadRes.ok) {
         const error = await uploadRes.json().catch(() => ({ detail: messages.unknownError }));
         throw new Error(parseDetail(error.detail, messages.unknownError));
@@ -208,7 +212,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       const signal = newSignal();
       try {
         const formData = new FormData();
-        formData.append("file", correctedFile);
+        const forgetUpload = await appendFile(formData, { tool: "screencast", file: correctedFile, signal });
         if (translateJobUuid) formData.append("translate_job_uuid", translateJobUuid);
         const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
@@ -216,6 +220,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           credentials: "include",
           signal,
         });
+        forgetUpload();
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: messages.uploadError }));
           const text = parseDetail(err.detail, messages.unknownError);

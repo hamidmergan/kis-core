@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from src import storage
@@ -24,6 +24,13 @@ router = APIRouter(prefix="/campus", tags=["admin: campus"])
 
 _require = require_permission(PERM_SET_CAMPUS)
 _DOC_EXTENSIONS = (".pdf", ".docx", ".pptx", ".md", ".txt")
+
+# Large documents go in parts straight into the bucket, only someone with the campus permission may send them.
+from src.routes.uploads import permission_access  # noqa: E402
+from src.services import direct_upload  # noqa: E402
+
+direct_upload.register("campus", direct_upload.UploadRule(
+    _DOC_EXTENSIONS, lambda: tool_limits.max_upload_bytes(), permission_access(PERM_SET_CAMPUS)))
 _PAGE_STATUSES = ("pending", "ready", "failed")
 
 
@@ -139,19 +146,29 @@ def start_crawl(admin: dict = Depends(_require)):
 
 
 @router.post("/documents")
-async def upload_document(file: UploadFile = File(...), admin: dict = Depends(_require), locale: str = Depends(get_locale)):
-    filename = Path(file.filename or "").name
+async def upload_document(file: UploadFile | None = File(None), upload_token: str | None = Form(None),
+                          admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    user_id = admin.get("user_id", 0)
+    filename = Path(direct_upload.input_name(file, upload_token, "campus", user_id, locale) or "").name
     ext = Path(filename).suffix.lower()
     if ext not in _DOC_EXTENSIONS:
         raise HTTPException(status_code=400, detail=t("campus.docTypeNotAllowed", locale))
     if any(d["filename"] == filename for d in page_repo.list_pages(page_repo.KIND_DOCUMENT)):
         raise HTTPException(status_code=409, detail=t("campus.docDuplicate", locale))
     limit = tool_limits.max_upload_bytes()
-    data = await file.read(limit + 1)
-    if len(data) > limit:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=limit // (1024 * 1024)))
-    validate_or_raise(data[:8192], ext, locale)
-    stored = storage.save_key_file(f"campus/documents/{uuid.uuid4().hex}{ext}", data)
+    key = f"campus/documents/{uuid.uuid4().hex}{ext}"
+    if direct_upload.input_name(None, upload_token, "campus", user_id, locale):
+        # Checked on completion already, the bucket copies it without passing through here.
+        session = direct_upload.claim(upload_token, "campus", user_id, locale)
+        storage.copy_key(session["key"], key)
+        direct_upload.delete_file(session["key"])
+        stored = key
+    else:
+        data = await file.read(limit + 1)
+        if len(data) > limit:
+            raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=limit // (1024 * 1024)))
+        validate_or_raise(data[:8192], ext, locale)
+        stored = storage.save_key_file(key, data)
     page_id = page_repo.upsert_page(page_repo.KIND_DOCUMENT, None, title=Path(filename).stem, filename=filename, file_path=stored)
     from src.features.campus.tasks import run_index_document
     run_index_document.delay(page_id)

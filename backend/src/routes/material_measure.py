@@ -24,10 +24,13 @@ def measure_router(dienst: str, schluessel: str | None = None) -> APIRouter:
         return {"maxChars": sources.max_total_chars()}
 
     @router.post(f"/{dienst}/measure")
-    async def measure_file(file: UploadFile = File(...),
-                           _user: dict = Depends(get_current_user),
+    async def measure_file(file: UploadFile | None = File(None),
+                           upload_token: str | None = Form(None),
+                           current_user: dict = Depends(get_current_user),
                            locale: str = Depends(get_locale)):
-        zeichen = await sources.measure_upload(file, locale=locale, schluessel=schluessel)
+        # A large file was sent in parts before, it stays in place for the start that follows.
+        zeichen = await sources.measure_upload(file, locale=locale, schluessel=schluessel, token=upload_token,
+                                               tool=dienst, user_id=current_user.get("user_id", 0))
         return {"chars": zeichen, "maxChars": sources.max_total_chars()}
 
     @router.post(f"/{dienst}/measure/workspace")

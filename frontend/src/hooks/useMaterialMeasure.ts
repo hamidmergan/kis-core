@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, parseDetail } from "@/lib/api";
+import { uploadFile } from "@/lib/directUpload";
 import { bilanz, dateiSchluessel, MAX_MATERIAL_CHARS, type Messung } from "@/lib/materialMeasure";
 
 type Dienst = "podcast" | "praesentation" | "summary" | "screencast" | "pages";
@@ -45,14 +46,21 @@ export function useMaterialMeasure(dienst: Dienst, mode: string, files: File[],
       if (gestartet.current.has(a.key)) continue;
       gestartet.current.add(a.key);
       setMessungen((alt) => ({ ...alt, [a.key]: { status: "laeuft" } }));
-      const body = new FormData();
-      if (a.file) body.append("file", a.file);
-      else {
-        body.append("workspace_uuid", workspaceUuid);
-        body.append("source_uuid", a.sourceId ?? "");
-      }
       const pfad = a.file ? `/${dienst}/measure` : `/${dienst}/measure/workspace`;
-      backendApi.fetch(pfad, { method: "POST", body })
+      const senden = async () => {
+        const body = new FormData();
+        if (a.file) {
+          // A large file goes in parts into the bucket now, the start later takes the same upload.
+          const token = await uploadFile({ tool: dienst, file: a.file, failedText: fallback });
+          if (token) body.append("upload_token", token);
+          else body.append("file", a.file);
+        } else {
+          body.append("workspace_uuid", workspaceUuid);
+          body.append("source_uuid", a.sourceId ?? "");
+        }
+        return backendApi.fetch(pfad, { method: "POST", body });
+      };
+      senden()
         .then(async (r) => {
           const data = await r.json().catch(() => ({}));
           if (!r.ok) return { status: "fehler", message: parseDetail(data.detail, fallback) } as Messung;
