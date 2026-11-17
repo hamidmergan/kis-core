@@ -134,7 +134,6 @@ def last_rounds(chat_id: int, n: int) -> list[tuple[str, str]]:
     return rounds
 
 
-
 def prune_chats(days: int) -> int:
     """Removes chats without activity for this many days, 0 keeps everything."""
     if days <= 0:

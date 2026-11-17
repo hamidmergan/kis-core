@@ -1,6 +1,7 @@
 """Password hashing for the database login, bcrypt for new hashes."""
 import base64
 import hashlib
+import hmac
 import secrets
 
 import bcrypt
@@ -52,7 +53,7 @@ def _verify_ssha(password: str, stored: str) -> bool:
     if len(blob) <= _SHA1_DIGEST_BYTES:
         return False
     digest, salt = blob[:_SHA1_DIGEST_BYTES], blob[_SHA1_DIGEST_BYTES:]
-    return hashlib.sha1(password.encode("utf-8") + salt).digest() == digest
+    return hmac.compare_digest(hashlib.sha1(password.encode("utf-8") + salt).digest(), digest)
 
 
 def needs_rehash(stored: str | None) -> bool:

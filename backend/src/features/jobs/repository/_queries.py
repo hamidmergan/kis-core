@@ -1,6 +1,9 @@
 """Read-only queries, lists and counts on the jobs table."""
 from ._shared import psycopg2, get_connection, _notify_job_update, _de_date_to_utc
 
+# Services that wait on the voice provider count apart, so a voicing never holds up a service without one.
+VOICE_TOOLS = frozenset({"tts", "podcast", "screencast_translate", "screencast_render"})
+
 
 def get_jobs_by_user(
     user_id: int, limit: int = 20, offset: int = 0, q: str = "",
@@ -61,10 +64,6 @@ def count_active_jobs_for_tool(user_id: int, tools: list[str]) -> int:
 def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
     """Return True if the user has a job of the given tools that is actually working."""
     return count_active_jobs_for_tool(user_id, tools) > 0
-
-
-# Services that wait on the voice provider count apart, so a voicing never holds up a service without one.
-VOICE_TOOLS = frozenset({"tts", "podcast", "screencast_translate", "screencast_render"})
 
 
 def count_working_jobs(user_id: int, voice: bool | None = None) -> int:

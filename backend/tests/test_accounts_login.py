@@ -99,3 +99,19 @@ def test_a_long_password_on_an_old_hash_stays_as_it_is():
          patch("src.features.accounts.login.database.set_user_password") as setzen:
         assert authenticate("max", langes)["id"] == 5
     setzen.assert_not_called()
+
+
+def test_an_unknown_account_still_costs_one_password_check():
+    # Without it the response time alone would tell which names exist.
+    with patch("src.features.accounts.login.database.get_user_by_username", return_value=None), \
+         patch("src.features.accounts.login.verify_password", return_value=False) as pruefen:
+        assert authenticate("gibtsnicht", "geheim123") is None
+    pruefen.assert_called_once()
+    assert pruefen.call_args.args[1].startswith("$2")
+
+
+def test_an_account_without_a_password_never_logs_in_through_the_dummy_hash():
+    konto = {"id": 5, "password_hash": None}
+    with patch("src.features.accounts.login.database.get_user_by_username", return_value=konto), \
+         patch("src.features.accounts.login.verify_password", return_value=True):
+        assert authenticate("max", "geheim123") is None

@@ -212,3 +212,50 @@ def test_sprachfenster_gibt_whisper_die_sprache_mit(env):
     # Anything that is not a two-letter code stays away from Whisper.
     client.post("/interpreter/transcribe", files=audio, data={"language": "deutsch"})
     assert _FakeWhisper.seen_language is None
+
+
+def test_satz_eines_anderen_gespraechs_wird_nicht_ueberschrieben(env):
+    """A sentence id that lives in another conversation is refused instead of replaced."""
+    client, fake = env
+    sid = client.post("/interpreter/sessions", json={}).json()["id"]
+    fake.upsert_turn = lambda session_id, turn: None
+
+    r = client.put(f"/interpreter/sessions/{sid}/turns/fremd", json=_turn("left", "Hallo"))
+    assert r.status_code == 404, r.text
+
+
+def test_upsert_turn_bleibt_im_eigenen_gespraech(monkeypatch):
+    """The conflict branch only fires for the same conversation, and no row means None."""
+    from src.features.interpreter import repository as repo
+
+    gesehen: list[str] = []
+
+    class _Cur:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, sql, params=None):
+            gesehen.append(" ".join(sql.split()))
+
+        def fetchone(self):
+            return None
+
+    class _Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def cursor(self, **kwargs):
+            return _Cur()
+
+        def commit(self):
+            pass
+
+    monkeypatch.setattr(repo, "get_connection", lambda: _Conn())
+    assert repo.upsert_turn("s1", {"id": "t1", **_turn("left", "Hallo")}) is None
+    assert any("WHERE interpreter_turns.session_id = EXCLUDED.session_id" in sql for sql in gesehen)

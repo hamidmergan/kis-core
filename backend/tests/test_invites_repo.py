@@ -90,6 +90,7 @@ def test_marking_used_only_touches_an_open_invite(fake_db):
 
     anweisungen = [c[1] for c in calls if c[0] == "execute"]
     assert any("used_at IS NULL" in a for a in anweisungen), "sonst laesst sich ein Link zweimal einloesen"
+    assert any("expires_at > NOW()" in a for a in anweisungen), "an invite that ran out mid-request must not redeem"
     assert ("commit", None, None) in calls
 
 

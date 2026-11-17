@@ -83,3 +83,20 @@ def test_a_long_password_still_works_against_ssha():
     # SSHA has no limit, such an account may exist and must not be locked out.
     langes = "x" * 100
     assert verify_password(langes, _ssha(langes)) is True
+
+
+def test_the_ssha_digest_is_compared_in_constant_time(monkeypatch):
+    import hmac
+
+    from src.features.accounts import passwords
+
+    gesehen = []
+    echt = hmac.compare_digest
+
+    def _vergleich(a, b):
+        gesehen.append((a, b))
+        return echt(a, b)
+
+    monkeypatch.setattr(passwords.hmac, "compare_digest", _vergleich)
+    assert verify_password("altes-passwort", _ssha("altes-passwort")) is True
+    assert len(gesehen) == 1

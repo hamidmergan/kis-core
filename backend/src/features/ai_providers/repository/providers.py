@@ -9,9 +9,10 @@ import psycopg2.extras
 from src.core.db.pool import get_connection
 from src.services import export_crypto
 
-_SELECT = """SELECT id, name, protocol, base_url, api_key, capabilities,
+_COLUMNS = """id, name, protocol, base_url, api_key, capabilities,
                     voices, enabled, last_probed_at, probe_status, probe_error,
                     created_at, updated_at, concurrency, owner_user_id"""
+_SELECT = f"SELECT {_COLUMNS}"
 
 # Every list the admin area and the routing read leaves out the interfaces people set up for themselves.
 _SHARED = "owner_user_id IS NULL"
@@ -122,7 +123,7 @@ def create_provider(
                        (name, protocol, base_url, api_key, capabilities, voices, enabled,
                         concurrency, owner_user_id)
                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb, %s)
-                   RETURNING {_SELECT.split('SELECT ')[1]}""",
+                   RETURNING {_COLUMNS}""",
                 (
                     name,
                     protocol,
@@ -169,7 +170,7 @@ def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""UPDATE providers SET {", ".join(sets)} WHERE id = %s
-                    RETURNING {_SELECT.split('SELECT ')[1]}""",
+                    RETURNING {_COLUMNS}""",
                 values,
             )
             row = cur.fetchone()

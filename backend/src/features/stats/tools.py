@@ -2,8 +2,7 @@
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
-
-ZEITRAEUME = {"jahr": 365, "halbjahr": 182, "30t": 30}
+from src.features.stats.models import ZEITRAEUME
 
 # Only the creation row counts as a job.
 GESTARTET = "status = 'started'"

@@ -77,6 +77,8 @@ def delete_user_completely(user_id: int) -> None:
             cur.execute("DELETE FROM aia_workspaces WHERE user_id = %s", (user_id,))
             for tabelle in SWEEP_BY_USER_ID:
                 cur.execute(f"DELETE FROM {tabelle} WHERE user_id = %s", (user_id,))
+            # The interpreter names its owner column differently and has no foreign key, turns follow by cascade.
+            cur.execute("DELETE FROM interpreter_sessions WHERE owner_id = %s", (user_id,))
             cur.execute(
                 "UPDATE aia_grammar_topics SET created_by = NULL WHERE created_by = %s",
                 (user_id,),

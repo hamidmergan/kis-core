@@ -91,7 +91,7 @@ def build_context(
         group = pages.get(pid)
         if group is None:
             group = {"hit": hit, "chunks": {}}
-        extra = [hit] + [n for n in neighbors(pid, hit["position"], _NEIGHBOR_SPAN)]
+        extra = [hit, *neighbors(pid, hit["position"], _NEIGHBOR_SPAN)]
         fresh = [c for c in extra if c["id"] not in seen_chunks]
         cost = sum(len(c["content"]) for c in fresh)
         if used + cost > budget:

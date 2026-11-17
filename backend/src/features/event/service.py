@@ -375,12 +375,12 @@ def tasks_view(done: dict[str, int], workspace: str, workspace_title: str = "") 
 
 # --- the admin form -----------------------------------------------------------
 
-def validate_config(config: dict) -> dict:
-    """Checks the rules of the admin form and returns the config with trimmed ids and normalised codes."""
+def _validate_stations(roh: list[dict]) -> list[dict]:
+    """The stands with trimmed ids and normalised codes, each id and code only once."""
     stations = []
     ids: set[str] = set()
     codes: set[str] = set()
-    for stand in config.get("stations", []):
+    for stand in roh:
         stand_id = str(stand.get("id", "")).strip()
         if not stand_id:
             raise EventValidationError("event.config.stationIdEmpty")
@@ -396,15 +396,11 @@ def validate_config(config: dict) -> dict:
             raise EventValidationError("event.config.codeDuplicate", code=code)
         codes.add(code)
         stations.append({**stand, "id": stand_id, "code": code})
+    return stations
 
-    block = dict(config.get("eventBlock") or {})
-    for feld in ("from", "until"):
-        wert = block.get(feld) or ""
-        if not is_valid_date_or_empty(wert):
-            raise EventValidationError("event.config.dateInvalid", value=wert)
-        block[feld] = wert
 
-    tiles = list(block.get("tiles") or [])
+def _validate_tiles(tiles: list[dict]) -> list[dict]:
+    """The tiles with trimmed ids and a placement, at most one of them as the banner."""
     if len(tiles) > MAX_TILES:
         raise EventValidationError("event.config.tooManyTiles", max=MAX_TILES)
     tile_ids: set[str] = set()
@@ -427,13 +423,16 @@ def validate_config(config: dict) -> dict:
         geprueft.append(eintrag)
     if sum(1 for tile in geprueft if tile["placement"] in ("banner", "both")) > 1:
         raise EventValidationError("event.config.oneBanner")
-    block["tiles"] = geprueft
+    return geprueft
 
-    karte = {**default_task_card(), **(config.get("taskCard") or {})}
+
+def _validate_task_card(roh: dict | None) -> dict:
+    """The task card with every field in its type, missing ones from the default."""
+    karte = {**default_task_card(), **(roh or {})}
     for feld in ("from", "until"):
         if not is_valid_date_or_empty(karte[feld] or ""):
             raise EventValidationError("event.config.dateInvalid", value=karte[feld])
-    karte = {
+    return {
         "enabled": bool(karte["enabled"]),
         "ignoreWindow": bool(karte["ignoreWindow"]),
         "from": karte["from"] or "",
@@ -442,6 +441,21 @@ def validate_config(config: dict) -> dict:
         "workspace": str(karte["workspace"] or "").strip(),
         "forEveryone": bool(karte["forEveryone"]),
     }
+
+
+def validate_config(config: dict) -> dict:
+    """Checks the rules of the admin form and returns the config with trimmed ids and normalised codes."""
+    stations = _validate_stations(config.get("stations", []))
+
+    block = dict(config.get("eventBlock") or {})
+    for feld in ("from", "until"):
+        wert = block.get(feld) or ""
+        if not is_valid_date_or_empty(wert):
+            raise EventValidationError("event.config.dateInvalid", value=wert)
+        block[feld] = wert
+    block["tiles"] = _validate_tiles(list(block.get("tiles") or []))
+
+    karte = _validate_task_card(config.get("taskCard"))
 
     verlosung = {**default_raffle(), **(config.get("raffle") or {})}
     verlosung = {

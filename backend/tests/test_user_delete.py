@@ -192,3 +192,9 @@ def test_die_einladung_bleibt_und_verliert_nur_den_urheber(protokoll):
         "UPDATE invites SET created_by = NULL" in sql for sql, _ in protokoll
     )
     assert not any("DELETE FROM invites" in sql for sql, _ in protokoll)
+
+
+def test_die_dolmetscher_gespraeche_gehen_mit(protokoll):
+    """interpreter_sessions carries owner_id without a foreign key, so nothing else would remove it."""
+    ud.delete_user_completely(42)
+    assert ("DELETE FROM interpreter_sessions WHERE owner_id = %s", (42,)) in protokoll

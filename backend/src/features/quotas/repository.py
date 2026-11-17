@@ -1,9 +1,6 @@
 from typing import Optional
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -90,6 +87,3 @@ def quota_get_all_users_usage() -> list[dict]:
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
-
-# --- KI Tutor: Modules ---
-

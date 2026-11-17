@@ -1,9 +1,6 @@
 from datetime import datetime
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db._common import _de_date_to_utc
 from src.core.db.pool import get_connection
@@ -95,8 +92,6 @@ def remove_from_whitelist(email: str) -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM whitelist WHERE LOWER(email) = LOWER(%s)", (email.strip(),))
         conn.commit()
-
-# --- Settings (key/value store) ---
 
 def get_all_users(
     limit: int = 50, offset: int = 0, q: str = "",

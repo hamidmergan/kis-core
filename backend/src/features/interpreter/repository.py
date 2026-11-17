@@ -98,8 +98,8 @@ def delete_session(session_id: str, owner_id: int) -> bool:
         return deleted
 
 
-def upsert_turn(session_id: str, turn: dict) -> dict:
-    """Writes a sentence as a whole, a repeated write replaces text, translation and status."""
+def upsert_turn(session_id: str, turn: dict) -> dict | None:
+    """Writes a sentence as a whole, a repeated write replaces it, None when the id belongs to another conversation."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("UPDATE interpreter_sessions SET updated_at = NOW() WHERE id = %s", (session_id,))
@@ -113,15 +113,16 @@ def upsert_turn(session_id: str, turn: dict) -> dict:
                        status = EXCLUDED.status,
                        edited = EXCLUDED.edited,
                        updated_at = NOW()
+                   WHERE interpreter_turns.session_id = EXCLUDED.session_id
                    RETURNING *""",
                 (
                     turn["id"], session_id, turn["side"], turn["source"], turn["original"],
                     turn["translation"], turn["status"], turn["edited"], turn["at"],
                 ),
             )
-            row = dict(cur.fetchone())
+            row = cur.fetchone()
         conn.commit()
-        return row
+        return dict(row) if row else None
 
 
 def delete_turn(session_id: str, turn_id: str) -> None:

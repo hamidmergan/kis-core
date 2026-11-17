@@ -76,7 +76,10 @@ def save_turn(session: dict, turn: dict, locale: str) -> dict:
         return {"id": turn["id"], "deleted": True}
     if _chars_without(session["id"], turn["id"]) + len(turn["original"]) > SESSION_CHAR_LIMIT:
         raise HTTPException(status_code=409, detail=t("interpreter.full", locale))
-    return _turn_out(repo.upsert_turn(session["id"], turn))
+    row = repo.upsert_turn(session["id"], turn)
+    if row is None:
+        raise HTTPException(status_code=404, detail=t("interpreter.sessionUnknown", locale))
+    return _turn_out(row)
 
 
 def _unwrap(raw: str) -> str:

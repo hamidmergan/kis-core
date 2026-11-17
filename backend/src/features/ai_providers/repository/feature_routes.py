@@ -181,13 +181,13 @@ def clear_provider_from_routes(provider_id: int) -> int:
                 (provider_id,),
             )
             cleared += cur.rowcount
-            # Strip the deleted id from each user_choices array.
+            # Strip the deleted id from each user_choices array, the rest keeps its order.
             cur.execute(
                 """UPDATE feature_routes
                    SET user_choices = (
-                       SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-                       FROM jsonb_array_elements(user_choices) elem
-                       WHERE (elem)::int <> %s
+                       SELECT COALESCE(jsonb_agg(t.elem ORDER BY t.ord), '[]'::jsonb)
+                       FROM jsonb_array_elements(user_choices) WITH ORDINALITY AS t(elem, ord)
+                       WHERE (t.elem)::int <> %s
                    ),
                    updated_at = NOW()
                    WHERE user_choices @> %s::jsonb""",
@@ -198,9 +198,9 @@ def clear_provider_from_routes(provider_id: int) -> int:
             cur.execute(
                 """UPDATE feature_routes
                    SET provider_order = (
-                       SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-                       FROM jsonb_array_elements(provider_order) elem
-                       WHERE (elem)::int <> %s
+                       SELECT COALESCE(jsonb_agg(t.elem ORDER BY t.ord), '[]'::jsonb)
+                       FROM jsonb_array_elements(provider_order) WITH ORDINALITY AS t(elem, ord)
+                       WHERE (t.elem)::int <> %s
                    ),
                    updated_at = NOW()
                    WHERE provider_order @> %s::jsonb""",

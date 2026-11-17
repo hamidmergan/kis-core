@@ -113,114 +113,9 @@ def workspace_detail(uuid: str) -> dict | None:
                 return None
             mid = kopf["id"]
 
-            cur.execute(
-                """SELECT filename, file_type, chunk_count, status
-                   FROM aia_sources WHERE workspace_id = %s
-                   ORDER BY chunk_count DESC""",
-                (mid,),
-            )
-            material = [
-                {"name": r["filename"], "kind": r["file_type"],
-                 "chunks": r["chunk_count"], "status": r["status"]}
-                for r in cur.fetchall()
-            ]
-
-            # The two trainers kept apart, as in the module itself.
-            cur.execute(
-                """SELECT s.tool,
-                          (SELECT COUNT(*) FROM aia_exercise_items i WHERE i.set_id = s.id) AS erzeugt,
-                          (SELECT COUNT(*) FROM aia_exercise_progress p WHERE p.set_id = s.id) AS beantwortet
-                   FROM aia_exercise_sets s WHERE s.workspace_id = %s""",
-                (mid,),
-            )
-            gruppen: dict[str, dict[str, dict]] = {"source": {}, "glossary": {}}
-            for r in cur.fetchall():
-                # The group hangs off the tool, not off the mode.
-                kachel = KACHEL.get(r["tool"])
-                if kachel in FACHSPRACHE:
-                    wohin = "source"
-                elif kachel in SPRACHE:
-                    wohin = "glossary"
-                else:
-                    continue
-                eintrag = gruppen[wohin].setdefault(
-                    kachel, {"tool": kachel, "created": 0, "answered": 0}
-                )
-                eintrag["created"] += int(r["erzeugt"])
-                eintrag["answered"] += int(r["beantwortet"])
-
-            # The owner was missing entirely, enrollments are grouped per person.
-            cur.execute(
-                """SELECT u.id AS user_id,
-                          COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
-                          t.rolle,
-                          (SELECT COUNT(*) FROM aia_exercise_progress p
-                             JOIN aia_exercise_sets s ON s.id = p.set_id
-                            WHERE s.workspace_id = %s AND p.user_id = u.id) AS uebungen,
-                          (SELECT COUNT(*) FROM aia_messages msg
-                            WHERE msg.workspace_id = %s AND msg.user_id = u.id
-                              AND msg.role = 'user') AS chat
-                   FROM (
-                       SELECT %s::int AS user_id, 'owner' AS rolle
-                       UNION ALL
-                       SELECT e.user_id,
-                              CASE WHEN BOOL_OR(e.role = 'tutor')
-                                   THEN 'tutor' ELSE 'student' END
-                       FROM aia_enrollments e
-                       WHERE e.workspace_id = %s AND e.user_id <> %s
-                       GROUP BY e.user_id
-                   ) t
-                   JOIN users u ON u.id = t.user_id
-                   ORDER BY CASE t.rolle WHEN 'owner' THEN 0
-                                         WHEN 'tutor' THEN 1 ELSE 2 END, 3 DESC""",
-                (mid, mid, kopf["owner_id"], mid, kopf["owner_id"]),
-            )
-            personen = cur.fetchall()
-
-            # Tools and last activity stay separate queries, both grouped per person.
-            cur.execute(
-                """SELECT p.user_id, s.tool, COUNT(*) AS n
-                   FROM aia_exercise_progress p
-                   JOIN aia_exercise_sets s ON s.id = p.set_id
-                   WHERE s.workspace_id = %s
-                   GROUP BY p.user_id, s.tool""",
-                (mid,),
-            )
-            werkzeuge_je_person: dict[int, list[dict]] = {}
-            for r in cur.fetchall():
-                kachel = KACHEL.get(r["tool"])
-                if kachel is None:
-                    continue
-                werkzeuge_je_person.setdefault(r["user_id"], []).append(
-                    {"tool": kachel, "answered": r["n"]}
-                )
-            for zeilen in werkzeuge_je_person.values():
-                zeilen.sort(key=lambda x: x["answered"], reverse=True)
-
-            # Presence is platform-wide, here only activity in this module counts.
-            cur.execute(
-                """SELECT user_id, MAX(wann) AS zuletzt FROM (
-                       SELECT user_id, created_at AS wann FROM aia_messages
-                        WHERE workspace_id = %s AND role = 'user'
-                       UNION ALL
-                       SELECT p.user_id, p.answered_at AS wann
-                         FROM aia_exercise_progress p
-                         JOIN aia_exercise_sets s ON s.id = p.set_id
-                        WHERE s.workspace_id = %s
-                   ) x GROUP BY user_id""",
-                (mid, mid),
-            )
-            letzte_je_person = {r["user_id"]: r["zuletzt"] for r in cur.fetchall()}
-
-            leute = []
-            for r in personen:
-                zuletzt = letzte_je_person.get(r["user_id"])
-                leute.append({
-                    "name": r["name"], "role": r["rolle"],
-                    "answered": r["uebungen"], "chat": r["chat"],
-                    "last": zuletzt.isoformat() + "Z" if zuletzt else None,
-                    "tools": werkzeuge_je_person.get(r["user_id"], []),
-                })
+            material = _workspace_materials(cur, mid)
+            sortiert = _workspace_tools(cur, mid)
+            leute = _workspace_members(cur, mid, kopf["owner_id"])
 
             cur.execute(
                 """SELECT COUNT(*) AS n, MAX(created_at) AS zuletzt
@@ -229,10 +124,6 @@ def workspace_detail(uuid: str) -> dict | None:
             )
             chat = cur.fetchone()
 
-            sortiert = {
-                k: sorted(v.values(), key=lambda x: x["created"], reverse=True)
-                for k, v in gruppen.items()
-            }
             return {
                 "uuid": kopf["uuid"],
                 "title": kopf["title"],
@@ -252,6 +143,128 @@ def workspace_detail(uuid: str) -> dict | None:
                 "materials": material,
                 "members": leute,
             }
+
+
+def _workspace_materials(cur, mid: int) -> list[dict]:
+    cur.execute(
+        """SELECT filename, file_type, chunk_count, status
+           FROM aia_sources WHERE workspace_id = %s
+           ORDER BY chunk_count DESC""",
+        (mid,),
+    )
+    return [
+        {"name": r["filename"], "kind": r["file_type"],
+         "chunks": r["chunk_count"], "status": r["status"]}
+        for r in cur.fetchall()
+    ]
+
+
+def _workspace_tools(cur, mid: int) -> dict[str, list[dict]]:
+    """Created and answered items per tool, the two trainers kept apart as in the module itself."""
+    cur.execute(
+        """SELECT s.tool,
+                  (SELECT COUNT(*) FROM aia_exercise_items i WHERE i.set_id = s.id) AS erzeugt,
+                  (SELECT COUNT(*) FROM aia_exercise_progress p WHERE p.set_id = s.id) AS beantwortet
+           FROM aia_exercise_sets s WHERE s.workspace_id = %s""",
+        (mid,),
+    )
+    gruppen: dict[str, dict[str, dict]] = {"source": {}, "glossary": {}}
+    for r in cur.fetchall():
+        # The group hangs off the tool, not off the mode.
+        kachel = KACHEL.get(r["tool"])
+        if kachel in FACHSPRACHE:
+            wohin = "source"
+        elif kachel in SPRACHE:
+            wohin = "glossary"
+        else:
+            continue
+        eintrag = gruppen[wohin].setdefault(
+            kachel, {"tool": kachel, "created": 0, "answered": 0}
+        )
+        eintrag["created"] += int(r["erzeugt"])
+        eintrag["answered"] += int(r["beantwortet"])
+
+    return {
+        k: sorted(v.values(), key=lambda x: x["created"], reverse=True)
+        for k, v in gruppen.items()
+    }
+
+
+def _workspace_members(cur, mid: int, owner_id: int) -> list[dict]:
+    """Owner and enrolled people with their numbers, tools and last activity in this module."""
+    # The owner was missing entirely, enrollments are grouped per person.
+    cur.execute(
+        """SELECT u.id AS user_id,
+                  COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
+                  t.rolle,
+                  (SELECT COUNT(*) FROM aia_exercise_progress p
+                     JOIN aia_exercise_sets s ON s.id = p.set_id
+                    WHERE s.workspace_id = %s AND p.user_id = u.id) AS uebungen,
+                  (SELECT COUNT(*) FROM aia_messages msg
+                    WHERE msg.workspace_id = %s AND msg.user_id = u.id
+                      AND msg.role = 'user') AS chat
+           FROM (
+               SELECT %s::int AS user_id, 'owner' AS rolle
+               UNION ALL
+               SELECT e.user_id,
+                      CASE WHEN BOOL_OR(e.role = 'tutor')
+                           THEN 'tutor' ELSE 'student' END
+               FROM aia_enrollments e
+               WHERE e.workspace_id = %s AND e.user_id <> %s
+               GROUP BY e.user_id
+           ) t
+           JOIN users u ON u.id = t.user_id
+           ORDER BY CASE t.rolle WHEN 'owner' THEN 0
+                                 WHEN 'tutor' THEN 1 ELSE 2 END, 3 DESC""",
+        (mid, mid, owner_id, mid, owner_id),
+    )
+    personen = cur.fetchall()
+
+    # Tools and last activity stay separate queries, both grouped per person.
+    cur.execute(
+        """SELECT p.user_id, s.tool, COUNT(*) AS n
+           FROM aia_exercise_progress p
+           JOIN aia_exercise_sets s ON s.id = p.set_id
+           WHERE s.workspace_id = %s
+           GROUP BY p.user_id, s.tool""",
+        (mid,),
+    )
+    werkzeuge_je_person: dict[int, list[dict]] = {}
+    for r in cur.fetchall():
+        kachel = KACHEL.get(r["tool"])
+        if kachel is None:
+            continue
+        werkzeuge_je_person.setdefault(r["user_id"], []).append(
+            {"tool": kachel, "answered": r["n"]}
+        )
+    for zeilen in werkzeuge_je_person.values():
+        zeilen.sort(key=lambda x: x["answered"], reverse=True)
+
+    # Presence is platform-wide, here only activity in this module counts.
+    cur.execute(
+        """SELECT user_id, MAX(wann) AS zuletzt FROM (
+               SELECT user_id, created_at AS wann FROM aia_messages
+                WHERE workspace_id = %s AND role = 'user'
+               UNION ALL
+               SELECT p.user_id, p.answered_at AS wann
+                 FROM aia_exercise_progress p
+                 JOIN aia_exercise_sets s ON s.id = p.set_id
+                WHERE s.workspace_id = %s
+           ) x GROUP BY user_id""",
+        (mid, mid),
+    )
+    letzte_je_person = {r["user_id"]: r["zuletzt"] for r in cur.fetchall()}
+
+    leute = []
+    for r in personen:
+        zuletzt = letzte_je_person.get(r["user_id"])
+        leute.append({
+            "name": r["name"], "role": r["rolle"],
+            "answered": r["uebungen"], "chat": r["chat"],
+            "last": zuletzt.isoformat() + "Z" if zuletzt else None,
+            "tools": werkzeuge_je_person.get(r["user_id"], []),
+        })
+    return leute
 
 
 def user_verlauf(user_id: int, vor: str | None = None) -> dict:

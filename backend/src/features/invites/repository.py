@@ -41,12 +41,12 @@ def get_invite_by_token(token: str) -> dict | None:
 
 
 def mark_invite_used(invite_id: int) -> bool:
-    """Stamps the invitation as redeemed, only while it is still open."""
+    """Stamps the invitation as redeemed, only while it is still open and not expired."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """UPDATE invites SET used_at = NOW()
-                   WHERE id = %s AND used_at IS NULL
+                   WHERE id = %s AND used_at IS NULL AND expires_at > NOW()
                    RETURNING id""",
                 (invite_id,),
             )

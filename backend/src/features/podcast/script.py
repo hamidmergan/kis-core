@@ -33,6 +33,10 @@ _STYLE_EN = {
 }
 
 
+class ScriptUnusable(RuntimeError):
+    """The answer was not a usable script, the caller may try once more."""
+
+
 def _besetzung(params: PodcastParams) -> str:
     rollen = _ROLE_DE if params.language == "de" else _ROLE_EN
     return "\n".join(
@@ -417,10 +421,6 @@ def ohne_eigene_anrede(lines: list[Line], namen: list[str]) -> list[Line]:
             text = text[:1].upper() + text[1:]
         aus.append(line.model_copy(update={"text": text}) if text != line.text else line)
     return aus
-
-
-class ScriptUnusable(RuntimeError):
-    """The answer was not a usable script, the caller may try once more."""
 
 
 def parse_answer(raw: str, person_count: int) -> list[Line]:

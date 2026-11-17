@@ -1,5 +1,6 @@
 """Admin dashboard statistics and activity log."""
 from ._shared import psycopg2, get_connection
+from ._counts import messpunkt
 
 
 def get_job_stats(days: int = 30) -> dict:
@@ -10,7 +11,7 @@ def get_job_stats(days: int = 30) -> dict:
             cur.execute("""
                 SELECT tool, status, COUNT(*) AS cnt
                 FROM jobs
-                WHERE created_at >= NOW() - INTERVAL '%s days'
+                WHERE created_at >= NOW() - make_interval(days => %s)
                 GROUP BY tool, status
                 ORDER BY tool, status
             """, (days,))
@@ -21,7 +22,7 @@ def get_job_stats(days: int = 30) -> dict:
                 SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
                        COUNT(*) AS cnt
                 FROM jobs
-                WHERE created_at >= NOW() - INTERVAL '%s days'
+                WHERE created_at >= NOW() - make_interval(days => %s)
                 GROUP BY day ORDER BY day
             """, (days,))
             by_day = [{"day": str(r["day"]), "count": r["cnt"]} for r in cur.fetchall()]
@@ -31,7 +32,7 @@ def get_job_stats(days: int = 30) -> dict:
                 SELECT u.display_name, u.ldap_username, COUNT(*) AS cnt
                 FROM jobs j
                 JOIN users u ON j.user_id = u.id
-                WHERE j.created_at >= NOW() - INTERVAL '%s days'
+                WHERE j.created_at >= NOW() - make_interval(days => %s)
                 GROUP BY u.display_name, u.ldap_username
                 ORDER BY cnt DESC LIMIT 10
             """, (days,))
@@ -59,7 +60,7 @@ def get_job_stats(days: int = 30) -> dict:
                       ) THEN render_started_at END,
                       started_at
                   ) IS NOT NULL
-                  AND created_at >= NOW() - INTERVAL '%s days'
+                  AND created_at >= NOW() - make_interval(days => %s)
                 GROUP BY tool ORDER BY tool
             """, (days,))
             avg_duration = {r["tool"]: float(r["avg_sec"]) for r in cur.fetchall()}
@@ -74,7 +75,6 @@ def get_job_stats(days: int = 30) -> dict:
 
 def get_job_activity_log(days: int = 30, limit: int = 50) -> list[dict]:
     """Recent job activity for admin dashboard - chronological log."""
-    screencast_tools = {"screencast_render", "screencast_translate"}
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -83,20 +83,17 @@ def get_job_activity_log(days: int = 30, limit: int = 50) -> list[dict]:
                           u.display_name, u.ldap_username
                    FROM jobs j
                    JOIN users u ON j.user_id = u.id
-                   WHERE j.created_at >= NOW() - INTERVAL '%s days'
+                   WHERE j.created_at >= NOW() - make_interval(days => %s)
                    ORDER BY j.created_at DESC
                    LIMIT %s""",
                 (days, limit),
             )
             rows = []
             for r in cur.fetchall():
-                # Duration: for screencast tools use render time, otherwise total time
                 duration_sec = None
-                if r["status"] == "success" and r["completed_at"]:
-                    if r["tool"] in screencast_tools and r["render_started_at"]:
-                        duration_sec = (r["completed_at"] - r["render_started_at"]).total_seconds()
-                    elif r["started_at"]:
-                        duration_sec = (r["completed_at"] - r["started_at"]).total_seconds()
+                beginn = messpunkt(r["tool"], r["started_at"], r["render_started_at"])
+                if r["status"] == "success" and r["completed_at"] and beginn:
+                    duration_sec = (r["completed_at"] - beginn).total_seconds()
 
                 rows.append({
                     "user": r["display_name"] or r["ldap_username"] or "Unbekannt",

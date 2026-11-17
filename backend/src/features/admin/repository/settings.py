@@ -1,8 +1,5 @@
-
-import psycopg2
+"""Database access for the key/value settings."""
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -13,6 +10,7 @@ def get_setting(key: str, default: str = "") -> str:
             cur.execute("SELECT value FROM settings WHERE key = %s", (key,))
             row = cur.fetchone()
         return row["value"] if row else default
+
 
 def set_setting(key: str, value: str) -> None:
     with get_connection() as conn:
@@ -26,7 +24,3 @@ def set_setting(key: str, value: str) -> None:
                 (key, value),
             )
         conn.commit()
-
-
-# --- Jobs ---
-

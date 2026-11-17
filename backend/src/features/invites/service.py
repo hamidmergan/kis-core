@@ -4,6 +4,7 @@ from datetime import datetime
 
 from src.features.accounts.uid import slugify_uid
 
+
 class InviteValidationError(ValueError):
     """The input is not fit for an invitation."""
 

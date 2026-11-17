@@ -1,28 +1,13 @@
 """The task card in storage: one tick per account and task, shown only to accounts from the card's code."""
-from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
-
 from fastapi import Depends
 from loguru import logger
 
 from src.core.db.pool import get_connection
 from src.dependencies import get_current_user
 from src.features.event import repository as repo
+from src.features.event.repository import _epoch_ms
 from src.features.event.service import TASK_IDS, task_card_for, tasks_view
-
-# The card's window is a calendar day where the event takes place.
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-
-
-def _today() -> date:
-    return datetime.now(_TZ_BERLIN).date()
-
-
-def _epoch_ms(done_at: datetime) -> int:
-    """The database keeps naive UTC timestamps, the browser wants milliseconds."""
-    if done_at.tzinfo is None:
-        done_at = done_at.replace(tzinfo=timezone.utc)
-    return int(done_at.timestamp() * 1000)
+from src.utils.local_date import today
 
 
 def user_access_code(user_id: int) -> str | None:
@@ -123,7 +108,7 @@ def delete_all() -> None:
 def card_for(user_id: int) -> dict | None:
     """The task card config if this account sees it today, else None."""
     karte = repo.get_config()["taskCard"]
-    return karte if task_card_for(karte, _today(), user_access_code(user_id)) else None
+    return karte if task_card_for(karte, today(), user_access_code(user_id)) else None
 
 
 def view_for(user_id: int) -> dict:
