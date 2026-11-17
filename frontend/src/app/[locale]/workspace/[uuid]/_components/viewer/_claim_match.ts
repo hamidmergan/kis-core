@@ -27,7 +27,7 @@ export function normalizePageText(raw: string): { text: string; toRaw: number[] 
   };
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === " ") {
+    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\u00a0") {
       if (runStart < 0) runStart = i;
       if (ch === "\r" || ch === "\n") runHasBreak = true;
       continue;
@@ -118,8 +118,7 @@ function parseGermanWord(w: string): number | null {
     return DE_ATOMS[s] ?? null;
   };
   if (w.length < 4 || DE_ONE.has(w)) return null;
-  const v = rec(w);
-  return v == null ? null : v;
+  return rec(w);
 }
 
 const EN_ATOMS: Record<string, number> = {

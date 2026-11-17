@@ -3,8 +3,6 @@ import Mascot, { type MascotVariant } from "@/components/ui/Mascot";
 
 
 interface ChatEmptyStateProps {
-  activeSourceIds: string[];
-  onSendPrompt?: (text: string) => void;
   variant?: MascotVariant;
 }
 

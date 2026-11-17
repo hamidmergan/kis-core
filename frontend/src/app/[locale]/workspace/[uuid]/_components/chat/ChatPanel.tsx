@@ -25,7 +25,6 @@ export function ChatPanel({
   onSaveNote,
   onRetry,
   onMinimize,
-  onSendPrompt,
   registerSetInput,
   hideHeader,
   isAdmin,
@@ -184,11 +183,7 @@ export function ChatPanel({
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ overflowAnchor: "none" }}>
         <div data-testid="chat-messages" className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 920 }}>
           {messages.length === 0 && !loading && (
-            <ChatEmptyState
-              activeSourceIds={activeSourceIds}
-              onSendPrompt={onSendPrompt}
-              variant={mascotVariant}
-            />
+            <ChatEmptyState variant={mascotVariant} />
           )}
 
           {(() => {

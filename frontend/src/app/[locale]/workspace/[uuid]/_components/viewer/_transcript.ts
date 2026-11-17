@@ -24,13 +24,29 @@ export function cueIndexAtTime(cues: TimedCue[], time: number): number {
   return dAfter <= dBefore ? after : before;
 }
 
+/** The line being spoken at a play time, in a pause the last one that started. */
+export function playingCueIndex(cues: TimedCue[], time: number): number {
+  let lo = 0, hi = cues.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const c = cues[mid];
+    if (time < c.start) hi = mid - 1;
+    else if (time > c.end) lo = mid + 1;
+    else return mid;
+  }
+  for (let j = cues.length - 1; j >= 0; j--) {
+    if (cues[j].start <= time) return j;
+  }
+  return -1;
+}
+
 // The lines stay the truth, a paragraph is only a view of several.
 
 export interface TextCue extends TimedCue {
   text: string;
 }
 
-interface CueBlock {
+export interface CueBlock {
   start: number;
   end: number;
   /** Index of the first cue in the block. */
@@ -222,11 +238,11 @@ export function chooseableTargetLangs(all: string[], sourceLang: string | null):
 
 // Which line of a cited spot carries the claim, a comparison instead of a search.
 
+const _hay = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+
 // Comparable words, without a stop word list and without stemming.
 export function claimTokens(text: string): string[] {
-  const words = text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+  const words = _hay(text)
     .split(" ")
     .filter((w) => w.length >= 3 || /\p{N}/u.test(w));
   return [...new Set(words)];
@@ -235,7 +251,7 @@ export function claimTokens(text: string): string[] {
 // Compared as a substring, which replaces a stemmer.
 export function claimOverlap(tokens: string[], line: string): number {
   if (tokens.length === 0) return 0;
-  const hay = line.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+  const hay = _hay(line);
   let n = 0;
   for (const t of tokens) if (hay.includes(t)) n++;
   return n;
@@ -247,7 +263,7 @@ const MIN_CORPUS_LINES = 8;
 
 function discriminatingTokens(tokens: string[], corpus: string[]): string[] {
   if (corpus.length < MIN_CORPUS_LINES) return tokens;
-  const hays = corpus.map((l) => l.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " "));
+  const hays = corpus.map(_hay);
   const limit = hays.length * COMMON_SHARE;
   return tokens.filter((t) => {
     let df = 0;
@@ -281,8 +297,6 @@ const PIN_SHARE = 0.005;
 
 // Rare alone is not enough, the word also has to be long enough.
 const MIN_PIN_LEN = 9;
-
-const _hay = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
 
 /** All lines the claim rests on, empty when none stands out. */
 export function claimLineIndices(claim: string, lines: string[], corpus?: string[]): number[] {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { WarningCircle } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
@@ -47,13 +47,16 @@ export function TranscriptEditModal({
   const [error, setError] = useState<string | null>(null);
 
   // Every opening starts from the stored text, a cancelled edit leaves nothing behind.
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
   useEffect(() => {
     if (!open) return;
+    // Only on opening, a saved first track must not wipe the edits of the second.
     const start: Record<string, string[]> = {};
-    for (const track of tracks) start[track.lang] = track.lines.map((l) => l.text);
+    for (const track of tracksRef.current) start[track.lang] = track.lines.map((l) => l.text);
     setDraft(start);
     setError(null);
-  }, [open, tracks]);
+  }, [open]);
 
   const setLine = (lang: string, i: number, value: string) => {
     setDraft((cur) => {

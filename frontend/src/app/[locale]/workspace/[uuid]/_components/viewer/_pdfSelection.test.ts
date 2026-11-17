@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { selectionHasText } from "./_pdfSelection";
+import { selectedCharCount, selectionHasText } from "./_pdfSelection";
 
 const stateWith = (slices?: Record<string, { count?: number }>) => ({
   state: { plugins: { selection: { documents: { doc1: { slices } } } } },
@@ -23,5 +23,13 @@ describe("selectionHasText", () => {
     expect(selectionHasText(stateWith(undefined))).toBe(true);
     expect(selectionHasText({ state: undefined, documentId: "doc1" })).toBe(true);
     expect(selectionHasText({ state: { plugins: {} }, documentId: "other" })).toBe(true);
+  });
+});
+
+describe("selectedCharCount", () => {
+  it("sums the pages and tells unknown apart from empty", () => {
+    expect(selectedCharCount(stateWith({ "0": { count: 3 }, "1": { count: 12 } }))).toBe(15);
+    expect(selectedCharCount(stateWith({}))).toBe(0);
+    expect(selectedCharCount(stateWith(undefined))).toBeNull();
   });
 });

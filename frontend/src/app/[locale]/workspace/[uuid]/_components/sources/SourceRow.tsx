@@ -18,6 +18,7 @@ import { OwnerOnly } from "../layout/OwnerOnly";
 import { splitFilename, _isMediaFile } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
 import { MoveArrows } from "./MoveArrows";
+import { isFullyReady } from "./_selection";
 
 /** One row of the source list, the panel drives the renaming. */
 export function SourceRow({
@@ -108,7 +109,7 @@ export function SourceRow({
   }, [renaming, src.filename]);
 
   // A source is only selectable once ingest is finished.
-  const ready = src.status === "ready" && !src.progress;
+  const ready = isFullyReady(src);
   const selectable = ready || !!selectAny;
 
   // Only a warning sign, and none when text recognition is off entirely.

@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  SidebarSimple,
-  Plus,
-  FilePdf,
-  FileAudio,
-  FileVideo,
-  FolderSimplePlus,
-  FolderSimple,
-  PencilSimple,
-  Check,
-  X,
-} from "@phosphor-icons/react";
+import { SidebarSimple, Plus, FilePdf, FileAudio, FileVideo, FolderSimplePlus } from "@phosphor-icons/react";
 import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
@@ -20,7 +9,9 @@ import { SourceSummaryModal } from "./SourceSummaryModal";
 import { AddMaterialModal } from "./AddMaterialModal";
 import { TextSourceEditModal } from "./TextSourceEditModal";
 import { ChapterHead } from "./ChapterHead";
-import { MenuItem } from "./SourceRow";
+import { DeleteConfirm } from "./DeleteConfirm";
+import { NewChapterRow } from "./NewChapterRow";
+import { SelectAllBar } from "./SelectAllBar";
 import { GroupCheckbox } from "./GroupCheckbox";
 import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -112,7 +103,6 @@ export function SourcesPanel({
   // Chapter picked in the add dialog, empty on every opening.
   const [addChapter, setAddChapter] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
-  const newChapterRef = useRef<HTMLInputElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   const [deleteChapterTarget, setDeleteChapterTarget] = useState<Chapter | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -122,9 +112,6 @@ export function SourcesPanel({
   const [renameId, setRenameId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
   const [creatingChapter, setCreatingChapter] = useState(false);
-  const [newChapterName, setNewChapterName] = useState("");
-  const [newChapterError, setNewChapterError] = useState<string | null>(null);
-  const [newChapterBusy, setNewChapterBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   // Moving has its own picks, starts empty and leaves the chat selection alone.
   const [moving, setMoving] = useState(false);
@@ -151,10 +138,6 @@ export function SourcesPanel({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (creatingChapter) newChapterRef.current?.focus();
-  }, [creatingChapter]);
 
   const selectable = moving ? () => true : isFullyReady;
   const picked = moving ? movePicked : selectedSourceIds;
@@ -213,23 +196,6 @@ export function SourcesPanel({
 
   const toggleGroup = (list: Source[]) =>
     toggleGroupTargets(list, picked, selectable).forEach(togglePick);
-
-  async function commitNewChapter() {
-    if (newChapterBusy || !onCreateChapter) return;
-    const name = newChapterName.trim();
-    if (!name) { setCreatingChapter(false); setNewChapterError(null); return; }
-    setNewChapterBusy(true);
-    try {
-      await onCreateChapter(name);
-      setCreatingChapter(false);
-      setNewChapterName("");
-      setNewChapterError(null);
-    } catch (e) {
-      setNewChapterError(e instanceof Error && e.message ? e.message : t("chapterCreateFailed"));
-    } finally {
-      setNewChapterBusy(false);
-    }
-  }
 
   // The position counts within the file's own group, not the whole list.
   function renderRow(src: Source, nested: boolean, group: Source[]) {
@@ -290,7 +256,7 @@ export function SourcesPanel({
       </IconButton>
       {onCreateChapter && (
         <IconButton
-          onClick={() => { setCreatingChapter(true); setNewChapterError(null); }}
+          onClick={() => setCreatingChapter(true)}
           title={t("addChapter")}
           aria-label={t("addChapter")}
           className="text-[var(--kb)]"
@@ -413,150 +379,27 @@ export function SourcesPanel({
         </div>
       )}
 
-      {/* New chapter */}
-      {creatingChapter && (
-        <div
-          className="relative px-3 py-2 flex items-center gap-2 flex-shrink-0"
-          style={{ backgroundColor: "var(--surface-dim)", borderBottom: "1px solid var(--border)" }}
-        >
-          <input
-            ref={newChapterRef}
-            value={newChapterName}
-            disabled={newChapterBusy}
-            placeholder={t("chapterNamePlaceholder")}
-            onChange={(e) => setNewChapterName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); commitNewChapter(); }
-              if (e.key === "Escape") { e.preventDefault(); setCreatingChapter(false); setNewChapterError(null); }
-            }}
-            className="flex-1 min-w-0 text-sm px-2 py-1 rounded-md border-2 bg-background"
-            style={{ borderColor: "var(--kb)", color: "var(--foreground)" }}
-          />
-          <button
-            type="button"
-            onClick={commitNewChapter}
-            disabled={newChapterBusy}
-            className="px-3 py-1.5 text-sm rounded-lg btn-primary flex-shrink-0"
-          >
-            {t("chapterCreate")}
-          </button>
-          <IconButton
-            onClick={() => { setCreatingChapter(false); setNewChapterName(""); setNewChapterError(null); }}
-            disabled={newChapterBusy}
-            aria-label={t("cancel")}
-            title={t("cancel")}
-          >
-            <X size={13} weight="bold" />
-          </IconButton>
-          {newChapterError && (
-            <div
-              className="absolute left-3 right-3 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
-              style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
-            >
-              {newChapterError}
-            </div>
-          )}
-        </div>
+      {onCreateChapter && (
+        <NewChapterRow open={creatingChapter} onClose={() => setCreatingChapter(false)} onCreate={onCreateChapter} />
       )}
 
-      {/* Select all row. The pencil switches to move mode, then the row shows in brand blue that selection is for moving. */}
       {sources.length > 0 && (
-        <div
-          onClick={moving && !canMove ? undefined : toggleAll}
-          data-testid={moving ? "move-bar" : undefined}
-          className="sources-select-all flex items-center gap-3 px-4 py-2 flex-shrink-0 cursor-pointer"
-          style={moving
-            ? { backgroundColor: "rgba(var(--kb-rgb),0.12)", borderBottom: "2px solid var(--kb)" }
-            : { borderBottom: "1px solid var(--border)" }}
-        >
-          <button
-            type="button"
-            aria-label={allSelected ? t("deselectAll") : t("selectAll")}
-            className={`${moving && !canMove ? "invisible" : ""} flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
-              allSelected
-                ? "border-[var(--kb)] bg-[var(--kb)]"
-                : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
-            }`}
-            style={{ color: "#fff" }}
-          >
-            {allSelected && <Check size={11} weight="bold" />}
-          </button>
-          <span
-            className={`flex-1 min-w-0 truncate text-sm ${moving ? "font-medium" : ""}`}
-            style={moving ? { color: "var(--kb)" } : undefined}
-          >
-            {moving ? (canMove ? t("moveModeHint") : t("arrangeModeHint")) : t("selectAll")}
-          </span>
-          <OwnerOnly show={canArrange}>
-            <div className="relative flex-shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {moving ? (
-                <>
-                  {canMove && <button
-                    type="button"
-                    data-testid="move-checked"
-                    disabled={checkedSources.length === 0}
-                    onClick={() => setBulkMenuOpen((o) => !o)}
-                    className="btn-primary flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium disabled:opacity-50"
-                  >
-                    <FolderSimple size={13} weight="bold" />
-                    {compact ? checkedSources.length : t("moveChecked", { count: checkedSources.length })}
-                  </button>}
-                  <IconButton
-                    data-testid="move-cancel"
-                    onClick={stopMoving}
-                    title={t("cancel")}
-                    aria-label={t("cancel")}
-                  >
-                    <X size={13} weight="bold" />
-                  </IconButton>
-                </>
-              ) : (
-                <IconButton
-                  data-testid="move-mode"
-                  onClick={startMoving}
-                  title={canMove ? t("moveModeStart") : t("arrangeModeStart")}
-                  aria-label={canMove ? t("moveModeStart") : t("arrangeModeStart")}
-                  className="text-[var(--kb)]"
-                  style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
-                >
-                  <PencilSimple size={13} weight="bold" />
-                </IconButton>
-              )}
-              {moving && bulkMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setBulkMenuOpen(false)} />
-                  <div
-                    className="absolute right-0 top-8 z-50 rounded-xl py-1"
-                    style={{
-                      backgroundColor: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      minWidth: 200,
-                      maxHeight: "16rem",
-                      overflowY: "auto",
-                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
-                    }}
-                  >
-                    {chapterList.map((c) => (
-                      <MenuItem
-                        key={c.uuid}
-                        icon={<FolderSimple size={16} weight="bold" />}
-                        label={c.name}
-                        disabled={checkedSources.every((s) => chapterOf(s) === c.uuid)}
-                        onClick={() => moveChecked(c.uuid)}
-                      />
-                    ))}
-                    <MenuItem
-                      icon={<FolderSimple size={16} weight="bold" />}
-                      label={t("noChapter")}
-                      disabled={checkedSources.every((s) => chapterOf(s) === null)}
-                      onClick={() => moveChecked(null)}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </OwnerOnly>
-        </div>
+        <SelectAllBar
+          moving={moving}
+          canMove={canMove}
+          canArrange={canArrange}
+          compact={compact}
+          allSelected={allSelected}
+          onToggleAll={toggleAll}
+          onStartMoving={startMoving}
+          onStopMoving={stopMoving}
+          chapters={chapterList}
+          checkedSources={checkedSources}
+          chapterOf={chapterOf}
+          menuOpen={bulkMenuOpen}
+          onMenuOpen={setBulkMenuOpen}
+          onMoveChecked={moveChecked}
+        />
       )}
 
       {/* Source list. The whole list accepts dropped files, the frame shows only while dragging. */}
@@ -666,62 +509,27 @@ export function SourcesPanel({
         )}
       </div>
 
-      {/* Delete confirmation modal */}
       {deleteSourceId && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">{t("deleteTitle")}</h3>
-            <p className="text-sm text-foreground-soft mb-1 break-all">
-              <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}</span>
-            </p>
-            <p className="text-sm text-error mb-6">
-              {t("deleteWarning")}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteSourceId(null)}
-                className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
-              >
-                {t("cancel")}
-              </button>
-              <button
-                onClick={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
-                className="px-4 py-2 text-sm btn-danger rounded-lg"
-              >
-                {t("delete")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteConfirm
+          title={t("deleteTitle")}
+          name={sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}
+          warning={t("deleteWarning")}
+          warningClassName="text-error"
+          onCancel={() => setDeleteSourceId(null)}
+          onConfirm={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
+        />
       )}
 
       {/* Delete chapter. Different warning than for a source, nothing is lost here. */}
       {deleteChapterTarget && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">{t("deleteChapterTitle")}</h3>
-            <p className="text-sm text-foreground-soft mb-1 break-all">
-              <span className="font-medium">{deleteChapterTarget.name}</span>
-            </p>
-            <p className="text-sm text-foreground-soft mb-6">
-              {t("deleteChapterWarning")}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteChapterTarget(null)}
-                className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
-              >
-                {t("cancel")}
-              </button>
-              <button
-                onClick={() => { onDeleteChapter?.(deleteChapterTarget.uuid); setDeleteChapterTarget(null); }}
-                className="px-4 py-2 text-sm btn-danger rounded-lg"
-              >
-                {t("delete")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteConfirm
+          title={t("deleteChapterTitle")}
+          name={deleteChapterTarget.name}
+          warning={t("deleteChapterWarning")}
+          warningClassName="text-foreground-soft"
+          onCancel={() => setDeleteChapterTarget(null)}
+          onConfirm={() => { onDeleteChapter?.(deleteChapterTarget.uuid); setDeleteChapterTarget(null); }}
+        />
       )}
     </div>
   );

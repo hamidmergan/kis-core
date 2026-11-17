@@ -1,7 +1,17 @@
 import React from "react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
-import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
+import { citationPattern, citationsAreAdjacentSameTarget, parseCitationFields, stripCitations, type CitationFields } from "./_citation_parse";
+import {
+  chipOwnerOf, chipTargetKey, setActiveChipTarget, setChipGroupPinned,
+  useAllChipsOpen, useChipGroupPinned, useIsActiveChip,
+} from "./_chip_state";
+
+// Other panels import the chip state from here.
+export {
+  chipTargetKey, clearActiveChipTarget, getActiveChipTarget, setActiveChipTarget,
+  subscribeActiveChip, toggleAllChips, useAllChipsOpen,
+} from "./_chip_state";
 
 
 // The plain text of a node, so a bold or italic run still counts as context for the claim
@@ -25,48 +35,6 @@ function _carryAfter(fragment: string, before: string): string {
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(fragment)) !== null) lastEnd = m.index + m[0].length;
   return lastEnd === -1 ? before + fragment : fragment.slice(lastEnd);
-}
-
-
-// The target just jumped to, at module scope so it survives a redraw.
-let _activeChipTarget: string | null = null;
-const _activeChipSubs = new Set<() => void>();
-
-// The id of a chip: source plus page or second.
-export function chipTargetKey(uuid: string, page: number, seconds: number | undefined): string {
-  return seconds != null ? `${uuid}@t${seconds}` : `${uuid}@p${page}`;
-}
-
-export function setActiveChipTarget(key: string): void {
-  if (_activeChipTarget === key) return;
-  _activeChipTarget = key;
-  _activeChipSubs.forEach((fn) => fn());
-}
-
-// For chips outside React, the mindmap draws its own frame from this.
-export function getActiveChipTarget(): string | null {
-  return _activeChipTarget;
-}
-
-export function subscribeActiveChip(cb: () => void): () => void {
-  _activeChipSubs.add(cb);
-  return () => { _activeChipSubs.delete(cb); };
-}
-
-// Takes the frame off the active chip when the viewer drops its own frame.
-export function clearActiveChipTarget(): void {
-  if (_activeChipTarget === null) return;
-  _activeChipTarget = null;
-  _activeChipSubs.forEach((fn) => fn());
-}
-
-function useIsActiveChip(key: string): boolean {
-  const subscribe = React.useCallback((cb: () => void) => {
-    _activeChipSubs.add(cb);
-    return () => { _activeChipSubs.delete(cb); };
-  }, []);
-  const getSnapshot = React.useCallback(() => _activeChipTarget === key, [key]);
-  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 
@@ -168,50 +136,6 @@ function CitationChip({ desc, onChipClick, onPin }: { desc: ChipDesc; onChipClic
 }
 
 
-// Expanding is a toggle, the choice lives at module scope so it survives.
-const _openChipGroups = new Set<string>();
-
-// One entry per message drives the toggle for all its sites.
-const _openAllOwners = new Set<string>();
-
-// One subscriber list for both sets, a site has to re-read after either.
-const _chipStateSubs = new Set<() => void>();
-function notifyChipState(): void {
-  _chipStateSubs.forEach((fn) => fn());
-}
-
-function useChipFlag(getSnapshot: () => boolean): boolean {
-  const subscribe = React.useCallback((cb: () => void) => {
-    _chipStateSubs.add(cb);
-    return () => { _chipStateSubs.delete(cb); };
-  }, []);
-  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
-// The message a site belongs to, everything before the hash.
-function chipOwnerOf(groupId: string): string {
-  const i = groupId.indexOf("#");
-  return i < 0 ? groupId : groupId.slice(0, i);
-}
-
-/** Is the toggle of this message on? */
-export function useAllChipsOpen(owner: string): boolean {
-  return useChipFlag(React.useCallback(() => _openAllOwners.has(owner), [owner]));
-}
-
-/** Toggles the message, off really closes everything. */
-export function toggleAllChips(owner: string): void {
-  if (_openAllOwners.has(owner)) {
-    _openAllOwners.delete(owner);
-    // Deleting during the iteration is safe here.
-    const prefix = `${owner}#`;
-    _openChipGroups.forEach((id) => { if (id.startsWith(prefix)) _openChipGroups.delete(id); });
-  } else {
-    _openAllOwners.add(owner);
-  }
-  notifyChipState();
-}
-
 // Instead of a second pill just one mark: the ring always, the dot while something can open.
 export function ChipToggleMark({ open, size = 10, opacity = 0.55, strokeWidth = 1 }: { open: boolean; size?: number; opacity?: number; strokeWidth?: number }) {
   return (
@@ -235,11 +159,11 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: str
   // Three ways to be open: pinned, hovered, and the message toggle.
   const owner = chipOwnerOf(groupId);
   const allOpen = useAllChipsOpen(owner);
-  const pinned = useChipFlag(React.useCallback(() => _openChipGroups.has(groupId), [groupId]));
+  const pinned = useChipGroupPinned(groupId);
   const [hovered, setHovered] = React.useState(false);
   const open = allOpen || pinned || hovered;
-  const pin = () => { _openChipGroups.add(groupId); notifyChipState(); };
-  const unpin = () => { _openChipGroups.delete(groupId); notifyChipState(); };
+  const pin = () => setChipGroupPinned(groupId, true);
+  const unpin = () => setChipGroupPinned(groupId, false);
   // Opening rewraps the line and in a table cell even widens the column, so the mark
   // slides out from under a pointer that never moved: mouseleave then closed the stop,
   // the old layout put the mark right back under the pointer and both states flipped
@@ -314,6 +238,122 @@ function splitAfterStop(chunk: string): { tail: string; consumed: number } {
   return { tail: matched.replace(/^\s+/u, ""), consumed: matched.length };
 }
 
+// The resolved data per marker so neighbours can be merged later.
+interface Parsed {
+  fields: CitationFields;
+  sourceUuid: string;
+  filename: string;
+  displayQNum: number | null;
+  label: string;
+  clickSeconds: number | undefined;
+  clickEndSeconds: number | undefined;
+  clickChunkStart: number | undefined;
+  clickHighlight: string | undefined;
+  isExactSelection: boolean;
+  removedTitle: string | undefined;
+}
+
+// Second, chunk end and chunk start of a timestamp marker.
+function resolveMediaSpot(timestamp: string, sourceUuid: string, msgSourcePages: NonNullable<ChatMessage["source_pages"]>) {
+  const tp = timestamp.split(":").map(Number);
+  let seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
+  // The end of the chunk so the transcript marks the whole spot.
+  let endSeconds: number | undefined;
+  let chunkStart: number | undefined;
+  // The chunk containing the timestamp is sought, not the one with the same start.
+  const owner = msgSourcePages
+    .filter((s) => s.source_uuid === sourceUuid && s.start_time != null && s.end_time != null
+      && s.start_time - 1 <= seconds && seconds <= s.end_time + 1)
+    .sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0))[0];
+  if (owner?.start_time != null) {
+    chunkStart = owner.start_time;
+    endSeconds = owner.end_time ?? undefined;
+    // If the chip points at the chunk start, the exact time applies.
+    if (Math.floor(owner.start_time) === seconds) seconds = owner.start_time;
+  }
+  return { seconds, endSeconds, chunkStart };
+}
+
+// Looks up source, label and click target of one marker.
+function resolveCitation(
+  fields: CitationFields,
+  msg: ChatMessage,
+  activeSourceIds: string[],
+  getFilename: (uuid: string) => string | null,
+  tChip: ChipLabelT | undefined,
+): Parsed {
+  const msgSourcePages = msg.source_pages ?? [];
+  const msgQmap = msg.source_qmap ?? [];
+  // With a single source the [n] prefix is redundant — the chip is just "S. X".
+  const singleSource = msgQmap.length === 1;
+  const { qNum, uuid: embeddedUuid, page: pageNum, timestamp } = fields;
+  const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
+  const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
+  const knownFilename = getFilename(sourceUuid);
+  const filename = qEntry?.filename ?? knownFilename ?? sourceUuid;
+  // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
+  const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
+  const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
+  const media = timestamp ? resolveMediaSpot(timestamp, sourceUuid, msgSourcePages) : null;
+  // Only a selection of your own still highlights text in the PDF.
+  const popupEntry = msgSourcePages.find(s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum);
+  const popupSel = msg.popup_selection;
+  const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
+  const clickHighlight = popupEntry?.source_text
+    ? popupEntry.source_text
+    : matchesPopupSel
+      ? popupSel!.text
+      : undefined;
+  return {
+    fields,
+    sourceUuid, filename, displayQNum, label,
+    clickSeconds: media?.seconds,
+    clickEndSeconds: media?.endSeconds,
+    clickChunkStart: media?.chunkStart,
+    clickHighlight,
+    isExactSelection: !!(popupEntry?.source_text || matchesPopupSel),
+    removedTitle: knownFilename == null ? (tChip ? tChip("removed") : "Quelle entfernt") : undefined,
+  };
+}
+
+// Merges neighbouring citations of the same page into one chip.
+function mergeSamePage(text: string, parsed: Parsed[], keyPrefix: string): ChipDesc[] {
+  const chips: ChipDesc[] = [];
+  let i = 0;
+  while (i < parsed.length) {
+    const head = parsed[i];
+    let last = head;
+    let j = i + 1;
+    while (
+      j < parsed.length
+      && !last.isExactSelection
+      && !parsed[j].isExactSelection
+      && citationsAreAdjacentSameTarget(text, last.fields, parsed[j].fields, last.sourceUuid, parsed[j].sourceUuid)
+    ) {
+      last = parsed[j];
+      j++;
+    }
+    chips.push({
+      key: `${keyPrefix}${chips.length}`,
+      filename: head.filename,
+      displayQNum: head.displayQNum,
+      label: head.label,
+      clickUuid: head.sourceUuid,
+      clickPage: head.fields.page,
+      clickSeconds: head.clickSeconds,
+      clickEndSeconds: head.clickEndSeconds,
+      clickChunkStart: head.clickChunkStart,
+      clickHighlight: head.clickHighlight,
+      isExactSelection: head.isExactSelection,
+      removedTitle: head.removedTitle,
+      start: head.fields.index,
+      end: last.fields.index + last.fields.length,
+    });
+    i = j;
+  }
+  return chips;
+}
+
 // Replaces the citation markers with chips, table cells take no punctuation along.
 export function parseCitations(
   text: string,
@@ -329,125 +369,8 @@ export function parseCitations(
   // italic run splits the sentence before the first citation of this fragment.
   precedingText: string = "",
 ): React.ReactNode[] {
-  const msgSourcePages = msg.source_pages ?? [];
-  const msgQmap = msg.source_qmap ?? [];
-  // With a single source the [n] prefix is redundant — the chip is just "S. X".
-  const singleSource = msgQmap.length === 1;
-  // The pattern of the citation markers, old forms and CJK brackets included.
-  const pattern = citationPattern();
-  const removedLabel = tChip ? tChip("removed") : "Quelle entfernt";
-
-  // The resolved data per marker so neighbours can be merged later.
-  interface Parsed {
-    fields: CitationFields;
-    sourceUuid: string;
-    filename: string;
-    displayQNum: number | null;
-    label: string;
-    clickSeconds: number | undefined;
-    clickEndSeconds: number | undefined;
-    clickChunkStart: number | undefined;
-    clickHighlight: string | undefined;
-    isExactSelection: boolean;
-    removedTitle: string | undefined;
-  }
-
-  const parsed: Parsed[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = pattern.exec(text)) !== null) {
-    const qNum = m[1] ? parseInt(m[1]) : null;
-    const embeddedUuid = m[2] || null;
-    const pageNum = m[3] ? parseInt(m[3]) : 0;
-    const timestamp = m[4] || null;
-    const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
-    const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
-    const knownFilename = getFilename(sourceUuid);
-    const filename = qEntry?.filename ?? knownFilename ?? sourceUuid;
-    // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
-    const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
-    const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
-    let seconds = 0;
-    // The end of the chunk so the transcript marks the whole spot.
-    let endSeconds: number | undefined;
-    let chunkStart: number | undefined;
-    if (timestamp) {
-      const tp = timestamp.split(":").map(Number);
-      seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
-      // The chunk containing the timestamp is sought, not the one with the same start.
-      const owner = msgSourcePages
-        .filter((s) => s.source_uuid === sourceUuid && s.start_time != null && s.end_time != null
-          && s.start_time - 1 <= seconds && seconds <= s.end_time + 1)
-        .sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0))[0];
-      if (owner?.start_time != null) {
-        chunkStart = owner.start_time;
-        endSeconds = owner.end_time ?? undefined;
-        // If the chip points at the chunk start, the exact time applies.
-        if (Math.floor(owner.start_time) === seconds) seconds = owner.start_time;
-      }
-    }
-    // Only a selection of your own still highlights text in the PDF.
-    const popupEntry = msgSourcePages.find(s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum);
-    const popupSel = msg.popup_selection;
-    const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
-    const clickHighlight = popupEntry?.source_text
-      ? popupEntry.source_text
-      : matchesPopupSel
-        ? popupSel!.text
-        : undefined;
-    const isExactSelection = !!(popupEntry?.source_text || matchesPopupSel);
-    parsed.push({
-      fields: {
-        qNum, uuid: embeddedUuid, page: pageNum, timestamp,
-        index: m.index, length: m[0].length,
-      },
-      sourceUuid, filename, displayQNum, label,
-      clickSeconds: timestamp ? seconds : undefined,
-      clickEndSeconds: timestamp ? endSeconds : undefined,
-      clickChunkStart: timestamp ? chunkStart : undefined,
-      clickHighlight, isExactSelection,
-      removedTitle: knownFilename == null ? removedLabel : undefined,
-    });
-  }
-
-  // First merge neighbouring citations of the same page into one chip.
-  const chips: ChipDesc[] = [];
-  let chipKeyCounter = 0;
-  let i = 0;
-  while (i < parsed.length) {
-    const head = parsed[i];
-    const merged = [head];
-    let j = i + 1;
-    while (
-      j < parsed.length
-      && !merged[merged.length - 1].isExactSelection
-      && !parsed[j].isExactSelection
-      && citationsAreAdjacentSameTarget(
-        text, merged[merged.length - 1].fields, parsed[j].fields,
-        merged[merged.length - 1].sourceUuid, parsed[j].sourceUuid,
-      )
-    ) {
-      merged.push(parsed[j]);
-      j++;
-    }
-    const tail = merged[merged.length - 1].fields;
-    chips.push({
-      key: `${keyPrefix}${chipKeyCounter++}`,
-      filename: head.filename,
-      displayQNum: head.displayQNum,
-      label: head.label,
-      clickUuid: head.sourceUuid,
-      clickPage: head.fields.page,
-      clickSeconds: head.clickSeconds,
-      clickEndSeconds: head.clickEndSeconds,
-      clickChunkStart: head.clickChunkStart,
-      clickHighlight: head.clickHighlight,
-      isExactSelection: head.isExactSelection,
-      removedTitle: head.removedTitle,
-      start: head.fields.index,
-      end: tail.index + tail.length,
-    });
-    i = j;
-  }
+  const parsed = parseCitationFields(text).map((fields) => resolveCitation(fields, msg, activeSourceIds, getFilename, tChip));
+  const chips = mergeSamePage(text, parsed, keyPrefix);
 
   // Then emit text and chips, a run of chips becomes one site.
   const nodes: React.ReactNode[] = [];

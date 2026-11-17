@@ -101,52 +101,42 @@ export function AddMaterialModal({
     onClose();
   };
 
-  const submitLink = async () => {
-    const value = url.trim();
-    if (!value || busy) return;
-    setBusy("link");
-    setError(null);
+  // One run for every way in: success closes the dialog, a failure stays in its section.
+  const run = async (
+    kind: NonNullable<typeof busy>,
+    action: () => Promise<void>,
+    setFailure: (message: string | null) => void,
+    fallback: string,
+  ) => {
+    setBusy(kind);
+    setFailure(null);
     try {
-      await onAddLink(value);
+      await action();
       reset();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("linkFailed"));
+      setFailure(err instanceof Error ? err.message : fallback);
     } finally {
       setBusy(null);
     }
+  };
+
+  const submitLink = async () => {
+    const value = url.trim();
+    if (!value || busy) return;
+    await run("link", () => onAddLink(value), setError, t("linkFailed"));
   };
 
   const submitYoutube = async () => {
     const link = ytUrl.trim();
     const transcript = ytTranscript.trim();
     if (!link || !transcript || busy || !onAddYoutube) return;
-    setBusy("youtube");
-    setYtError(null);
-    try {
-      await onAddYoutube(link, transcript);
-      reset();
-      onClose();
-    } catch (err) {
-      setYtError(err instanceof Error ? err.message : t("youtubeFailed"));
-    } finally {
-      setBusy(null);
-    }
+    await run("youtube", () => onAddYoutube(link, transcript), setYtError, t("youtubeFailed"));
   };
 
   const submitPage = async () => {
     if (!pageId || busy || !onAddPage) return;
-    setBusy("page");
-    setPageError(null);
-    try {
-      await onAddPage(pageId);
-      reset();
-      onClose();
-    } catch (err) {
-      setPageError(err instanceof Error ? err.message : t("pageFailed"));
-    } finally {
-      setBusy(null);
-    }
+    await run("page", () => onAddPage(pageId), setPageError, t("pageFailed"));
   };
 
   const showPage = !!onAddPage && !!pages;
@@ -166,17 +156,7 @@ export function AddMaterialModal({
     const title = textTitle.trim();
     const body = textBody.trim();
     if (!title || !body || textOver || busy || !onAddText) return;
-    setBusy("text");
-    setTextError(null);
-    try {
-      await onAddText(title, body);
-      reset();
-      onClose();
-    } catch (err) {
-      setTextError(err instanceof Error ? err.message : t("textFailed"));
-    } finally {
-      setBusy(null);
-    }
+    await run("text", () => onAddText(title, body), setTextError, t("textFailed"));
   };
 
   return (

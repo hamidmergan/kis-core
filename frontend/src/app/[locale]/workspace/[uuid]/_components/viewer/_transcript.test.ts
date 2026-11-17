@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, translationProbeOutcome, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, sentenceSpan, type TextCue, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, translationProbeOutcome, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, playingCueIndex, resolveCitationFocus, sentenceSpan, type TextCue, type TimedCue } from "./_transcript";
 
 // The time is the exact segment start, not the rounded display.
 const cues: TimedCue[] = [
@@ -545,5 +545,24 @@ describe("translationProbeOutcome", () => {
   it("treats an unreadable answer as still waiting", () => {
     expect(translationProbeOutcome(null)).toEqual({ kind: "wait" });
     expect(translationProbeOutcome("kaputt")).toEqual({ kind: "wait" });
+  });
+});
+
+describe("playingCueIndex", () => {
+  it("finds the line that is being spoken", () => {
+    expect(playingCueIndex(cues, 0)).toBe(0);
+    expect(playingCueIndex(cues, 7)).toBe(1);
+    expect(playingCueIndex(cues, 18)).toBe(2);
+    expect(playingCueIndex(cues, 20)).toBe(3);
+  });
+
+  it("stays on the last started line in a pause and after the end", () => {
+    expect(playingCueIndex(cues, 11)).toBe(1);
+    expect(playingCueIndex(cues, 99)).toBe(3);
+  });
+
+  it("has no line before the first one or without cues", () => {
+    expect(playingCueIndex([{ start: 2, end: 3 }], 1)).toBe(-1);
+    expect(playingCueIndex([], 1)).toBe(-1);
   });
 });

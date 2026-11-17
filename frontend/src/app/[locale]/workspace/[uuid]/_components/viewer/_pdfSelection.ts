@@ -1,14 +1,19 @@
 /** Helpers for the commands of the PDF selection menu. */
 
 type Slices = Record<string, { count?: number }>;
-type SelectionState = { state?: { plugins?: { selection?: { documents?: Record<string, { slices?: Slices }> } } }; documentId: string };
+export type SelectionState = { state?: { plugins?: { selection?: { documents?: Record<string, { slices?: Slices }> } } }; documentId: string };
+
+/** Selected characters, null while the viewer cannot tell yet. */
+export function selectedCharCount({ state, documentId }: SelectionState): number | null {
+  const doc = state?.plugins?.selection?.documents?.[documentId];
+  if (!doc?.slices) return null;
+  return Object.values(doc.slices).reduce((sum, s) => sum + (s.count || 0), 0);
+}
 
 /** True while text is selected, and while the viewer cannot tell yet. */
-export function selectionHasText({ state, documentId }: SelectionState): boolean {
-  const doc = state?.plugins?.selection?.documents?.[documentId];
-  if (!doc?.slices) return true;
-  const totalChars = Object.values(doc.slices).reduce((sum, s) => sum + (s.count || 0), 0);
-  return totalChars > 0;
+export function selectionHasText(selection: SelectionState): boolean {
+  const totalChars = selectedCharCount(selection);
+  return totalChars === null || totalChars > 0;
 }
 
 /** Hands the selected text as one line to the callback, the page is only looked up on demand. */

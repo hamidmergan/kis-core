@@ -113,9 +113,6 @@ const _TABLE_TRAIL_CHIP =
 // Removes every citation, for copying an answer.
 export function stripCitations(text: string): string {
   return text
-    .replace(
-      /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]】]*[\]】]/g,
-      "",
-    )
+    .replace(new RegExp(_CHIP_SRC, "g"), "")
     .replace(_STRAY_LENTICULAR, "");   // also drop bare 【source】 placeholders
 }

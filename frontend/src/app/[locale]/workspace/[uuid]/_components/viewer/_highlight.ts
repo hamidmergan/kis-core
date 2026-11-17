@@ -91,7 +91,6 @@ function buildSegmentRects(g: any, a: number, b: number): { segmentRects: any[];
 
 
 // Removes the current transient highlight, the file stays untouched.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
   const cur = refs.citationHighlightRef?.current;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,6 +156,17 @@ function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number) {
 }
 
 
+// The glyph geometry of one page, from the selection plugin's cache when it is there.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pageGeometry(r: any, doc: any, engine: any, pageIndex: number, pageObj: unknown): Promise<any> {
+  const selection = r.getPlugin?.("selection")?.provides?.();
+  const cachedGeo = selection?.getState?.()?.geometry?.[pageIndex];
+  return cachedGeo
+    ? Promise.resolve(cachedGeo)
+    : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+}
+
+
 // Loads geometry and text of one page, null when the page carries no text.
 function loadPageText(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,14 +175,7 @@ function loadPageText(
 ): Promise<{ g: any; totalChars: number; rawText: string } | null> {
   const pageObj = doc.pages?.[pageIndex];
   if (!pageObj) return Promise.resolve(null);
-  const selection = r.getPlugin?.("selection")?.provides?.();
-  const cachedGeo = selection?.getState?.()?.geometry?.[pageIndex];
-  const geoPromise: Promise<unknown> = cachedGeo
-    ? Promise.resolve(cachedGeo)
-    : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
-  return geoPromise.then((geo: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g = geo as any;
+  return pageGeometry(r, doc, engine, pageIndex, pageObj).then((g) => {
     if (!g?.runs?.length) return null;
     const lastRun = g.runs[g.runs.length - 1];
     const totalChars = lastRun.charStart + lastRun.glyphs.length;
@@ -310,28 +313,18 @@ function tryHighlightOnPage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, doc: any, engine: any, docMgr: any, scroll: any,
   targetPageIndex: number, searchText: string,
-  opts: DrawOpts = {},
 ): Promise<boolean> {
-  const doScroll = opts.scroll ?? true;
   const pageObj = doc.pages?.[targetPageIndex];
   if (!pageObj) return Promise.resolve(false);
 
-  const selection = r.getPlugin?.("selection")?.provides?.();
-  const cachedGeo = selection?.getState?.()?.geometry?.[targetPageIndex];
-  const geoPromise: Promise<unknown> = cachedGeo
-    ? Promise.resolve(cachedGeo)
-    : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
-
-  return geoPromise.then((geo: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g = geo as any;
+  return pageGeometry(r, doc, engine, targetPageIndex, pageObj).then((g) => {
     // A pure image page counts as done so nothing foreign gets highlighted.
     const noRuns = !g?.runs?.length;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lastRun = !noRuns ? (g.runs[g.runs.length - 1] as any) : null;
     const totalChars = lastRun ? lastRun.charStart + lastRun.glyphs.length : 0;
     if (noRuns || totalChars < 50) {
-      if (scroll && doScroll) {
+      if (scroll) {
         scroll.scrollToPage({ pageNumber: targetPageIndex + 1, behavior: "instant" });
       }
       return true;
@@ -366,7 +359,7 @@ function tryHighlightOnPage(
       const fullIdx = ptLower.indexOf(fullPhrase);
       if (fullIdx < 0) {
         // Exact selection didn't match the page — scroll and bail, never fuzzy-match.
-        if (scroll && doScroll) {
+        if (scroll) {
           scroll.scrollToPage({ pageNumber: targetPageIndex + 1, behavior: "instant" });
         }
         return true;
@@ -421,7 +414,7 @@ function tryHighlightOnPage(
             geoEnd = Math.min(geoEnd, maxEnd);
           }
         }
-        return drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g, opts);
+        return drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g);
       });
     });
   }).catch(() => false);
@@ -434,7 +427,6 @@ export function doHighlightSearch(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
-  const opts: DrawOpts = {};
   const scroll = r.getPlugin?.("scroll")?.provides?.();
   scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
 
@@ -457,5 +449,5 @@ export function doHighlightSearch(
   const pageIndex = page - 1;
 
   // Only the named page, otherwise the highlight lands on the wrong one.
-  tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, opts);
+  tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text);
 }

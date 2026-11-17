@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash, X } from "@phosphor-icons/react";
 import type { StaffNoteLink } from "../../_types";
@@ -31,13 +31,16 @@ export function StaffNoteEditModal({ open, initialText, initialLinks, onClose, o
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Only on opening, the page hands in a fresh link array on every redraw.
+  const initialRef = useRef({ initialText, initialLinks });
+  initialRef.current = { initialText, initialLinks };
   useEffect(() => {
     if (!open) return;
-    setText(initialText ?? "");
-    setLinks(initialLinks.map((l) => ({ url: l.url, label: l.label })));
+    setText(initialRef.current.initialText ?? "");
+    setLinks(initialRef.current.initialLinks.map((l) => ({ url: l.url, label: l.label })));
     setErrors({});
     setSaveError(null);
-  }, [open, initialText, initialLinks]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -51,7 +54,7 @@ export function StaffNoteEditModal({ open, initialText, initialLinks, onClose, o
     setErrors((prev) => {
       const next = { ...prev };
       if (next[index]) {
-        const { ...rest } = next[index];
+        const rest = { ...next[index] };
         if (patch.url !== undefined) delete rest.url;
         if (patch.label !== undefined) delete rest.label;
         if (Object.keys(rest).length === 0) delete next[index];
