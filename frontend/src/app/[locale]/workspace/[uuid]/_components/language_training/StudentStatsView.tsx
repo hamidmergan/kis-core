@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown, CaretUp, ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import type { HeatmapDay, StudentStats } from "../../_types";
 import { TOOL_COLORS } from "../../_constants";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { withoutFileExtension } from "./_setTitle";
 
 type StatsPeriod = "30" | "180";
+
+// More sets of one day hide behind "show more".
+const DAY_DETAIL_LIMIT = 10;
+// Otherwise one heavily practised set would push all other exercises down.
+const RUN_LIMIT = 5;
 
 interface DayRun {
   run_no: number | null;
@@ -37,17 +43,16 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   // Responsive heatmap: adjust cells to container width
   const observerRef = useRef<ResizeObserver | null>(null);
   const [heatmapContainerWidth, setHeatmapContainerWidth] = useState(0);
-  const heatmapContainerRef = (el: HTMLDivElement | null) => {
+  // A stable callback and one measure, otherwise every render rebuilds the observer and two widths alternate.
+  const heatmapContainerRef = useCallback((el: HTMLDivElement | null) => {
     if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
     if (el) {
       setHeatmapContainerWidth(el.clientWidth);
-      const ro = new ResizeObserver(entries => {
-        for (const e of entries) setHeatmapContainerWidth(e.contentRect.width);
-      });
+      const ro = new ResizeObserver(() => setHeatmapContainerWidth(el.clientWidth));
       ro.observe(el);
       observerRef.current = ro;
     }
-  };
+  }, []);
   useEffect(() => () => { observerRef.current?.disconnect(); }, []);
 
   // Without the language trainer only the learning tools, otherwise both together.
@@ -59,27 +64,33 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
   const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
   const [dayDetailLoading, setDayDetailLoading] = useState(false);
+  // Counts the requests, only the answer to the newest one is shown.
+  const detailRequest = useRef(0);
+
+  async function showDay(d: HeatmapDay | null) {
+    const request = ++detailRequest.current;
+    setSelectedDay(d);
+    setDayDetail(null);
+    if (!d || d.answers === 0) { setDayDetailLoading(false); return; }
+    setDayDetailLoading(true);
+    let detail: DayDetail | null = null;
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
+      if (res.ok) detail = await res.json();
+    } catch { /* the day stays without detail */ }
+    if (detailRequest.current !== request) return;
+    setDayDetail(detail);
+    setDayDetailLoading(false);
+  }
 
   useEffect(() => {
     if (!stats) return;
     const hasAnyActivity = heatmapSource.some(d => d.answers > 0);
-    const entry = hasAnyActivity ? (heatmapSource.find(d => d.day === stats.today) ?? null) : null;
-    setSelectedDay(entry);
-    setDayDetail(null);
-    if (entry && entry.answers > 0) {
-      setDayDetailLoading(true);
-      fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => setDayDetail(d))
-        .finally(() => setDayDetailLoading(false));
-    }
+    void showDay(hasAnyActivity ? (heatmapSource.find(d => d.day === stats.today) ?? null) : null);
   }, [stats, workspaceUuid, language_trainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Expand/collapse for day detail (limit to 10 entries) ──
-  const DAY_DETAIL_LIMIT = 10;
+  // ── Expand/collapse for day detail ──
   const [showAllSets, setShowAllSets] = useState(false);
-  // Otherwise one heavily practised set would push all other exercises down.
-  const RUN_LIMIT = 5;
   const [openRuns, setOpenRuns] = useState<Record<number, boolean>>({});
   useEffect(() => { setShowAllSets(false); setOpenRuns({}); }, [selectedDay]);
 
@@ -144,19 +155,8 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
     return d.toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
   }
 
-  async function selectDay(d: HeatmapDay) {
-    if (selectedDay?.day === d.day) { setSelectedDay(null); setDayDetail(null); return; }
-    setSelectedDay(d);
-    setDayDetail(null);
-    if (d.answers > 0) {
-      setDayDetailLoading(true);
-      try {
-        const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
-        if (res.ok) setDayDetail(await res.json());
-      } catch { /* ignore */ }
-      setDayDetailLoading(false);
-    }
-  }
+  // A second click on the selected day closes it.
+  const selectDay = (d: HeatmapDay) => void showDay(selectedDay?.day === d.day ? null : d);
 
   const gap = 4;
   const weekdayLabels = [
@@ -369,7 +369,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               {/* Per-set breakdown */}
               {(showAllSets ? dayDetail.sets : dayDetail.sets.slice(0, DAY_DETAIL_LIMIT)).map(s => {
                 // Clean title: remove file extensions for display
-                const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
+                const displayTitle = withoutFileExtension(s.title);
                 // Newest round on top, as everywhere else.
                 const runs = [...s.runs].reverse();
                 const alleRuns = openRuns[s.set_id] ?? false;

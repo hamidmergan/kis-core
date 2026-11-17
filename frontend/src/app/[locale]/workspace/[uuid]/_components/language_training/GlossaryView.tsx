@@ -159,7 +159,8 @@ export function GlossaryView({
                           <span className="font-medium ml-2" style={{ color: "var(--kb)" }}>{entry.term_en}</span>
                         )}
                       </span>
-                      {entry.page_number && (
+                      {/* A ternary, a bare && would print a page number of 0. */}
+                      {entry.page_number ? (
                         <span
                           role="button"
                           tabIndex={0}
@@ -170,7 +171,7 @@ export function GlossaryView({
                         >
                           <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time, (key, vals) => tChip(key, vals)) : t("glossary.pageShort", { page: entry.page_number })}
                         </span>
-                      )}
+                      ) : null}
                       {isExpanded
                         ? <CaretUp size={14} weight="bold" className="group-hover:text-[var(--kb)] transition-colors" />
                         : <CaretDown size={14} weight="bold" className="group-hover:text-[var(--kb)] transition-colors" />}

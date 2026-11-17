@@ -9,6 +9,7 @@ import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 import { setProgressPct } from "./_progress";
 import { InstructionNote } from "../studio/InstructionField";
+import { setDisplayTitle } from "./_setTitle";
 
 export function ExerciseSetsOverview({
   title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRename, onRetry, onDownload, sourceCount, breadcrumbs, category,
@@ -33,6 +34,15 @@ export function ExerciseSetsOverview({
   const atLimit = sets.length >= STUDIO_ITEM_MAX;
   const isGenerating = sets.some((s) => s.status === "generating");
   const generatingLabel = t("common.generating");
+  const createButton = (
+    <span title={atLimit ? t("exerciseSets.limitReached") : undefined}>
+      <button type="button" onClick={onCreate}
+        disabled={noSources || atLimit || isGenerating}
+        className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+        <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton")}
+      </button>
+    </span>
+  );
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title={title} toolKey={toolKey} onBack={onBack} breadcrumbs={breadcrumbs} category={category} />
@@ -57,26 +67,12 @@ export function ExerciseSetsOverview({
             size="lg"
             icon={<Cards size={48} weight="bold" />}
             text={t("exerciseSets.emptyText")}
-            action={
-              <span title={atLimit ? t("exerciseSets.limitReached") : undefined}>
-                <button type="button" onClick={onCreate}
-                  disabled={noSources || atLimit || isGenerating}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton")}
-                </button>
-              </span>
-            }
+            action={createButton}
           />
         ) : (
           <>
             <div className="flex justify-center">
-              <span title={atLimit ? t("exerciseSets.limitReached") : undefined}>
-                <button type="button" onClick={onCreate}
-                  disabled={noSources || atLimit || isGenerating}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton")}
-                </button>
-              </span>
+              {createButton}
             </div>
             <div className="flex items-center justify-between px-1">
               <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{t("exerciseSets.exercisesCount", { count: sets.length })}</span>
@@ -98,9 +94,8 @@ export function ExerciseSetsOverview({
                   }
                 })();
                 // Exactly the name shown on the card is renamed.
-                const anzeigeTitel = s.title
-                  .replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")
-                  .replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "");
+                const anzeigeTitel = setDisplayTitle(s.title);
+                const createdDate = new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" });
                 const umbenennbar = !generating && !failed && !!onRename;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
@@ -166,9 +161,7 @@ export function ExerciseSetsOverview({
                         {/* Only in source mode: a glossary set has no sources to count. */}
                         {!generating && !failed && s.mode !== "glossary" && (s.sources?.length ?? 0) > 0
                           && ` · ${t("exerciseSets.sourcesCount", { count: s.sources!.length })}`}
-                        {!generating && (failed
-                          ? new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })
-                          : ` · ${new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`)}
+                        {!generating && (failed ? createdDate : ` · ${createdDate}`)}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {failed && onRetry && (

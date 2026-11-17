@@ -82,24 +82,11 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
         style={{ position: "relative", backgroundColor: "var(--background)" }}
       >
         <MinimizeContext.Provider value={switchToChat}>
-          <div
-            className="flex flex-col overflow-hidden rounded-2xl"
-            style={{ ...panelBaseStyle, ...layerStyle("quellen") }}
-          >
-            {renderQuellen({ onMinimize: switchToChat, hideHeader: true })}
-          </div>
-          <div
-            className="flex flex-col overflow-hidden rounded-2xl"
-            style={{ ...panelBaseStyle, ...layerStyle("chat") }}
-          >
-            {renderChat({ onMinimize: switchToChat, hideHeader: true })}
-          </div>
-          <div
-            className="flex flex-col overflow-hidden rounded-2xl"
-            style={{ ...panelBaseStyle, ...layerStyle("studio") }}
-          >
-            {renderStudio({ onMinimize: switchToChat, hideHeader: true })}
-          </div>
+          {([["quellen", renderQuellen], ["chat", renderChat], ["studio", renderStudio]] as const).map(([key, render]) => (
+            <div key={key} className={panelBaseClass} style={{ ...panelBaseStyle, ...layerStyle(key) }}>
+              {render({ onMinimize: switchToChat, hideHeader: true })}
+            </div>
+          ))}
         </MinimizeContext.Provider>
       </div>
     );

@@ -47,7 +47,6 @@ interface StudioOverviewProps {
   statsVersion: number;
   onNavigateToSet?: (setId: number, tool: string, mode: string) => void;
   onSprachNavigate?: (view: LanguageTrainingView) => void;
-  activeSourceCount?: number;
   langTrainingView?: string;
   requestedTab?: { tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null;
   onRequestedTabHandled?: () => void;
@@ -70,7 +69,6 @@ export function StudioOverview({
   statsVersion,
   onNavigateToSet,
   onSprachNavigate,
-  activeSourceCount,
   langTrainingView,
   requestedTab,
   onRequestedTabHandled,
@@ -124,8 +122,6 @@ export function StudioOverview({
     { key: "gr-sets" as const, Icon: PencilLine, label: t("tiles.grammar"), description: t("tileDescriptions.grammar"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
-  void activeSourceCount;
-
   useEffect(() => {
     if (studioTab === "language_training" && (!langTrainingView || langTrainingView === "overview")) {
       setStudioTab("tools");
@@ -143,8 +139,6 @@ export function StudioOverview({
     onRequestedTabHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedTab?.nonce]);
-
-  const effectiveTab = studioTab;
 
   return (
     <div className="flex flex-col h-full">
@@ -177,7 +171,7 @@ export function StudioOverview({
           { key: "statistik" as const, label: t("tabs.statistik") },
           { key: "schedule" as const, label: t("tabs.schedule") },
         ]}
-        active={effectiveTab === "language_training" ? "tools" : effectiveTab}
+        active={studioTab === "language_training" ? "tools" : studioTab}
         onSelect={(k) => setStudioTab(k as StudioTab)}
       />
 

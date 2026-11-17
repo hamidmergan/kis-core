@@ -25,27 +25,11 @@ export function ScheduleTimeline({
   onDelete: (id: number) => void;
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
-  const renderCard = (entry: ScheduleEntry, ctx: { isPast: boolean; urgency: string | null }) => (
+  const card = (entry: ScheduleEntry, isPast: boolean, urgency: string | null) => (
     <ScheduleEntryCard
       entry={entry}
-      isPast={ctx.isPast}
-      urgency={ctx.urgency}
-      editMode={editMode}
-      sources={sources}
-      sourceNumByUuid={sourceNumByUuid}
-      onToggleChecked={(c) => onToggleChecked(entry.id, c)}
-      onEdit={() => onEdit(entry)}
-      onDelete={() => onDelete(entry.id)}
-      onPillClick={onPillClick}
-      markiert={entry.id === markiertId}
-    />
-  );
-
-  const renderTbdCard = (entry: ScheduleEntry) => (
-    <ScheduleEntryCard
-      entry={entry}
-      isPast={false}
-      urgency={null}
+      isPast={isPast}
+      urgency={urgency}
       editMode={editMode}
       sources={sources}
       sourceNumByUuid={sourceNumByUuid}
@@ -60,8 +44,8 @@ export function ScheduleTimeline({
   return (
     <SharedTimeline
       entries={entries}
-      renderCard={renderCard}
-      renderTbdCard={renderTbdCard}
+      renderCard={(entry, ctx) => card(entry, ctx.isPast, ctx.urgency)}
+      renderTbdCard={(entry) => card(entry, false, null)}
     />
   );
 }

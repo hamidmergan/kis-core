@@ -52,7 +52,7 @@ export function NotesStudio({
 }) {
   const t = useTranslations("workspace.detail.studio.notes");
   const tChip = useTranslations("sourceChip");
-  const locale = useLocale();
+  const dateLocale = useLocale() === "en" ? "en-US" : "de-DE";
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [renameNoteId, setRenameNoteId] = useState<number | null>(null);
@@ -166,19 +166,14 @@ export function NotesStudio({
                 const isExpanded = expandedId === note.id;
                 const { msg, qmap } = noteAsMessage(note);
                 // Note plus node position names a chip site unambiguously.
+                // In table cells the text stays unchanged, so the punctuation is not taken there.
                 const wrapCitations = (
                   children: React.ReactNode,
                   node?: { position?: { start?: { offset?: number } } },
+                  takePunctuation = true,
                 ) =>
                   withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
-                    (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`);
-                // In table cells the text stays unchanged.
-                const wrapCitationsInCell = (
-                  children: React.ReactNode,
-                  node?: { position?: { start?: { offset?: number } } },
-                ) =>
-                  withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
-                    (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`, false);
+                    (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`, takePunctuation);
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
@@ -203,7 +198,7 @@ export function NotesStudio({
                         <span className="truncate">{rowLabel}</span>
                       </span>
                       <span className="flex-shrink-0 text-xs text-[var(--muted)]">
-                        {note.created_at ? new Date(note.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
+                        {note.created_at ? new Date(note.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <span className="row-caret flex-shrink-0 transition-colors">
                         {isExpanded ? <CaretUp size={14} /> : <CaretDown size={14} />}
@@ -232,7 +227,7 @@ export function NotesStudio({
                               h3: ({ node, children }) => <p className="font-medium mb-1">{wrapCitations(children, node)}</p>,
                               table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                              td: ({ node, children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitationsInCell(children, node)}</td>,
+                              td: ({ node, children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children, node, false)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >
@@ -273,7 +268,7 @@ export function NotesStudio({
 
                         <div className="flex items-center justify-between mt-3">
                           <span className="text-xs" >
-                            {note.created_at ? new Date(note.created_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
+                            {note.created_at ? new Date(note.created_at).toLocaleString(dateLocale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                           </span>
                           <div className="flex items-center gap-1.5">
                             {onUpdateTitle && (

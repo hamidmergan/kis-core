@@ -1,22 +1,26 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight, Chat, Check, Lightbulb, SidebarSimple } from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { Chat, Check, Lightbulb } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseItem, ExerciseSet } from "../../_types";
 import { _md } from "../../_utils";
-import { MinimizeContext } from "../../_context";
-import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import type { BreadcrumbItem } from "../layout/SubviewHeader";
+import { ExerciseHeader } from "./ExerciseHeader";
 import { ExerciseNav } from "./ExerciseNav";
 import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers } from "./SetSourceLegend";
-import { shuffleOptions } from "./_shuffle";
+import { shuffleOptions, shuffled } from "./_shuffle";
 import { ItemSourceChips } from "./ItemSourceChips";
 import { chatPrompts } from "./_chatPrompts";
 
+// The gap sentence goes into innerHTML, so model text is escaped first.
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function MCExerciseView({
-  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
-  badgeCategory = "learning_tools", showChatHelp = true,
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -24,40 +28,27 @@ export function MCExerciseView({
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number, claim?: string) => void;
   breadcrumbs?: BreadcrumbItem[];
-  chatLang?: "de" | "en";
-  // The view also serves the grammar quiz with its own colour.
-  badgeCategory?: "learning_tools" | "language_training";
-  // Grammar leaves the chat buttons out, they lead away from the exercise.
-  showChatHelp?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   // The chat instructions follow the interface language.
-  void chatLang;
   const locale = useLocale();
   const { tip: promptTip, termDeep: promptTermDeep, topicDeep: promptTopicDeep } = chatPrompts(locale);
-  const minimize = useContext(MinimizeContext);
-  const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
+  const [items, setItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
   useEffect(() => {
     const raw = exerciseSet.items || [];
     if (raw.length > 0 && !shuffledRef.current) {
-      const arr = [...raw];
-      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
-      const shuffled = arr.map(shuffleOptions);
-      setShuffledItems(shuffled);
+      setItems(shuffled(raw).map(shuffleOptions));
       shuffledRef.current = true;
     }
   }, [exerciseSet.items]);
-  const items = shuffledItems;
   const [index, setIndex] = useState(0);
   // The choice hangs on the exercise, only that way can you go back and forth.
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
-  const [, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  // The hint sits ready on the exercise, the loading state belongs to the fallback.
+  // The hint sits ready on the exercise, the button only expands it.
   const [showHint, setShowHint] = useState(false);
-  const [hintLoading, setHintLoading] = useState(false);
   // The hover state lives in state, an inline border beats every class.
   const [hovered, setHovered] = useState<number | null>(null);
   // One mount of the view is one round, a retry resets it.
@@ -78,8 +69,6 @@ export function MCExerciseView({
     setPicks((p) => ({ ...p, [card.id]: optIdx }));
     const correct = optIdx === card.correct_idx;
     setResults(prev => [...prev, { item_id: card.id, correct }]);
-    if (correct) setStreak((s) => s + 1);
-    else setStreak(0);
     const neuerDurchgang = !runGemeldetRef.current;
     runGemeldetRef.current = true;
     onAnswer(card.id, correct, neuerDurchgang);
@@ -97,15 +86,21 @@ export function MCExerciseView({
     else goTo(index + 1);
   }
 
-  async function requestHint() {
-    if (!card || hintLoading) return;
+  function requestHint() {
+    if (!card) return;
     // Older exercises without a hint take the old path through the chat.
-    if (card.extras?.tip) { setShowHint((v) => !v); return; }
-    setHintLoading(true);
-    try {
-      onAskChat(promptTip(card.front));
-    } catch { /* ignore */ }
-    setHintLoading(false);
+    if (card.extras?.tip) setShowHint((v) => !v);
+    else onAskChat(promptTip(card.front));
+  }
+
+  // A retry is a new round, so the next answer reports one.
+  function restart() {
+    setShowResults(false);
+    goTo(0);
+    setPicks({});
+    setResults([]);
+    shuffledRef.current = false;
+    runGemeldetRef.current = false;
   }
 
   if (!card && !showResults) return (
@@ -119,23 +114,7 @@ export function MCExerciseView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div data-panel-header="" className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-        <button type="button" onClick={onBack}
-          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-          style={{ backgroundColor: "var(--surface-dim)" }}>
-          <CaretLeft size={13} />
-        </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-xs min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, badgeCategory); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
-        {minimize && (
-          <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-            style={{ backgroundColor: "var(--surface-dim)" }}
-            title={t("common.minimizePanel")}>
-            <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
-          </button>
-        )}
-      </div>
+      <ExerciseHeader title={exerciseSet.title} breadcrumbs={breadcrumbs} badgeCategory="learning_tools" onBack={onBack} />
       {/* Progress — rendered inside question card */}
       {/* Quiz Results */}
       {showResults ? (
@@ -154,7 +133,7 @@ export function MCExerciseView({
             })}
           </p>
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setPicks({}); setResults([]); shuffledRef.current = false; runGemeldetRef.current = false; }}
+            <button type="button" onClick={restart}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               {t("mcExercise.tryAgain")}
             </button>
@@ -180,10 +159,11 @@ export function MCExerciseView({
                   {isGap ? (
                     <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}
                       dangerouslySetInnerHTML={{
-                        __html: card.front.replace(
+                        // A function, so a dollar sign in the answer is not read as a replacement pattern.
+                        __html: escapeHtml(card.front).replace(
                           /___+/g,
-                          answered
-                            ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
+                          () => answered
+                            ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${escapeHtml(card.back)}</span>`
                             : '<span style="display:inline-block;min-width:80px;color:var(--kb);font-weight:700;padding:0 4px">__________</span>'
                         ),
                       }}
@@ -247,21 +227,19 @@ export function MCExerciseView({
                     <div className="min-w-0">
                       <ItemSourceChips card={card} numbers={srcNumbers} onSourceClick={onSourceClick} />
                     </div>
-                    {!answered && showChatHelp && (
+                    {!answered && (
                       <div className="flex items-center gap-2 shrink-0">
-                        {(
-                          <button type="button" onClick={requestHint}
-                            disabled={hintLoading} aria-expanded={showHint}
-                            title={showHint ? t("common.hintHide") : t("common.hint")}
-                            className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
-                            <Lightbulb size={13} weight="bold" />
-                            {hintLoading ? t("common.loading") : t("common.hint")}
-                          </button>
-                        )}
+                        <button type="button" onClick={requestHint}
+                          aria-expanded={showHint}
+                          title={showHint ? t("common.hintHide") : t("common.hint")}
+                          className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
+                          <Lightbulb size={13} weight="bold" />
+                          {t("common.hint")}
+                        </button>
                       </div>
                     )}
                   </div>
-                  {answered && showChatHelp && (
+                  {answered && (
                     <div className="flex items-center justify-start mt-2">
                       <button type="button" onClick={() => {
                         onAskChat(isGap

@@ -90,9 +90,11 @@ export function ScheduleView({
 
   const startPolling = useCallback((jobId: number) => {
     stopPolling();
-    pollRef.current = setInterval(async () => {
+    const timer = setInterval(async () => {
       try {
         const job = await fetchScheduleJob(workspaceUuid, jobId);
+        // A poll that was stopped meanwhile must not report a second time.
+        if (pollRef.current !== timer) return;
         if (job.status === "success") {
           stopPolling();
           setGenerating(false);
@@ -110,11 +112,13 @@ export function ScheduleView({
           await load();
         }
       } catch (e: any) {
+        if (pollRef.current !== timer) return;
         stopPolling();
         setGenerating(false);
         setGenerateMsg({ kind: "error", text: e?.message || t("msg.pollFailed") });
       }
     }, 2000);
+    pollRef.current = timer;
   }, [workspaceUuid, load, stopPolling, t]);
 
   // On mount: load entries, then check if a job is already running (from a prior session/tab)

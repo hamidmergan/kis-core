@@ -87,7 +87,8 @@ interface StudioPanelContentProps {
   // Panel-Kontext
   onMinimize: () => void;
   hideHeader: boolean;
-  chatLang: "de" | "en";
+  /** No longer read here, the page still passes it. */
+  chatLang?: "de" | "en";
 }
 
 export function StudioPanelContent(props: StudioPanelContentProps) {
@@ -98,7 +99,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     exercises: ex, notes: nt, mindmap: mm, data_table: dt,
     workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
-    refreshProgress, onMinimize, hideHeader, chatLang,
+    refreshProgress, onMinimize, hideHeader,
     openMindmapInViewer, consumeMindmapViewerOpen,
     openDataTableInViewer, consumeDataTableViewerOpen,
   } = props;
@@ -118,14 +119,13 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         statsVersion={statsVersion}
         onNavigateToSet={onNavigateToSet}
         onSprachNavigate={onSprachNavigate}
-        activeSourceCount={selectedSourceIds.length}
         langTrainingView={langTrainingView}
         requestedTab={studioTabRequest}
         onRequestedTabHandled={onStudioTabRequestHandled}
         sources={sources}
         selectedSourceIds={selectedSourceIds}
         onPillClick={onPillClick}
-        {...(hideHeader ? { hideHeader: true } : {})}
+        hideHeader={hideHeader}
       />
     );
   }
@@ -147,7 +147,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.karteikarten"), toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-        chatLang={chatLang}
         workspaceUuid={workspaceUuid}
       />
     );
@@ -162,31 +161,32 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.quiz"), toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-        chatLang={chatLang}
       />
     );
   }
 
   const setsCrumb = [{ label: t("panelTitle"), onClick: () => setStudioView("overview") }];
 
-  if (studioView === "karteikarten") {
-    return (
-      <ExerciseSetsOverview
-        title={t("tiles.karteikarten")}
-        toolKey="Flashcards"
-        sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
-        onBack={() => setStudioView("overview")}
-        onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-        onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
-        onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
-        onRename={(id, title) => renameExerciseSet(id, "karteikarten", title)}
-        onRetry={(id) => retryExerciseSet(id, "karteikarten")}
-        onDownload={isAdmin ? downloadExerciseSet : undefined}
-        sourceCount={selectedSourceIds.length}
-        breadcrumbs={setsCrumb}
-      />
-    );
-  }
+  // Flashcards and quiz share the list of their sets, only tool and title differ.
+  const setsOverview = (tool: "karteikarten" | "quiz", toolKey: string) => (
+    <ExerciseSetsOverview
+      title={t(`tiles.${tool}`)}
+      toolKey={toolKey}
+      sets={exerciseSets.filter((s) => s.tool === tool)}
+      onBack={() => setStudioView("overview")}
+      onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+      onCreate={() => { setCreateSetTool(tool); setShowCreateModal(true); }}
+      onDelete={(id) => deleteExerciseSet(id, tool)}
+      onRename={(id, title) => renameExerciseSet(id, tool, title)}
+      onRetry={(id) => retryExerciseSet(id, tool)}
+      onDownload={isAdmin ? downloadExerciseSet : undefined}
+      sourceCount={selectedSourceIds.length}
+      breadcrumbs={setsCrumb}
+    />
+  );
+
+  if (studioView === "karteikarten") return setsOverview("karteikarten", "Flashcards");
+  if (studioView === "quiz") return setsOverview("quiz", "Quiz");
 
   if (studioView === "notes") {
     return (
@@ -249,25 +249,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onViewerOpened={consumeMindmapViewerOpen}
         instruction={mm.mindmapInstruction}
         instructionUnmatched={mm.mindmapUnmatched}
-      />
-    );
-  }
-
-  if (studioView === "quiz") {
-    return (
-      <ExerciseSetsOverview
-        title={t("tiles.quiz")}
-        toolKey="Quiz"
-        sets={exerciseSets.filter((s) => s.tool === "quiz")}
-        onBack={() => setStudioView("overview")}
-        onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-        onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
-        onDelete={(id) => deleteExerciseSet(id, "quiz")}
-        onRename={(id, title) => renameExerciseSet(id, "quiz", title)}
-        onRetry={(id) => retryExerciseSet(id, "quiz")}
-        onDownload={isAdmin ? downloadExerciseSet : undefined}
-        sourceCount={selectedSourceIds.length}
-        breadcrumbs={setsCrumb}
       />
     );
   }

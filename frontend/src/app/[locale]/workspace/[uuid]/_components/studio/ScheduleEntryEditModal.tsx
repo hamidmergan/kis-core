@@ -5,6 +5,8 @@ import { Check, X } from "@phosphor-icons/react";
 import type { ScheduleEntry, ScheduleEntryType } from "../../_types";
 import { SCHEDULE_TITLE_MAX, SCHEDULE_DESCRIPTION_MAX } from "../../_constants";
 
+const INPUT_CLASS = "w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors";
+
 export interface EditInput {
   type: ScheduleEntryType;
   title: string;
@@ -116,7 +118,7 @@ export function ScheduleEntryEditModal({
               maxLength={SCHEDULE_TITLE_MAX}
               value={titleVal}
               onChange={(e) => setTitleVal(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+              className={INPUT_CLASS}
               style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
             />
           </label>
@@ -130,7 +132,7 @@ export function ScheduleEntryEditModal({
                 onChange={(e) =>
                   setDueDate(monthOnly && e.target.value ? `${e.target.value}-01` : e.target.value)
                 }
-                className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                className={INPUT_CLASS}
                 style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
               />
             </label>
@@ -140,7 +142,7 @@ export function ScheduleEntryEditModal({
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                className={INPUT_CLASS}
                 style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
               />
             </label>
@@ -171,7 +173,7 @@ export function ScheduleEntryEditModal({
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                  className={INPUT_CLASS}
                   style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
                 />
               </label>

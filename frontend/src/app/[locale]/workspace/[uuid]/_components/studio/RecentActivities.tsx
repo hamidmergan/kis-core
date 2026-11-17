@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TOOL_COLORS } from "../../_constants";
+import { withoutFileExtension } from "../language_training/_setTitle";
 
 interface RecentActivity {
   set_id: number;
@@ -33,7 +34,6 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   wortschatz: TextAlignLeft,
 };
 
-
 export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }: { workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
   const t = useTranslations("workspace.detail.studio.recent");
   const tTools = useTranslations("workspace.detail.langTools");
@@ -43,11 +43,14 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // An answer that arrives after a newer request must not overwrite it.
+    let cancelled = false;
     fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/recent-activities`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
-      .then(data => setActivities(data))
+      .then(data => { if (!cancelled) setActivities(data); })
       .catch(() => { })
-      .finally(() => setLoaded(true));
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
   }, [workspaceUuid, refreshKey]);
 
   if (!loaded) return null;
@@ -86,7 +89,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
         {activities.map((a) => {
           const iconColor = TOOL_COLORS[a.tool]?.color ?? "var(--muted)";
           const Icon = ACTIVITY_TOOL_ICONS[a.tool] ?? Cards;
-          const displayTitle = a.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
+          const displayTitle = withoutFileExtension(a.title);
           return (
             <button
               key={`${a.set_id}-${a.tool}-${a.mode}`}

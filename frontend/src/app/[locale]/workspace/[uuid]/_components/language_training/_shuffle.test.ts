@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shuffleOptions } from "./_shuffle";
+import { shuffleOptions, shuffled } from "./_shuffle";
 
 describe("shuffleOptions", () => {
   it("leaves a true/false item in its fixed order", () => {
@@ -34,5 +34,15 @@ describe("shuffleOptions", () => {
   it("passes an item without a marked answer through untouched", () => {
     const item = { options: ["a", "b", "c"] };
     expect(shuffleOptions(item)).toBe(item);
+  });
+});
+
+describe("shuffled", () => {
+  it("returns the same elements in a new list", () => {
+    const list = [1, 2, 3, 4, 5];
+    const out = shuffled(list);
+    expect(out).not.toBe(list);
+    expect([...out].sort()).toEqual(list);
+    expect(list).toEqual([1, 2, 3, 4, 5]);
   });
 });

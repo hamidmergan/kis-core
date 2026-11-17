@@ -1,14 +1,24 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CaretLeft, CaretRight, FilePdf, SidebarSimple, Table } from "@phosphor-icons/react";
+import { CaretLeft, FilePdf, SidebarSimple, Table } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { DataTableData, DataTableRowSource, DataTableSource, Source } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
-import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import type { BreadcrumbItem } from "../layout/SubviewHeader";
 import { StudioSourceLegend } from "./StudioSourceLegend";
 import { InstructionNote } from "./InstructionField";
 import { StudioSavedList } from "./StudioSavedList";
+import { StudioViewerCrumbs } from "./StudioViewerCrumbs";
+import { pageNumberOf, timeLabelSeconds } from "./_sourceRefs";
+
+// Where a row source points: a time for media, a page for everything else.
+function rowSourceTarget(rs: DataTableRowSource): { pageNum: number; startTime: number | undefined } {
+  if (_isMediaFile(rs.source_label) && typeof rs.page === "string") {
+    return { pageNum: 0, startTime: timeLabelSeconds(rs.page) };
+  }
+  return { pageNum: pageNumberOf(rs.page), startTime: undefined };
+}
 
 export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
@@ -70,22 +80,8 @@ export function DataTableStudio({
             style={{ backgroundColor: "var(--surface-dim)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (() => {
-            const badge = _getToolBadge("DataTable");
-            return (
-              <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
-                {breadcrumbs.map((b, i) => (
-                  <React.Fragment key={i}>
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 text-muted hover:text-kb transition-colors">{b.label}</button>
-                    <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
-                  </React.Fragment>
-                ))}
-                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tDt("title")}</button>
-                <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
-                <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTitle}</span>
-              </div>
-            );
-          })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--foreground)" }}>{activeTitle}</span>)}
+          <StudioViewerCrumbs toolKey="DataTable" toolTitle={tDt("title")} activeTitle={activeTitle} breadcrumbs={breadcrumbs}
+            onToolClick={() => setView("list")} />
           {minimize && (
             <button type="button" onClick={minimize} title={t("minimizePanel")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-auto"
@@ -150,16 +146,7 @@ export function DataTableStudio({
                               return row.sources.filter((s) => {
                                 if (typeof s === "object" && s !== null && "source_label" in s) {
                                   const rs = s as DataTableRowSource;
-                                  const isMedia = _isMediaFile(rs.source_label);
-                                  let startTime: number | undefined;
-                                  let pageNum = 0;
-                                  if (isMedia && typeof rs.page === "string") {
-                                    const parts = rs.page.split(":").map(Number);
-                                    if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
-                                    else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
-                                  } else {
-                                    pageNum = typeof rs.page === "number" ? rs.page : parseInt(String(rs.page), 10) || 0;
-                                  }
+                                  const { pageNum, startTime } = rowSourceTarget(rs);
                                   const k = _sourceChipKey(rs.source_label, pageNum, startTime, rs.highlight);
                                   if (seenKeys.has(k)) return false;
                                   seenKeys.add(k);
@@ -176,16 +163,8 @@ export function DataTableStudio({
                                 const src = allSources?.find((a) => a.filename === rs.source_label);
                                 const isMedia = _isMediaFile(rs.source_label);
                                 const SourceIcon = _getChipIcon(rs.source_label);
-                                let pageNum = 0;
-                                let startTime: number | undefined;
+                                const { pageNum, startTime } = rowSourceTarget(rs);
                                 const label = isMedia ? String(rs.page) : tDt("pageLabel", { page: rs.page });
-                                if (isMedia && typeof rs.page === "string") {
-                                  const parts = rs.page.split(":").map(Number);
-                                  if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
-                                  else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
-                                } else {
-                                  pageNum = typeof rs.page === "number" ? rs.page : parseInt(String(rs.page), 10) || 0;
-                                }
                                 const sourceNum = sources.find((sl) => sl.filename === rs.source_label)?.number ?? (si + 1);
                                 return (
                                   <span key={si} role="button" tabIndex={0}

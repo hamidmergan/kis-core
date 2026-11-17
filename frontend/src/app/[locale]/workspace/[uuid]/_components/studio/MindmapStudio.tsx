@@ -1,11 +1,10 @@
 import "mind-elixir/style.css";
-import React, { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowsInLineVertical,
   ArrowsOutLineVertical,
   CaretLeft,
-  CaretRight,
   CornersIn,
   CornersOut,
   MagnifyingGlassMinus,
@@ -17,43 +16,27 @@ import Spinner from "@/components/ui/Spinner";
 import type { Source } from "../../_types";
 import { _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
-import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
-import { chipTargetKey, getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
+import type { BreadcrumbItem } from "../layout/SubviewHeader";
+import { getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
 import { StudioSourceLegend } from "./StudioSourceLegend";
 import { InstructionNote } from "./InstructionField";
 import { StudioSavedList } from "./StudioSavedList";
+import { StudioViewerCrumbs } from "./StudioViewerCrumbs";
+import { chipKey, findSource, numberMindmapSources, pageNumberOf, timeLabelSeconds, type MindmapNodeData } from "./_sourceRefs";
 
-// A source label rarely matches a filename exactly, so fall back to a loose match.
-function _findSource(sources: Source[], label: string): Source | undefined {
-  const lower = label.toLowerCase();
-  return sources.find((s) => s.filename === label)
-    ?? sources.find((s) => s.filename.toLowerCase() === lower)
-    ?? sources.find((s) => lower.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(lower));
-}
+export type { MindmapNodeData };
 
-// Turns a timestamp label "M:SS" or "H:MM:SS" into seconds.
-function _labelSeconds(label: string): number {
-  const parts = label.split(":").map(Number);
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return 0;
-}
-
-// The chip key has to match the one the chat chips use, both mark the same target.
-function _chipKey(src: Source, pageNumber: number | string | undefined): string {
-  if (_isMediaFile(src.filename) && typeof pageNumber === "string") {
-    return chipTargetKey(src.uuid, 0, _labelSeconds(pageNumber));
+// Leaves the browser full screen and releases the orientation lock.
+async function exitBrowserFullscreen() {
+  if (document.fullscreenElement) {
+    try { await document.exitFullscreen(); } catch { /* ignore */ }
   }
-  const page = typeof pageNumber === "number" ? pageNumber : parseInt(String(pageNumber), 10) || 0;
-  return chipTargetKey(src.uuid, page, undefined);
+  unlockOrientation();
 }
 
-export interface MindmapNodeData {
-  topic: string;
-  children?: MindmapNodeData[];
-  source_label?: string;
-  page_number?: number | string;
-  keyword?: string;
+function unlockOrientation() {
+  const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
+  orientation?.unlock?.();
 }
 
 export function MindmapStudio({
@@ -101,11 +84,7 @@ export function MindmapStudio({
 
   // Leaves the browser full screen too, not just the CSS overlay.
   async function leaveFullscreen() {
-    if (document.fullscreenElement) {
-      try { await document.exitFullscreen(); } catch { /* ignore */ }
-    }
-    const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
-    orientation?.unlock?.();
+    await exitBrowserFullscreen();
     setFullscreen(false);
   }
 
@@ -128,10 +107,6 @@ export function MindmapStudio({
 
   // Release the lock, even when full screen is left another way.
   useEffect(() => {
-    function unlockOrientation() {
-      const o = screen.orientation as ScreenOrientation & { unlock?: () => void };
-      o?.unlock?.();
-    }
     function onChange() {
       if (!document.fullscreenElement) {
         setFullscreen(false);
@@ -149,12 +124,12 @@ export function MindmapStudio({
   sourcesRef.current = sources;
   const onPillClickRef = useRef(onPillClick);
   onPillClickRef.current = onPillClick;
-  const nodeClickCleanupRef = useRef<(() => void) | null>(null);
-  const setFullscreenRef = useRef(setFullscreen);
-  setFullscreenRef.current = setFullscreen;
   const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number?: number | string; keyword?: string; topic: string }>());
-  const sourceIndexRef = useRef(new Map<string, number>());
-  const usedNamesRef = useRef(new Set<string>());
+  // Computed during render, so the legend below is right on the first paint.
+  const { index: sourceIndexMap, used: usedNames } = useMemo(
+    () => numberMindmapSources(mindmap, pickedSources),
+    [mindmap, pickedSources],
+  );
 
   // Frames the chip that was clicked last, the same mark the chat chips carry.
   function paintActiveChip() {
@@ -212,34 +187,16 @@ export function MindmapStudio({
   }
 
   useEffect(() => {
-    if (!mindmap || !containerRef.current || view !== "viewer") return;
+    const el = containerRef.current;
+    if (!mindmap || !el || view !== "viewer") return;
 
     let cancelled = false;
+    let me: any = null;
+    let removeListeners: (() => void) | null = null;
 
     (async () => {
       const MindElixir = (await import("mind-elixir")).default;
-      if (cancelled || !containerRef.current) return;
-
-      // Build source index: filename → [N]
-      // Numbered the way the user ticked, the same rule the data table follows.
-      const sourceIndexMap = new Map<string, number>();
-      for (const s of pickedSources || []) {
-        if (!sourceIndexMap.has(s.filename)) sourceIndexMap.set(s.filename, s.number);
-      }
-      const benutzteNamen = new Set<string>();
-      function collectSources(node: MindmapNodeData) {
-        if (node.source_label) {
-          benutzteNamen.add(node.source_label);
-          // Older maps carry no picked list, then the tree order numbers them.
-          if (!sourceIndexMap.has(node.source_label)) {
-            sourceIndexMap.set(node.source_label, sourceIndexMap.size + 1);
-          }
-        }
-        node.children?.forEach(collectSources);
-      }
-      collectSources(mindmap);
-      sourceIndexRef.current = sourceIndexMap;
-      usedNamesRef.current = benutzteNamen;
+      if (cancelled) return;
 
       let nid = 0;
       nodeSourceMapRef.current = new Map();
@@ -260,8 +217,8 @@ export function MindmapStudio({
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
             // The chip label is escaped too, it ends up in innerHTML.
             const label = String(rawLabel).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const chipSrc = sourcesRef.current ? _findSource(sourcesRef.current, node.source_label) : undefined;
-            const keyAttr = chipSrc ? ` data-chip-target="${_chipKey(chipSrc, node.page_number)}"` : "";
+            const chipSrc = sourcesRef.current ? findSource(sourcesRef.current, node.source_label) : undefined;
+            const keyAttr = chipSrc ? ` data-chip-target="${chipKey(chipSrc, node.page_number)}"` : "";
             result.dangerouslySetInnerHTML =
               `${esc} <span class="mm-src-chip"${keyAttr}>[${srcNum}]${label ? ` ${label}` : ""}</span>`;
           }
@@ -272,11 +229,11 @@ export function MindmapStudio({
         return result;
       }
 
-      containerRef.current.innerHTML = "";
+      el.innerHTML = "";
 
       const baseTheme = MindElixir.THEME;
-      const me = new MindElixir({
-        el: containerRef.current,
+      me = new MindElixir({
+        el,
         direction: MindElixir.SIDE,
         editable: false,
         contextMenu: false,
@@ -295,6 +252,8 @@ export function MindmapStudio({
       me.init({ nodeData: convert(mindmap) });
 
       collapseAll(me);
+      // A fresh map starts collapsed, the toggle has to say so too.
+      setAllExpanded(false);
       me.refresh();
       me.toCenter();
 
@@ -325,46 +284,41 @@ export function MindmapStudio({
         const srcs = sourcesRef.current;
         const cb = onPillClickRef.current;
         if (!srcs || !cb) return;
-        const src = _findSource(srcs, srcInfo.source_label);
+        const src = findSource(srcs, srcInfo.source_label);
         if (src) {
-          setActiveChipTarget(_chipKey(src, srcInfo.page_number));
+          setActiveChipTarget(chipKey(src, srcInfo.page_number));
           paintActiveChip();
           // Leave full screen, otherwise the sources panel stays invisible.
-          if (document.fullscreenElement) {
-            try { await document.exitFullscreen(); } catch { /* ignore */ }
-          }
-          const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
-          orientation?.unlock?.();
-          setFullscreenRef.current(false);
+          await exitBrowserFullscreen();
+          setFullscreen(false);
           const isMedia = _isMediaFile(src.filename);
           if (isMedia && typeof srcInfo.page_number === "string") {
-            cb(src.uuid, 0, src.filename, undefined, _labelSeconds(srcInfo.page_number));
+            cb(src.uuid, 0, src.filename, undefined, timeLabelSeconds(srcInfo.page_number) ?? 0);
           } else {
-            const pageNum = typeof srcInfo.page_number === "number" ? srcInfo.page_number : parseInt(String(srcInfo.page_number), 10) || 0;
             // Keyword and topic together name the passage to mark.
-            cb(src.uuid, pageNum, src.filename, [srcInfo.keyword, srcInfo.topic].filter(Boolean).join(" "));
+            cb(src.uuid, pageNumberOf(srcInfo.page_number), src.filename, [srcInfo.keyword, srcInfo.topic].filter(Boolean).join(" "));
           }
         }
       };
-      containerRef.current.addEventListener("pointerdown", onDown);
-      containerRef.current.addEventListener("pointerup", onUp);
-      nodeClickCleanupRef.current = () => {
-        containerRef.current?.removeEventListener("pointerdown", onDown);
-        containerRef.current?.removeEventListener("pointerup", onUp);
+      el.addEventListener("pointerdown", onDown);
+      el.addEventListener("pointerup", onUp);
+      removeListeners = () => {
+        el.removeEventListener("pointerdown", onDown);
+        el.removeEventListener("pointerup", onUp);
       };
 
       meInstanceRef.current = me;
     })();
 
+    // The element is captured, the ref is already empty when the viewer unmounts.
     return () => {
       cancelled = true;
-      nodeClickCleanupRef.current?.();
-      nodeClickCleanupRef.current = null;
-      if (meInstanceRef.current) {
-        try { meInstanceRef.current.destroy?.(); } catch { /* ignore */ }
+      removeListeners?.();
+      if (me) {
+        try { me.destroy?.(); } catch { /* ignore */ }
       }
-      meInstanceRef.current = null;
-      if (containerRef.current) containerRef.current.innerHTML = "";
+      if (meInstanceRef.current === me) meInstanceRef.current = null;
+      el.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mindmap, view, pickedSources]);
@@ -396,22 +350,8 @@ export function MindmapStudio({
             style={{ backgroundColor: "var(--surface-dim)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (() => {
-            const badge = _getToolBadge("Mindmap");
-            return (
-              <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
-                {breadcrumbs.map((b, i) => (
-                  <React.Fragment key={i}>
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 text-muted hover:text-kb transition-colors">{b.label}</button>
-                    <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
-                  </React.Fragment>
-                ))}
-                <button type="button" onClick={() => { if (fullscreen) void leaveFullscreen(); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tMm("title")}</button>
-                <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
-                <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>
-              </div>
-            );
-          })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>)}
+          <StudioViewerCrumbs toolKey="Mindmap" toolTitle={tMm("title")} activeTitle={activeTopicName} breadcrumbs={breadcrumbs}
+            onToolClick={() => { if (fullscreen) void leaveFullscreen(); setView("list"); }} />
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title={tMm("zoomOut")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -468,7 +408,7 @@ export function MindmapStudio({
               {(() => {
                 const eintraege = (pickedSources && pickedSources.length > 0)
                   ? pickedSources
-                  : Array.from(sourceIndexRef.current.entries())
+                  : Array.from(sourceIndexMap.entries())
                       .map(([filename, number]) => ({ number, filename }));
                 if (eintraege.length === 0) return null;
                 return (
@@ -480,7 +420,7 @@ export function MindmapStudio({
                 >
                   {eintraege.map((s) => (
                     <span key={s.number}
-                          className={`text-xs leading-snug text-[var(--muted)]${usedNamesRef.current.has(s.filename) ? "" : " opacity-60"}`}>
+                          className={`text-xs leading-snug text-[var(--muted)]${usedNames.has(s.filename) ? "" : " opacity-60"}`}>
                       [{s.number}] {s.filename}
                     </span>
                   ))}

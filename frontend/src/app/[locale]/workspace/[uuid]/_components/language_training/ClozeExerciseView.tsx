@@ -1,18 +1,14 @@
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseSet } from "../../_types";
 import { checkGap, type ClozeVerdict } from "./_cloze";
 import { SetSourceLegend } from "./SetSourceLegend";
+import { shuffled } from "./_shuffle";
+import { VERDICT_STYLE } from "./_verdictStyle";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 const PLACEHOLDER_RE = /\{\{(\d+)\}\}/g;
-
-const VERDICT_STYLE: Record<ClozeVerdict, { fg: string; bg: string }> = {
-  correct: { fg: "#1a8a5c", bg: "rgba(26,138,92,0.08)" },
-  close: { fg: "#b07d1a", bg: "rgba(176,125,26,0.10)" },
-  wrong: { fg: "#d4453a", bg: "rgba(212,69,58,0.07)" },
-};
 
 /** One set, one text, one button, checked in the browser. */
 export function ClozeExerciseView({
@@ -53,15 +49,11 @@ export function ClozeExerciseView({
   );
 
   // The chips are shuffled once per exercise so the order reveals nothing.
-  const chips = useMemo(() => {
-    const list = gaps.map((g, i) => ({ base: g.base, key: i }));
-    for (let i = list.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [list[i], list[j]] = [list[j], list[i]];
-    }
-    return list;
+  const chips = useMemo(
+    () => shuffled(gaps.map((g, i) => ({ base: g.base, key: i }))),
     // The exercise id is the stable key, not the object.
-  }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    [item?.id], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [struck, setStruck] = useState<Record<number, boolean>>({});

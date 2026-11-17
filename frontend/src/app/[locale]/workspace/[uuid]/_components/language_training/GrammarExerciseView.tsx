@@ -1,23 +1,16 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { CaretRight, Check, Minus, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseItem, ExerciseSet, GrammarCheckResult } from "../../_types";
+import type { BreadcrumbItem } from "../layout/SubviewHeader";
+import { ExerciseHeader } from "./ExerciseHeader";
 import { ExerciseNav } from "./ExerciseNav";
 import { SetSourceLegend, sourceNumbers } from "./SetSourceLegend";
-import { MinimizeContext } from "../../_context";
-import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { shuffleOptions } from "./_shuffle";
 import { ItemSourceChips } from "./ItemSourceChips";
-
-const TITLE_PREFIX_RE = /^(Grammatik-Übung|Grammar exercise)\s*(aus|von|from|of)\s*/i;
-
-const VERDICT_STYLE: Record<GrammarCheckResult["verdict"], { fg: string; bg: string }> = {
-  correct: { fg: "#1a8a5c", bg: "rgba(26,138,92,0.08)" },
-  close: { fg: "#b07d1a", bg: "rgba(176,125,26,0.10)" },
-  wrong: { fg: "#d4453a", bg: "rgba(212,69,58,0.07)" },
-};
+import { VERDICT_STYLE } from "./_verdictStyle";
 
 /** Four formats mixed, told apart only by whether the exercise has options. */
 export function GrammarExerciseView({
@@ -32,7 +25,6 @@ export function GrammarExerciseView({
   onFinish?: (correct: number, total: number) => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  const minimize = useContext(MinimizeContext);
 
   // Grammar sets keep their order, they are a numbered worksheet. Only the
   // options within a choice/cloze card are shuffled, once, so the answer
@@ -160,42 +152,7 @@ export function GrammarExerciseView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div data-panel-header="" className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-        <button type="button" onClick={onBack}
-          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-          style={{ backgroundColor: "var(--surface-dim)" }}>
-          <CaretLeft size={13} />
-        </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-1 text-xs min-w-0 flex-1">
-            {breadcrumbs.map((b, i) => {
-              const bBadge = _getToolBadge(b.toolKey, "language_training");
-              return (
-                <React.Fragment key={i}>
-                  {bBadge ? (
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ color: bBadge.color }}>{b.label}</button>
-                  ) : (
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>
-                  )}
-                  <CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
-                </React.Fragment>
-              );
-            })}
-            <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(TITLE_PREFIX_RE, "")}</span>
-          </div>
-        ) : (
-          <span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(TITLE_PREFIX_RE, "")}</span>
-        )}
-        {minimize && (
-          <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-            style={{ backgroundColor: "var(--surface-dim)" }}
-            title={t("common.minimizePanel")}>
-            <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
-          </button>
-        )}
-      </div>
+      <ExerciseHeader title={exerciseSet.title} breadcrumbs={breadcrumbs} badgeCategory="language_training" onBack={onBack} />
 
       {/* Progress */}
       <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
