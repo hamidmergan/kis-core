@@ -53,6 +53,15 @@ class UploadRule:
     precheck: Callable = field(default=lambda *a: None)
 
 
+# Every tool that takes large files registers its rule here, its own module does that on import.
+RULES: dict[str, UploadRule] = {}
+
+
+def register(tool: str, rule: UploadRule) -> None:
+    """Makes a tool known to the direct upload, a second call replaces the rule."""
+    RULES[tool] = rule
+
+
 # --- pure helpers --------------------------------------------------------------
 
 def part_count(size: int) -> int:
@@ -60,12 +69,17 @@ def part_count(size: int) -> int:
     return max(1, math.ceil(size / PART_SIZE))
 
 
+def part_length(number: int, size: int) -> int:
+    """Exact bytes of one part, every part is full except the last."""
+    count = part_count(size)
+    return PART_SIZE if number < count else size - PART_SIZE * (count - 1)
+
+
 def done_parts(parts: list[dict], size: int) -> list[int]:
     """Numbers of the parts that arrived completely, a cut-off last attempt is sent again."""
     count = part_count(size)
-    expected = {n: PART_SIZE for n in range(1, count)}
-    expected[count] = size - PART_SIZE * (count - 1)
-    return sorted(p["PartNumber"] for p in parts if expected.get(p["PartNumber"]) == p["Size"])
+    return sorted(p["PartNumber"] for p in parts
+                  if 1 <= p["PartNumber"] <= count and p["Size"] == part_length(p["PartNumber"], size))
 
 
 def parts_complete(parts: list[dict], size: int) -> bool:
@@ -172,7 +186,8 @@ def urls(token: str, numbers: list[int], user_id: int, locale: str) -> dict:
     count = part_count(session["size"])
     if session["done"] or any(n < 1 or n > count for n in numbers):
         raise HTTPException(status_code=400, detail=t("ai.source.uploadPartInvalid", locale))
-    return {"urls": {str(n): multipart_part_url(session["key"], session["upload_id"], n, PART_URL_SECONDS)
+    return {"urls": {str(n): multipart_part_url(session["key"], session["upload_id"], n, PART_URL_SECONDS,
+                                                part_length(n, session["size"]))
                      for n in numbers}}
 
 

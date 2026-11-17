@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { parseDetail } from "@/lib/api";
 import type { WorkspaceDetail, Source } from "../_types";
 import { classicUpload } from "./classicUpload";
-import { directUpload } from "./directUpload";
+import { forgetUpload, uploadFile } from "@/lib/directUpload";
 
 // From this size an upload fills a typical home uplink long enough to slow the page down.
 const LARGE_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -159,14 +159,28 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
         { failed: t("uploadFailed"), network: t("networkError") },
       );
       try {
-        const direct = await directUpload(
-          uuid,
+        // Large files go in parts straight into the bucket, the same core every tool uses.
+        const context = { workspace_uuid: uuid };
+        const token = await uploadFile({
+          tool: "aia",
           file,
-          (percent) => setUploadProgress({ current: i + 1, total: toUpload.length, percent, large: false }),
-          t("uploadFailed"),
-        );
-        if (direct) {
-          const placed = await placeInChapter(direct, chapterUuid);
+          context,
+          onPercent: (percent) => setUploadProgress({ current: i + 1, total: toUpload.length, percent, large: false }),
+          failedText: t("uploadFailed"),
+        });
+        if (token) {
+          const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/from-upload`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ upload_token: token }),
+          });
+          forgetUpload("aia", file, context);
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw Object.assign(new Error(parseDetail(body?.detail, t("uploadFailed"))), { status: res.status });
+          }
+          const placed = await placeInChapter((await res.json()) as Source, chapterUuid);
           setSources((prev) => [placed, ...prev]);
           continue;
         }

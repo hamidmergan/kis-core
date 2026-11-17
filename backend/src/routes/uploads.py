@@ -1,7 +1,7 @@
 """HTTP side of the direct uploads, one set of routes for every tool.
 
-The rules table says per tool which files fit and who may send them. A tool that takes
-large files gets one entry here and then accepts an upload token besides the classic file.
+Each tool registers its rule in services.direct_upload (which files fit, who may send them)
+and then accepts an upload token besides the classic file.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -10,15 +10,13 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import get_user_permissions, require_tool_access
 from src.i18n import get_locale, t
 from src.permissions import Permissions
-from src.security.rate_limit import check_upload_limit
+from src.security.rate_limit import check_upload_limit, record_upload
 from src.services import direct_upload as du
-from src.services.tool_limits import max_upload_bytes
-from src.utils.file_validation import TRANSCRIPTION_EXTENSIONS
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 
-def _tool_access(tool: str):
+def tool_access(tool: str):
     """The same check the tool's own routes run, so the upload grants nothing extra."""
     check = require_tool_access(tool)
 
@@ -27,14 +25,8 @@ def _tool_access(tool: str):
     return authorize
 
 
-# One entry per tool that takes files above the proxy limit.
-RULES: dict[str, du.UploadRule] = {
-    "transcription": du.UploadRule(TRANSCRIPTION_EXTENSIONS, lambda: max_upload_bytes(), _tool_access("transcription")),
-}
-
-
 def rule_for(tool: str, locale: str) -> du.UploadRule:
-    rule = RULES.get(tool)
+    rule = du.RULES.get(tool)
     if rule is None:
         raise HTTPException(status_code=403, detail=t("auth.toolForbidden", locale))
     return rule
@@ -66,8 +58,12 @@ async def start_upload(
     check_upload_limit(user_id, locale=locale)
     await _maybe_await(rule.precheck(current_user, body.context, body.filename, body.size, locale))
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-    return du.start(body.tool, rule, body.filename, body.size, user_id, body.context,
-                    request.headers.get("origin") or "", host, locale)
+    answer = du.start(body.tool, rule, body.filename, body.size, user_id, body.context,
+                      request.headers.get("origin") or "", host, locale)
+    # An opened upload counts like a classic one, so the hourly limit also caps open uploads.
+    if answer.get("direct"):
+        record_upload(user_id)
+    return answer
 
 
 @router.get("/{token}")

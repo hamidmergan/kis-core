@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 
 from ._upload import router as _upload_router
-from ._direct_upload import router as _direct_upload_router
+from ._from_upload import router as _from_upload_router
 from ._link import router as _link_router
 from ._youtube import router as _youtube_router
 from ._text import router as _text_router
@@ -16,7 +16,7 @@ from ._summary import router as _summary_router
 
 router = APIRouter()
 router.include_router(_upload_router)
-router.include_router(_direct_upload_router)
+router.include_router(_from_upload_router)
 router.include_router(_link_router)
 router.include_router(_youtube_router)
 router.include_router(_text_router)

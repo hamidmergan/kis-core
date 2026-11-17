@@ -23,6 +23,12 @@ from src.services.tool_limits import max_upload_bytes
 from src.dependencies_rbac import require_tool_access
 from src.routes._shared import enforce_upload_size, input_name, stage_input
 
+from src.routes.uploads import tool_access
+from src.services import direct_upload
+
+direct_upload.register("transcription", direct_upload.UploadRule(
+    TRANSCRIPTION_EXTENSIONS, lambda: max_upload_bytes(), tool_access("transcription")))
+
 router = APIRouter(
     tags=["transcription"],
     dependencies=[Depends(require_tool_access("transcription"))],

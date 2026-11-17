@@ -301,13 +301,13 @@ def multipart_start(key: str, content_type: str) -> str:
     )["UploadId"]
 
 
-def multipart_part_url(key: str, upload_id: str, part_number: int, expires_seconds: int) -> str:
-    """Signs one part for a PUT straight from the browser."""
-    url = _s3_public().generate_presigned_url(
-        "upload_part",
-        Params={"Bucket": _S3_BUCKET, "Key": key, "UploadId": upload_id, "PartNumber": part_number},
-        ExpiresIn=expires_seconds,
-    )
+def multipart_part_url(key: str, upload_id: str, part_number: int, expires_seconds: int,
+                       content_length: int | None = None) -> str:
+    """Signs one part for a PUT straight from the browser, with a length the bucket accepts only exactly."""
+    params = {"Bucket": _S3_BUCKET, "Key": key, "UploadId": upload_id, "PartNumber": part_number}
+    if content_length is not None:
+        params["ContentLength"] = content_length
+    url = _s3_public().generate_presigned_url("upload_part", Params=params, ExpiresIn=expires_seconds)
     if S3_UPLOAD_PROXY and url.startswith(_S3_PUBLIC_ENDPOINT):
         return S3_UPLOAD_PROXY + url[len(_S3_PUBLIC_ENDPOINT.rstrip("/")):]
     return url

@@ -4,6 +4,7 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
+import src.routes.transcription  # noqa: F401 - registers the transcription rule
 from src.routes import _shared
 from src.routes import uploads as routes
 from src.services import direct_upload as du
@@ -37,7 +38,7 @@ def bucket(monkeypatch):
     monkeypatch.setattr(du, "_redis", lambda: _FakeRedis(state["redis"]))
     monkeypatch.setattr(du, "ensure_upload_cors", lambda origin: state["cors"].append(origin))
     monkeypatch.setattr(du, "multipart_start", lambda key, ct: state["started"].append(key) or "up-1")
-    monkeypatch.setattr(du, "multipart_part_url", lambda key, uid, n, sec: f"https://bucket/{key}?part={n}")
+    monkeypatch.setattr(du, "multipart_part_url", lambda key, uid, n, sec, length: state.setdefault("signed", []).append((n, length)) or f"https://bucket/{key}?part={n}")
     monkeypatch.setattr(du, "multipart_parts", lambda key, uid: state["parts"])
     monkeypatch.setattr(du, "multipart_complete", lambda key, uid, parts: state["completed"].append(parts))
     monkeypatch.setattr(du, "multipart_abort", lambda key, uid: state["aborted"].append(key))
@@ -90,6 +91,11 @@ def test_same_site_origin_nur_bei_gleichem_host():
     assert du.same_site_origin("https://kis.example", "kis.example") == "https://kis.example"
     assert du.same_site_origin("https://evil.example", "kis.example") == ""
     assert du.same_site_origin("", "kis.example") == ""
+
+
+def test_teilgroesse_voll_bis_auf_den_letzten():
+    size = PART * 2 + 5
+    assert [du.part_length(n, size) for n in (1, 2, 3)] == [PART, PART, 5]
 
 
 def test_endung_ist_klein_und_mit_punkt():
@@ -148,6 +154,8 @@ def test_status_eines_verschwundenen_uploads_ist_404(bucket, monkeypatch):
 def test_urls_werden_pro_teil_signiert_und_falsche_nummern_abgelehnt(bucket):
     token = _start()["token"]
     assert set(du.urls(token, [1, 3], 42, "de")["urls"]) == {"1", "3"}
+    # The exact size of each part is signed, the bucket refuses anything else.
+    assert bucket["signed"] == [(1, PART), (3, 5)]
     for bad in ([0], [4]):
         with pytest.raises(HTTPException) as err:
             du.urls(token, bad, 42, "de")
