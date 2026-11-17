@@ -12,7 +12,7 @@ async function bisAnweisungen(page: Page, datei: string, jobs: string[], sprache
   await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
   await page.getByText("Datei hierher ziehen oder").waitFor({ timeout: 30_000 });
   await page.setInputFiles('input[type="file"][accept=".pptx"]', path.join(__dirname, datei));
-  await page.getByText("Übersetzung überspringen").click();
+  await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
   await page.locator('[role="combobox"]').first().click();
   await page.getByRole("option", { name: sprache, exact: true }).click();
   await page.getByRole("button", { name: "Weiter" }).click();

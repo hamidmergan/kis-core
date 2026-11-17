@@ -17,7 +17,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
     test.setTimeout(180_000);
     await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
 
-    await page.getByText("Präsentation bereits übersetzt", { exact: false }).click();
+    await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
     await page.setInputFiles('input[type="file"]', path.join(__dirname, "mini.pptx"));
 
     const hochgeladen = page.waitForResponse(

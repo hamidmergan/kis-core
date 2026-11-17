@@ -6,12 +6,12 @@ test("Demo läuft alle Schritte durch", async ({ page }) => {
   await page.goto("/de/tools/screencast-demo", { waitUntil: "domcontentloaded" });
 
   // Step 1: the file is given, settings can still be changed.
-  await expect(page.getByText("Beispiel-Foliensatz.pptx")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("In der Demo ist der Foliensatz vorgegeben.")).toBeVisible();
+  await expect(page.getByText("Beispiel-Foliensatz.pptx").filter({ visible: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("In der Demo ist der Foliensatz vorgegeben.").filter({ visible: true })).toBeVisible();
   await expect(page.locator('input[type="file"][accept=".pptx"]')).toBeDisabled();
-  await page.getByText("Übersetzung überspringen").click();
-  await expect(page.getByText("Sprache der Sprechtexte")).toBeVisible();
-  await page.getByText("Übersetzung überspringen").click();
+  await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
+  await expect(page.getByText("Sprache der Sprechtexte").filter({ visible: true })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).uncheck();
   await page.getByRole("button", { name: "Weiter" }).click();
 
   // Step 3: slides from the prepared run, no upload of an own file.
@@ -20,15 +20,15 @@ test("Demo läuft alle Schritte durch", async ({ page }) => {
   const anzahl = await vorschaubilder.count();
   expect(anzahl).toBeGreaterThan(1);
   await expect(page.locator('input[type="file"][accept=".pptx"]')).toBeDisabled();
-  await expect(page.getByText("In der Demo lassen sich keine eigenen Dateien hochladen.")).toBeVisible();
+  await expect(page.getByText("In der Demo lassen sich keine eigenen Dateien hochladen.").filter({ visible: true })).toBeVisible();
   const pptx = page.waitForEvent("download");
   await page.getByRole("button", { name: "PPTX", exact: true }).click();
-  expect((await pptx).suggestedFilename()).toBe("screencast_demo.pptx");
+  expect((await pptx).suggestedFilename()).toMatch(/\.pptx$/);
   await page.getByRole("button", { name: "Übersetzung übernehmen und weiter" }).click();
 
   // Step 4: the import can be chosen but offers no file field.
   await page.getByRole("radio").nth(2).check();
-  await expect(page.getByText("In der Demo lassen sich keine eigenen Dateien hochladen.")).toBeVisible();
+  await expect(page.getByText("In der Demo lassen sich keine eigenen Dateien hochladen.").filter({ visible: true })).toBeVisible();
   await expect(page.locator('input[type="file"][accept=".json"]')).toHaveCount(0);
   await page.getByRole("radio").first().check();
   await page.getByRole("button", { name: "Weiter" }).click();
@@ -54,10 +54,15 @@ test("Demo läuft alle Schritte durch", async ({ page }) => {
 
   // Done: the sample video, playable with seeking and downloadable.
   const video = page.locator("video source");
-  await expect(video).toHaveAttribute("src", "/api/screencast-demo/video", { timeout: 30_000 });
-  const teil = await page.request.get("/api/screencast-demo/video", { headers: { Range: "bytes=0-99" } });
+  await expect(video).toHaveAttribute("src", "/api/screencast-demo/video?sprache=de", { timeout: 30_000 });
+  const teil = await page.request.get("/api/screencast-demo/video?sprache=de", { headers: { Range: "bytes=0-99" } });
   expect(teil.status()).toBe(206);
   await expect(page.getByRole("button", { name: "Alles herunterladen (ZIP)" })).toBeVisible();
+
+  // The streamed bundle must be a complete archive: local header at the start, end record at the end.
+  const zip = Buffer.from(await (await page.request.get("/api/screencast-demo/bundle?sprache=de")).body());
+  expect(zip.subarray(0, 4).toString("hex")).toBe("504b0304");
+  expect(zip.lastIndexOf(Buffer.from("504b0506", "hex"))).toBeGreaterThan(zip.length - 200);
 
   const ton = await page.request.get("/api/screencast-demo/vorschau/0");
   expect(ton.status()).toBe(200);

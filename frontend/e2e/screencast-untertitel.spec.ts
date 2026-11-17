@@ -25,7 +25,7 @@ test("Einstellungen haben einen Haken fuer Untertitel", async ({ page }) => {
   }
   await page.reload({ waitUntil: "domcontentloaded" });
 
-  await page.getByText("Präsentation bereits übersetzt", { exact: false }).click();
+  await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
   await page.setInputFiles('input[type="file"]', path.join(__dirname, "mini.pptx"));
   await page.getByRole("button", { name: /Weiter/i }).click();
 

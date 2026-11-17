@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 test("Zielsprache bietet nur Deutsch und Englisch", async ({ page }) => {
   await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
 
-  const feld = page.getByText("Zielsprache", { exact: false }).first();
+  const feld = page.getByRole("combobox", { name: "Zielsprache" });
   await expect(feld).toBeVisible({ timeout: 30_000 });
 
   const auswahl = page.locator('[role="combobox"]').first();

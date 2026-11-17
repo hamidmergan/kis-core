@@ -19,7 +19,7 @@ test("Sprache nur am Anfang, Einstellungen übernehmen sie", async ({ page }) =>
     await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
     await page.getByText("Datei hierher ziehen oder").waitFor({ timeout: 30_000 });
     await page.setInputFiles('input[type="file"][accept=".pptx"]', path.join(__dirname, "mini.pptx"));
-    await page.getByText("Übersetzung überspringen").click();
+    await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
 
     await page.getByRole("combobox").first().click();
     const optionen = page.locator('[role="option"]');
@@ -33,7 +33,7 @@ test("Sprache nur am Anfang, Einstellungen übernehmen sie", async ({ page }) =>
     await page.getByRole("button", { name: "Weiter" }).click();
     await page.getByRole("button", { name: "Alle Skripte übernehmen" }).click();
 
-    await expect(page.getByText("Geschwindigkeit", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Pause zwischen Folien", { exact: false })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Sprache der Vertonung")).toHaveCount(0);
     await expect(page.locator("#sc-lang-select")).toHaveCount(0);
     await expect.poll(() => gespeichert.at(-1), { timeout: 10_000 }).toBe("DE");

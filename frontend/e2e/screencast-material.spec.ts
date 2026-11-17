@@ -29,7 +29,7 @@ test("Zusatzmaterial für die Skripte", async ({ page }) => {
     await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
     await page.getByText("Datei hierher ziehen oder").waitFor({ timeout: 30_000 });
     await page.setInputFiles('input[type="file"][accept=".pptx"]', path.join(__dirname, "mini.pptx"));
-    await page.getByText("Übersetzung überspringen").click();
+    await page.getByRole("checkbox", { name: "Übersetzung überspringen" }).check();
     await page.getByRole("button", { name: "Weiter" }).click();
 
     await expect(page.getByText("Zusätzliches Material (optional)")).toBeVisible({ timeout: 180_000 });
