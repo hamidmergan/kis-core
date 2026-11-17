@@ -7,6 +7,7 @@ import type { PanelKey, Source, ViewerState } from "../_types";
 interface UseViewerActionsOptions {
   workspaceUuid: string;
   sources: Source[];
+  selectedSourceIds: string[];
   setViewerSource: (v: ViewerState | null) => void;
   setPanels: React.Dispatch<React.SetStateAction<Record<PanelKey, boolean>>>;
   panels: Record<PanelKey, boolean>;
@@ -21,7 +22,7 @@ interface UseViewerActionsOptions {
 export function useViewerActions(opts: UseViewerActionsOptions) {
   const {
     workspaceUuid,
-    sources,
+    sources, selectedSourceIds,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
     chatSetInputRef, chatTextareaRef, sendChatMessage,
@@ -103,9 +104,24 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     if (isMobile) setActiveTab("quellen");
   }, [workspaceUuid, sources, setViewerSource, setPanels, isMobile, setActiveTab]);
 
+  // A glossary entry opens its source, without a file name the first chosen one.
+  const openGlossarySource = useCallback((filename: string | undefined, page: number, highlightText?: string, startTime?: number | null) => {
+    const src = (filename && sources.find((s) => s.filename === filename))
+      || sources.find((s) => selectedSourceIds.includes(s.uuid));
+    if (!src) return;
+    if (_isMediaFile(src.filename) && startTime != null) {
+      // Do not narrow the selection, otherwise a single source sticks on reload.
+      setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now(), youtubeId: _youtubeIdOf(src) });
+      setPanels((prev) => ({ ...prev, quellen: true }));
+    } else {
+      openViewer(src, page, highlightText, true);
+    }
+  }, [sources, selectedSourceIds, setViewerSource, setPanels, openViewer]);
+
   return {
     openViewer,
     closeViewer,
+    openGlossarySource,
     askWithSelection,
     askChat,
     customQuestion,

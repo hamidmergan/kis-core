@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { _formatApiError } from "../_utils";
 import type { Note } from "../_components/studio/NotesStudio";
@@ -21,6 +21,20 @@ export function useNotes({ uuid }: UseNotesOptions) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [pendingTitleIds, setPendingTitleIds] = useState<Set<number>>(new Set());
 
+  // False once the page is left, the title poll would otherwise ask on for two minutes.
+  const aliveRef = useRef(false);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  const loadNotes = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" });
+      if (res.ok) setNotes(await res.json());
+    } catch { /* the list stays as it is */ }
+  }, [uuid]);
+
   const pollForTitle = useCallback(async (noteId: number) => {
     setPendingTitleIds((prev) => { const next = new Set(prev); next.add(noteId); return next; });
     const clear = () => setPendingTitleIds((prev) => { const next = new Set(prev); next.delete(noteId); return next; });
@@ -28,6 +42,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
     const delays = [2000, 3000, 4000, 6000, 10000, 15000, 25000, 25000, 30000];
     for (const wait of delays) {
       await new Promise((r) => setTimeout(r, wait));
+      if (!aliveRef.current) return;
       try {
         const r = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" });
         if (!r.ok) continue;
@@ -66,7 +81,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
       setNotes((prev) => [note, ...prev]);
       if (autoTitle && !note.title) pollForTitle(note.id);
     } catch { /* ignore */ }
-  }, [uuid, pollForTitle]);
+  }, [uuid, pollForTitle, t]);
 
   const deleteNote = useCallback(async (noteId: number) => {
     try {
@@ -78,22 +93,25 @@ export function useNotes({ uuid }: UseNotesOptions) {
   }, [uuid]);
 
   const updateNoteTitle = useCallback(async (noteId: number, title: string | null) => {
-    const prev = notes;
-    setNotes((cur) => cur.map((n) => n.id === noteId ? { ...n, title } : n));
+    // Only this title goes back on a failure, notes added in the meantime stay.
+    const before = notes.find((n) => n.id === noteId)?.title ?? null;
+    const setTitle = (value: string | null) =>
+      setNotes((cur) => cur.map((n) => n.id === noteId ? { ...n, title: value } : n));
+    setTitle(title);
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes/${noteId}/title`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       });
-      if (!res.ok) setNotes(prev);
+      if (!res.ok) setTitle(before);
     } catch {
-      setNotes(prev);
+      setTitle(before);
     }
   }, [uuid, notes]);
 
   return {
-    notes, setNotes,
+    notes, setNotes, loadNotes,
     pendingTitleIds,
     addNote, deleteNote, updateNoteTitle,
   };

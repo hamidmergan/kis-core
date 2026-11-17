@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
+import { parseDetail } from "@/lib/api";
 import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX, type KiTutorWorkspace } from "../_shared";
 
 interface CreateWorkspaceModalProps {
@@ -36,7 +37,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? t("createError"));
+        throw new Error(parseDetail(err.detail, t("createError")));
       }
       const created = await res.json();
       onCreated({
@@ -50,8 +51,6 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
         shared: false,
         is_favorite: false,
         access_links: created.access_links ?? [],
-        enroll_code: created.enroll_code ?? null,
-        enroll_code_expires: created.enroll_code_expires ?? null,
         created_at: new Date().toISOString(),
       });
       onClose();

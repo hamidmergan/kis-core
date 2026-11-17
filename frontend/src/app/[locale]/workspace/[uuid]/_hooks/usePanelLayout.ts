@@ -8,6 +8,11 @@ import type { PanelKey, ViewerState } from "../_types";
 
 const MIN_PANEL = 50;
 const MOBILE_BREAKPOINT = 768;
+const COLLAPSED_STYLE: React.CSSProperties = { width: 48, flexShrink: 0, flexGrow: 0 };
+
+function panelStyle(open: boolean, width: number, minWidth: number): React.CSSProperties {
+  return open ? { flex: `1 1 ${width}px`, minWidth, overflow: "hidden" } : COLLAPSED_STYLE;
+}
 
 // Phones always get the single column, detected by device instead of window width.
 function isPhoneUA(): boolean {
@@ -104,6 +109,12 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     });
   }, []);
 
+  // Brings one panel forward, as a tab on a phone and as an open column otherwise.
+  const showPanel = useCallback((key: PanelKey) => {
+    if (isMobile) setActiveTab(key);
+    else setPanels((prev) => ({ ...prev, [key]: true }));
+  }, [isMobile]);
+
   const focusPanel = useCallback((key: PanelKey, visible: PanelKey[]) => {
     const next = nextFocusLayout(panelsRef.current, key, layoutBeforeFocusRef.current, visible);
     layoutBeforeFocusRef.current = next.saved;
@@ -185,10 +196,13 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
 
   return {
     panels, setPanels,
-    p1Width, p2Width, p3Width,
+    p1Style: panelStyle(panels.quellen, p1Width, 200),
+    p2Style: panelStyle(panels.chat, p2Width, MIN_PANEL),
+    p3Style: panelStyle(panels.studio, p3Width, 200),
+    canDrag: Object.values(panels).filter(Boolean).length >= 2,
     activeTab, setActiveTab,
     isMobile,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
-    togglePanel, focusPanel, startDrag,
+    togglePanel, showPanel, focusPanel, startDrag,
   };
 }

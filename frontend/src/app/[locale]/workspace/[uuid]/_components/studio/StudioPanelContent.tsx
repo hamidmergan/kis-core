@@ -87,8 +87,6 @@ interface StudioPanelContentProps {
   // Panel-Kontext
   onMinimize: () => void;
   hideHeader: boolean;
-  /** No longer read here, the page still passes it. */
-  chatLang?: "de" | "en";
 }
 
 export function StudioPanelContent(props: StudioPanelContentProps) {

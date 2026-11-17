@@ -1,24 +1,19 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { Lock } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { Link } from "@/i18n/navigation";
 import { isFullAdmin } from "@/lib/permissions";
 
 import type {
-  WorkspaceDetail,
   ViewerState,
   StudioView,
   LanguageTrainingView,
   StaffNoteLink,
 } from "./_types";
-import { _isMediaFile, _youtubeIdOf } from "./_utils";
+import { _isMediaFile } from "./_utils";
 import { NOTE_BODY_MAX } from "./_constants";
 import { readYoutubeConsent, writeYoutubeConsent } from "@/lib/youtubeConsent";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
@@ -34,6 +29,10 @@ import { useStats } from "./_hooks/useStats";
 import { useViewerActions } from "./_hooks/useViewerActions";
 import { useWorkspaceInit } from "./_hooks/useWorkspaceInit";
 import { useStudioNavigation } from "./_hooks/useStudioNavigation";
+import { useWorkspaceDetail } from "./_hooks/useWorkspaceDetail";
+import { usePersistWorkspaceSettings, useWorkspaceSettings } from "./_hooks/useWorkspaceSettings";
+import { useLanguageTrainingVisible } from "./_hooks/useLanguageTrainingVisible";
+import { useScheduleDeepLink, useStudioTabs } from "./_hooks/useStudioTabs";
 
 // Lightweight components needed on initial render
 import { SourcesPanel } from "./_components/sources/SourcesPanel";
@@ -43,8 +42,8 @@ import { GlossaryView } from "./_components/language_training/GlossaryView";
 import { WorkspaceTopbar } from "./_components/layout/WorkspaceTopbar";
 import { OwnerPreviewProvider } from "./_components/layout/OwnerOnly";
 import { resolvePreview } from "./_preview";
-import { useTour } from "./_tour/useTour";
-import type { TourAktionen } from "./_tour/demoSteps";
+import { useWorkspaceTour } from "./_tour/useWorkspaceTour";
+import { LoadingScreen, LockedScreen } from "./_screens";
 import { WorkspacePanelsLayout } from "./_components/layout/WorkspacePanelsLayout";
 import { StudioPanelContent } from "./_components/studio/StudioPanelContent";
 import { LanguageTrainingContent } from "./_components/language_training/LanguageTrainingContent";
@@ -56,21 +55,23 @@ const PdfViewer = dynamic(() => import("./_components/viewer/PdfViewer").then((m
 const MediaPlayer = dynamic(() => import("./_components/viewer/MediaPlayer").then((m) => ({ default: m.MediaPlayer })), { loading: dynamicLoader, ssr: false });
 const NotesStudio = dynamic(() => import("./_components/studio/NotesStudio").then((m) => ({ default: m.NotesStudio })), { loading: dynamicLoader, ssr: false });
 
+// One array for every render without links, a fresh one would re-render the topbar's note editor.
+const NO_STAFF_NOTE_LINKS: StaffNoteLink[] = [];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function KiTutorWorkspacePage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const tClosed = useTranslations("workspace.detail.closed");
   const uuid = params.uuid as string;
   const enrollmentId = searchParams.get("eid") ? Number(searchParams.get("eid")) : null;
   const initialTab = searchParams.get("tab");
 
-  const [moduleDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
-  // auth + initialized come from useWorkspaceInit (after all source/chat hooks)
-
-  // Comes after viewerSource because the hook needs it as input.
+  const {
+    moduleDetail, setWorkspaceDetail,
+    saveStaffNote: handleStaffNoteSave,
+    toggleActive: handleToggleActive,
+  } = useWorkspaceDetail(uuid);
 
   const {
     sources, setSources,
@@ -88,7 +89,7 @@ export default function KiTutorWorkspacePage() {
     addPage: handleAddPage,
     addText: handleAddText,
     editText: handleEditText,
-  } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
+  } = useSources({ uuid, onModuleUpdate: setWorkspaceDetail });
 
   // Chapters only structure the list, the selection stays the file's checkbox.
   const {
@@ -115,89 +116,35 @@ export default function KiTutorWorkspacePage() {
 
   const {
     panels, setPanels,
-    p1Width, p2Width, p3Width,
+    p1Style, p2Style, p3Style, canDrag,
     activeTab, setActiveTab,
     isMobile,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
-    togglePanel, focusPanel, startDrag,
+    togglePanel, showPanel, focusPanel, startDrag,
   } = usePanelLayout({ uuid, viewerSource });
 
-  const [chatLang, setChatLang] = useState<"de" | "en">("de");
-  // Target language of the selection bar translation, per reading person.
-  const [popupTranslateLang, setPopupTranslateLang] = useState<string>("en");
+  const settings = useWorkspaceSettings();
+  const { studioEnabled, setStudioEnabled, popupTranslateLang, setPopupTranslateLang } = settings;
 
-  const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang });
   const {
-    messages, setMessages,
+    messages,
     chatLoading, popupActions,
-    chatTextareaRef,
+    chatTextareaRef, chatSetInputRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage, stopChat, retryLast,
-    chatSetInputRef,
-  } = chat;
+    loadMessages, clearMessages, sendChatMessage, stopChat, retryLast,
+  } = useChat({ uuid, enrollmentId, selectedSourceIds, popupTranslateLang });
 
   const [showSettings, setShowSettings] = useState(false);
   // null means nobody pressed the switch yet, then the default per course counts.
   const [previewOverride, setPreviewOverride] = useState<boolean | null>(null);
-  const { start: startTour } = useTour();
-
-
-  const [studioEnabled, setStudioEnabled] = useState(true);
-  // Ready means offered to this person, switched on and a stored level, all from /api/me.
-  const [language_trainingVisible, setLanguageTrainingVisible] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        setLanguageTrainingVisible(
-          data.language_training_enabled === true
-            && data.language_training_active === true
-            && typeof data.language_level === "string",
-        );
-      })
-      .catch(() => { /* ignore */ });
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
-    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ staff_note_text: text, staff_note_links: links }),
-    });
-    if (!res.ok) throw new Error("save failed");
-    setWorkspaceDetail((prev) => (prev ? { ...prev, staff_note_text: text, staff_note_links: links } : prev));
-  };
-  // The share window flips this, so the module list is not the only way in.
-  const handleToggleActive = async (newVal: boolean) => {
-    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: newVal }),
-    });
-    if (!res.ok) return;
-    setWorkspaceDetail((prev) => (prev ? { ...prev, is_active: newVal } : prev));
-  };
-  // popupActions from useChat
+  const language_trainingVisible = useLanguageTrainingVisible();
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const mm = useMindmap({ uuid, selectedSourceIds });
-  const selectMindmap = mm.select;
-
   const dt = useDataTable({ uuid, selectedSourceIds });
-  const selectDataTable = dt.select;
-  const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
+  const { notes, setNotes, loadNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
+  const { studioTabRequest, clearStudioTabRequest, openStudioTab } = useStudioTabs(showPanel);
 
-  // A one-off tab wish, it has to be cleared or it pulls back on every mount.
-  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null>(null);
-  const clearStudioTabRequest = useCallback(() => setStudioTabRequest(null), []);
-  // Language training state: see useLanguageTraining (init after selectedSourceIds)
-
-  // ─── Exercise sets state ─────────────────────────────────────────────────
   const ex = useExercises({ uuid });
   const {
     exerciseSets, activeSet, setActiveSet,
@@ -205,12 +152,10 @@ export default function KiTutorWorkspacePage() {
     loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet, renameExerciseSet,
     retryExerciseSet, downloadExerciseSet, submitSingleAnswer, watchExerciseSets,
   } = ex;
-  // statsVersion and glossaryCount come from the hooks below.
 
   // The start page invitation lands directly in the tour; handled here too, since without enrolment the first fetch below rejects the person before the tour starts.
   const tourAngefordert = searchParams.get("tour") === "1";
 
-  // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
   const { auth, initialized, locked } = useWorkspaceInit({
     uuid,
     tourAngefordert,
@@ -219,93 +164,30 @@ export default function KiTutorWorkspacePage() {
     setWorkspaceDetail,
     setNotes,
     loadMessages,
-    onSettingsLoaded: (s) => {
-      setChatLang(s.chat_lang);
-      setStudioEnabled(s.studio_enabled);
-      setPopupTranslateLang(s.popup_translate_lang);
-    },
+    onSettingsLoaded: settings.applyLoaded,
   });
+  usePersistWorkspaceSettings(uuid, initialized, settings);
 
   const { statsVersion, loadStreak, bumpStats } = useStats({ uuid, initialized });
-
-  // The demo module tour drives the UI itself; its handles are defined further down, hence the ref.
-  const tourAktionenRef = useRef<TourAktionen | null>(null);
-  const istDemoModul = moduleDetail?.is_demo_workspace ?? false;
-  const istDemoModulRef = useRef(istDemoModul);
-  istDemoModulRef.current = istDemoModul;
-  // Without the right to create modules there is no teacher preview and no tour steps pointing at its buttons.
-  const darfModuleAnlegen = auth?.permissions?.allow_workspace_create ?? false;
-  const darfModuleAnlegenRef = useRef(darfModuleAnlegen);
-  darfModuleAnlegenRef.current = darfModuleAnlegen;
-  const starteRundgang = useCallback(() => {
-    startTour({
-      demo: istDemoModulRef.current,
-      aktionen: tourAktionenRef.current ?? undefined,
-      workspaceUuid: uuid,
-      darfModuleAnlegen: darfModuleAnlegenRef.current,
-    });
-  }, [startTour, uuid]);
-
-  const tourGestartet = useRef(false);
-  useEffect(() => {
-    if (!initialized || !tourAngefordert || tourGestartet.current) return;
-    tourGestartet.current = true;
-    // The panels need a moment, otherwise the first step points at nothing.
-    const timer = window.setTimeout(() => {
-      starteRundgang();
-      // Remove the flag from the URL only now, otherwise every reload restarts the tour and an earlier access clears the start timer.
-      const url = new URL(window.location.href);
-      url.searchParams.delete("tour");
-      window.history.replaceState({}, "", url.toString());
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [initialized, tourAngefordert, starteRundgang]);
 
   // Reset mobile tab if studio is disabled
   useEffect(() => {
     if (!studioEnabled && activeTab === "studio") setActiveTab("chat");
   }, [studioEnabled, activeTab]);
 
-  // Jump from the calendar straight to the schedule, once via a ref.
-  const tabDeepLinkHandledRef = useRef(false);
-  useEffect(() => {
-    if (tabDeepLinkHandledRef.current) return;
-    if (!initialized || initialTab !== "schedule" || !studioEnabled) return;
-    tabDeepLinkHandledRef.current = true;
-    setStudioTabRequest({ tab: "schedule", nonce: Date.now() });
-    if (isMobile) setActiveTab("studio");
-    else setPanels((prev) => ({ ...prev, studio: true }));
-    const url = new URL(window.location.href);
-    url.searchParams.delete("tab");
-    window.history.replaceState({}, "", url.toString());
-  }, [initialized, initialTab, studioEnabled, isMobile, setActiveTab, setPanels]);
+  useScheduleDeepLink({ ready: initialized && studioEnabled, initialTab, openStudioTab });
 
-  // Persist settings to DB (only after init to avoid overwriting with defaults)
-  useEffect(() => {
-    if (!initialized) return;
-    fetch(`/api/ai-assistant/workspaces/${uuid}/settings`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_lang: chatLang,
-        studio_enabled: studioEnabled,
-        popup_translate_lang: popupTranslateLang,
-      }),
-    }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, popupTranslateLang, initialized, uuid]);
-
-  // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
     openViewer: handleOpenViewer,
     closeViewer: handleCloseViewer,
+    openGlossarySource: handleOpenGlossarySource,
     askWithSelection: handleAskWithSelection,
     askChat: handleAskChat,
     customQuestion: handleCustomQuestion,
     pillClick: handlePillClick,
   } = useViewerActions({
     workspaceUuid: uuid,
-    sources,
+    sources, selectedSourceIds,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
     chatSetInputRef, chatTextareaRef, sendChatMessage,
@@ -315,9 +197,7 @@ export default function KiTutorWorkspacePage() {
   async function handleAddToGlossary(text: string, sourceUuid: string, page: number) {
     setSprachView("overview");
     setStudioView("overview");
-    setStudioTabRequest({ tab: "glossary", nonce: Date.now() });
-    if (isMobile) setActiveTab("studio");
-    else setPanels((prev) => ({ ...prev, studio: true }));
+    openStudioTab("glossary");
     await extractGlossary(text, sourceUuid, page);
   }
 
@@ -328,9 +208,7 @@ export default function KiTutorWorkspacePage() {
     const truncated = text.length > bodyBudget ? text.slice(0, bodyBudget - 1) + "…" : text;
     setSprachView("overview");
     setStudioView("overview");
-    setStudioTabRequest({ tab: "notes", nonce: Date.now() });
-    if (isMobile) setActiveTab("studio");
-    else setPanels((prev) => ({ ...prev, studio: true }));
+    openStudioTab("notes");
     await addNote(
       truncated + citation,
       [sourceUuid],
@@ -338,68 +216,13 @@ export default function KiTutorWorkspacePage() {
     );
   }
 
-  // ─── Language training functions (from useLanguageTraining) ──────────────
-  const spr = useLanguageTraining({ uuid });
   const {
     langTrainingView, setSprachView,
     glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
-  } = spr;
-
-  // What the guided tour is allowed to do: open, tick, switch. It never sends.
-  const quelleNachName = (dateiPraefix: string) =>
-    sources.find((s) => s.filename.startsWith(dateiPraefix));
-  tourAktionenRef.current = {
-    nurWaehlen: (dateiPraefix) => {
-      const quelle = quelleNachName(dateiPraefix);
-      if (!quelle) return;
-      // A row inside a folded chapter is not on the page, so its chapter opens first.
-      if (quelle.chapter_uuid) openChapter(quelle.chapter_uuid);
-      setSelectedSourceIds([quelle.uuid]);
-    },
-    oeffnen: (dateiPraefix) => {
-      const quelle = quelleNachName(dateiPraefix);
-      if (quelle) handleOpenViewer(quelle);
-    },
-    studioReiter: (reiter) => {
-      setStudioView("overview");
-      setStudioTabRequest({ tab: reiter, nonce: Date.now() });
-      if (isMobile) setActiveTab("studio");
-      else setPanels((prev) => ({ ...prev, studio: true }));
-    },
-    materialListe: () => {
-      // The panel shows either the list or an opened viewer, the list needs both closed.
-      handleCloseViewer();
-      if (isMobile) setActiveTab("quellen");
-      else setPanels((prev) => ({ ...prev, quellen: true }));
-    },
-    beispieleLaden: () => {
-      void loadGlossary();
-      void loadGlossaryCount();
-      // Tools and exercise history are also created only after the page has rendered.
-      bumpStats();
-      void loadStreak();
-      fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((frisch) => { if (frisch) setNotes(frisch); })
-        .catch(() => { /* Without the examples the areas simply stay empty. */ });
-    },
-    chatBeispielZeigen: () => {
-      // On narrow screens the studio still covers the chat from the step before.
-      if (isMobile) setActiveTab("chat");
-      else setPanels((prev) => ({ ...prev, chat: true }));
-      fetch("/api/ai-assistant/demo/tour-chat-example", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_uuid: uuid }),
-      })
-        .then(() => loadMessages())
-        .catch(() => { /* Without the example the chat stays empty, not an error. */ });
-    },
-  };
+  } = useLanguageTraining({ uuid });
 
   // Studio navigation (see useStudioNavigation)
   const {
@@ -409,13 +232,24 @@ export default function KiTutorWorkspacePage() {
   } = useStudioNavigation({
     studioView, setStudioView, setSprachView,
     loadExerciseSets, loadExerciseSet,
-    selectMindmap, selectDataTable,
+    selectMindmap: mm.select, selectDataTable: dt.select,
     loadStreak, bumpStats,
   });
 
+  // Without the right to create modules there is no teacher preview and no tour steps pointing at its buttons.
+  const darfModuleAnlegen = auth?.permissions?.allow_workspace_create ?? false;
+  const { starteRundgang } = useWorkspaceTour({
+    uuid, initialized, tourAngefordert,
+    istDemoModul: moduleDetail?.is_demo_workspace ?? false,
+    darfModuleAnlegen,
+    sources, openChapter, setSelectedSourceIds,
+    openViewer: handleOpenViewer, closeViewer: handleCloseViewer,
+    setStudioView, openStudioTab, showPanel,
+    loadGlossary, loadGlossaryCount, loadNotes, loadMessages, loadStreak, bumpStats,
+  });
+
   // All chosen sources, the backend spreads the budget over every one of them.
-  const setSourceUuids = selectedSourceIds;
-  const selectedSourcesForSet = setSourceUuids
+  const selectedSourcesForSet = selectedSourceIds
     .map((id) => sources.find((s) => s.uuid === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))
     .map((s) => ({ uuid: s.uuid, filename: s.filename }));
@@ -447,7 +281,6 @@ export default function KiTutorWorkspacePage() {
       refreshProgress={refreshProgress}
       handleAskChat={handleAskChat}
       handlePillClick={handlePillClick}
-      chatLang={chatLang}
     />
   );
 
@@ -455,18 +288,7 @@ export default function KiTutorWorkspacePage() {
     <GlossaryView
       entries={glossary}
       extracting={glossaryExtracting}
-      onOpenSource={(filename, page, highlightText, startTime) => {
-        const src = (filename && sources.find((s) => s.filename === filename))
-          || sources.find((s) => selectedSourceIds.includes(s.uuid));
-        if (!src) return;
-        if (_isMediaFile(src.filename) && startTime != null) {
-          // Do not narrow the selection, otherwise a single source sticks on reload.
-          setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now(), youtubeId: _youtubeIdOf(src) });
-          setPanels((prev) => ({ ...prev, quellen: true }));
-        } else {
-          handleOpenViewer(src, page, highlightText, true);
-        }
-      }}
+      onOpenSource={handleOpenGlossarySource}
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
       showTranslation={language_trainingVisible}
@@ -497,26 +319,8 @@ export default function KiTutorWorkspacePage() {
     darfModuleAnlegen,
     override: previewOverride,
   });
-  // An opened source does not switch the others off.
-  const activeSourceIds = selectedSourceIds;
-
-  const p1Style: React.CSSProperties = panels.quellen
-    ? { flex: `1 1 ${p1Width}px`, minWidth: 200, overflow: "hidden" }
-    : { width: 48, flexShrink: 0, flexGrow: 0 };
-
-  const p2Style: React.CSSProperties = panels.chat
-    ? { flex: `1 1 ${p2Width}px`, minWidth: 50, overflow: "hidden" }
-    : { width: 48, flexShrink: 0, flexGrow: 0 };
-
-  const p3Style: React.CSSProperties = panels.studio
-    ? { flex: `1 1 ${p3Width}px`, minWidth: 200, overflow: "hidden" }
-    : { width: 48, flexShrink: 0, flexGrow: 0 };
-
-  const openCount = [panels.quellen, panels.chat, panels.studio].filter(Boolean).length;
-  const canDrag = openCount >= 2;
-
   // Studio panel content (mobile + desktop identical, only the panel context differs)
-  const renderStudioPanel = (onMinimize: () => void, hideHeader = false) => (
+  const renderStudioPanel = ({ onMinimize, hideHeader }: { onMinimize: () => void; hideHeader: boolean }) => (
     <div data-tour="studio-panel" className="h-full flex flex-col min-h-0">
     <StudioPanelContent
       studioView={studioView}
@@ -549,7 +353,6 @@ export default function KiTutorWorkspacePage() {
       consumeDataTableViewerOpen={consumeDataTableViewerOpen}
       onMinimize={onMinimize}
       hideHeader={hideHeader}
-      chatLang={chatLang}
     />
     </div>
   );
@@ -606,21 +409,15 @@ export default function KiTutorWorkspacePage() {
     return (
       <ChatPanel
         messages={messages}
-        activeSourceIds={activeSourceIds}
+        activeSourceIds={selectedSourceIds}
         sources={sources}
         isAdmin={isFullAdminUser}
         popupActions={popupActions}
         loading={chatLoading}
         onSend={(v) => sendChatMessage(v)}
         onStop={stopChat}
-        onSendPrompt={(text) => sendChatMessage(text)}
         onPillClick={handlePillClick}
-        moduleReady={moduleDetail?.status === "ready"}
-        onClear={() => {
-          const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-          fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
-          setMessages([]);
-        }}
+        onClear={clearMessages}
         externalTextareaRef={chatTextareaRef}
         onSaveNote={addNote}
         onRetry={retryLast}
@@ -631,45 +428,8 @@ export default function KiTutorWorkspacePage() {
     );
   };
 
-  // The course is inactive, the page says so and offers the way back.
-  if (locked) {
-    return (
-      <ProtectedRoute>
-        <div className="aia-scale flex flex-col overflow-hidden viewport-shell">
-          <Header showLogout />
-          <div className="flex-1 flex items-center justify-center px-6">
-            <div
-              className="max-w-md w-full rounded-xl p-8 text-center"
-              style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-            >
-              <Lock size={32} weight="fill" className="mx-auto mb-4" style={{ color: "var(--muted)" }} />
-              <h1 className="text-lg font-semibold mb-2" style={{ color: "var(--foreground)" }}>
-                {tClosed("title")}
-              </h1>
-              <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-                {tClosed("text")}
-              </p>
-              <Link href="/workspace" className="btn-primary inline-block px-6 py-2.5 rounded-lg text-sm font-medium">
-                {tClosed("back")}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
-  }
-
-  if (!initialized) {
-    return (
-      <ProtectedRoute>
-        <div className="aia-scale flex flex-col overflow-hidden viewport-shell">
-          <div className="flex-1 flex items-center justify-center">
-            <Spinner size="lg" />
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
-  }
+  if (locked) return <LockedScreen />;
+  if (!initialized) return <LoadingScreen />;
 
   return (
     <ProtectedRoute>
@@ -686,7 +446,7 @@ export default function KiTutorWorkspacePage() {
           onTogglePreview={() => setPreviewOverride(!previewOn)}
           isOwner={isOwner}
           staffNoteText={moduleDetail?.staff_note_text ?? null}
-          staffNoteLinks={moduleDetail?.staff_note_links ?? []}
+          staffNoteLinks={moduleDetail?.staff_note_links ?? NO_STAFF_NOTE_LINKS}
           onStaffNoteSave={handleStaffNoteSave}
           canManage={isOwner}
           workspaceUuid={uuid}
@@ -725,7 +485,7 @@ export default function KiTutorWorkspacePage() {
           startDrag={startDrag}
           renderQuellen={renderQuellenContent}
           renderChat={renderChatContent}
-          renderStudio={({ onMinimize, hideHeader }) => renderStudioPanel(onMinimize, hideHeader)}
+          renderStudio={renderStudioPanel}
         />
       </div>
       {/* Create Set Modal */}
@@ -752,7 +512,7 @@ export default function KiTutorWorkspacePage() {
             await createExerciseSet(
               createSetTool, mode, count,
               // The card path needs the sources too, the text comes from them.
-              mode === "glossary" ? undefined : setSourceUuids,
+              mode === "glossary" ? undefined : selectedSourceIds,
               grammarTopicId,
               grammarKinds,
               flashcardSetId,

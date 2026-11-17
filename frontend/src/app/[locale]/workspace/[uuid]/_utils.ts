@@ -1,5 +1,4 @@
 import { BookOpenText, FilePdf, FileDoc, FileVideo, FileAudio, YoutubeLogo } from "@phosphor-icons/react";
-import type { LernKarte, QuizQuestion } from "./_types";
 import { isYoutubeSource, youtubeVideoId } from "@/lib/youtube";
 
 const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"]);
@@ -191,39 +190,4 @@ export function _chunkLabel(
 /** Where a page source opens, at the cited section when there is one. */
 export function _pageSourceHref(workspaceUuid: string, sourceUuid: string, section?: number): string {
   return `/workspace/${workspaceUuid}/page/${sourceUuid}${section ? `?abschnitt=${section}` : ""}`;
-}
-
-export function parseFlashcards(text: string): LernKarte[] {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  const karten: LernKarte[] = [];
-  for (const line of lines) {
-    const sepIdx = line.indexOf(" | ");
-    if (sepIdx !== -1) {
-      const front = line.slice(0, sepIdx).replace(/^\d+[.)]\s*/, "").trim();
-      const back = line.slice(sepIdx + 3).trim();
-      if (front && back) karten.push({ front, back });
-    }
-  }
-  return karten;
-}
-
-export function parseQuiz(text: string): QuizQuestion[] {
-  const questions: QuizQuestion[] = [];
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  let current: { question: string; options: string[]; correct: number } | null = null;
-  for (const line of lines) {
-    const qMatch = line.match(/^\d+[.)]\s+(.+)$/);
-    const optMatch = line.match(/^[A-Da-d][.)]\s+(.+)$/);
-    if (qMatch) {
-      if (current && current.options.length > 0) questions.push(current);
-      current = { question: qMatch[1], options: [], correct: 0 };
-    } else if (optMatch && current) {
-      const isCorrect = line.includes("✓") || line.includes("(richtig)");
-      const optText = optMatch[1].replace(/✓|\(richtig\)/g, "").trim();
-      if (isCorrect) current.correct = current.options.length;
-      current.options.push(optText);
-    }
-  }
-  if (current && current.options.length > 0) questions.push(current);
-  return questions;
 }

@@ -40,10 +40,17 @@ export interface KiTutorWorkspace {
   enrolled_until?: string | null;
   /** Joined through the demo, not through a real link. */
   via_demo?: boolean;
-  // Legacy
-  enroll_code: string | null;
-  enroll_code_expires: string | null;
   created_at: string | null;
+}
+
+/** A day as 31.12.2026 or 12/31/2026, read in the university's time zone. */
+export function formatDay(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Berlin",
+  });
 }
 
 export const MAX_ACCESS_LINKS = 10;

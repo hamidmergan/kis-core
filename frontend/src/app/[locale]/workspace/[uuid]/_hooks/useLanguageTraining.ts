@@ -24,6 +24,10 @@ export function useLanguageTraining({ uuid }: UseLanguageTrainingOptions) {
     glossaryFeedbackTimerRef.current = setTimeout(() => setGlossaryFeedback(null), 6000);
   }, []);
 
+  useEffect(() => () => {
+    if (glossaryFeedbackTimerRef.current) clearTimeout(glossaryFeedbackTimerRef.current);
+  }, []);
+
   const dismissFeedback = useCallback(() => {
     if (glossaryFeedbackTimerRef.current) clearTimeout(glossaryFeedbackTimerRef.current);
     setGlossaryFeedback(null);
@@ -59,9 +63,11 @@ export function useLanguageTraining({ uuid }: UseLanguageTrainingOptions) {
 
   const deleteGlossaryEntry = useCallback(async (entryId: number) => {
     try {
-      await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/${entryId}`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/${entryId}`, {
         method: "DELETE", credentials: "include",
       });
+      // A refused delete leaves the entry in the list.
+      if (!res.ok) return;
       setGlossary((prev) => prev.filter((e) => e.id !== entryId));
       loadGlossaryCount();
     } catch { /* ignore */ }
@@ -69,9 +75,10 @@ export function useLanguageTraining({ uuid }: UseLanguageTrainingOptions) {
 
   const deleteAllGlossaryEntries = useCallback(async () => {
     try {
-      await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, {
         method: "DELETE", credentials: "include",
       });
+      if (!res.ok) return;
       setGlossary([]);
       loadGlossaryCount();
     } catch { /* ignore */ }
@@ -103,13 +110,13 @@ export function useLanguageTraining({ uuid }: UseLanguageTrainingOptions) {
     } finally {
       setGlossaryExtracting(false);
     }
-  }, [uuid, loadGlossary, loadGlossaryCount, showFeedback]);
+  }, [uuid, loadGlossary, loadGlossaryCount, showFeedback, t]);
 
   return {
     langTrainingView, setSprachView,
     glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     loadGlossary, loadGlossaryCount,
-    extractGlossary, showFeedback, dismissFeedback,
+    extractGlossary, dismissFeedback,
   };
 }

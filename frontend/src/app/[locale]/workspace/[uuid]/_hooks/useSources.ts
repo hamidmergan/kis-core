@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { parseDetail } from "@/lib/api";
 import type { WorkspaceDetail, Source } from "../_types";
+import { classicUpload } from "./classicUpload";
 import { directUpload } from "./directUpload";
 
 // From this size an upload fills a typical home uplink long enough to slow the page down.
@@ -34,19 +36,24 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
     const pendingIds = sources.filter(isProcessing).map((s) => s.uuid);
     if (pendingIds.length === 0) return;
+    let cancelled = false;
     const id = setInterval(async () => {
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
-      if (!res.ok) return;
-      const mod: WorkspaceDetail = await res.json();
-      const srcs: Source[] = mod.sources ?? [];
-      setSources(srcs);
-      onModuleUpdate?.(mod);
-      setSelectedSourceIds((prev) => {
-        const justBecameReady = srcs.filter((s) => isFullyReady(s) && pendingIds.includes(s.uuid) && !prev.includes(s.uuid)).map((s) => s.uuid);
-        return justBecameReady.length > 0 ? [...prev, ...justBecameReady] : prev;
-      });
+      try {
+        const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
+        if (!res.ok) return;
+        const mod: WorkspaceDetail = await res.json();
+        // An answer that arrives after the list changed would overwrite the newer state.
+        if (cancelled) return;
+        const srcs: Source[] = mod.sources ?? [];
+        setSources(srcs);
+        onModuleUpdate?.(mod);
+        setSelectedSourceIds((prev) => {
+          const justBecameReady = srcs.filter((s) => isFullyReady(s) && pendingIds.includes(s.uuid) && !prev.includes(s.uuid)).map((s) => s.uuid);
+          return justBecameReady.length > 0 ? [...prev, ...justBecameReady] : prev;
+        });
+      } catch { /* the next tick asks again */ }
     }, 3000);
-    return () => clearInterval(id);
+    return () => { cancelled = true; clearInterval(id); };
   }, [sources, uuid, onModuleUpdate]);
 
   const toggleSource = useCallback((srcUuid: string) => {
@@ -145,36 +152,12 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       const large = file.size >= LARGE_UPLOAD_BYTES;
       setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0, large: false });
       // A full server answers 503 after a short wait, the file then goes again by itself.
-      const sendOnce = () => new Promise<Source>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
-        xhr.withCredentials = true;
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100), large });
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText) as Source);
-          } else {
-            if (xhr.status === 429) rateLimitHit = true;
-            let detail: string = t("uploadFailed");
-            try {
-              const body = JSON.parse(xhr.responseText);
-              // The reason arrives sometimes as an object and sometimes as text.
-              if (typeof body?.detail === "string") {
-                detail = body.detail;
-              } else if (body?.detail?.message) {
-                detail = body.detail.message;
-              }
-            } catch { /* ignore */ }
-            reject(Object.assign(new Error(detail), { status: xhr.status }));
-          }
-        };
-        xhr.onerror = () => reject(new Error(t("networkError")));
-        const form = new FormData();
-        form.append("file", file);
-        xhr.send(form);
-      });
+      const sendOnce = () => classicUpload(
+        uuid,
+        file,
+        (percent) => setUploadProgress({ current: i + 1, total: toUpload.length, percent, large }),
+        { failed: t("uploadFailed"), network: t("networkError") },
+      );
       try {
         const direct = await directUpload(
           uuid,
@@ -222,17 +205,9 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       throw new Error(t("networkError"));
     }
     if (!res.ok) {
-      let detail: string = t("uploadFailed");
-      try {
-        const body = await res.json();
-        // The reason arrives sometimes as an object and sometimes as text.
-        if (typeof body?.detail === "string") {
-          detail = body.detail;
-        } else if (body?.detail?.message) {
-          detail = body.detail.message;
-        }
-      } catch { /* ignore */ }
-      throw new Error(detail);
+      const body = await res.json().catch(() => null);
+      // The reason arrives sometimes as an object and sometimes as text.
+      throw new Error(parseDetail(body?.detail, t("uploadFailed")));
     }
     const newSrc = await placeInChapter((await res.json()) as Source, chapterUuid);
     setSources((prev) => [newSrc, ...prev]);

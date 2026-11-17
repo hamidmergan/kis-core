@@ -1,3 +1,4 @@
+import { parseDetail } from "@/lib/api";
 import type { Source } from "../_types";
 
 // Sends media in parts straight into the bucket, null means the classic upload fits better.
@@ -31,14 +32,9 @@ function writeToken(key: string, token: string | null): void {
 }
 
 async function httpError(res: Response, fallback: string): Promise<HttpError> {
-  let detail = fallback;
-  try {
-    const body = await res.json();
-    // The reason arrives sometimes as an object and sometimes as text.
-    if (typeof body?.detail === "string") detail = body.detail;
-    else if (body?.detail?.message) detail = body.detail.message;
-  } catch { /* keep the fallback */ }
-  return Object.assign(new Error(detail), { status: res.status });
+  const body = await res.json().catch(() => null);
+  // The reason arrives sometimes as an object and sometimes as text.
+  return Object.assign(new Error(parseDetail(body?.detail, fallback)), { status: res.status });
 }
 
 function sleep(ms: number): Promise<void> {

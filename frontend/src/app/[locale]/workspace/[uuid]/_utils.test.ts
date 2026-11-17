@@ -14,8 +14,6 @@ import {
   _getChipIcon,
   _youtubeIdOf,
   splitFilename,
-  parseFlashcards,
-  parseQuiz,
 } from "./_utils";
 
 // ── _embedQmapIntoCitations ──────────────────────────────────────────────────
@@ -181,53 +179,6 @@ describe("_chunkLabel", () => {
   it("names media with neither a time nor a part by its file alone", () => {
     // Invented grammar sentences often have no spot, then the chip names only the file.
     expect(_chunkLabel("v.mp4", null, null)).toBe("");
-  });
-});
-
-// ── parseFlashcards ──────────────────────────────────────────────────────────
-describe("parseFlashcards", () => {
-  it("parses 'front | back' lines and strips list numbering", () => {
-    expect(parseFlashcards("1. Photosynthese | Umwandlung von Licht")).toEqual([
-      { front: "Photosynthese", back: "Umwandlung von Licht" },
-    ]);
-  });
-  it("skips lines without a separator or with an empty side", () => {
-    expect(parseFlashcards("no separator here\n2. Front | \n | Back")).toEqual([]);
-  });
-  it("parses multiple cards", () => {
-    expect(parseFlashcards("A | 1\nB | 2")).toEqual([
-      { front: "A", back: "1" },
-      { front: "B", back: "2" },
-    ]);
-  });
-});
-
-// ── parseQuiz ────────────────────────────────────────────────────────────────
-describe("parseQuiz", () => {
-  it("parses a question with options and marks the ✓ one correct", () => {
-    // Option words avoid the letters r/i/c/h/t/g — see the known-bug test below.
-    const text = "1. Welche Farbe?\nA. Apple ✓\nB. Banana\nC. Lemon";
-    expect(parseQuiz(text)).toEqual([
-      { question: "Welche Farbe?", options: ["Apple", "Banana", "Lemon"], correct: 0 },
-    ]);
-  });
-
-  it("supports the (richtig) marker and a non-zero correct index", () => {
-    const text = "1. Frage?\nA. Apple\nB. Banana (richtig)";
-    const out = parseQuiz(text);
-    expect(out[0].correct).toBe(1);
-  });
-
-  it("parses several questions", () => {
-    const text = "1. Eins?\nA. Apple ✓\nB. Banana\n2. Zwei?\nA. Lemon ✓\nB. Pomelo";
-    expect(parseQuiz(text)).toHaveLength(2);
-  });
-
-  // Guard against the old bug that stripped single letters out of the answers.
-  it("strips only the markers, never letters from the option words", () => {
-    const out = parseQuiz("1. Q?\nA. Right ✓\nB. Other (richtig)");
-    expect(out[0].options).toEqual(["Right", "Other"]);
-    expect(out[0].correct).toBe(1);
   });
 });
 

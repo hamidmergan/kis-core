@@ -11,6 +11,8 @@ import { TourInvite } from "./TourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import { EvaluationInvite } from "./EvaluationInvite";
 import WorkspaceList from "./WorkspaceList";
+import { formatDay } from "../_shared";
+import { parseDetail } from "@/lib/api";
 import { StampButton } from "../../_components/StampButton";
 import { TaskCard, TaskGiftButton } from "@/components/event/TaskCard";
 import { useEventTasks, useTaskCardMinimized } from "@/lib/event/tasks";
@@ -71,6 +73,8 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
       setPreviewInvalid(false);
       return;
     }
+    // A late answer for a code that is no longer in the address must not win.
+    let cancelled = false;
     setPreviewCode(code);
     setPreviewLoading(true);
     setPreviewInvalid(false);
@@ -78,19 +82,18 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
       credentials: "include",
     })
       .then(async (res) => {
-        if (!res.ok) {
-          setLinkPreview(null);
-          setPreviewInvalid(true);
-          return;
-        }
-        const data = (await res.json()) as LinkPreview;
+        const data = res.ok ? ((await res.json()) as LinkPreview) : null;
+        if (cancelled) return;
         setLinkPreview(data);
+        setPreviewInvalid(!data);
       })
       .catch(() => {
+        if (cancelled) return;
         setLinkPreview(null);
         setPreviewInvalid(true);
       })
-      .finally(() => setPreviewLoading(false));
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => { cancelled = true; };
   }, [searchParams]);
 
   async function handleEnrollLink() {
@@ -106,7 +109,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? t("enrollInvalidCode"));
+        throw new Error(parseDetail(err.detail, t("enrollInvalidCode")));
       }
       const data = (await res.json()) as { workspace_uuid?: string; is_open?: boolean };
       // The way leads to the list, where the new row carries the notice.
@@ -136,14 +139,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
 
   if (linkPreview) {
     const zu = linkPreview.is_open === false;
-    const zugangBis = linkPreview.access_until
-      ? new Date(linkPreview.access_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          timeZone: "Europe/Berlin",
-        })
-      : null;
+    const zugangBis = linkPreview.access_until ? formatDay(linkPreview.access_until, locale) : null;
     return (
       <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
         <div className="max-w-2xl mx-auto">

@@ -18,6 +18,8 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
   const [data_tableInstruction, setDataTableInstruction] = useState("");
   const [data_tableUnmatched, setDataTableUnmatched] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // False once the workspace is left, a late answer must not start a poll nobody stops.
+  const aliveRef = useRef(false);
 
   const takeTable = useCallback((data: { table_data: DataTableData & { sources?: DataTableSource[] }; sources?: DataTableSource[]; user_instruction?: string; instruction_unmatched?: boolean }) => {
     setDataTable(data.table_data);
@@ -39,12 +41,15 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   const startPolling = useCallback((dtId: number) => {
     stopPolling();
+    if (!aliveRef.current) return;
     setDataTableLoading(true);
-    pollRef.current = setInterval(async () => {
+    const id = setInterval(async () => {
       try {
         const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${dtId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
+        // A tick that was still under way when the poll stopped or was replaced counts no more.
+        if (pollRef.current !== id) return;
         if (data.status === "success" && data.table_data) {
           takeTable(data);
           setDataTableLoading(false);
@@ -57,9 +62,11 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
         }
       } catch { /* ignore */ }
     }, 3000);
+    pollRef.current = id;
   }, [uuid, stopPolling, refreshList, takeTable]);
 
   useEffect(() => {
+    aliveRef.current = true;
     (async () => {
       try {
         const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table`, { credentials: "include" });
@@ -74,7 +81,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
       } catch { /* ignore */ }
     })();
     refreshList();
-    return () => stopPolling();
+    return () => { aliveRef.current = false; stopPolling(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuid]);
 
@@ -113,8 +120,9 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   const remove = useCallback(async (id: number) => {
     try {
-      await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${id}`, { method: "DELETE", credentials: "include" });
-      setDataTableList((prev) => prev.filter((d) => d.id !== id));
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${id}`, { method: "DELETE", credentials: "include" });
+      // A refused delete leaves the row in the list.
+      if (res.ok) setDataTableList((prev) => prev.filter((d) => d.id !== id));
     } catch { /* ignore */ }
   }, [uuid]);
 

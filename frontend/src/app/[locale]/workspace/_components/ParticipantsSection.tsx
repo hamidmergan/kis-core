@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import { formatDay } from "../_shared";
 
 interface Participant {
   user_id: number;
@@ -80,12 +81,6 @@ export default function ParticipantsSection({ workspaceUuid, onRolesChanged }: P
     }
   }
 
-  const formatDate = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-          day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin",
-        })
-      : null;
 
   return (
     <>
@@ -113,7 +108,7 @@ export default function ParticipantsSection({ workspaceUuid, onRolesChanged }: P
                 <span className="block text-sm font-medium truncate">{p.display_name}</span>
                 <span className="block text-xs truncate" style={{ color: "var(--muted)" }}>
                   {p.username}
-                  {formatDate(p.enrolled_until) && `, ${t("untilDate", { date: formatDate(p.enrolled_until)! })}`}
+                  {p.enrolled_until && `, ${t("untilDate", { date: formatDay(p.enrolled_until, locale) })}`}
                 </span>
               </div>
 

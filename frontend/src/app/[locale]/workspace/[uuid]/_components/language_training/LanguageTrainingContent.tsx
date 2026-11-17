@@ -44,8 +44,6 @@ interface LanguageTrainingContentProps {
   refreshProgress: () => void;
   handleAskChat: (text: string) => void;
   handlePillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean) => void;
-  /** No longer read here, the page still passes it. */
-  chatLang?: "de" | "en";
 }
 
 export function LanguageTrainingContent(props: LanguageTrainingContentProps) {

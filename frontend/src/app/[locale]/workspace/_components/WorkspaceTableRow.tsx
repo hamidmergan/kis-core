@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChartBar, Star } from "@phosphor-icons/react";
+import { ChartBar } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import ActiveToggle from "./ActiveToggle";
+import { DemoBadge, FavoriteButton } from "./RowParts";
 import WorkspaceDescription from "./WorkspaceDescription";
 import WorkspaceInfoModal from "./WorkspaceInfoModal";
 import WorkspaceMenu from "./WorkspaceMenu";
@@ -33,7 +34,6 @@ export default function WorkspaceTableRow({
   onRolesChanged,
 }: WorkspaceTableRowProps) {
   const t = useTranslations("workspace.list");
-  const tDemo = useTranslations("workspace.demo");
   const a = useWorkspaceActions({ workspace, onToggleActive, onToggleFavorite, onDelete, onLinksChanged });
   const [showParticipants, setShowParticipants] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -82,12 +82,7 @@ export default function WorkspaceTableRow({
               </span>
             )}
             {workspace.is_demo_workspace && (
-              <span
-                className="flex-shrink-0 text-3xs font-semibold px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
-              >
-                {tDemo("button")}
-              </span>
+              <DemoBadge />
             )}
             {(workspace.member_count ?? 0) >= MAX_MEMBERS && (
               <span
@@ -134,15 +129,7 @@ export default function WorkspaceTableRow({
               />
             </span>
             <span className="flex items-center gap-1.5">
-              <IconButton
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleToggleFavorite(); }}
-                title={workspace.is_favorite ? t("favoriteRemove") : t("favoriteAdd")}
-                className={workspace.is_favorite ? "text-kb-dark" : ""}
-                disabled={a.favoriting}
-                data-testid="workspace-favorite"
-              >
-                <Star size={13} weight={workspace.is_favorite ? "fill" : "bold"} />
-              </IconButton>
+              <FavoriteButton favorite={workspace.is_favorite} disabled={a.favoriting} onToggle={a.handleToggleFavorite} />
               {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
               <IconButton
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowStats(true); }}

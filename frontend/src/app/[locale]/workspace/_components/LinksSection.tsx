@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { parseDetail } from "@/lib/api";
 import LinkRow from "./LinkRow";
-import { MAX_ACCESS_LINKS, type AccessLink } from "../_shared";
+import { MAX_ACCESS_LINKS, formatDay, type AccessLink } from "../_shared";
 
 interface LinksSectionProps {
   workspaceUuid: string;
@@ -43,7 +44,7 @@ export default function LinksSection({ workspaceUuid, links, onLinksChanged }: L
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? t("createError"));
+        throw new Error(parseDetail(err.detail, t("createError")));
       }
       const data = await res.json();
       onLinksChanged([...links, data]);
@@ -74,11 +75,7 @@ export default function LinksSection({ workspaceUuid, links, onLinksChanged }: L
 
   const expiryLabel = (link: AccessLink) =>
     link.expires_at
-      ? t("linkValidUntil", {
-          date: new Date(link.expires_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-            day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin",
-          }),
-        })
+      ? t("linkValidUntil", { date: formatDay(link.expires_at, locale) })
       : t("linkUnlimited");
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { driver, type Config, type Driver, type PopoverDOM } from "driver.js";
 import { TOUR_STEPS } from "./steps";
@@ -37,6 +37,12 @@ export function useTour() {
   const t = useTranslations("workspace.detail.tour");
   const tAllgemein = useTranslations("common");
   const laufend = useRef<Driver | null>(null);
+
+  // Leaving the page ends a running tour, its overlay would otherwise cover the next page.
+  useEffect(() => () => {
+    laufend.current?.destroy();
+    laufend.current = null;
+  }, []);
 
   const knoepfeAnpassen = useCallback(
     (popover: PopoverDOM) => knoepfeAngleichen(popover, tAllgemein("close")),
@@ -208,10 +214,5 @@ export function useTour() {
     startAllgemein();
   }, [startAllgemein, startDemo]);
 
-  const stop = useCallback(() => {
-    laufend.current?.destroy();
-    laufend.current = null;
-  }, []);
-
-  return { start, stop };
+  return { start };
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { MindmapNodeData } from "../_components/studio/MindmapStudio";
+import type { MindmapNodeData } from "../_components/studio/_sourceRefs";
 
 interface UseMindmapOptions {
   uuid: string;
@@ -26,6 +26,8 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     setMindmapUnmatched(Boolean(data.instruction_unmatched));
   }, []);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // False once the workspace is left, a late answer must not start a poll nobody stops.
+  const aliveRef = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -40,12 +42,15 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
 
   const startPolling = useCallback((mindmapId: number) => {
     stopPolling();
+    if (!aliveRef.current) return;
     setMindmapLoading(true);
-    pollRef.current = setInterval(async () => {
+    const id = setInterval(async () => {
       try {
         const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
+        // A tick that was still under way when the poll stopped or was replaced counts no more.
+        if (pollRef.current !== id) return;
         if (data.status === "success" && data.mindmap) {
           takeMap(data);
           setMindmapLoading(false);
@@ -58,10 +63,12 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
         }
       } catch { /* ignore */ }
     }, 3000);
+    pollRef.current = id;
   }, [uuid, stopPolling, refreshList, takeMap]);
 
   // Load existing + resume polling
   useEffect(() => {
+    aliveRef.current = true;
     (async () => {
       try {
         const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap`, { credentials: "include" });
@@ -75,7 +82,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
       } catch { /* ignore */ }
     })();
     refreshList();
-    return () => stopPolling();
+    return () => { aliveRef.current = false; stopPolling(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuid]);
 
@@ -115,8 +122,9 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
 
   const remove = useCallback(async (id: number) => {
     try {
-      await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
-      setMindmapList((prev) => prev.filter((m) => m.id !== id));
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
+      // A refused delete leaves the row in the list.
+      if (res.ok) setMindmapList((prev) => prev.filter((m) => m.id !== id));
     } catch { /* ignore */ }
   }, [uuid]);
 

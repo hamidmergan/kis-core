@@ -25,6 +25,29 @@ interface WorkspaceMenuProps {
 const MENU_WIDTH = 220;
 const GAP = 6;
 
+/** One entry of the menu, `className` only prefixes the shared classes. */
+function MenuItem({ onClick, icon, label, className = "", color = "var(--foreground)", testId }: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  className?: string;
+  color?: string;
+  testId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={onClick}
+      className={`${className}w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors`}
+      style={{ color }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 export default function WorkspaceMenu({
   favorite, onToggleFavorite, onInfo, onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
 }: WorkspaceMenuProps) {
@@ -61,82 +84,29 @@ export default function WorkspaceMenu({
           }}
         >
           {onToggleFavorite && (
-          <button
-            type="button"
-            onClick={() => handle(onToggleFavorite)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <Star size={16} weight={favorite ? "fill" : "bold"} className={favorite ? "text-kb-dark" : undefined} />
-            {favorite ? t("favoriteRemove") : t("favoriteAdd")}
-          </button>
+            <MenuItem
+              onClick={() => handle(onToggleFavorite)}
+              icon={<Star size={16} weight={favorite ? "fill" : "bold"} className={favorite ? "text-kb-dark" : undefined} />}
+              label={favorite ? t("favoriteRemove") : t("favoriteAdd")}
+            />
           )}
           {onInfo && (
-          <button
-            type="button"
-            onClick={() => handle(onInfo)}
-            className="sm:hidden w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <Info size={16} weight="bold" />
-            {t("descriptionField")}
-          </button>
+            <MenuItem onClick={() => handle(onInfo)} icon={<Info size={16} weight="bold" />} label={t("descriptionField")} className="sm:hidden " />
           )}
           {onParticipants && (
-          <button
-            type="button"
-            onClick={() => handle(onParticipants)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <Users size={16} weight="bold" />
-            {t("participants")}
-          </button>
+            <MenuItem onClick={() => handle(onParticipants)} icon={<Users size={16} weight="bold" />} label={t("participants")} />
           )}
           {onLinks && (
-          <button
-            type="button"
-            onClick={() => handle(onLinks)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <LinkSimple size={16} weight="bold" />
-            {t("linksTitle")}
-          </button>
+            <MenuItem onClick={() => handle(onLinks)} icon={<LinkSimple size={16} weight="bold" />} label={t("linksTitle")} />
           )}
           {onEdit && (
-          <button
-            type="button"
-            onClick={() => handle(onEdit)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <PencilSimple size={16} weight="bold" />
-            {t("edit")}
-          </button>
+            <MenuItem onClick={() => handle(onEdit)} icon={<PencilSimple size={16} weight="bold" />} label={t("edit")} />
           )}
           {onLeave && (
-            <button
-              type="button"
-              data-testid="demo-leave-row"
-              onClick={() => handle(onLeave)}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-              style={{ color: "var(--foreground)" }}
-            >
-              <SignOut size={16} weight="bold" />
-              {tDemo("leave")}
-            </button>
+            <MenuItem onClick={() => handle(onLeave)} icon={<SignOut size={16} weight="bold" />} label={tDemo("leave")} testId="demo-leave-row" />
           )}
           {onDelete && (
-            <button
-              type="button"
-              onClick={() => handle(onDelete)}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-              style={{ color: "rgb(185, 28, 28)" }}
-            >
-              <Trash size={16} weight="bold" />
-              {t("delete")}
-            </button>
+            <MenuItem onClick={() => handle(onDelete)} icon={<Trash size={16} weight="bold" />} label={t("delete")} color="rgb(185, 28, 28)" />
           )}
         </div>,
         document.body,

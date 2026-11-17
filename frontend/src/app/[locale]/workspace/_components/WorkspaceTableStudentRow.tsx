@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, Lock, Star } from "@phosphor-icons/react";
+import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
-import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import { useNavTransition } from "@/components/ui/useNavTransition";
+import { DemoBadge, FavoriteButton } from "./RowParts";
 import WorkspaceDescription from "./WorkspaceDescription";
 import WorkspaceInfoModal from "./WorkspaceInfoModal";
 import WorkspaceMenu from "./WorkspaceMenu";
-import type { KiTutorWorkspace } from "../_shared";
+import { formatDay, type KiTutorWorkspace } from "../_shared";
 
 /** Row for an enrolled course, a switched-off one stays grey instead of disappearing. */
 export default function WorkspaceTableStudentRow({
@@ -28,7 +28,6 @@ export default function WorkspaceTableStudentRow({
   // Only whoever joined through the demo sees the badge and can leave here.
   const isDemo = !!workspace.via_demo;
   const t = useTranslations("workspace.list");
-  const tDemo = useTranslations("workspace.demo");
   const locale = useLocale();
   const router = useRouter();
   const { pending: opening, navigate } = useNavTransition();
@@ -46,14 +45,7 @@ export default function WorkspaceTableStudentRow({
     ? `/workspace/${workspace.uuid}?eid=${workspace.enrollment_id}`
     : `/workspace/${workspace.uuid}`;
 
-  const untilDate = workspace.enrolled_until
-    ? new Date(workspace.enrolled_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Europe/Berlin",
-      })
-    : null;
+  const untilDate = workspace.enrolled_until ? formatDay(workspace.enrolled_until, locale) : null;
 
   const status = closed ? (
     <span
@@ -107,12 +99,7 @@ export default function WorkspaceTableStudentRow({
           <span className="truncate">{workspace.title}</span>
           {opening && <Spinner size="xs" color="current" className="flex-shrink-0" />}
           {isDemo && (
-            <span
-              className="flex-shrink-0 text-3xs font-semibold px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
-            >
-              {tDemo("button")}
-            </span>
+            <DemoBadge />
           )}
         </span>
         {workspace.description && <WorkspaceDescription text={workspace.description} />}
@@ -137,15 +124,7 @@ export default function WorkspaceTableStudentRow({
           {/* A phone has no status column, so the state stands next to the menu instead. */}
           <span className="sm:hidden">{status}</span>
           <span className="flex items-center gap-1.5">
-            <IconButton
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleFavorite(); }}
-              title={workspace.is_favorite ? t("favoriteRemove") : t("favoriteAdd")}
-              className={workspace.is_favorite ? "text-kb-dark" : ""}
-              disabled={favoriting}
-              data-testid="workspace-favorite"
-            >
-              <Star size={13} weight={workspace.is_favorite ? "fill" : "bold"} />
-            </IconButton>
+            <FavoriteButton favorite={workspace.is_favorite} disabled={favoriting} onToggle={toggleFavorite} />
             {menu}
           </span>
         </div>

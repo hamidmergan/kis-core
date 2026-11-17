@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Check, Copy, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import { copyTextFromPromise } from "@/lib/clipboard";
-import type { AccessLink } from "../_shared";
+import { formatDay, type AccessLink } from "../_shared";
 
 interface LinkRowProps {
   link: AccessLink;
@@ -17,14 +17,7 @@ export default function LinkRow({ link, onRequestDelete }: LinkRowProps) {
   const locale = useLocale();
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/workspace?code=${link.code}`;
-  const expiresDate = link.expires_at
-    ? new Date(link.expires_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Europe/Berlin",
-      })
-    : null;
+  const expiresDate = link.expires_at ? formatDay(link.expires_at, locale) : null;
   const isExpired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
 
   function handleCopy(was: "link" | "code") {

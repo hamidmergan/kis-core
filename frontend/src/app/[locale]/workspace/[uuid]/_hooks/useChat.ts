@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { ChatMessage, ViewerState } from "../_types";
+import type { ChatMessage } from "../_types";
 import { api } from "@/lib/api";
 import { popupActionsUrl } from "./_popupActionsUrl";
 
@@ -18,14 +18,13 @@ interface UseChatOptions {
   uuid: string;
   enrollmentId: number | null;
   selectedSourceIds: string[];
-  viewerSource: ViewerState | null;
-  chatLang: "de" | "en";
   popupTranslateLang: string;
 }
 
-export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang }: UseChatOptions) {
-  void chatLang; // popup labels now follow UI locale (Accept-Language); chatLang stays in the API for callers
-  void viewerSource; // the open source no longer scopes the chat, see sendChatMessage
+// If nothing comes for this long, the connection counts as dead.
+const INACTIVITY_MS = 90_000;
+
+export function useChat({ uuid, enrollmentId, selectedSourceIds, popupTranslateLang }: UseChatOptions) {
   const tChat = useTranslations("workspace.detail.chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -48,10 +47,11 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     chatSetInputRef.current = setter;
   }, []);
 
+  const messagesUrl = `/api/ai-assistant/workspaces/${uuid}/messages${enrollmentId ? `?enrollment_id=${enrollmentId}` : ""}`;
+
   const loadMessages = useCallback(async () => {
     try {
-      const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { credentials: "include" });
+      const res = await fetch(messagesUrl, { credentials: "include" });
       if (res.ok) {
         const raw: ChatMessage[] = await res.json();
         const hydrated = raw.map((m) => {
@@ -71,17 +71,22 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         setMessages(hydrated);
       }
     } catch { /* ignore */ }
-  }, [uuid, enrollmentId]);
+  }, [messagesUrl]);
 
-  const loadPopupActions = useCallback(async () => {
-    try {
-      // The target language travels as a parameter and reloads on a change.
-      const res = await api.fetch(popupActionsUrl(popupTranslateLang));
-      if (res.ok) {
-        const d = await res.json();
-        setPopupActions(d.actions ?? []);
-      }
-    } catch { /* ignore */ }
+  // The list empties at once, the server follows.
+  const clearMessages = useCallback(() => {
+    fetch(messagesUrl, { method: "DELETE", credentials: "include" }).catch(() => { /* ignore */ });
+    setMessages([]);
+  }, [messagesUrl]);
+
+  // The target language travels as a parameter and reloads on a change.
+  useEffect(() => {
+    let cancelled = false;
+    api.fetch(popupActionsUrl(popupTranslateLang))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => { if (!cancelled && d) setPopupActions(d.actions ?? []); })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
   }, [popupTranslateLang]);
 
   const sendChatMessage = useCallback(async (
@@ -131,8 +136,6 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
     const ac = new AbortController();
     abortControllerRef.current = ac;
-    // If nothing comes for a long time, the connection counts as dead.
-    const INACTIVITY_MS = 90_000;
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
     let timedOut = false;
     const resetInactivity = () => {
@@ -254,7 +257,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       failIfEmpty();
       setChatLoading(false);
     }
-  }, [uuid, enrollmentId, selectedSourceIds, popupActions]);
+  }, [uuid, enrollmentId, selectedSourceIds, popupActions, tChat]);
 
   // Read through a ref so the callback stays stable.
   const messagesRef = useRef<ChatMessage[]>(messages);
@@ -268,16 +271,12 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     sendChatMessage(lastUser.content);
   }, [chatLoading, sendChatMessage]);
 
-  useEffect(() => {
-    loadPopupActions();
-  }, [loadPopupActions]);
-
   return {
     messages, setMessages,
     chatLoading,
-    popupActions, setPopupActions,
+    popupActions,
     chatTextareaRef, chatSetInputRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage, stopChat, retryLast,
+    loadMessages, clearMessages, sendChatMessage, stopChat, retryLast,
   };
 }

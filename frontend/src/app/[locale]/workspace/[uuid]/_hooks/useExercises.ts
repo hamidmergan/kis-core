@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { triggerBlobDownload } from "@/lib/download";
 import { _chunkLabel } from "../_utils";
 import type { ExerciseSet } from "../_types";
 
@@ -187,15 +188,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
       });
       const text = lines.join("\n");
       const safeTitle = (set.title || set.tool || "karteikarten").replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g, "_").slice(0, 60);
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${safeTitle}_${set.id}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(new Blob([text], { type: "text/plain;charset=utf-8" }), `${safeTitle}_${set.id}.txt`);
     } catch { /* ignore */ }
   }, [uuid]);
 
@@ -210,7 +203,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
   }, [uuid]);
 
   return {
-    exerciseSets, setExerciseSets,
+    exerciseSets,
     activeSet, setActiveSet,
     createSetTool, setCreateSetTool,
     showCreateModal, setShowCreateModal,

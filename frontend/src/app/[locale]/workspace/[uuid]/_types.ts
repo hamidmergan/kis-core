@@ -118,17 +118,6 @@ export interface ChatMessage {
   applied_level?: string | null;
 }
 
-export interface LernKarte {
-  front: string;
-  back: string;
-}
-
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correct: number;
-}
-
 export interface ViewerState {
   uuid: string;
   filename: string;

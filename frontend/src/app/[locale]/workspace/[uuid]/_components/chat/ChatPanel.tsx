@@ -37,13 +37,11 @@ export function ChatPanel({
   onSend: (value: string) => void;
   onStop?: () => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => void;
-  moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   onRetry?: () => void;
   onMinimize?: () => void;
-  onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
   hideHeader?: boolean;
   isAdmin?: boolean;

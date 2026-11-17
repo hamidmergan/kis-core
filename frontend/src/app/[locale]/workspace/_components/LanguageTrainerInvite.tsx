@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Translate } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
+import { InviteCard } from "./InviteCard";
 
 interface MeState {
   language_training_enabled: boolean;
@@ -59,33 +60,23 @@ export function LanguageTrainerInvite() {
   };
 
   return (
-    <div
-      className="rounded-xl p-4 flex-1 flex items-start gap-3"
-      style={{ backgroundColor: "var(--surface-dim)", border: "1px solid var(--border-soft)" }}
-    >
-      <Translate size={20} weight="bold" style={{ color: "var(--kb)", flexShrink: 0, marginTop: 2 }} />
-      <div className="min-w-0 flex-1 self-stretch flex flex-col">
-        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("title")}</p>
-        <p className="text-sm mt-1" style={{ color: "var(--foreground-soft)" }}>{t("body")}</p>
-        <div className="flex items-stretch gap-2 mt-auto pt-3">
-          <button
-            type="button"
-            onClick={() => void answer(true)}
-            disabled={busy}
-            className="btn-primary text-sm rounded-lg px-4 py-2 disabled:opacity-50"
-          >
-            {t("start")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void answer(false)}
-            disabled={busy}
-            className="text-sm rounded-lg px-3 py-2 text-foreground-soft border-2 border-border hover:border-kb transition-colors disabled:opacity-50"
-          >
-            {t("dismiss")}
-          </button>
-        </div>
-      </div>
-    </div>
+    <InviteCard icon={Translate} title={t("title")} body={t("body")}>
+      <button
+        type="button"
+        onClick={() => void answer(true)}
+        disabled={busy}
+        className="btn-primary text-sm rounded-lg px-4 py-2 disabled:opacity-50"
+      >
+        {t("start")}
+      </button>
+      <button
+        type="button"
+        onClick={() => void answer(false)}
+        disabled={busy}
+        className="text-sm rounded-lg px-3 py-2 text-foreground-soft border-2 border-border hover:border-kb transition-colors disabled:opacity-50"
+      >
+        {t("dismiss")}
+      </button>
+    </InviteCard>
   );
 }
