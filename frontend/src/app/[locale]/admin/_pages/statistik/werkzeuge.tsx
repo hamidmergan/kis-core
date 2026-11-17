@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Balken, Kachel, Karte, Ladeanzeige } from "./_bausteine";
 import { Raster, ZeitraumChips } from "./_raster";
+import { useStatistik } from "./_laden";
 
 interface Daten {
   range: string;
@@ -16,21 +17,13 @@ interface Daten {
 
 export default function StatistikWerkzeugePage() {
   const t = useTranslations("admin.statistik");
-  const [daten, setDaten] = useState<Daten | null>(null);
-  const [fehler, setFehler] = useState(false);
   const [zeitraum, setZeitraum] = useState("30t");
+  const { daten, fehler } = useStatistik<Daten>(`/api/admin/stats/tools?range=${zeitraum}`, { behalten: true });
   // The colour scale hangs off the highest value ever seen.
   const [skala, setSkala] = useState(1);
-
   useEffect(() => {
-    fetch(`/api/admin/stats/tools?range=${zeitraum}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: Daten) => {
-        setDaten(d);
-        setSkala((alt) => Math.max(alt, ...d.heat.flat(), 1));
-      })
-      .catch(() => setFehler(true));
-  }, [zeitraum]);
+    if (daten) setSkala((alt) => Math.max(alt, ...daten.heat.flat(), 1));
+  }, [daten]);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;

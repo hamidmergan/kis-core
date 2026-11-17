@@ -2,9 +2,9 @@
 
 /** Who got counted in one bar of the hour or day chart. */
 
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Ladeanzeige } from "./_bausteine";
+import { useStatistik } from "./_laden";
 
 interface BucketNutzer { id: number; name: string }
 
@@ -24,26 +24,13 @@ function pfad(bucket: Bucket): string {
   }
 }
 
-function bucketSchluessel(bucket: Bucket): string {
-  return bucket.art === "hour" ? String(bucket.hour) : bucket.art === "day" ? bucket.day : bucket.month;
-}
-
 export function BucketAnsicht({ bucket }: { bucket: Bucket }) {
   const t = useTranslations("admin.statistik");
-  const [nutzer, setNutzer] = useState<BucketNutzer[] | null>(null);
-  const [fehler, setFehler] = useState(false);
-
-  useEffect(() => {
-    setNutzer(null);
-    setFehler(false);
-    fetch(pfad(bucket), { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => setNutzer(d.users))
-      .catch(() => setFehler(true));
-  }, [bucket.art, bucketSchluessel(bucket)]);
+  const { daten, fehler } = useStatistik<{ users: BucketNutzer[] }>(pfad(bucket));
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
-  if (!nutzer) return <Ladeanzeige />;
+  if (!daten) return <Ladeanzeige />;
+  const nutzer = daten.users;
   if (nutzer.length === 0) return <p className="text-sm text-muted-soft">{t("users.bucketEmpty")}</p>;
 
   return (

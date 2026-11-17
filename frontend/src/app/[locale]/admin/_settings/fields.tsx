@@ -48,8 +48,6 @@ export function SettingCard({
   );
 }
 
-/** The saved mark is gone, the card passes errors on. */
-
 /* ------------------------------------------------------------------ */
 /* Switch                                                              */
 /* ------------------------------------------------------------------ */
@@ -160,6 +158,8 @@ export function NumberSetting({
       return;
     }
     setLocal(null);
+    // A fraction is cut off, the field shows what is stored.
+    setDraft(String(parsed));
     if (parsed !== field.value) void field.set(parsed);
   };
 

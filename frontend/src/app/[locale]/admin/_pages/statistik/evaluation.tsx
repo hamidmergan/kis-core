@@ -2,12 +2,13 @@
 
 /** What came back from the evaluation, counted and without any name attached. */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CaretRight } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import { Balken, Kachel, Karte, Ladeanzeige } from "./_bausteine";
 import { ZeitraumChips } from "./_raster";
+import { useStatistik } from "./_laden";
 
 type Frage =
   | { id: string; type: "choice"; text: string; answered: number; distribution: Record<string, number> }
@@ -30,17 +31,8 @@ export default function StatistikEvaluationPage() {
   const t = useTranslations("admin.statistik");
   const locale = useLocale();
   const [zeitraum, setZeitraum] = useState("30t");
-  const [daten, setDaten] = useState<Daten | null>(null);
-  const [fehler, setFehler] = useState(false);
+  const { daten, fehler } = useStatistik<Daten>(`/api/admin/evaluation/results?range=${zeitraum}`);
   const [offen, setOffen] = useState<Teilnahme | null>(null);
-
-  useEffect(() => {
-    setDaten(null);
-    fetch(`/api/admin/evaluation/results?range=${zeitraum}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setDaten)
-      .catch(() => setFehler(true));
-  }, [zeitraum]);
 
   const datum = (wert: string) =>
     new Date(wert).toLocaleString(locale === "en" ? "en-US" : "de-DE", {

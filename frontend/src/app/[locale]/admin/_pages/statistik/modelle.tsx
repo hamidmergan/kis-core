@@ -2,10 +2,11 @@
 
 /** Requests and tokens per model, the numbers come from the provider itself. */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Kachel, Karte, Saeulen, Ladeanzeige } from "./_bausteine";
 import { ZeitraumChips } from "./_raster";
+import { useStatistik } from "./_laden";
 
 interface Daten {
   totals: { requests: number; tokens_in: number; tokens_out: number };
@@ -21,16 +22,8 @@ const mio = (n: number) =>
 
 export default function StatistikModellePage() {
   const t = useTranslations("admin.statistik");
-  const [daten, setDaten] = useState<Daten | null>(null);
-  const [fehler, setFehler] = useState(false);
   const [zeitraum, setZeitraum] = useState("30t");
-
-  useEffect(() => {
-    fetch(`/api/admin/stats/models?range=${zeitraum}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setDaten)
-      .catch(() => setFehler(true));
-  }, [zeitraum]);
+  const { daten, fehler } = useStatistik<Daten>(`/api/admin/stats/models?range=${zeitraum}`, { behalten: true });
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;

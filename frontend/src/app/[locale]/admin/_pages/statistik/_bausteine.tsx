@@ -63,6 +63,18 @@ export function Kachel({
   );
 }
 
+/** The small number tile inside a detail view. */
+export function KleineZahl({ titel, wert }: { titel: string; wert: number }) {
+  return (
+    <div className="rounded-lg border border-border-soft px-3.5 py-3">
+      <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">{titel}</p>
+      <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight">
+        {wert.toLocaleString("de-DE")}
+      </p>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Measured width                                                      */
 /* ------------------------------------------------------------------ */
@@ -99,6 +111,31 @@ function schoenerHoechstwert(v: number) {
 
 const de = (n: number) => n.toLocaleString("de-DE");
 
+/** Grid lines with their numbers, shared by columns and curve. */
+function Gitter({ max, y, links, rechts }: {
+  max: number;
+  y: (v: number) => number;
+  links: number;
+  rechts: number;
+}) {
+  // With small numbers prefer whole steps to duplicate labels.
+  const marken = max <= 4
+    ? Array.from({ length: max + 1 }, (_, i) => i)
+    : [0, 1, 2, 3].map((g) => (max * g) / 3);
+  return (
+    <>
+      {marken.map((v, g) => (
+        <g key={g}>
+          <line x1={links} x2={rechts} y1={y(v)} y2={y(v)} className="stroke-border-soft" strokeWidth={1} />
+          <text x={links - 8} y={y(v) + 3.5} textAnchor="end" className="fill-muted-soft text-3xs tabular-nums">
+            {de(Math.round(v))}
+          </text>
+        </g>
+      ))}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Columns                                                             */
 /* ------------------------------------------------------------------ */
@@ -126,23 +163,10 @@ export function Saeulen({
     const bw = Math.max(3, Math.min(schritt > 90 ? 70 : 38, schritt - (schritt > 26 ? 8 : 3)));
     const jede = werte.length > 20 ? 4 : werte.length > 12 ? 2 : 1;
     const letzte = werte.length - 1;
-    // With small numbers prefer whole steps to duplicate labels.
-    const marken = max <= 4
-      ? Array.from({ length: max + 1 }, (_, i) => i)
-      : [0, 1, 2, 3].map((g) => (max * g) / 3);
 
     return (
       <svg width={breite} height={hoehe} viewBox={`0 0 ${breite} ${hoehe}`} role="img">
-        {marken.map((v, g) => {
-          return (
-            <g key={g}>
-              <line x1={L} x2={breite - R} y1={y(v)} y2={y(v)} className="stroke-border-soft" strokeWidth={1} />
-              <text x={L - 8} y={y(v) + 3.5} textAnchor="end" className="fill-muted-soft text-3xs tabular-nums">
-                {de(Math.round(v))}
-              </text>
-            </g>
-          );
-        })}
+        <Gitter max={max} y={y} links={L} rechts={breite - R} />
         {werte.map((w, i) => {
           const x = L + i * schritt + (schritt - bw) / 2;
           const zeigen = i % jede === 0 || (i === letzte && letzte % jede >= jede / 2);
@@ -337,20 +361,10 @@ export function Kurve({
     const y = (v: number) => O + ph - (v / max) * ph;
     const linie = werte.map((w, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(w.wert).toFixed(1)}`).join("");
     const letzter = werte[werte.length - 1];
-    const marken = max <= 4
-      ? Array.from({ length: max + 1 }, (_, i) => i)
-      : [0, 1, 2, 3].map((g) => (max * g) / 3);
 
     return (
       <svg width={breite} height={hoehe} viewBox={`0 0 ${breite} ${hoehe}`} role="img">
-        {marken.map((v, g) => (
-          <g key={g}>
-            <line x1={L} x2={breite - R} y1={y(v)} y2={y(v)} className="stroke-border-soft" strokeWidth={1} />
-            <text x={L - 8} y={y(v) + 3.5} textAnchor="end" className="fill-muted-soft text-3xs tabular-nums">
-              {de(Math.round(v))}
-            </text>
-          </g>
-        ))}
+        <Gitter max={max} y={y} links={L} rechts={breite - R} />
         <path d={`${linie}L${x(werte.length - 1)} ${O + ph}L${L} ${O + ph}z`} className="fill-kb/12" />
         <path d={linie} fill="none" strokeWidth={2} strokeLinejoin="round" className="stroke-kb" />
         <circle cx={x(werte.length - 1)} cy={y(letzter.wert)} r={4} className="fill-kb" />

@@ -2,10 +2,11 @@
 
 /** Everything about one module in one place, generated kept apart from answered. */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
-import { Karte, Ladeanzeige } from "./_bausteine";
+import { Karte, KleineZahl, Ladeanzeige } from "./_bausteine";
+import { useStatistik } from "./_laden";
 
 interface Werkzeug { tool: string; created: number; answered: number }
 interface Detail {
@@ -23,17 +24,6 @@ interface Detail {
     name: string; role: string; answered: number; chat: number;
     last: string | null; tools: { tool: string; answered: number }[];
   }[];
-}
-
-function KleineZahl({ titel, wert }: { titel: string; wert: number }) {
-  return (
-    <div className="rounded-lg border border-border-soft px-3.5 py-3">
-      <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">{titel}</p>
-      <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight">
-        {wert.toLocaleString("de-DE")}
-      </p>
-    </div>
-  );
 }
 
 function TrainerTabelle({ zeilen, leer }: { zeilen: Werkzeug[]; leer: string }) {
@@ -100,20 +90,8 @@ export function ModulAnsicht({
   pfad?: string;
 }) {
   const t = useTranslations("admin.statistik");
-  const [roh, setRoh] = useState<Detail | null>(null);
-  const [fehler, setFehler] = useState(false);
+  const { daten: roh, fehler } = useStatistik<Detail>(pfad ?? `/api/admin/stats/workspaces/${uuid}`);
   const [mitLehrenden, setMitLehrenden] = useState(true);
-
-  const ziel = pfad ?? `/api/admin/stats/workspaces/${uuid}`;
-
-  useEffect(() => {
-    setRoh(null);
-    setFehler(false);
-    fetch(ziel, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setRoh)
-      .catch(() => setFehler(true));
-  }, [ziel]);
 
   const d = useMemo(
     () => (roh && !mitLehrenden ? ohneLehrende(roh) : roh),

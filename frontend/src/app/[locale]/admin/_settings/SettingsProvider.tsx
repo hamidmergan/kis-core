@@ -8,7 +8,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,38 +20,22 @@ interface Ctx {
   save: (patch: Settings) => Promise<boolean>;
   /** Keys that are currently being saved. */
   pending: Set<string>;
-  /** Keys that were just saved successfully, expires by itself. */
-  justSaved: Set<string>;
   /** Error message per key, null when everything went well. */
   errors: Record<string, string | null>;
-  reload: () => void;
 }
 
 const SettingsCtx = createContext<Ctx | null>(null);
 
-/** How long the saved mark stays visible. */
-const SAVED_MS = 2600;
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
-  const [justSaved, setJustSaved] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const load = useCallback(() => {
+  useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
       .then((d: Settings) => setSettings(d))
       .catch(() => setSettings({}));
-  }, []);
-
-  useEffect(load, [load]);
-
-  // Clear running timers when leaving the page.
-  useEffect(() => {
-    const map = timers.current;
-    return () => { map.forEach(clearTimeout); map.clear(); };
   }, []);
 
   const save = useCallback(async (patch: Settings) => {
@@ -82,17 +65,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       // Commit only after success, otherwise the interface shows unsaved values.
       setSettings((s) => ({ ...(s ?? {}), ...patch }));
-      setJustSaved((j) => new Set([...j, ...keys]));
-      keys.forEach((k) => {
-        clearTimeout(timers.current.get(k));
-        timers.current.set(
-          k,
-          setTimeout(() => {
-            setJustSaved((j) => { const n = new Set(j); n.delete(k); return n; });
-            timers.current.delete(k);
-          }, SAVED_MS),
-        );
-      });
       return true;
     } catch {
       setErrors((e) => {
@@ -111,8 +83,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<Ctx>(
-    () => ({ settings, save, pending, justSaved, errors, reload: load }),
-    [settings, save, pending, justSaved, errors, load],
+    () => ({ settings, save, pending, errors }),
+    [settings, save, pending, errors],
   );
 
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;
@@ -129,14 +101,13 @@ export interface SettingHandle<T> {
   value: T | null;
   set: (next: T) => Promise<boolean>;
   saving: boolean;
-  saved: boolean;
   error: string | null;
   loading: boolean;
 }
 
 /** Reads and writes a single setting. */
 export function useSetting<T>(key: string, fallback: T): SettingHandle<T> {
-  const { settings, save, pending, justSaved, errors } = useSettingsCtx();
+  const { settings, save, pending, errors } = useSettingsCtx();
   const loading = settings === null;
   const raw = settings?.[key];
 
@@ -144,21 +115,19 @@ export function useSetting<T>(key: string, fallback: T): SettingHandle<T> {
     value: loading ? null : ((raw ?? fallback) as T),
     set: (next: T) => save({ [key]: next }),
     saving: pending.has(key),
-    saved: justSaved.has(key),
     error: errors[key] ?? null,
     loading,
   };
 }
 
-/** Several keys in one go, such as the four fields of the workspace label. */
+/** Several keys in one go, such as provider and voice of the default voice. */
 export function useSettingGroup(keys: string[]) {
-  const { settings, save, pending, justSaved, errors } = useSettingsCtx();
+  const { settings, save, pending, errors } = useSettingsCtx();
   return {
     settings,
     loading: settings === null,
     save,
     saving: keys.some((k) => pending.has(k)),
-    saved: keys.some((k) => justSaved.has(k)),
     error: keys.map((k) => errors[k]).find(Boolean) ?? null,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Trash } from "@phosphor-icons/react";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
@@ -31,10 +31,15 @@ export default function PagesList({ refreshKey }: { refreshKey: number }) {
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<PagesOut | null>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ q: query, status, limit: String(LIMIT), offset: String(offset) });
-    setData(await backendApi.getJson<PagesOut>(`/admin/campus/pages?${params}`));
+    const mine = ++latest.current;
+    const out = await backendApi.getJson<PagesOut>(`/admin/campus/pages?${params}`);
+    // A slower answer to an older search must not replace the newer list.
+    if (mine === latest.current) setData(out);
   }, [query, status, offset]);
 
   // A short pause after typing keeps the list from asking on every key.
@@ -45,9 +50,12 @@ export default function PagesList({ refreshKey }: { refreshKey: number }) {
 
   const change = async (path: string, url: string) => {
     setBusy(true);
+    setFailed(false);
     try {
       await backendApi.postJson(path, { url });
       await load();
+    } catch {
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -55,7 +63,7 @@ export default function PagesList({ refreshKey }: { refreshKey: number }) {
 
   const total = data?.total ?? 0;
   return (
-    <SettingCard title={t("title")} description={t("hint")}>
+    <SettingCard title={t("title")} description={t("hint")} error={failed ? "save-failed" : null}>
       <div className="mt-3 flex flex-col gap-3">
         <div className="flex gap-2 flex-wrap">
           <input value={query} onChange={(e) => { setQuery(e.target.value); setOffset(0); }} placeholder={t("search")} className={`${INPUT} flex-1 min-w-48`} />

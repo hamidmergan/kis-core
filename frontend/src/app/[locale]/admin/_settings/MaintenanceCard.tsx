@@ -31,7 +31,7 @@ export default function MaintenanceCard() {
       if (!res.ok) throw new Error(t("toggleFailed"));
       setEnabled(value);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setWorking(false);
     }

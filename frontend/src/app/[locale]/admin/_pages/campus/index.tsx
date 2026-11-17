@@ -127,6 +127,8 @@ export default function CampusAdminPage() {
         setDocError(msg);
       }
       await load();
+    } catch {
+      setDocError(t("saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -134,9 +136,13 @@ export default function CampusAdminPage() {
 
   const removeDocument = async (id: number) => {
     setBusy(true);
+    setDocError(null);
     try {
-      await backendApi.fetch(`/admin/campus/documents/${id}`, { method: "DELETE" });
+      const res = await backendApi.fetch(`/admin/campus/documents/${id}`, { method: "DELETE" });
+      if (!res.ok) setDocError(t("saveFailed"));
       await load();
+    } catch {
+      setDocError(t("saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -197,7 +203,7 @@ export default function CampusAdminPage() {
       <SettingCard title={t("mapUrl")} description={t("mapHint")} error={cardError("map_enabled", "map_url")}>
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={form.map_enabled} onChange={(e) => { set({ map_enabled: e.target.checked }); void commit("map_enabled", e.target.checked); }} className="accent-kb" />
+            <input type="checkbox" checked={form.map_enabled} onChange={(e) => void commit("map_enabled", e.target.checked)} className="accent-kb" />
             {t("mapEnabled")}
           </label>
           <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} onBlur={() => commit("map_url")} onKeyDown={blurOnEnter} disabled={!form.map_enabled} className={INPUT} placeholder="https://" />

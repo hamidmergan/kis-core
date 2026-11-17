@@ -18,6 +18,47 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 
+import ToolReleasePage from "../_pages/werkzeuge/release";
+import ToolJobsPage from "../_pages/werkzeuge/jobs";
+import GrenzenMaterialPage from "../_pages/grenzen/material";
+import GrenzenKontextPage from "../_pages/grenzen/kontext";
+
+import SourcesPage from "../_pages/assistent/sources";
+import LanguageLevelPage from "../_pages/assistent/language-level";
+import AiBehaviourPage from "../_pages/assistent/behaviour";
+
+import StatistikNutzerPage from "../_pages/statistik/nutzer";
+import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
+import StatistikAssistentPage from "../_pages/statistik/assistent";
+import StatistikModellePage from "../_pages/statistik/modelle";
+import StatistikEvaluationPage from "../_pages/statistik/evaluation";
+
+import ProviderListPage from "../_pages/anbieter/list";
+import ProviderRoutesPage from "../_pages/anbieter/routes";
+
+import PendingPage from "../_pages/nutzer/pending";
+import WhitelistPage from "../_pages/nutzer/whitelist";
+import InvitesPage from "../_pages/nutzer/einladungen";
+import AccessCodesPage from "../_pages/nutzer/zugangscodes";
+import UsersPage from "../_pages/nutzer/users";
+import RolesPage from "../_pages/nutzer/roles";
+import ImpersonationPage from "../_pages/nutzer/impersonation";
+import QuotaPage from "../_pages/nutzer/quota";
+import FeedbackPage from "../_pages/nutzer/feedback";
+import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
+import EvaluationPage from "../_pages/nutzer/evaluation";
+
+import EventStationsPage from "../_pages/event/stations";
+import EventLandingPage from "../_pages/event/landing";
+import EventBlockPage from "../_pages/event/block";
+import EventStatsPage from "../_pages/event/stats";
+import EventTasksPage from "../_pages/event/tasks";
+import EventRafflePage from "../_pages/event/raffle";
+import SystemPage from "../_pages/system";
+import CampusAdminPage from "../_pages/campus";
+import HildePage from "../_pages/mascot/hilde";
+import FrancisPage from "../_pages/mascot/francis";
+
 /** Which product a page concerns. */
 type World = "tools" | "aia" | "both" | "dev";
 
@@ -70,47 +111,6 @@ export interface AdminSection {
   /** Key under admin.sections.<area>.tabs */
   tabs?: AdminTab[];
 }
-
-import ToolReleasePage from "../_pages/werkzeuge/release";
-import ToolJobsPage from "../_pages/werkzeuge/jobs";
-import GrenzenMaterialPage from "../_pages/grenzen/material";
-import GrenzenKontextPage from "../_pages/grenzen/kontext";
-
-import SourcesPage from "../_pages/assistent/sources";
-import LanguageLevelPage from "../_pages/assistent/language-level";
-import AiBehaviourPage from "../_pages/assistent/behaviour";
-
-import StatistikNutzerPage from "../_pages/statistik/nutzer";
-import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
-import StatistikAssistentPage from "../_pages/statistik/assistent";
-import StatistikModellePage from "../_pages/statistik/modelle";
-import StatistikEvaluationPage from "../_pages/statistik/evaluation";
-
-import ProviderListPage from "../_pages/anbieter/list";
-import ProviderRoutesPage from "../_pages/anbieter/routes";
-
-import PendingPage from "../_pages/nutzer/pending";
-import WhitelistPage from "../_pages/nutzer/whitelist";
-import InvitesPage from "../_pages/nutzer/einladungen";
-import AccessCodesPage from "../_pages/nutzer/zugangscodes";
-import UsersPage from "../_pages/nutzer/users";
-import RolesPage from "../_pages/nutzer/roles";
-import ImpersonationPage from "../_pages/nutzer/impersonation";
-import QuotaPage from "../_pages/nutzer/quota";
-import FeedbackPage from "../_pages/nutzer/feedback";
-import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
-import EvaluationPage from "../_pages/nutzer/evaluation";
-
-import EventStationsPage from "../_pages/event/stations";
-import EventLandingPage from "../_pages/event/landing";
-import EventBlockPage from "../_pages/event/block";
-import EventStatsPage from "../_pages/event/stats";
-import EventTasksPage from "../_pages/event/tasks";
-import EventRafflePage from "../_pages/event/raffle";
-import SystemPage from "../_pages/system";
-import CampusAdminPage from "../_pages/campus";
-import HildePage from "../_pages/mascot/hilde";
-import FrancisPage from "../_pages/mascot/francis";
 
 export const SECTIONS: AdminSection[] = [
   // The two products on top, everything else is support work.
@@ -294,7 +294,7 @@ export function resolve(segments: string[]): Resolved | null {
 }
 
 /** The marked landing page of /admin. */
-export function home(): Resolved | null {
+function home(): Resolved | null {
   for (const section of SECTIONS) {
     const page = section.pages?.find((p) => p.home);
     if (page) return { section, page, path: `${section.slug}/${page.slug}` };
@@ -355,5 +355,3 @@ export function firstAllowed(keys: string[]): Resolved | null {
   }
   return null;
 }
-
-

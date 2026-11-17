@@ -2,9 +2,9 @@
 
 /** Everything about one person, their jobs reach only as far as their pool. */
 
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Balken, Karte, Ladeanzeige } from "./_bausteine";
+import { Balken, Karte, KleineZahl, Ladeanzeige } from "./_bausteine";
+import { useStatistik } from "./_laden";
 import { VerlaufAnsicht } from "./_verlauf";
 
 interface Detail {
@@ -29,30 +29,9 @@ function Marke({ text }: { text: string }) {
   );
 }
 
-function KleineZahl({ titel, wert }: { titel: string; wert: number }) {
-  return (
-    <div className="rounded-lg border border-border-soft px-3.5 py-3">
-      <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">{titel}</p>
-      <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight">
-        {wert.toLocaleString("de-DE")}
-      </p>
-    </div>
-  );
-}
-
 export function PersonAnsicht({ id }: { id: number }) {
   const t = useTranslations("admin.statistik");
-  const [d, setD] = useState<Detail | null>(null);
-  const [fehler, setFehler] = useState(false);
-
-  useEffect(() => {
-    setD(null);
-    setFehler(false);
-    fetch(`/api/admin/stats/users/${id}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setD)
-      .catch(() => setFehler(true));
-  }, [id]);
+  const { daten: d, fehler } = useStatistik<Detail>(`/api/admin/stats/users/${id}`);
 
   if (fehler) return <p className="mt-4 text-sm text-error">{t("loadError")}</p>;
   if (!d) return <div className="mt-4"><Ladeanzeige /></div>;

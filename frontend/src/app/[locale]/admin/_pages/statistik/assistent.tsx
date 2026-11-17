@@ -2,7 +2,7 @@
 
 /** Numbers for the AI assistant, seven tools in two groups. */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 // The same pagination bar as under my jobs.
@@ -10,6 +10,7 @@ import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
 import { Balken, Kachel, Karte, Ladeanzeige } from "./_bausteine";
 import { Raster, ZeitraumChips } from "./_raster";
 import { ModulAnsicht } from "./_modul";
+import { useStatistik } from "./_laden";
 
 interface Werkzeug { tool: string; count: number }
 interface Modul {
@@ -44,18 +45,10 @@ const PRO_SEITE = 15;
 
 export default function StatistikAssistentPage() {
   const t = useTranslations("admin.statistik");
-  const [daten, setDaten] = useState<Daten | null>(null);
-  const [fehler, setFehler] = useState(false);
+  const { daten, fehler } = useStatistik<Daten>("/api/admin/stats/assistant");
   const [modul, setModul] = useState<string | null>(null);
   const [zeitraum, setZeitraum] = useState("jahr");
   const [ab, setAb] = useState(0);
-
-  useEffect(() => {
-    fetch("/api/admin/stats/assistant", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setDaten)
-      .catch(() => setFehler(true));
-  }, []);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;
@@ -184,7 +177,6 @@ export default function StatistikAssistentPage() {
       >
         {modul !== null && <ModulAnsicht uuid={modul} />}
       </Modal>
-
     </div>
   );
 }

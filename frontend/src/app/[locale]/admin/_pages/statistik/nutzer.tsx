@@ -2,7 +2,7 @@
 
 /** Who is here and who stays, based on presence. */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretRight } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
@@ -10,6 +10,7 @@ import { AnteilsZeile, Balken, Kachel, Karte, Kurve, Saeulen, Ladeanzeige } from
 import { NochNichts, Suche } from "./_suche";
 import { PersonAnsicht } from "./_person";
 import { BucketAnsicht, type Bucket } from "./_bucket";
+import { useStatistik } from "./_laden";
 
 interface OnlineNutzer { id: number; name: string; minutes: number }
 interface Person { id: number; name: string; role: string }
@@ -29,18 +30,10 @@ const KURZ = 5;
 
 export default function StatistikNutzerPage() {
   const t = useTranslations("admin.statistik");
-  const [daten, setDaten] = useState<Daten | null>(null);
-  const [fehler, setFehler] = useState(false);
+  const { daten, fehler } = useStatistik<Daten>("/api/admin/stats/users");
   const [offen, setOffen] = useState(false);
   const [person, setPerson] = useState<number | null>(null);
   const [bucket, setBucket] = useState<Bucket | null>(null);
-
-  useEffect(() => {
-    fetch("/api/admin/stats/users", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setDaten)
-      .catch(() => setFehler(true));
-  }, []);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;
