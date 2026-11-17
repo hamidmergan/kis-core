@@ -2,21 +2,17 @@
 
 from loguru import logger
 
-from src.features.ai_assistant.routes._chips import _line_segment_start
-from src.features.ai_assistant.routes._evidence import (
-    _ATTRIB_CANDIDATES,
-    _GENERIC_ATTRIB_MAX_DIST,
-    _MAX_CHIPS_PER_LINE,
-    _is_seen,
-    _pick_attribution,
-)
-from src.features.ai_assistant.routes._media_files import _load_transcript_segments
-
 # Its own value, because a flashcard has no context the chat could measure against.
 _TOOL_MULTI_CHIP_MAX_DELTA = 0.08
 
 # Minimum length for an evidence anchor, short header lines would be a magnet.
 _MIN_ATTRIB_CONTENT = 100
+
+
+def _evidence():
+    """The chat's evidence rules, imported late because the route package imports the tasks that import this module."""
+    from src.features.ai_assistant.routes import _evidence as ev
+    return ev
 
 
 def _chip_key(chip: dict) -> tuple:
@@ -30,6 +26,7 @@ def _chip_from_chunk(chunk: dict, label: str, claim: str = "",
     st = chunk.get("start_time")
     if st is not None:
         if claim and segments:
+            from src.features.ai_assistant.routes._chips import _line_segment_start
             seg_start = _line_segment_start(claim, chunk, segments)
             if seg_start is not None:
                 st = seg_start
@@ -44,6 +41,7 @@ def _default_segments_fn():
     def load(source_id: int) -> list[dict]:
         if source_id not in cache:
             from src import database as db
+            from src.features.ai_assistant.routes._media_files import _load_transcript_segments
             src = db.get_aia_source_by_id(source_id)
             cache[source_id] = _load_transcript_segments(src) if src else []
         return cache[source_id]
@@ -56,7 +54,7 @@ def attribute_claims(
     source_id_to_label: dict[int, str],
     *,
     multi: bool = False,
-    max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+    max_distance: float | None = None,
     workspace_id: int | None = None,
     source_ids: list[int] | None = None,
     seen_pages_by_source: dict | None = None,
@@ -67,6 +65,9 @@ def attribute_claims(
     """Backs a batch of statements at once, one chip list per statement."""
     if not claims:
         return []
+    ev = _evidence()
+    if max_distance is None:
+        max_distance = ev._GENERIC_ATTRIB_MAX_DIST
 
     if segments_fn is None:
         segments_fn = _default_segments_fn()
@@ -79,7 +80,7 @@ def attribute_claims(
         def search_fn(text, vec):
             return db.hybrid_search_chunks(workspace_id, text, vec,
                                            source_ids=source_ids,
-                                           limit=_ATTRIB_CANDIDATES, fuzzy=False,
+                                           limit=ev._ATTRIB_CANDIDATES, fuzzy=False,
                                            # The restriction to seen pages belongs in the query, not in the filter.
                                            seen_pages=seen_pages_by_source)
 
@@ -108,17 +109,20 @@ def chips_for_claim(
     source_id_to_label: dict[int, str],
     *,
     multi: bool = False,
-    max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+    max_distance: float | None = None,
     seen_pages_by_source: dict | None = None,
     claim: str = "",
     segments_fn=None,
 ) -> list[dict]:
     """Turns a statement's hits into source chips, or an empty list."""
+    ev = _evidence()
+    if max_distance is None:
+        max_distance = ev._GENERIC_ATTRIB_MAX_DIST
     # Header fragments out, otherwise they become a magnet.
     hits = [h for h in hits if len(h.get("content") or "") >= _MIN_ATTRIB_CONTENT]
     if seen_pages_by_source is not None:
-        hits = [h for h in hits if _is_seen(h, seen_pages_by_source)]
-    best = _pick_attribution(hits, max_distance)
+        hits = [h for h in hits if ev._is_seen(h, seen_pages_by_source)]
+    best = ev._pick_attribution(hits, max_distance)
     if best is None:
         return []
 
@@ -138,7 +142,7 @@ def chips_for_claim(
     # A pure keyword hit has no distance and must not be sorted along.
     for h in sorted(hits, key=lambda x: (x.get("vec_distance") is None,
                                          x.get("vec_distance") or 0.0)):
-        if len(chips) >= _MAX_CHIPS_PER_LINE:
+        if len(chips) >= ev._MAX_CHIPS_PER_LINE:
             break
         d = h.get("vec_distance")
         if d is None or d > max_distance or d - best_dist > _TOOL_MULTI_CHIP_MAX_DELTA:

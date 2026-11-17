@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from src.services import aia_chunker
-from src.services.aia_attribution import attribute_claims, _GENERIC_ATTRIB_MAX_DIST
+from src.services.aia_attribution import attribute_claims
 
 
 def _is_media_source(filename: str) -> bool:
@@ -32,7 +32,7 @@ def attribute_studio_claims(
     source_ids: list[int],
     source_id_to_label: dict[int, str],
     seen_pages_by_source: dict[int, set] | None,
-    max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+    max_distance: float | None = None,
 ) -> list[list[dict]]:
     """One batched attribution for many statements, limited to seen pages."""
     if not claims:
