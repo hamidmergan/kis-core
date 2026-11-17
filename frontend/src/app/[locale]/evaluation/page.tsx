@@ -74,7 +74,7 @@ export default function EvaluationPage() {
       .catch(() => setStufe("unavailable"));
   }, []);
 
-  async function submit(quelle: Antworten = antworten) {
+  async function submit(quelle: Antworten) {
     if (!daten?.questions) return;
     const abgabe = zuSenden(daten.questions, quelle);
     // Nothing answered is not a mistake, so it ends on the closing screen instead of an error.
@@ -139,15 +139,7 @@ export default function EvaluationPage() {
     setAntworten({ ...antworten, [id]: alleGewaehlt ? [] : [...optionen] });
   }
 
-  function weiter() {
-    if (!daten?.questions) return;
-    const next = naechsterSichtbarerIndex(daten.questions, antworten, index + 1, 1);
-    if (next >= daten.questions.length) {
-      submit();
-    } else {
-      setIndex(next);
-    }
-  }
+  const weiter = () => gehtWeiterZu(antworten);
 
   function zurueck() {
     if (!daten?.questions) return;

@@ -61,7 +61,13 @@ export function createVoiceMeter(stream: MediaStream): VoiceMeter | null {
   }
   const analyser = context.createAnalyser();
   analyser.fftSize = 1024;
-  const source = context.createMediaStreamSource(stream);
+  let source: MediaStreamAudioSourceNode;
+  try {
+    source = context.createMediaStreamSource(stream);
+  } catch {
+    void context.close().catch(() => {});
+    return null;
+  }
   source.connect(analyser);
   const buffer = new Float32Array(analyser.fftSize);
   const tracker = createVoiceTracker();

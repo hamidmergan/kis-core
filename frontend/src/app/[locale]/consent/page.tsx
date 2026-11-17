@@ -10,7 +10,8 @@ import { api } from "@/lib/api";
 import { checkAuthStatus, clearAuthCache } from "@/lib/auth";
 
 function isSamePath(path: string | null): path is string {
-  return !!path && path.startsWith("/") && !path.startsWith("//");
+  // A backslash counts as a slash in browsers, "/\\host" would leave the site.
+  return !!path && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\");
 }
 
 /** The one notice every account confirms once, before any service is reachable. Same screen for TH, external or demo access. */

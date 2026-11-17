@@ -15,7 +15,7 @@ import { createSession, deleteSession, fetchSession, listSessions, patchSession,
 import { createMirror } from "./_mirror";
 import { useConversation } from "./_hooks/useConversation";
 import { useInterpreterConfig } from "./_hooks/useInterpreterConfig";
-import { otherLang, type LangCode, type LanguageOption, type Side, type Turn } from "./_types";
+import { otherLang, type LangCode, type Side, type Turn } from "./_types";
 
 const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
 
@@ -23,11 +23,7 @@ export default function InterpreterPage() {
   const t = useTranslations("tools.interpreter");
   const locale = useLocale();
 
-  const fallbackLanguages = useMemo<LanguageOption[]>(
-    () => [{ id: "DE", label: t("languages.de") }, { id: "EN-US", label: t("languages.en") }],
-    [t],
-  );
-  const { translationProviders, sttProviders } = useInterpreterConfig(fallbackLanguages);
+  const { translationProviders, sttProviders } = useInterpreterConfig();
 
   const [langs, setLangs] = useState<Record<Side, LangCode>>({ left: "DE", right: "EN-US" });
   const [names, setNames] = useState<Record<Side, string>>(() => ({ left: t("speaker.defaultLeft"), right: t("speaker.defaultRight") }));

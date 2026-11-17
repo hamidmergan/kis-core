@@ -20,6 +20,8 @@ import HelpTooltip from "@/components/ui/HelpTooltip";
 import { stripAiNoticeVtt, withAiNoticeVtt } from "@/lib/aiNotice";
 import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
 import JobSubmitRow from "@/components/jobs/JobSubmitRow";
+import { triggerBlobDownload } from "@/lib/download";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 
 function formatFromFilename(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -120,7 +122,7 @@ function TranscriptionPageInner() {
       // A cancel during the upload stops the job as soon as its id is known.
       if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
       jobUuidRef.current = data.job_uuid;
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       await pollJob(
         data.job_uuid,
         (status) => {
@@ -134,7 +136,7 @@ function TranscriptionPageInner() {
         () => setStallMessage(t("longRunning")),
         60_000,
       );
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       // The finished transcript lands in the field, without a second trip to the server.
       const ext = responseFormat === "text" ? "txt" : responseFormat;
       const stem = pendingFile.name.replace(/\.[^.]+$/, "");
@@ -154,13 +156,7 @@ function TranscriptionPageInner() {
   const handleDownload = () => {
     if (!transcriptText) return;
     const content = responseFormat === "vtt" ? withAiNoticeVtt(transcriptText) : transcriptText;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = transcriptFilename || "transcript.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(new Blob([content], { type: "text/plain;charset=utf-8" }), transcriptFilename || "transcript.txt");
   };
 
   const handleReset = () => {

@@ -46,18 +46,10 @@ export default function LanguageTestPage() {
           <div className="flex justify-center py-16">
             <Spinner size="lg" />
           </div>
-        ) : me === null ? (
-          // A failed fetch must not read like a switched-off trainer.
-          <div className="max-w-xl mx-auto text-center">
-            <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
-            <Link href="/language-level" className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm btn-primary rounded-lg">
-              <LinkBusy size="sm" />
-              {t("toLevelPage")}
-            </Link>
-          </div>
         ) : !offered ? (
           <div className="max-w-xl mx-auto text-center">
-            <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
+            {/* A failed fetch must not read like a switched-off trainer. */}
+            <p className="text-sm" style={{ color: "var(--muted)" }}>{me === null ? genericErrorMessage() : t("notOffered")}</p>
             <Link href="/language-level" className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm btn-primary rounded-lg">
               <LinkBusy size="sm" />
               {t("toLevelPage")}

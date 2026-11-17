@@ -26,7 +26,8 @@ import Tabs from "@/components/ui/Tabs";
 import { TEXT_MODE_FILENAME, TRANSLATE_MAX_CHARS } from "@/lib/constants";
 import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
 import JobSubmitRow from "@/components/jobs/JobSubmitRow";
-import { triggerBlobDownload } from "@/app/[locale]/tools/screencast/_utils";
+import { triggerBlobDownload } from "@/lib/download";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 
 type InputMode = "text" | "file";
 
@@ -163,12 +164,12 @@ function UebersetzungPageInner() {
       // A cancel during the upload stops the job as soon as its id is known.
       if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
       jobUuidRef.current = data.job_uuid;
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       await pollJob(data.job_uuid, undefined, 3000, controller.signal,
         () => setStallMessage(t("longRunning")),
         60_000,
       );
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       if (controller.signal.aborted) return;

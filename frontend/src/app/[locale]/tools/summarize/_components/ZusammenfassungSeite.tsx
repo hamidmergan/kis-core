@@ -30,7 +30,8 @@ import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/Mat
 import { demoSchritte, warte, type DemoSetup } from "../_demo";
 import { useSummaryHistory } from "./useSummaryHistory";
 import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
-import { triggerBlobDownload } from "@/app/[locale]/tools/screencast/_utils";
+import { triggerBlobDownload, triggerUrlDownload } from "@/lib/download";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 
 type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
 type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
@@ -43,13 +44,6 @@ const KEINE_DATEIEN: File[] = [];
 const DEMO_SCHRITT_MS = 400;
 const DEMO_BADGE = "text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent";
 const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
-
-function herunterladen(href: string) {
-  const a = document.createElement("a");
-  a.href = href;
-  a.download = "";
-  a.click();
-}
 
 /** The summary tool, and with demo the same page on the prepared runs of the demo module. */
 function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
@@ -290,7 +284,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
       // A cancel during the upload stops the job as soon as its id is known.
       if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
       jobUuidRef.current = data.job_uuid;
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       await pollJob(
         data.job_uuid,
         (status) => {
@@ -305,7 +299,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
         3000,
         controller.signal,
       );
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -320,7 +314,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
 
   const handleDownload = async () => {
     if (!doneJobUuid) return;
-    if (demo) return herunterladen(`/api/summary-demo/${doneJobUuid}/md`);
+    if (demo) return triggerUrlDownload(`/api/summary-demo/${doneJobUuid}/md`);
     try {
       const { blob, filename } = await downloadJobAsBlob(doneJobUuid);
       triggerBlobDownload(blob, filename);
@@ -331,7 +325,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
 
   const handleDownloadDocx = async () => {
     if (!doneJobUuid) return;
-    if (demo) return herunterladen(`/api/summary-demo/${doneJobUuid}/docx`);
+    if (demo) return triggerUrlDownload(`/api/summary-demo/${doneJobUuid}/docx`);
     try {
       const { blob, filename } = await downloadJobAsBlob(doneJobUuid, "zusammenfassung.docx", "docx");
       triggerBlobDownload(blob, filename);

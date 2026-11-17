@@ -1,47 +1,59 @@
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { DownloadSimple } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { openJumps } from "@/components/jobs/_jobJump";
+import { downloadFormat } from "@/components/jobs/_myJob";
+import { triggerUrlDownload } from "@/lib/download";
 import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
-import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
-import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
-import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
-import { summaryJumpHref, summaryJumpKind } from "@/components/jobs/_summaryJump";
-import { pagesJumpHref, pagesJumpKind } from "@/components/jobs/_pagesJump";
-import { translateJumpHref, translateJumpKind } from "@/components/jobs/_translateJump";
-import { ttsJumpHref, ttsJumpKind } from "@/components/jobs/_ttsJump";
-import { sttJumpHref, sttJumpKind } from "@/components/jobs/_sttJump";
-import { bildJumpHref, bildJumpKind } from "@/components/jobs/_bildJump";
 
 
-function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
-  const t = useTranslations("myJobs.artifacts");
-  const [busy, setBusy] = useState(false);
-  const handleClick = async () => {
-    if (busy) return;
-    if (onClick) {
-      setBusy(true);
-      try { await onClick(); } finally { setBusy(false); }
-      return;
-    }
-    if (!href) return;
-    const a = document.createElement("a");
-    a.href = href;
-    if (filename) a.download = filename;
-    a.click();
-  };
+interface Download {
+  href: string;
+  filename?: string;
+  label: string;
+}
+
+// The file name and the link text a tool falls back to when the job carries no result name.
+const DEFAULTS: Record<string, { name: string; label?: string }> = {
+  podcast: { name: "podcast.mp3", label: "MP3" },
+  praesentation: { name: "praesentation.pptx", label: "PPTX" },
+  summary: { name: "zusammenfassung.md", label: "MD" },
+};
+// The tools whose row keeps the narrow gap.
+const TIGHT = new Set(["podcast", "praesentation", "pages", "summary", "translation", "tts", "transcription"]);
+// These tools never offer the Word file, even when one exists.
+const NO_DOCX = new Set(["podcast", "praesentation", "translation", "tts", "transcription"]);
+
+/** The files a finished job hands out, a page lives in its editor and has none. */
+function downloadsOf(job: MyJob, fallbackLabel: string): Download[] {
+  if (job.tool === "pages" || job.status !== "success" || !job.has_download) return [];
+  const fallback = DEFAULTS[job.tool] ?? { name: "download" };
+  const filename = job.tool === "tts"
+    ? `${job.original_filename.replace(/\.[^.]+$/, "") || "tts"}_audio.mp3`
+    : job.result_filename || fallback.name;
+  const list: Download[] = [{
+    href: `/api/jobs/${job.job_uuid}/download`,
+    filename,
+    label: downloadFormat(job) ?? fallback.label ?? fallbackLabel,
+  }];
+  if (job.has_docx && !NO_DOCX.has(job.tool)) {
+    list.push({
+      href: `/api/jobs/${job.job_uuid}/docx`,
+      filename: (job.result_filename || fallback.name).replace(/\.[^.]+$/, "") + ".docx",
+      label: "DOCX",
+    });
+  }
+  return list;
+}
+
+function DownloadChip({ href, filename, label }: Download) {
   return (
     <button
-      onClick={handleClick}
-      disabled={busy}
+      onClick={() => triggerUrlDownload(href, filename)}
       className="download-link text-xs text-kb hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      {busy ? (
-        <Spinner size="sm" />
-      ) : (
-        <DownloadSimple size={12} weight="bold" className="shrink-0" />
-      )}
-      {busy ? t("creating") : label}
+      <DownloadSimple size={12} weight="bold" className="shrink-0" />
+      {label}
     </button>
   );
 }
@@ -100,15 +112,11 @@ function ScreencastDownloads({ job, bundleLabel, children }: {
 export function JobArtifacts({ job }: { job: MyJob }) {
   const t = useTranslations("myJobs.artifacts");
   const downloadAllLabel = t("downloadAllZip");
+  // Resume sits in the status badge, only opening remains here.
+  const openChips = openJumps(job).map((jump) => <OpenChip key={jump.href} href={jump.href} label={t(jump.label)} />);
 
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
-    // Resume now sits in the status badge, only opening remains here.
-    const sprung = screencastJumpKind(job);
-    const sprungChip = sprung === "open" && (
-      <OpenChip href={screencastJumpHref(job.job_uuid)} label={t("openScreencast")} />
-    );
-
     if (job.status === "awaiting_user") {
       // Without running scripts nothing stays here, the badge leads on.
       if (!job.is_generating_scripts) return null;
@@ -130,12 +138,12 @@ export function JobArtifacts({ job }: { job: MyJob }) {
 
     if (job.status === "success") {
       return (
-        <ScreencastDownloads job={job} bundleLabel={downloadAllLabel}>{sprungChip}</ScreencastDownloads>
+        <ScreencastDownloads job={job} bundleLabel={downloadAllLabel}>{openChips}</ScreencastDownloads>
       );
     }
 
     // During voicing the button leads to the waiting page in the assistant.
-    return sprungChip ? <div className="mt-3 flex flex-wrap gap-2 items-center">{sprungChip}</div> : null;
+    return openChips.length ? <div className="mt-3 flex flex-wrap gap-2 items-center">{openChips}</div> : null;
   }
 
   // screencast render/auto: show all artifacts (legacy + auto mode)
@@ -143,156 +151,13 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     return <ScreencastDownloads job={job} bundleLabel={downloadAllLabel} />;
   }
 
-  // Podcast: the finished MP3 plus the way back into the tool, resuming sits in the badge.
-  if (job.tool === "podcast") {
-    const sprung = podcastJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt && sprung !== "open") return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        {laedt && (
-          <DownloadChip
-            href={`/api/jobs/${job.job_uuid}/download`}
-            filename={job.result_filename || "podcast.mp3"}
-            label="MP3"
-          />
-        )}
-        {sprung === "open" && <OpenChip href={podcastJumpHref(job.job_uuid)} label={t("openPodcast")} />}
-      </div>
-    );
-  }
-
-  // Praesentation: the finished PPTX plus the way back into the tool, resuming sits in the badge.
-  if (job.tool === "praesentation") {
-    const sprung = praesentationJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt && sprung !== "open") return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        {laedt && (
-          <DownloadChip
-            href={`/api/jobs/${job.job_uuid}/download`}
-            filename={job.result_filename || "praesentation.pptx"}
-            label="PPTX"
-          />
-        )}
-        {sprung === "open" && <OpenChip href={praesentationJumpHref(job.job_uuid)} label={t("openPraesentation")} />}
-      </div>
-    );
-  }
-
-  // Pages: a page lives in its editor, there is no file to download.
-  if (job.tool === "pages") {
-    if (pagesJumpKind(job) !== "open") return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <OpenChip href={pagesJumpHref(job.job_uuid)} label={t("openPage")} />
-      </div>
-    );
-  }
-
-  // Summary: the two downloads plus the way back into the tool to read it there again.
-  if (job.tool === "summary") {
-    const sprung = summaryJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <DownloadChip
-          href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "zusammenfassung.md"}
-          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? "MD"}
-        />
-        {job.has_docx && (
-          <DownloadChip
-            href={`/api/jobs/${job.job_uuid}/docx`}
-            filename={(job.result_filename || "zusammenfassung").replace(/\.[^.]+$/, "") + ".docx"}
-            label="DOCX"
-          />
-        )}
-        {sprung === "open" && <OpenChip href={summaryJumpHref(job.job_uuid)} label={t("openSummary")} />}
-      </div>
-    );
-  }
-
-  // Translation: the download plus the way back into the tool to read it there again.
-  if (job.tool === "translation") {
-    const sprung = translateJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <DownloadChip
-          href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "download"}
-          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile")}
-        />
-        {sprung === "open" && <OpenChip href={translateJumpHref(job.job_uuid)} label={t("openTranslation")} />}
-      </div>
-    );
-  }
-
-  // TTS: the MP3 download plus the way back into the tool to play it there again.
-  if (job.tool === "tts") {
-    const sprung = ttsJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt) return null;
-    const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "tts";
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <DownloadChip
-          href={`/api/jobs/${job.job_uuid}/download`}
-          filename={`${baseName}_audio.mp3`}
-          label="MP3"
-        />
-        {sprung === "open" && <OpenChip href={ttsJumpHref(job.job_uuid)} label={t("openTts")} />}
-      </div>
-    );
-  }
-
-  // Transcription: the download plus the way back into the tool to read it there again.
-  if (job.tool === "transcription") {
-    const sprung = sttJumpKind(job);
-    const laedt = job.status === "success" && job.has_download;
-    if (!laedt) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <DownloadChip
-          href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "download"}
-          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile")}
-        />
-        {sprung === "open" && <OpenChip href={sttJumpHref(job.job_uuid)} label={t("openStt")} />}
-      </div>
-    );
-  }
-
-  // Generic fallback: any job with a downloadable result
-  if (job.status === "success" && job.has_download) {
-    const downloadLabel =
-      job.tool === "image_generate" || job.tool === "image_edit"
-        ? "PNG"
-        : job.tool === "image_analyze"
-        ? "TXT"
-        : t("fallbackFile");
-    return (
-      <div className="mt-3 flex flex-wrap gap-3 items-center">
-        <DownloadChip
-          href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "download"}
-          label={downloadLabel}
-        />
-        {job.has_docx && (
-          <DownloadChip
-            href={`/api/jobs/${job.job_uuid}/docx`}
-            filename={(job.result_filename || "download").replace(/\.[^.]+$/, "") + ".docx"}
-            label="DOCX"
-          />
-        )}
-        {bildJumpKind(job) === "open" && <OpenChip href={bildJumpHref(job.job_uuid)} label={t("openImage")} />}
-      </div>
-    );
-  }
-
-  return null;
+  // Every other tool: its files, then the way back into the tool.
+  const downloads = downloadsOf(job, t("fallbackFile"));
+  if (!downloads.length && !openChips.length) return null;
+  return (
+    <div className={`mt-3 flex flex-wrap ${TIGHT.has(job.tool) ? "gap-2" : "gap-3"} items-center`}>
+      {downloads.map((d) => <DownloadChip key={d.href} {...d} />)}
+      {openChips}
+    </div>
+  );
 }

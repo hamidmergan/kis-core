@@ -15,7 +15,7 @@ export function zuSenden(
       const wert = antworten[f.id];
       if (wert === undefined) return false;
       if (Array.isArray(wert)) return wert.length > 0;
-      return typeof wert === "string" ? wert.trim() !== "" : true;
+      return wert.trim() !== "";
     })
     .map((f) => ({ question_id: f.id, value: antworten[f.id] }));
 }

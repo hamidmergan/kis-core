@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { sseResponse } from "../_sse";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,23 +31,5 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const reader = upstream.body.getReader();
-  const stream = new ReadableStream({
-    async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) controller.close();
-      else controller.enqueue(value);
-    },
-    cancel() {
-      reader.cancel();
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return sseResponse(upstream.body);
 }

@@ -1,14 +1,13 @@
 import { useTranslations } from "next-intl";
 import { Trash, X } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
-import { isActive, isExpired, type MyJob } from "../_types";
+import { isActive, type MyJob } from "../_types";
 import { StatusBadge } from "./StatusBadge";
 import { TimingInfo } from "./TimingInfo";
 import { JobArtifacts } from "./JobArtifacts";
 import { AdminDetails } from "./AdminDetails";
-import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
-import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
-import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
+import { resumeHref as resumeHrefOf } from "@/components/jobs/_jobJump";
+import { isExpired } from "@/components/jobs/_myJob";
 import { JobSources } from "@/components/jobs/JobSources";
 
 
@@ -26,19 +25,12 @@ interface JobListItemProps {
 }
 
 
-
 export function JobListItem({
   job, isAdmin, cancelling, retrying, onCancel, onRetry, onRequestDelete,
 }: JobListItemProps) {
   const t = useTranslations("myJobs.actions");
   const expired = isExpired(job);
-  const resumeHref = screencastJumpKind(job) === "resume"
-    ? screencastJumpHref(job.job_uuid)
-    : podcastJumpKind(job) === "resume"
-      ? podcastJumpHref(job.job_uuid)
-      : praesentationJumpKind(job) === "resume"
-        ? praesentationJumpHref(job.job_uuid)
-        : undefined;
+  const resumeHref = resumeHrefOf(job);
   const canRetry =
     ((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "pages")
       && (job.status === "failed" || job.status === "paused"))

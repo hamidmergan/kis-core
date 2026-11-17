@@ -145,7 +145,12 @@ function record(stream: MediaStream, session: RecordingSession): Handle {
     release();
     if (!cancelled) void sendFinal();
   };
-  recorder.start(WINDOW_MS);
+  try {
+    recorder.start(WINDOW_MS);
+  } catch (e) {
+    meter?.close();
+    throw e;
+  }
 
   return {
     stop: () => {
@@ -163,15 +168,28 @@ function record(stream: MediaStream, session: RecordingSession): Handle {
 export function useRecorder() {
   const current = useRef<Handle | null>(null);
   const starting = useRef(0);
+  // The session still waiting for the microphone, a stop has to close its sentence.
+  const waiting = useRef<RecordingSession | null>(null);
 
-  const start = useCallback(async (session: RecordingSession) => {
+  const stop = useCallback(() => {
+    starting.current += 1;
     current.current?.stop();
     current.current = null;
-    const attempt = (starting.current += 1);
+    const unanswered = waiting.current;
+    waiting.current = null;
+    unanswered?.onFinal("");
+  }, []);
+
+  const start = useCallback(async (session: RecordingSession) => {
+    stop();
+    const attempt = starting.current;
+    waiting.current = session;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
+      if (attempt !== starting.current) return;
+      waiting.current = null;
       session.onError("mic");
       session.onFinal("");
       return;
@@ -180,17 +198,20 @@ export function useRecorder() {
       stream.getTracks().forEach((track) => track.stop());
       return;
     }
-    current.current = record(stream, session);
-  }, []);
-
-  const stop = useCallback(() => {
-    starting.current += 1;
-    current.current?.stop();
-    current.current = null;
-  }, []);
+    waiting.current = null;
+    try {
+      current.current = record(stream, session);
+    } catch {
+      // A recorder that cannot start must not leave the microphone open.
+      stream.getTracks().forEach((track) => track.stop());
+      session.onError("mic");
+      session.onFinal("");
+    }
+  }, [stop]);
 
   const cancel = useCallback(() => {
     starting.current += 1;
+    waiting.current = null;
     current.current?.cancel();
     current.current = null;
   }, []);

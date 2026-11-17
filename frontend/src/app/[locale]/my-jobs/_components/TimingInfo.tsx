@@ -1,5 +1,6 @@
 import { useLocale, useTranslations } from "next-intl";
-import { SCREENCAST_TOOLS, type MyJob } from "../_types";
+import { isScreencast } from "@/components/jobs/_myJob";
+import type { MyJob } from "../_types";
 import { formatDate, formatElapsed, toMs } from "@/lib/format";
 
 
@@ -13,34 +14,11 @@ export function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
     hours: (h: number, m: string, s: string) => td("hours", { h, m, s }),
   };
 
-  if (SCREENCAST_TOOLS.has(job.tool)) {
-    const queueWaitMs = job.render_queued_at && job.render_started_at
-      ? toMs(job.render_started_at) - toMs(job.render_queued_at)
-      : null;
-    const renderMs = job.render_started_at && job.completed_at
-      ? toMs(job.completed_at) - toMs(job.render_started_at)
-      : null;
-    return (
-      <div className="mt-1.5 text-xs text-muted-soft space-y-0.5">
-        <p>{t("submitted")} {formatDate(job.created_at, locale)}</p>
-        {isAdmin && queueWaitMs !== null && (
-          <p>{t("queueWait")} <span className="text-muted">{formatElapsed(queueWaitMs, fmt)}</span></p>
-        )}
-        {isAdmin && renderMs !== null && (
-          <p>{t("renderTime")} <span className="text-muted">{formatElapsed(renderMs, fmt)}</span></p>
-        )}
-        {job.completed_at && (
-          <p>{t("completed")} {formatDate(job.completed_at, locale)}</p>
-        )}
-        {job.expires_at && (
-          <p>{t("expiresAt")} {formatDate(job.expires_at, locale)}</p>
-        )}
-      </div>
-    );
-  }
-
-  const waitMs = job.started_at ? toMs(job.started_at) - toMs(job.created_at) : null;
-  const workMs = job.started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.started_at) : null;
+  // A screencast counts from the render queue, every other job from its own start.
+  const screencast = isScreencast(job);
+  const [queuedAt, startedAt] = screencast ? [job.render_queued_at, job.render_started_at] : [job.created_at, job.started_at];
+  const waitMs = queuedAt && startedAt ? toMs(startedAt) - toMs(queuedAt) : null;
+  const workMs = startedAt && job.completed_at ? toMs(job.completed_at) - toMs(startedAt) : null;
   return (
     <div className="mt-1.5 text-xs text-muted-soft space-y-0.5">
       <p>{t("submitted")} {formatDate(job.created_at, locale)}</p>
@@ -48,7 +26,7 @@ export function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
         <p>{t("queueWait")} <span className="text-muted">{formatElapsed(waitMs, fmt)}</span></p>
       )}
       {isAdmin && workMs !== null && (
-        <p>{t("processingTime")} <span className="text-muted">{formatElapsed(workMs, fmt)}</span></p>
+        <p>{t(screencast ? "renderTime" : "processingTime")} <span className="text-muted">{formatElapsed(workMs, fmt)}</span></p>
       )}
       {job.completed_at && (
         <p>{t("completed")} {formatDate(job.completed_at, locale)}</p>

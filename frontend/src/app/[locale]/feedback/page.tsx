@@ -16,7 +16,8 @@ type Category = "bug" | "idea" | "other";
 
 const MAX_MESSAGE_CHARS = 2000;
 const MAX_FILES = 10;
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_FILE_MB = 15;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 const ACCEPT = ".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf";
 
 function formatSize(bytes: number): string {
@@ -75,7 +76,7 @@ export default function FeedbackPage() {
         break;
       }
       if (datei.size > MAX_FILE_BYTES) {
-        setError(t("fileTooLarge", { name: datei.name, max: 15 }));
+        setError(t("fileTooLarge", { name: datei.name, max: MAX_FILE_MB }));
         continue;
       }
       naechste.push(datei);

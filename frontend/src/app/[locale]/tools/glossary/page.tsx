@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { triggerBlobDownload } from "@/lib/download";
 
 export default function GlossaryPage() {
   const t = useTranslations("tools.glossary");
@@ -58,6 +59,8 @@ export default function GlossaryPage() {
   const handleAddEntry = async () => {
     if (!newEntryDe.trim() || !newEntryEn.trim()) return;
     if (!selectedGlossary) return;
+    // Enter must not get past the limit the disabled button enforces.
+    if (Object.keys(selectedGlossary.entries).length >= MAX_ENTRIES_PER_GLOSSARY) return;
     const key = newEntryDe.trim();
     if (key in selectedGlossary.entries) {
       setEntryError(t("duplicateEntry", { key }));
@@ -82,15 +85,7 @@ export default function GlossaryPage() {
     const g = glossaries.find(g => g.id === id);
     if (!g) return;
     const payload = { name: g.name, entries: g.entries };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${g.name}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `${g.name}.json`);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {

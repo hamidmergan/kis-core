@@ -22,12 +22,14 @@ import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHin
 import OwnVoicesLink from "@/components/OwnVoicesLink";
 import { preselectedVoice } from "@/hooks/_voiceDefault";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
+import { cancelJob } from "@/components/jobs/JobCancelButton";
+import { triggerBlobDownload } from "@/lib/download";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 
 type InputMode = "text" | "file";
 
 function TtsPageInner() {
   const t = useTranslations("tools.tts");
-  const tProgress = useTranslations("tools.tts.progress");
   const tCommon = useTranslations("common");
   const tResult = useTranslations("common.result");
   const locale = useLocale();
@@ -44,7 +46,6 @@ function TtsPageInner() {
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string>("");
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
-  const [, setTtsProgressLabel] = useState<string>("");
   // Which history row the shown result belongs to, so that row can be highlighted.
   const [angezeigterJobUuid, setAngezeigterJobUuid] = useState<string | null>(null);
 
@@ -55,8 +56,6 @@ function TtsPageInner() {
 
   // Voice selection
   const [voiceId, setVoiceId] = useState("");
-
-  // Audio settings
 
   useEffect(() => {
     fetch("/api/tts/providers-with-voices", { credentials: "include" })
@@ -84,7 +83,7 @@ function TtsPageInner() {
   const dateiStammRef = useRef("text");
 
   useEffect(() => {
-    return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
+    return () => abortControllerRef.current?.abort();
   }, []);
 
   // Expose the finished audio as a playable object URL (created/revoked with the blob).
@@ -145,7 +144,6 @@ function TtsPageInner() {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
     setTtsState("uploading");
-    setTtsProgressLabel(tProgress("uploading"));
     try {
       const activeVoice = activeProvider?.voices.find((v) => v.voice_id === voiceId);
       const voiceLabel = activeVoice
@@ -174,7 +172,7 @@ function TtsPageInner() {
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
 
       dateiStammRef.current = inputMode === "file" && pendingFile
         ? pendingFile.name.replace(/\.[^.]+$/, "")
@@ -191,26 +189,10 @@ function TtsPageInner() {
   /** Follows one job to the end and downloads it, used by the first run and by Weiter. */
   const verfolgeJob = async (job_uuid: string, signal: AbortSignal) => {
     setTtsState("processing");
-    setTtsProgressLabel(tProgress("queued"));
     try {
-      const jobResult = await pollJob(
-        job_uuid,
-        (status) => {
-          const p = status.progress as { step?: string; chunk?: number; total?: number } | null;
-          if (p?.step === "extract") setTtsProgressLabel(tProgress("extracting"));
-          else if (p?.step === "synthesize" && p.chunk && p.total)
-            setTtsProgressLabel(tProgress("synthesizingChunk", { chunk: p.chunk, total: p.total }));
-          else if (p?.step === "synthesize") setTtsProgressLabel(tProgress("synthesizing"));
-          else setTtsProgressLabel(tProgress("queued"));
-        },
-        3000,
-        signal,
-        () => setTtsProgressLabel(tProgress("noProgress")),
-        60_000,
-      );
+      const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
 
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      setTtsProgressLabel(tProgress("downloading"));
+      notifyJobsChanged();
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
         `${dateiStammRef.current}.mp3`,
@@ -222,7 +204,7 @@ function TtsPageInner() {
       setTtsState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
       // Paused keeps the job, the person decides whether it carries on.
       if (err instanceof JobPausedError) {
         currentJobUuidRef.current = err.jobUuid;
@@ -256,14 +238,7 @@ function TtsPageInner() {
 
   const handleTtsDownload = () => {
     if (!ttsDownloadBlob) return;
-    const url = URL.createObjectURL(ttsDownloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = ttsDownloadName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(ttsDownloadBlob, ttsDownloadName);
   };
 
   const handleTtsReset = () => {
@@ -274,7 +249,6 @@ function TtsPageInner() {
     setTtsDownloadBlob(null);
     setTtsDownloadName("");
     setTtsErrorMessage("");
-    setTtsProgressLabel("");
     setAngezeigterJobUuid(null);
   };
 
@@ -379,7 +353,7 @@ function TtsPageInner() {
                     const uuid = currentJobUuidRef.current;
                     currentJobUuidRef.current = null;
                     abortControllerRef.current?.abort();
-                    if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                    cancelJob(uuid);
                     setTtsState("idle");
                   }}
                   className="btn-cancel px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors flex items-center gap-2"

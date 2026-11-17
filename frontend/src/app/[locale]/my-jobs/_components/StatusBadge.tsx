@@ -9,11 +9,10 @@ interface StatusBadgeProps {
   expired: boolean;
   isGeneratingScripts?: boolean;
   resumeHref?: string;
-  onResume?: () => void;
 }
 
 
-export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResume }: StatusBadgeProps) {
+export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref }: StatusBadgeProps) {
   const t = useTranslations("myJobs.status");
   const anzeige = jobStatusDisplay(status, { expired, isGeneratingScripts });
 
@@ -23,7 +22,6 @@ export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, 
       return (
         <a
           href={resumeHref}
-          onClick={onResume}
           className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md"
         >
           {t(anzeige.key)}

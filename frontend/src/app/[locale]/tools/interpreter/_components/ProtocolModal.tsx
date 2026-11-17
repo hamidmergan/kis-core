@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
+import { triggerBlobDownload } from "@/lib/download";
 import type { Side, Turn } from "../_types";
 
 interface Props {
@@ -19,13 +20,7 @@ export default function ProtocolModal({ open, onClose, turns, names, formatTime 
 
   const download = () => {
     const text = lines.map((turn) => `[${formatTime(turn.at)}] ${names[turn.side]}\n${turn.original}\n${turn.translation}`).join("\n\n");
-    const blob = new Blob([`${text}\n`], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${t("filename")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(new Blob([`${text}\n`], { type: "text/plain;charset=utf-8" }), `${t("filename")}.txt`);
   };
 
   return (

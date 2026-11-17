@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { Check, Copy, Eye, EyeSlash } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
+import { Eye, EyeSlash } from "@phosphor-icons/react";
 import AuthSplit from "@/components/layout/AuthSplit";
-import IconButton from "@/components/ui/IconButton";
 import Tabs from "@/components/ui/Tabs";
 import { login, checkAuthStatus } from "@/lib/auth";
-import { copyTextFromPromise } from "@/lib/clipboard";
-import { checkForm } from "../redeem/checkForm";
-import { isReturnPath } from "@/components/auth/ProtectedRoute";
+import { AccessCodeDone, AccessCodeForm, useAccessCode } from "../redeem/_accessCode";
+import { isReturnPath } from "@/components/auth/_routeGuard";
 import { AUTH_FIELD } from "@/components/auth/authField";
 
 /** Where the login leads: back to a shared page the person came from, else the workspaces. */
@@ -20,12 +18,9 @@ function afterLogin(): string {
   return isReturnPath(next) ? next : "/workspace";
 }
 
-type Fertig = { username: string; password: string; expiresAt: string | null };
-
 export default function LoginPage() {
   const t = useTranslations("login");
   const tc = useTranslations("accessCode");
-  const locale = useLocale();
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -37,11 +32,8 @@ export default function LoginPage() {
   const [zugangOffen, setZugangOffen] = useState(false);
   const [abgelaufen, setAbgelaufen] = useState(false);
   const [tab, setTab] = useState<"login" | "code">("login");
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [codeSending, setCodeSending] = useState(false);
-  const [fertig, setFertig] = useState<Fertig | null>(null);
-  const [kopiert, setKopiert] = useState<"user" | "password" | null>(null);
+  const accessCode = useAccessCode();
+  const { setCode, fertig, redeem } = accessCode;
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -100,54 +92,6 @@ export default function LoginPage() {
       .then((d) => setZugangOffen(!!d?.enabled))
       .catch(() => {});
   }, []);
-
-  async function redeem(value: string) {
-    if (!checkForm({ code: value }).ok) {
-      setCodeError(tc("errorCodeMissing"));
-      return;
-    }
-    setCodeError(null);
-    setCodeSending(true);
-    try {
-      const r = await fetch("/api/access-codes/redeem", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: value.trim() }),
-      });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({}));
-        setCodeError(typeof body?.detail === "string" ? body.detail : tc("errorGeneric"));
-        return;
-      }
-      const d = await r.json();
-      // The session cookie already arrived with this answer, an event code without credentials goes straight in.
-      if (d.show_credentials === false) {
-        window.location.assign("/workspace");
-        return;
-      }
-      setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
-    } catch {
-      setCodeError(tc("errorGeneric"));
-    } finally {
-      setCodeSending(false);
-    }
-  }
-
-  function copy(field: "user" | "password", text: string) {
-    copyTextFromPromise(Promise.resolve(text));
-    setKopiert(field);
-    setTimeout(() => setKopiert(null), 1500);
-  }
-
-  const untilDate = fertig?.expiresAt
-    ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Europe/Berlin",
-      })
-    : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,87 +213,9 @@ export default function LoginPage() {
       </form>
       )}
 
-      {tab === "code" && !fertig && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            redeem(code);
-          }}
-          data-testid="access-code-form"
-          className="mt-6 space-y-5"
-        >
-          <p className="text-sm text-foreground-soft">{tc("intro")}</p>
-          <div>
-            <label htmlFor="access-code" className="block text-sm font-medium text-foreground-soft mb-1.5">
-              {tc("code")}
-            </label>
-            <input
-              id="access-code"
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              required
-              disabled={codeSending}
-              placeholder={tc("codeHint")}
-              className={`${AUTH_FIELD} font-mono`}
-            />
-          </div>
-          {codeError && (
-            <p className="text-sm text-error" role="alert">
-              {codeError}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={codeSending || !code.trim()}
-            className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
-          >
-            {codeSending ? tc("submitting") : tc("submit")}
-          </button>
-        </form>
-      )}
+      {tab === "code" && !fertig && <AccessCodeForm state={accessCode} />}
 
-      {fertig && (
-        <div data-testid="access-code-done" className="mt-6 space-y-5">
-          {(["user", "password"] as const).map((f) => {
-            const value = f === "user" ? fertig.username : fertig.password;
-            return (
-              <div key={f}>
-                <p className="text-sm font-medium text-foreground-soft mb-1.5">
-                  {f === "user" ? tc("doneUser") : tc("donePassword")}
-                </p>
-                <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-border px-3 py-2.5">
-                  <span data-testid={f === "user" ? "access-code-username" : "access-code-password"} className="font-mono text-base break-all">
-                    {value}
-                  </span>
-                  <IconButton
-                    size="sm"
-                    onClick={() => copy(f, value)}
-                    aria-label={kopiert === f ? tc("copied") : f === "user" ? tc("copyUser") : tc("copyPassword")}
-                  >
-                    {kopiert === f ? <Check size={14} weight="bold" className="text-kb" /> : <Copy size={14} weight="bold" />}
-                  </IconButton>
-                </div>
-              </div>
-            );
-          })}
-          <p className="text-sm text-muted">{tc("doneOnce")}</p>
-          <p className="text-sm text-foreground">
-            {fertig.expiresAt ? tc("doneUntil", { date: untilDate }) : tc("doneUnlimited")}
-          </p>
-          <button
-            type="button"
-            data-testid="access-code-continue"
-            onClick={() => window.location.assign("/workspace")}
-            className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
-          >
-            {tc("doneGo")}
-          </button>
-        </div>
-      )}
+      {fertig && <AccessCodeDone fertig={fertig} />}
 
       {tab === "login" && !fertig && (
         <p className="mt-6 text-sm text-foreground-soft">

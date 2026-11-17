@@ -1,74 +1,36 @@
 "use client";
 
-import type { ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import LinkBusy from "@/components/ui/LinkBusy";
 
 interface Props {
-  /** Without a target the tile only announces what is coming. */
-  href?: string;
+  href: string;
   icon?: Icon;
-  /** Stands in the icon's place, for a tile with a character of its own. */
-  avatar?: ReactNode;
   title: string;
   body: string;
-  badge?: string;
-  /** Small line above the title, for what the visitor should notice first, such as a date. */
-  note?: string;
   testId: string;
 }
 
 /** The whole tile is the link, hover only recolours the border. */
-export function StartTile({ href, icon: Icon, avatar, title, body, badge, note, testId }: Props) {
-  const shell =
-    "flex flex-1 items-center gap-4 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground";
-  // While the link loads the spinner takes the icon's place, so the slot keeps its size either way.
-  const busy = (node: ReactNode) => (href ? <LinkBusy size="sm">{node}</LinkBusy> : node);
-  const media = (
-    <span
-      className={`flex items-center justify-center w-14 h-14 shrink-0 rounded-full ${
-        href ? "bg-kb text-on-accent" : "bg-surface-dim text-muted-soft"
-      }`}
-    >
-      {busy(avatar ?? (Icon ? <Icon size={28} weight="bold" aria-hidden="true" /> : null))}
-    </span>
-  );
-  const inner = (
-    <>
-      {media}
-      <div className="flex-1 min-w-0">
-        {note && <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--kb-dark)" }}>{note}</p>}
-        <div className="flex items-center gap-2">
-          <span className="text-base font-semibold tracking-[-0.01em]">{title}</span>
-          {badge && (
-            <span
-              className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
-              style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
-            >
-              {badge}
-            </span>
-          )}
-        </div>
-        <p className="text-sm leading-[21px] text-foreground-soft mt-1">{body}</p>
-      </div>
-    </>
-  );
-  if (!href) {
-    return (
-      <div className={shell} style={{ boxShadow: "var(--shadow)" }} data-testid={testId}>
-        {inner}
-      </div>
-    );
-  }
+export function StartTile({ href, icon: Icon, title, body, testId }: Props) {
   return (
     <Link
       href={href}
-      className={`${shell} transition-colors hover:border-kb no-underline`}
+      className="flex flex-1 items-center gap-4 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground transition-colors hover:border-kb no-underline"
       style={{ boxShadow: "var(--shadow)" }}
       data-testid={testId}
     >
-      {inner}
+      <span className="flex items-center justify-center w-14 h-14 shrink-0 rounded-full bg-kb text-on-accent">
+        {/* While the link loads the spinner takes the icon's place, so the slot keeps its size either way. */}
+        <LinkBusy size="sm">{Icon ? <Icon size={28} weight="bold" aria-hidden="true" /> : null}</LinkBusy>
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-base font-semibold tracking-[-0.01em]">{title}</span>
+        </div>
+        <p className="text-sm leading-[21px] text-foreground-soft mt-1">{body}</p>
+      </div>
     </Link>
   );
 }

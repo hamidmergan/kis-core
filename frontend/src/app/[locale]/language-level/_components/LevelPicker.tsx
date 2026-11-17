@@ -31,10 +31,8 @@ export function LevelPicker({
       <div role="radiogroup" aria-label={t("chooseSelf")} className="flex w-full flex-col gap-2">
         {CEFR_LEVELS.map((step) => {
           const isSelected = step === selected;
-          let borderColor = "var(--border)";
+          const borderColor = isSelected || hovered === step ? "var(--kb)" : "var(--border)";
           const bg = isSelected ? "var(--surface)" : "var(--background)";
-          if (isSelected) borderColor = "var(--kb)";
-          else if (hovered === step) borderColor = "var(--kb)";
           return (
             <button
               key={step}

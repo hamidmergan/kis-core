@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
+import { formatUntil } from "../_accessCode";
 
 type Fertig = { expiresAt: string | null };
 
@@ -61,14 +62,7 @@ export default function AccessExpiredPage() {
     }
   }
 
-  const bisDatum = fertig?.expiresAt
-    ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Europe/Berlin",
-      })
-    : "";
+  const bisDatum = formatUntil(fertig?.expiresAt, locale);
 
   return (
     <>

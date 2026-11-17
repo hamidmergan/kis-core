@@ -29,16 +29,5 @@ export const SCREENCAST_RENDER_TOOLS = new Set([
   "screencast_auto",
 ]);
 
-export const SCREENCAST_TOOLS = new Set([
-  "screencast_translate",
-  "screencast_render",
-  "screencast_auto",
-]);
-
-
 export const isActive = (s: MyJob["status"]): boolean =>
   s === "pending" || s === "running" || s === "awaiting_user" || s === "queued" || s === "waiting_retry";
-
-
-export const isExpired = (job: MyJob): boolean =>
-  job.status === "success" && !job.has_download;

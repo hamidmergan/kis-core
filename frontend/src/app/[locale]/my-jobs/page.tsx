@@ -8,6 +8,8 @@ import { isFullAdmin } from "@/lib/permissions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { ArrowsCounterClockwise } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { screencastJumpHref } from "@/components/jobs/_screencastJump";
+import { JOBS_STATUS_CHANGED_EVENT, notifyJobsChanged } from "@/lib/jobs-events";
 
 import type { MyJob } from "./_types";
 import { FilterBar } from "./_components/FilterBar";
@@ -97,14 +99,14 @@ export default function MeineJobsPage() {
   // Refresh when JobsPanel detects a status change (e.g. running→success)
   useEffect(() => {
     const handler = () => fetchJobs(true);
-    window.addEventListener("kis-jobs-status-changed", handler);
-    return () => window.removeEventListener("kis-jobs-status-changed", handler);
+    window.addEventListener(JOBS_STATUS_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(JOBS_STATUS_CHANGED_EVENT, handler);
   }, [fetchJobs]);
 
   const handleRetry = async (job: MyJob) => {
     // An error during translation needs the assistant, one during rendering does not.
     if (job.tool === "screencast_translate") {
-      router.push(`/${locale}/tools/screencast?resume=${job.job_uuid}`);
+      router.push(`/${locale}${screencastJumpHref(job.job_uuid)}`);
       return;
     }
     setRetrying(job.job_uuid);
@@ -140,7 +142,7 @@ export default function MeineJobsPage() {
       await fetch(`/api/jobs/${job.job_uuid}`, { method: "DELETE", credentials: "include" });
       setJobs((prev) => prev.filter((j) => j.job_uuid !== job.job_uuid));
       setTotal((prev) => Math.max(0, prev - 1));
-      window.dispatchEvent(new Event("kis-jobs-changed"));
+      notifyJobsChanged();
     } finally {
       setCancelling(null);
     }
@@ -158,7 +160,7 @@ export default function MeineJobsPage() {
               </span>
             )}
             <button
-              onClick={() => { fetchJobs(); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }}
+              onClick={() => { fetchJobs(); notifyJobsChanged(); }}
               disabled={loading}
               title={t("refresh")}
               className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground disabled:opacity-40 transition-colors"

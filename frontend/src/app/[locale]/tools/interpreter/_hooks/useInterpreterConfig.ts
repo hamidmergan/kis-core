@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { api, backendApi } from "@/lib/api";
-import type { LangCode, LanguageOption, ProviderOption } from "../_types";
+import type { ProviderOption } from "../_types";
 
-const LANG_CODES: readonly string[] = ["DE", "EN-US"];
 const FALLBACK_PROVIDERS: ProviderOption[] = [{ id: -1, label: "THL myLab" }];
 
-/** Languages and providers from the platform, with a stand-in so the choice is always visible. */
-export function useInterpreterConfig(fallbackLanguages: LanguageOption[]) {
-  const [languages, setLanguages] = useState<LanguageOption[]>(fallbackLanguages);
+/** The providers from the platform, with a stand-in so the choice is always visible. */
+export function useInterpreterConfig() {
   const [translationProviders, setTranslationProviders] = useState<ProviderOption[]>(FALLBACK_PROVIDERS);
   const [sttProviders, setSttProviders] = useState<ProviderOption[]>(FALLBACK_PROVIDERS);
 
@@ -18,11 +16,8 @@ export function useInterpreterConfig(fallbackLanguages: LanguageOption[]) {
     api
       .fetch("/translate/config")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { providers?: ProviderOption[]; languages?: { id: string; label: string }[] } | null) => {
-        if (!active || !data) return;
-        const langs = (data.languages ?? []).filter((l) => LANG_CODES.includes(l.id)) as LanguageOption[];
-        if (langs.length === 2) setLanguages(langs);
-        if (data.providers?.length) setTranslationProviders(data.providers);
+      .then((data: { providers?: ProviderOption[] } | null) => {
+        if (active && data?.providers?.length) setTranslationProviders(data.providers);
       })
       .catch(() => {});
     backendApi
@@ -41,7 +36,5 @@ export function useInterpreterConfig(fallbackLanguages: LanguageOption[]) {
     };
   }, []);
 
-  const labelOf = (code: LangCode) => languages.find((l) => l.id === code)?.label ?? code;
-
-  return { languages, translationProviders, sttProviders, labelOf };
+  return { translationProviders, sttProviders };
 }

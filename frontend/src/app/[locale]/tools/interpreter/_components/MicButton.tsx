@@ -8,13 +8,12 @@ type Props = {
   onClick: () => void;
   startLabel: string;
   stopLabel: string;
-  size?: "md" | "lg";
 };
 
 /** Round microphone button, red with a pulse while it listens. */
-export default function MicButton({ recording, disabled = false, onClick, startLabel, stopLabel, size = "md" }: Props) {
-  const box = size === "lg" ? "w-14 h-14" : "w-12 h-12";
-  const icon = size === "lg" ? 24 : 20;
+export default function MicButton({ recording, disabled = false, onClick, startLabel, stopLabel }: Props) {
+  const box = "w-12 h-12";
+  const icon = 20;
   const label = recording ? stopLabel : startLabel;
   return (
     <span className={`relative inline-flex shrink-0 ${box}`}>

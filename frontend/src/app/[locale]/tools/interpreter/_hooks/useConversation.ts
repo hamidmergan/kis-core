@@ -357,5 +357,5 @@ export function useConversation(options: Options) {
     commit(turnsRef.current.map((turn) => ({ ...turn, original: turn.translation, translation: turn.original })));
   }, [commit, setFloor, stopEverything]);
 
-  return { turns, recording, quiet, endingSoon, fill, floor, ended, notice, begin, type, translateTyped, toggleMic, finish: finishListening, end, reset, load, flipSides, flipTexts };
+  return { turns, recording, quiet, endingSoon, fill, floor, ended, notice, begin, type, translateTyped, toggleMic, reset, load, flipSides, flipTexts };
 }

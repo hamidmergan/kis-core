@@ -16,15 +16,4 @@ export const LANGUAGE_LABEL: Record<string, string> = {
   ko: "🇰🇷 한국어",
 };
 
-export interface ProviderWithVoices {
-  id: number;
-  name: string;
-  voices: Voice[];
-}
-
-export interface Voice {
-  voice_id: string;
-  name: string;
-  language: string;
-  description?: string;
-}
+export type { ProviderWithVoices, Voice } from "@/hooks/useVoices";

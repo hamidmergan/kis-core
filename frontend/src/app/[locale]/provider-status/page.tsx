@@ -10,11 +10,7 @@ type Eintrag = { name: string; status: "ok" | "error" | "busy" | null; checked_a
 type StatusResponse = { chat: Eintrag[]; tts: Eintrag[]; image_gen: Eintrag[] };
 
 // Display order: the three capabilities users actually pick a provider for.
-const GRUPPEN: Array<{ key: keyof StatusResponse; labelKey: string }> = [
-  { key: "chat", labelKey: "chat" },
-  { key: "tts", labelKey: "tts" },
-  { key: "image_gen", labelKey: "image_gen" },
-];
+const GRUPPEN: Array<keyof StatusResponse> = ["chat", "tts", "image_gen"];
 
 export default function ProviderStatusPage() {
   return (
@@ -26,7 +22,7 @@ export default function ProviderStatusPage() {
 
 // The oldest check on the page, so the time shown never claims more than every row has.
 function geprueftUm(data: StatusResponse): number | null {
-  const zeiten = GRUPPEN.flatMap(({ key }) => data[key])
+  const zeiten = GRUPPEN.flatMap((key) => data[key])
     .map((e) => e.checked_at)
     .filter((z): z is string => !!z)
     .map(toMs);
@@ -99,9 +95,9 @@ function ProviderStatusBody() {
         ) : (
           <>
             <div>
-              {GRUPPEN.map(({ key, labelKey }, i) => (
+              {GRUPPEN.map((key, i) => (
                 <section key={key} className={i > 0 ? "border-t border-border-soft pt-4 mt-4" : ""}>
-                  <p className="text-sm font-semibold text-foreground mb-3">{t(`group.${labelKey}`)}</p>
+                  <p className="text-sm font-semibold text-foreground mb-3">{t(`group.${key}`)}</p>
                   {data[key].length === 0 ? (
                     <p className="text-xs text-muted-soft italic pb-2">{t("empty")}</p>
                   ) : (
