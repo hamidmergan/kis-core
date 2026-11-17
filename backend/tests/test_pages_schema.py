@@ -193,3 +193,15 @@ def test_a_formula_stands_once():
     abschnitt = [{"kind": "text", "text": "T."}, {"kind": "formula", "key": "E=(O+4M+P)/6", "text": "b"}]
     pl._once([gist, abschnitt])
     assert [b["kind"] for b in abschnitt] == ["text"]
+
+
+def test_the_block_rules_stay_importable_from_the_schema():
+    from src.features.pages import blocks
+
+    assert schema.clean_block is blocks.clean_block and schema.text is blocks.text
+    assert schema.MAX_BRANCHES == blocks.MAX_BRANCHES and schema.IMAGE_NAME is blocks.IMAGE_NAME
+
+
+def test_steps_keep_only_entries_with_a_title_or_a_text():
+    block = schema.clean_block({"kind": "steps", "steps": [{"title": "A", "text": ""}, {"title": "", "text": ""}, "x"]})
+    assert block == {"kind": "steps", "steps": [{"title": "A", "text": ""}]}

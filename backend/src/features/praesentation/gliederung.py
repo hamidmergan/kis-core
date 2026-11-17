@@ -6,10 +6,12 @@ import json
 import re
 from typing import Callable
 
-from src.services import anweisung
 from src.features.praesentation.schemas import (
-    FOLIEN_GRENZEN, WAEHLBARE_ROLLEN, Outline, OutlineRow, PraesentationParams,
+    BILD_ROLLEN, FOLIEN_GRENZEN, MAX_GIST_CHARS, MAX_SUBTITLE_CHARS, MAX_TITLE_CHARS, WAEHLBARE_ROLLEN, Outline,
+    OutlineRow, PraesentationParams,
 )
+from src.services import anweisung
+from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
 
 _ROLLE_TEXT = {
     "abschnitt": "a section divider with only a heading",
@@ -27,7 +29,6 @@ _ZEICHEN_JE_FOLIE = 60_000
 _GRUND_FOLIEN = 8
 # Slides with an illustration cost minutes each to draw, at most one in this many carries one.
 _BILD_JEDE = 5
-_BILD_ROLLEN = ("text_mit_bild", "bild_gross")
 # Cover, overview and closing draw on all files, the other slides are shared out among them.
 RAHMEN_FOLIEN = 3
 
@@ -48,8 +49,6 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
                    schief: list[str] | None = None,
                    anteile: dict[str, int] | None = None) -> list[dict]:
     """The outline call, one entry per slide, planned over the numbered material."""
-    from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
-
     lo, hi = FOLIEN_GRENZEN
     rollen_text = "\n".join(f"- {r}: {_ROLLE_TEXT[r]}" for r in rollen if r in _ROLLE_TEXT)
     eintrag = ('{"role": "...", "title": "...", "gist": "...", "refs": ' + refs_beispiel(modus)
@@ -166,7 +165,6 @@ def json_objekt(raw: str) -> dict:
     return data
 
 
-
 def parse_answer(raw: str, rollen: list[str],
                  stellen: Callable[[object, object], list[int]] | None = None) -> Outline:
     """The outline out of the answer, ``stellen`` turns an entry's refs into passages."""
@@ -182,11 +180,11 @@ def parse_answer(raw: str, rollen: list[str],
         if not titel:
             continue
         rows.append(OutlineRow(role=str(eintrag.get("role") or "text").strip().lower(),
-                               title=titel[:120],
-                               gist=str(eintrag.get("gist") or "").strip()[:300],
+                               title=titel[:MAX_TITLE_CHARS],
+                               gist=str(eintrag.get("gist") or "").strip()[:MAX_GIST_CHARS],
                                stellen=stellen(eintrag.get("refs"), eintrag.get("start")) if stellen else []))
-    titel = str(data.get("title") or (rows[0].title if rows else "")).strip()[:120]
-    outline = Outline(title=titel, subtitle=str(data.get("subtitle") or "").strip()[:160], rows=rows)
+    titel = str(data.get("title") or (rows[0].title if rows else "")).strip()[:MAX_TITLE_CHARS]
+    outline = Outline(title=titel, subtitle=str(data.get("subtitle") or "").strip()[:MAX_SUBTITLE_CHARS], rows=rows)
     return pruefe(outline, rollen)
 
 
@@ -212,7 +210,7 @@ def pruefe(outline: Outline, rollen: list[str], bounds: tuple[int, int] | None =
     # Pictures only where the cap allows, the rest of those slides keep their text.
     frei = len(rows) // _BILD_JEDE
     for r in rows[1:-1]:
-        if r.role in _BILD_ROLLEN:
+        if r.role in BILD_ROLLEN:
             if frei > 0:
                 frei -= 1
             else:
@@ -231,16 +229,13 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
             hoechste += 1
             rid = f"s{hoechste}"
         gesehen.add(rid)
-        out.append(OutlineRow(id=rid, role=r.role, title=r.title, gist=r.gist,
-                              stellen=list(r.stellen)))
+        out.append(r.model_copy(update={"id": rid, "stellen": list(r.stellen)}))
     return out
 
 
 def einzel_messages(material: str, modus: str, params: PraesentationParams, wunsch: str,
                     rows: list[OutlineRow]) -> list[dict]:
     """One slide added by hand placed on the material, or on another subject when the material has none."""
-    from src.services.text_map import anfang_beispiel, anfang_hinweis, hinweis, refs_beispiel
-
     deck = "\n".join(f"- {r.title}: {r.gist}" for r in rows if r.title and not r.wunsch)
     system = (
         "You plan ONE additional slide for an existing slide deck in university teaching. "
@@ -263,11 +258,11 @@ def einzel_messages(material: str, modus: str, params: PraesentationParams, wuns
 def parse_einzel(raw: str, stellen: Callable[[object, object], list[int]]) -> tuple[bool, str, str, list[int]]:
     """Covered, title, gist and passages of the one planned slide, a slide without passages is unusable."""
     data = json_objekt(raw)
-    titel = str(data.get("title") or "").strip()[:120]
+    titel = str(data.get("title") or "").strip()[:MAX_TITLE_CHARS]
     nummern = stellen(data.get("refs"), data.get("start"))
     if not titel or not nummern:
         raise Unusable("die Folie hat keinen Titel oder keine Stellen")
-    return data.get("covered") is not False, titel, str(data.get("gist") or "").strip()[:300], nummern
+    return data.get("covered") is not False, titel, str(data.get("gist") or "").strip()[:MAX_GIST_CHARS], nummern
 
 
 def regen_messages(row: OutlineRow, outline: Outline, params: PraesentationParams,
@@ -281,21 +276,27 @@ def regen_messages(row: OutlineRow, outline: Outline, params: PraesentationParam
     plan = "\n".join(f"{i + 1}. [{r.role}] {r.title}: {r.gist}" for i, r in enumerate(outline.rows))
     user = (f"OUTLINE:\n{plan}\n\nENTRY TO REVISE: [{row.role}] {row.title}: {row.gist}\n\n"
             f"MATERIAL EXCERPT:\n{quelle}")
+    return [{"role": "system", "content": system}, {"role": "user", "content": user + verlauf_zusatz(verlauf)}]
+
+
+def verlauf_zusatz(verlauf: list[dict]) -> str:
+    """The conversation so far and the teacher's last wish, the tail of both revise calls."""
+    zusatz = ""
     if len(verlauf) > 1:
         austausch = "\n".join(
             f"{'teacher' if m.get('role') == 'user' else 'assistant'}: {m.get('content', '')}"
             for m in verlauf[:-1]
         )
-        user += f"\n\nCONVERSATION SO FAR:\n{austausch}"
+        zusatz += f"\n\nCONVERSATION SO FAR:\n{austausch}"
     if verlauf:
         wunsch = next((m.get("content", "") for m in reversed(verlauf) if m.get("role") == "user"), "")
-        user += f"\n\nWISH OF THE TEACHER: {wunsch}"
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+        zusatz += f"\n\nWISH OF THE TEACHER: {wunsch}"
+    return zusatz
 
 
 def parse_row(raw: str) -> tuple[str, str]:
     data = json_objekt(raw)
-    titel = str(data.get("title") or "").strip()[:120]
+    titel = str(data.get("title") or "").strip()[:MAX_TITLE_CHARS]
     if not titel:
         raise Unusable("die Antwort hat keinen Titel")
-    return titel, str(data.get("gist") or "").strip()[:300]
+    return titel, str(data.get("gist") or "").strip()[:MAX_GIST_CHARS]

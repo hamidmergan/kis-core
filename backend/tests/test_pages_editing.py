@@ -164,3 +164,10 @@ def test_an_added_section_keeps_where_its_title_stands():
     assert "heading" not in page["sections"][2] and "heading" not in page["sections"][3]
     sichtbar = schema.for_viewers(page)["sections"][1]
     assert sichtbar["title"] == "" and sichtbar["lead"] == "" and page["sections"][1]["title"] == "Ohne"
+
+
+def test_a_quote_keyword_gets_the_room_the_schema_keeps():
+    page = schema.clean_page({"sections": [{"id": "s1", "title": "T", "blocks": [
+        {"kind": "quote", "text": "Die Gerade passt.", "keyword": "Gerade"}]}]})
+    by_text = {text: path for path, text in tr.texts(page)}
+    assert tr._limit(page, by_text["Gerade"]) == schema.CHART_LABEL_CHARS

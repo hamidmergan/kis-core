@@ -13,6 +13,7 @@ from loguru import logger
 
 from src.features.pages import schema
 from src.features.pages.writing import parse_json
+from src.features.summary import concurrency
 from src.features.summary.models import Caller
 from src.limits import (
     PAGES_MAX_ITEM_CHARS,
@@ -87,7 +88,7 @@ def _limit(page: dict, path: tuple) -> int:
     keys = [k for k in path if isinstance(k, str)]
     last = keys[-1]
     art = page["sections"][path[1]]["blocks"][path[3]].get("kind") if "blocks" in keys and len(path) > 3 else ""
-    if ("categories" in keys or keys[-2:] == ["figures", "value"] or last in ("date", "sym")
+    if ("categories" in keys or keys[-2:] == ["figures", "value"] or last in ("date", "sym", "keyword")
             or (art in ("scale", "matrix") and last == "label")):
         return schema.CHART_LABEL_CHARS
     if "branches" in keys or "words" in keys or last in ("center", "root"):
@@ -134,8 +135,6 @@ def _batches(items: list[tuple[tuple, str]]) -> list[list[tuple[tuple, str]]]:
 
 async def create_patiently(caller: Caller, waits: tuple[int, ...] = _WAITS, **kwargs):
     """One call, again after a wait while the provider is only busy."""
-    from src.features.summary import concurrency
-
     for warten in (*waits, None):
         try:
             return await caller.create(**kwargs)

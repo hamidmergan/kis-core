@@ -8,13 +8,12 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 
 from src.features.praesentation import farben as fb
-from src.features.praesentation import icons, raster
+from src.features.praesentation import formen, icons, raster
 from src.features.praesentation.elemente import _SPIEL, MIN_PT, ZEILE, schrift, setze_lauf
 from src.features.praesentation.farben import Farben
-from src.features.praesentation import formen
 from src.features.praesentation.formen import _SCHRITT, _SCHWARZ, _emu, _faerbe, _form, _textfeld
 from src.features.praesentation.schemas import Entry, Figure, Symbol
-from src.features.praesentation.vorlage import EMU_PER_PT, Feld
+from src.features.praesentation.vorlage import EMU_PER_PT, STANDARD_SCHRIFT, Feld
 
 # A step's circle in multiples of the base size, at most this share of its column, its number inside.
 _KREIS = 1.2
@@ -112,7 +111,7 @@ def _eintrag(slide, x: float, y: float, breite: float, e: Entry, titel_pt: float
 
 def ablauf(slide, feld: Feld, schritte: list[Entry], f: Farben, typeface: str) -> None:
     """Numbered circles on a line in reading order, side by side, or one below the other when that keeps the text larger."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     links, oben, breite, hoehe = _masse(feld)
     n = len(schritte)
@@ -174,7 +173,7 @@ def ablauf(slide, feld: Feld, schritte: list[Entry], f: Farben, typeface: str) -
 
 def kennzahlen(slide, feld: Feld, zahlen: list[Figure], f: Farben, typeface: str) -> None:
     """Each figure large in the colour with its label below, thin lines between the columns."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     links, oben, breite, hoehe = _masse(feld)
     spalte = breite / len(zahlen)
@@ -217,7 +216,7 @@ def _vieleck(slide, punkte: list[tuple[float, float]], farbe):
 
 def stufen(slide, feld: Feld, stufen_: list[Entry], f: Farben, typeface: str) -> None:
     """A pyramid in tints of the colour, the top level in full colour, each level's title and sentence beside it."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     links, oben, breite, hoehe = _masse(feld)
     n = len(stufen_)
@@ -262,7 +261,7 @@ def stufen(slide, feld: Feld, stufen_: list[Entry], f: Farben, typeface: str) ->
 
 def symbole(slide, feld: Feld, symbole_: list[Symbol], f: Farben, typeface: str) -> None:
     """Icons in light circles with their term below, in the rows that keep the terms largest, each row centred."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     links, oben, breite, hoehe = _masse(feld)
     abstand = 1.5 * raster.ABSTAND * g

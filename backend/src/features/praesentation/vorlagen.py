@@ -114,27 +114,27 @@ def speichere(user_id: int, vid: str, data: bytes, vorschau_png: bytes | None, m
         save_key_file(meta_key(user_id, vid), json.dumps(meta, ensure_ascii=False).encode())
 
 
-def lade(user_id: int, vid: str) -> bytes | None:
-    key = vorlage_key(user_id, vid)
+def _lade_datei(key: str) -> bytes | None:
+    """A stored file, None when it is missing or unreadable."""
     try:
         return get_key_file(key) if key_file_exists(key) else None
     except Exception:
         return None
+
+
+def lade(user_id: int, vid: str) -> bytes | None:
+    return _lade_datei(vorlage_key(user_id, vid))
 
 
 def lade_vorschau(user_id: int, vid: str) -> bytes | None:
-    key = vorschau_key(user_id, vid)
-    try:
-        return get_key_file(key) if key_file_exists(key) else None
-    except Exception:
-        return None
+    return _lade_datei(vorschau_key(user_id, vid))
 
 
 def lade_meta(user_id: int, vid: str) -> dict | None:
     """The cached roles/hasImages of a saved template, so a listing never re-analyses the file."""
-    key = meta_key(user_id, vid)
     try:
-        return json.loads(get_key_file(key)) if key_file_exists(key) else None
+        data = _lade_datei(meta_key(user_id, vid))
+        return json.loads(data) if data is not None else None
     except Exception:
         return None
 

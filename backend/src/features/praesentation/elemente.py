@@ -13,7 +13,7 @@ from pptx.util import Emu, Pt
 from src.features.praesentation import farben as fb
 from src.features.praesentation.farben import Farben
 from src.features.praesentation.schemas import MAX_TEXT_ITEMS, Body
-from src.features.praesentation.vorlage import EMU_PER_PT, Feld
+from src.features.praesentation.vorlage import EMU_PER_PT, STANDARD_SCHRIFT, Feld
 from src.services.screencast.pptx import _load_font
 
 _CHART = {"bar": XL_CHART_TYPE.COLUMN_CLUSTERED, "line": XL_CHART_TYPE.LINE_MARKERS, "pie": XL_CHART_TYPE.PIE}
@@ -74,7 +74,7 @@ def tabelle(slide, feld: Feld, body: Body, f: Farben, typeface: str) -> None:
     spalten = min(MAX_TEXT_ITEMS, max([len(kopf)] + [len(r) for r in body.rows]))
     zellen = ([kopf + [""] * (spalten - len(kopf))] if kopf else []) + [
         (r + [""] * spalten)[:spalten] for r in body.rows]
-    groesse, breiten, hoehen, seite, oben = _tabellenmass(zellen, feld, typeface or "Calibri", bool(kopf))
+    groesse, breiten, hoehen, seite, oben = _tabellenmass(zellen, feld, typeface or STANDARD_SCHRIFT, bool(kopf))
     rahmen = slide.shapes.add_table(len(zellen), spalten, feld.left, feld.top, feld.width, sum(hoehen))
     t = rahmen.table
     t._tbl.tblPr.find(qn("a:tableStyleId")).text = _OHNE_STIL

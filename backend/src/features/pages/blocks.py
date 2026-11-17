@@ -1,0 +1,419 @@
+"""The blocks of a page: every kind there is, how long its texts may be and how it is cleaned.
+
+Nothing here is HTML, only plain text.
+"""
+
+from __future__ import annotations
+
+import re
+
+from src.limits import (
+    PAGES_MAX_ITEM_CHARS,
+    PAGES_MAX_ITEMS,
+    PAGES_MAX_LONG_CHARS,
+    PAGES_MAX_SHORT_CHARS,
+    PAGES_MAX_TABLE_COLS,
+    PAGES_MAX_TABLE_ROWS,
+)
+
+# "none" is the rule, a sign only where it tells cards apart. "info" is what older pages carry for none.
+ICONS = ("none", "check", "x", "warning", "idea", "info")
+CHART_TYPES = ("line", "bar", "pie")
+TONES = ("neutral", "good_bad")
+QUADRANTS = ("tl", "tr", "bl", "br")
+MAX_FIGURES = 4
+MAX_SERIES = 2
+MAX_BRANCHES = 8
+MAX_LEAVES = 5
+MAX_WORDS = 24
+MAX_CYCLE = 6
+MAX_LEVELS = 6
+MAX_SIDE_ITEMS = 6
+MAX_EXAMPLE_LINES = 5
+# A date of a timeline, such as 1957, März 2020 or 3. Woche.
+DATE_CHARS = 24
+# A category under a chart and a node of the mind map, longer ones no longer fit their place.
+CHART_LABEL_CHARS = 24
+MAP_LABEL_CHARS = 40
+# A picture is only ever one the run stored in the job folder itself.
+IMAGE_NAME = re.compile(r"^img_\d{1,3}\.(?:webp|png|jpg)$")
+SECTION_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+# A key longer than this is a sentence, it goes in front of the text in normal type.
+HIGHLIGHT_KEY_CHARS = 40
+# A formula relates two sides, a key without such a sign is a term and becomes one.
+FORMULA_SIGN = re.compile(r"[=<>\u2248\u2260\u2264\u2265\u221d]")
+
+
+def text(value, most: int) -> str:
+    """One line of plain text, cut at a word where possible."""
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    # A spaced dash is not house style: before a capital it opens a subtitle, else it is a pause.
+    s = " ".join(str(value).replace("**", "").split())
+    s = re.sub(r"\s+[\u2013\u2014]\s+(?=[A-ZÄÖÜ])", ": ", s)
+    s = re.sub(r"\s+[\u2013\u2014]\s+", ", ", s)
+    if len(s) <= most:
+        return s
+    cut = s[:most].rsplit(" ", 1)[0]
+    return (cut if len(cut) > most // 2 else s[:most]).rstrip(" ,;:")
+
+
+def number(value) -> float | None:
+    """A number from a number or a German or English numeral, None when it is none."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value == value and abs(value) < 1e12 else None
+    s = str(value or "").strip().replace("−", "-").replace(" ", "")
+    if re.fullmatch(r"-?\d{1,3}(\.\d{3})+(,\d+)?", s):
+        s = s.replace(".", "")
+    s = s.replace(",", ".")
+    try:
+        f = float(s)
+    except ValueError:
+        return None
+    return f if abs(f) < 1e12 else None
+
+
+def _list(value) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _short(v) -> str:
+    return text(v, PAGES_MAX_SHORT_CHARS)
+
+
+def _item(v) -> str:
+    return text(v, PAGES_MAX_ITEM_CHARS)
+
+
+def _text_block(b: dict) -> dict | None:
+    body = text(b.get("text"), PAGES_MAX_LONG_CHARS)
+    return {"kind": "text", "text": body} if body else None
+
+
+def _bullets(b: dict) -> dict | None:
+    items = [s for s in (_item(i) for i in _list(b.get("items"))) if s][:PAGES_MAX_ITEMS]
+    return {"kind": "bullets", "items": items} if items else None
+
+
+def _highlight(b: dict) -> dict | None:
+    key, body = _short(b.get("key")), _item(b.get("text"))
+    if len(key) > HIGHLIGHT_KEY_CHARS:
+        key, body = "", _item(f"{key}. {body}".strip(" ."))
+    return {"kind": "highlight", "key": key, "text": body} if key or body else None
+
+
+def _cards(b: dict) -> dict | None:
+    cards = []
+    for c in _list(b.get("cards"))[:PAGES_MAX_ITEMS]:
+        if not isinstance(c, dict):
+            continue
+        title, body = _short(c.get("title")), _item(c.get("text"))
+        if title or body:
+            icon = c.get("icon") if c.get("icon") in ICONS else "none"
+            cards.append({"icon": icon, "title": title, "text": body})
+    if not cards:
+        return None
+    out = {"kind": "cards", "cards": cards}
+    if b.get("cols") == 1:
+        out["cols"] = 1
+    return out
+
+
+def _steps(b: dict) -> dict | None:
+    steps = _entries(b.get("steps"))
+    return {"kind": "steps", "steps": steps} if steps else None
+
+
+def _figures(b: dict) -> dict | None:
+    figs = []
+    for f in _list(b.get("figures"))[:MAX_FIGURES]:
+        if isinstance(f, dict):
+            value, label = text(f.get("value"), 24), _short(f.get("label"))
+            if value:
+                figs.append({"value": value, "label": label})
+    return {"kind": "figures", "figures": figs} if figs else None
+
+
+def _bars(b: dict) -> dict | None:
+    bars = []
+    for x in _list(b.get("bars"))[:PAGES_MAX_ITEMS]:
+        if isinstance(x, dict):
+            v = number(x.get("value"))
+            label = _short(x.get("label"))
+            if v is not None and v >= 0 and label:
+                bars.append({"label": label, "value": v, "text": _item(x.get("text"))})
+    if not bars:
+        return None
+    out: dict = {"kind": "bars", "bars": bars}
+    top = number(b.get("max"))
+    if top and top >= max(x["value"] for x in bars):
+        out["max"] = top
+    return out
+
+
+def _table(b: dict) -> dict | None:
+    header = [_short(h) for h in _list(b.get("header"))[:PAGES_MAX_TABLE_COLS]]
+    rows = []
+    for r in _list(b.get("rows"))[:PAGES_MAX_TABLE_ROWS]:
+        if isinstance(r, list):
+            cells = [_short(c) for c in r[:PAGES_MAX_TABLE_COLS]]
+            if any(cells):
+                rows.append(cells)
+    cols = max([len(header)] + [len(r) for r in rows]) if rows else 0
+    if cols < 2 or not rows:
+        return None
+    header = (header + [""] * cols)[:cols]
+    rows = [(r + [""] * cols)[:cols] for r in rows]
+    return {"kind": "table", "caption": _short(b.get("caption")), "header": header, "rows": rows}
+
+
+def _chart(b: dict) -> dict | None:
+    cats = [text(c, CHART_LABEL_CHARS) for c in _list(b.get("categories"))[:PAGES_MAX_ITEMS]]
+    series = []
+    for s in _list(b.get("series"))[:MAX_SERIES]:
+        if not isinstance(s, dict):
+            continue
+        values = [number(v) for v in _list(s.get("values"))[:len(cats)]]
+        if len(values) == len(cats) and all(v is not None for v in values):
+            series.append({"name": _short(s.get("name")), "values": values})
+    if len(cats) < 2 or not series:
+        return None
+    kind = b.get("chart_type") if b.get("chart_type") in CHART_TYPES else "bar"
+    # A bar chart and a pie draw one series, a second one would silently vanish.
+    if kind in ("bar", "pie"):
+        series = series[:1]
+    if any(v < 0 for s in series for v in s["values"]):
+        return None
+    return {"kind": "chart", "chart_type": kind, "caption": _short(b.get("caption")),
+            "x_label": _short(b.get("x_label")), "y_label": _short(b.get("y_label")),
+            "categories": cats, "series": series}
+
+
+def _image(b: dict) -> dict | None:
+    src = str(b.get("src") or "")
+    if not IMAGE_NAME.match(src):
+        return None
+    return {"kind": "image", "src": src, "alt": _short(b.get("alt")),
+            "prompt": text(b.get("prompt"), PAGES_MAX_LONG_CHARS), "caption": _short(b.get("caption"))}
+
+
+def _mindmap(b: dict) -> dict | None:
+    branches = []
+    for br in _list(b.get("branches"))[:MAX_BRANCHES]:
+        if not isinstance(br, dict):
+            continue
+        title = text(br.get("title"), MAP_LABEL_CHARS)
+        if not title:
+            continue
+        to = str(br.get("to") or "")
+        leaves = [s for s in (text(x, MAP_LABEL_CHARS) for x in _list(br.get("leaves"))[:MAX_LEAVES]) if s]
+        branches.append({"title": title, "to": to if SECTION_ID.match(to) else "", "leaves": leaves})
+    center = text(b.get("center"), MAP_LABEL_CHARS)
+    if not center or len(branches) < 2:
+        return None
+    return {"kind": "mindmap", "center": center, "caption": _short(b.get("caption")),
+            "branches": branches}
+
+
+def _wordcloud(b: dict) -> dict | None:
+    words = []
+    for w in _list(b.get("words"))[:MAX_WORDS]:
+        if isinstance(w, list) and len(w) == 2:
+            word, n = text(w[0], MAP_LABEL_CHARS), number(w[1])
+            if word and n is not None and n > 0:
+                words.append([word, int(n)])
+    words.sort(key=lambda w: -w[1])
+    if len(words) < 3:
+        return None
+    return {"kind": "wordcloud", "caption": _short(b.get("caption")), "words": words}
+
+
+def _entries(value, most: int = PAGES_MAX_ITEMS) -> list[dict]:
+    """Titles with their explanation, the items of steps, cycles, levels and accordions."""
+    out = []
+    for e in _list(value)[:most]:
+        if isinstance(e, dict):
+            title, body = _short(e.get("title")), _item(e.get("text"))
+            if title or body:
+                out.append({"title": title, "text": body})
+    return out
+
+
+def _lines(value, most: int = PAGES_MAX_ITEMS, cut=None) -> list[str]:
+    return [s for s in ((cut or _item)(i) for i in _list(value)) if s][:most]
+
+
+def _side(value) -> dict | None:
+    if not isinstance(value, dict):
+        return None
+    title, items = _short(value.get("title")), _lines(value.get("items"), MAX_SIDE_ITEMS)
+    return {"title": title, "items": items} if title or items else None
+
+
+def _quote(b: dict) -> dict | None:
+    body = _item(b.get("text"))
+    if not body:
+        return None
+    out = {"kind": "quote", "text": body}
+    # The word the sentence turns on, kept only while it still stands in the sentence.
+    key = text(b.get("keyword"), CHART_LABEL_CHARS)
+    if key and key.casefold() in body.casefold():
+        out["keyword"] = key
+    return out
+
+
+def _checklist(b: dict) -> dict | None:
+    items = _lines(b.get("items"), cut=_short)
+    return {"kind": "checklist", "items": items} if items else None
+
+
+def _definitions(b: dict) -> dict | None:
+    items = []
+    for d in _list(b.get("items"))[:PAGES_MAX_ITEMS]:
+        if isinstance(d, dict):
+            term, body = _short(d.get("term")), _item(d.get("text"))
+            if term:
+                items.append({"term": term, "text": body})
+    return {"kind": "definitions", "items": items} if items else None
+
+
+def _accordion(b: dict) -> dict | None:
+    items = _entries(b.get("items"))
+    return {"kind": "accordion", "items": items} if items else None
+
+
+def _cycle(b: dict) -> dict | None:
+    steps = _entries(b.get("steps"), MAX_CYCLE)
+    if len(steps) < 3:
+        return {"kind": "steps", "steps": steps} if steps else None
+    return {"kind": "cycle", "center": text(b.get("center"), MAP_LABEL_CHARS), "steps": steps}
+
+
+def _timeline(b: dict) -> dict | None:
+    events = []
+    for e in _list(b.get("events"))[:PAGES_MAX_ITEMS]:
+        if isinstance(e, dict):
+            date, title, body = text(e.get("date"), DATE_CHARS), _short(e.get("title")), _item(e.get("text"))
+            if date and (title or body):
+                events.append({"date": date, "title": title, "text": body})
+    return {"kind": "timeline", "events": events} if len(events) >= 2 else None
+
+
+def _tree(b: dict) -> dict | None:
+    branches = []
+    for br in _list(b.get("branches"))[:MAX_BRANCHES]:
+        if isinstance(br, dict):
+            title = text(br.get("title"), MAP_LABEL_CHARS)
+            if title:
+                branches.append({"title": title, "leaves": _lines(br.get("leaves"), MAX_LEAVES,
+                                                               lambda v: text(v, MAP_LABEL_CHARS))})
+    root = text(b.get("root"), MAP_LABEL_CHARS)
+    return {"kind": "tree", "root": root, "branches": branches} if root and len(branches) >= 2 else None
+
+
+def _levels(b: dict) -> dict | None:
+    items = _entries(b.get("items"), MAX_LEVELS)
+    return {"kind": "levels", "caption": _short(b.get("caption")), "items": items} if len(items) >= 2 else None
+
+
+def _scale(b: dict) -> dict | None:
+    items = []
+    for x in _list(b.get("items"))[:PAGES_MAX_ITEMS]:
+        if isinstance(x, dict):
+            label, pos = text(x.get("label"), CHART_LABEL_CHARS), number(x.get("pos"))
+            if label and pos is not None:
+                items.append({"label": label, "pos": min(1.0, max(0.0, pos))})
+    left, right = _short(b.get("left")), _short(b.get("right"))
+    if len(items) < 2 or not left or not right:
+        return None
+    items.sort(key=lambda x: x["pos"])
+    return {"kind": "scale", "caption": _short(b.get("caption")), "left": left, "right": right, "items": items}
+
+
+def _versus(b: dict) -> dict | None:
+    a, z = _side(b.get("a")), _side(b.get("b"))
+    if not a or not z:
+        return None
+    tone = b.get("tone") if b.get("tone") in TONES else "neutral"
+    return {"kind": "versus", "tone": tone, "a": a, "b": z}
+
+
+def _matrix(b: dict) -> dict | None:
+    cells = {}
+    for c in _list(b.get("cells")):
+        if isinstance(c, dict) and c.get("pos") in QUADRANTS and c["pos"] not in cells:
+            title, body = _short(c.get("title")), _item(c.get("text"))
+            if title or body:
+                cells[c["pos"]] = {"pos": c["pos"], "title": title, "text": body}
+    x, y = _short(b.get("x")), _short(b.get("y"))
+    # The owner may clear a field, its quadrant then stays empty.
+    if len(cells) < 2 or not x or not y:
+        return None
+    points = []
+    for pt in _list(b.get("points"))[:PAGES_MAX_ITEMS]:
+        if isinstance(pt, dict):
+            label, px, py = text(pt.get("label"), CHART_LABEL_CHARS), number(pt.get("x")), number(pt.get("y"))
+            if label and px is not None and py is not None:
+                points.append({"label": label, "x": min(1.0, max(0.0, px)), "y": min(1.0, max(0.0, py))})
+    return {"kind": "matrix", "x": x, "y": y, "cells": [cells[q] for q in QUADRANTS if q in cells], "points": points}
+
+
+def _venn(b: dict) -> dict | None:
+    a, z = _side(b.get("a")), _side(b.get("b"))
+    both = _lines(b.get("both"), MAX_SIDE_ITEMS, cut=_short)
+    if not a or not z or not both:
+        return None
+    out = {"kind": "venn", "a": a, "b": z, "both": both}
+    c = _side(b.get("c"))
+    if c:
+        out["c"] = c
+    return out
+
+
+def _formula(b: dict) -> dict | None:
+    key = _short(b.get("key"))
+    if not key:
+        return None
+    if not FORMULA_SIGN.search(key):
+        return _definitions({"items": [{"term": key, "text": b.get("text")}]})
+    parts = []
+    for x in _list(b.get("parts"))[:PAGES_MAX_ITEMS]:
+        if isinstance(x, dict):
+            sym, body = text(x.get("sym"), CHART_LABEL_CHARS), _short(x.get("text"))
+            if sym and body:
+                parts.append({"sym": sym, "text": body})
+    return {"kind": "formula", "key": key, "text": _item(b.get("text")), "parts": parts,
+            "example": _lines(b.get("example"), MAX_EXAMPLE_LINES, cut=_short)}
+
+
+def _mistakes(b: dict) -> dict | None:
+    pairs = []
+    for x in _list(b.get("pairs"))[:PAGES_MAX_ITEMS]:
+        if isinstance(x, dict):
+            wrong, right = _item(x.get("wrong")), _item(x.get("right"))
+            if wrong and right:
+                pairs.append({"wrong": wrong, "right": right})
+    return {"kind": "mistakes", "pairs": pairs} if pairs else None
+
+
+def _example(b: dict) -> dict | None:
+    out = {"kind": "example", "title": _short(b.get("title")), "situation": _item(b.get("situation")),
+           "steps": _lines(b.get("steps"), MAX_EXAMPLE_LINES), "result": _item(b.get("result"))}
+    return out if out["result"] and (out["situation"] or out["steps"]) else None
+
+
+_CLEAN = {"text": _text_block, "bullets": _bullets, "highlight": _highlight, "cards": _cards, "steps": _steps,
+          "figures": _figures, "bars": _bars, "table": _table, "chart": _chart, "image": _image,
+          "mindmap": _mindmap, "wordcloud": _wordcloud, "quote": _quote, "checklist": _checklist,
+          "definitions": _definitions, "accordion": _accordion, "cycle": _cycle, "timeline": _timeline,
+          "tree": _tree, "levels": _levels, "scale": _scale, "versus": _versus, "matrix": _matrix,
+          "venn": _venn, "formula": _formula, "mistakes": _mistakes, "example": _example}
+
+
+def clean_block(raw) -> dict | None:
+    """One block in its known shape, None for anything unknown or empty."""
+    if not isinstance(raw, dict) or raw.get("kind") not in _CLEAN:
+        return None
+    return _CLEAN[raw["kind"]](raw)

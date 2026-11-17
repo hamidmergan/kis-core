@@ -5,18 +5,18 @@ from __future__ import annotations
 import re
 
 from src.features.praesentation import icons
-from src.features.praesentation.gliederung import SPRACHE, Unusable, json_objekt
+from src.features.praesentation.gliederung import SPRACHE, Unusable, json_objekt, verlauf_zusatz
 from src.features.praesentation.raster import (
     MAX_BALKEN, MAX_KARTEN, MAX_KENNZAHLEN, MAX_SCHRITTE, MAX_STUFEN, MAX_SYMBOLE,
 )
-from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
-from src.services import anweisung
 from src.features.praesentation.schemas import (
     CHART_TYPES, MAX_BAR_TEXT_CHARS, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_GIST_CHARS, MAX_HEADING_CHARS,
     MAX_KEY_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS, MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS,
     MAX_TEXT_ITEMS, MAX_TITLE_CHARS, Bar, Body, Card, Column, Entry, Figure, ImageSpec, OutlineRow,
     PraesentationParams, Series, Slide, Symbol,
 )
+from src.limits import MAP_PASSAGE_NEIGHBOURS, PRAESENTATION_SLIDE_CONTEXT_CHARS
+from src.services import anweisung
 
 # A slide below these reads as empty, a small field asks for fewer, at about twelve words a point.
 MIN_STICHPUNKTE = 4
@@ -40,8 +40,6 @@ def material_je_folie(rows: list[OutlineRow], karte, alle: list[OutlineRow]) -> 
 
     A row without spots (agenda, closing) rests on everything and gets the whole deck's plan instead.
     """
-    from src.limits import MAP_PASSAGE_NEIGHBOURS
-
     aus: dict[str, str] = {}
     for r in rows:
         if r.stellen:
@@ -265,6 +263,12 @@ def _items(v) -> list[str]:
     return [_text(x) for x in v if _text(x)][:MAX_TEXT_ITEMS]
 
 
+def _zellen(v) -> list[str]:
+    """The cells of one table row, an empty one keeps its place so the columns stay aligned."""
+    zellen = [_text(x) for x in v[:MAX_TEXT_ITEMS]] if isinstance(v, list) else _items(v)
+    return zellen if any(zellen) else []
+
+
 def _zahl(v) -> float:
     try:
         return float(v)
@@ -309,9 +313,9 @@ def _body(roh, form: dict) -> Body:
         return Body(kind="bullets", items=_items(roh.get("items")) or _als_punkte(roh))
     b = Body(kind=kind, items=_items(roh.get("items")))
     if kind == "table":
-        b.header = _items(roh.get("header"))
-        b.rows = [_items(z) for z in (roh.get("rows") or []) if isinstance(z, list)][:MAX_TABLE_ROWS]
-        b.rows = [z for z in b.rows if z]
+        b.header = _zellen(roh.get("header"))
+        zeilen = roh.get("rows") if isinstance(roh.get("rows"), list) else []
+        b.rows = [z for z in (_zellen(z) for z in zeilen if isinstance(z, list)) if z][:MAX_TABLE_ROWS]
         if not b.rows:
             b.kind = "bullets"
         else:
@@ -424,14 +428,5 @@ def regen_messages(slide: Slide, row: OutlineRow, form: dict, params: Praesentat
     zusatz = f"\n\nCURRENT SLIDE (revise it, keep the id):\n{bisher}"
     if selected_text.strip():
         zusatz += f"\n\nTHE TEACHER MARKED THIS PART: {selected_text.strip()}"
-    if len(verlauf) > 1:
-        austausch = "\n".join(
-            f"{'teacher' if m.get('role') == 'user' else 'assistant'}: {m.get('content', '')}"
-            for m in verlauf[:-1]
-        )
-        zusatz += f"\n\nCONVERSATION SO FAR:\n{austausch}"
-    if verlauf:
-        wunsch = next((m.get("content", "") for m in reversed(verlauf) if m.get("role") == "user"), "")
-        zusatz += f"\n\nWISH OF THE TEACHER: {wunsch}"
-    basis[1]["content"] += zusatz
+    basis[1]["content"] += zusatz + verlauf_zusatz(verlauf)
     return basis

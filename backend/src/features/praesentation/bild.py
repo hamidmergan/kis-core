@@ -70,5 +70,8 @@ def erzeuge(prompt: str, size: str, *, timeout: float = 300.0) -> bytes:
         if eintrag.get("b64_json"):
             return base64.b64decode(eintrag["b64_json"])
         if eintrag.get("url"):
-            return client.get(eintrag["url"]).content
+            datei = client.get(eintrag["url"])
+            if datei.status_code != 200:
+                raise RuntimeError(f"Bildanbieter: Bild nicht abrufbar ({datei.status_code})")
+            return datei.content
         raise RuntimeError("Antwort ohne Bilddaten")

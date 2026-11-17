@@ -14,7 +14,9 @@ from src.features.praesentation import raster
 from src.features.praesentation.schemas import WAEHLBARE_ROLLEN
 
 EMU_PER_INCH = 914400
-EMU_PER_PT = 12700
+EMU_PER_PT = raster.EMU_PER_PT
+# The font a template falls back to when it names none, and every measurement with it.
+STANDARD_SCHRIFT = "Calibri"
 RANDTEXT_PT = 12.0
 FLIESSTEXT_MIN_HOEHE = EMU_PER_INCH
 MAX_WORDS = {"ueberschrift": 10, "zwischentitel": 8, "fliesstext": 120}
@@ -175,18 +177,18 @@ def _schnitt(xml: str) -> tuple[bool, bool]:
     return bool(_CAPS.search(xml)), bool(_BOLD.search(xml))
 
 
-def _rahmen(xml: str) -> tuple[str, int, int]:
-    """Anchor, top inset and bottom inset of the shape's text body."""
+def _rahmen(xml: str) -> tuple[str, int, int, int]:
+    """Anchor, top inset, bottom inset and left plus right inset of the shape's text body."""
     tag = _BODY_PR.search(xml)
-    if not tag:
-        return "t", _INSET_V_STD, _INSET_V_STD
-    anker = re.search(r'\sanchor="(\w+)"', tag.group(0))
+    attribute = tag.group(0) if tag else ""
 
-    def wert(seite: str) -> int:
-        m = re.search(rf'\s{_INS[seite]}="(\d+)"', tag.group(0))
-        return int(m.group(1)) if m else _INSET_V_STD
+    def wert(seite: str, standard: int) -> int:
+        m = re.search(rf'\s{_INS[seite]}="(\d+)"', attribute)
+        return int(m.group(1)) if m else standard
 
-    return (anker.group(1) if anker else "t"), wert("t"), wert("b")
+    anker = re.search(r'\sanchor="(\w+)"', attribute)
+    return ((anker.group(1) if anker else "t"), wert("t", _INSET_V_STD), wert("b", _INSET_V_STD),
+            wert("l", _INSET_H_STD) + wert("r", _INSET_H_STD))
 
 
 def _zeilenabstand(xml: str) -> float:
@@ -194,23 +196,6 @@ def _zeilenabstand(xml: str) -> float:
     lvl1 = _LVL1.search(xml)
     m = re.search(r"<a:lnSpc>\s*<a:spcPts val=\"(\d+)\"", lvl1.group(1)) if lvl1 else None
     return int(m.group(1)) / 100 if m else 0.0
-
-
-def _insets(xml: str) -> tuple[int, int]:
-    """Left plus right inset, and the one the text is pushed away from by its anchor."""
-    tag = _BODY_PR.search(xml)
-    if not tag:
-        return 2 * _INSET_H_STD, _INSET_V_STD
-
-    def wert(seite: str, standard: int) -> int:
-        m = re.search(rf'\s{_INS[seite]}="(\d+)"', tag.group(0))
-        return int(m.group(1)) if m else standard
-
-    anker = re.search(r'\sanchor="(\w+)"', tag.group(0))
-    oben, unten = wert("t", _INSET_V_STD), wert("b", _INSET_V_STD)
-    name = anker.group(1) if anker else "t"
-    senkrecht = unten if name == "b" else oben + unten if name == "ctr" else oben
-    return wert("l", _INSET_H_STD) + wert("r", _INSET_H_STD), senkrecht
 
 
 def _master_grade(master) -> tuple[float, float]:
@@ -227,9 +212,9 @@ def _typeface(master) -> str:
     try:
         theme = master.part.part_related_by(RT.THEME).blob.decode("utf8", "ignore")
     except Exception:
-        return "Calibri"
+        return STANDARD_SCHRIFT
     m = re.search(r"<a:minorFont>\s*<a:latin typeface=\"([^\"]+)\"", theme)
-    return m.group(1) if m and not m.group(1).startswith("+") else "Calibri"
+    return m.group(1) if m and not m.group(1).startswith("+") else STANDARD_SCHRIFT
 
 
 def _zeichenbudget(f: Feld) -> int:
@@ -262,8 +247,9 @@ def _felder(layout, titel_pt: float, text_pt: float) -> list[Feld]:
         if size is None:
             size = titel_pt if typ in ("TITLE", "CENTER_TITLE") else text_pt
         caps, bold = _schnitt(xml)
-        inset_h, inset_v = _insets(xml)
-        anker, inset_oben, inset_unten = _rahmen(xml)
+        anker, inset_oben, inset_unten, inset_h = _rahmen(xml)
+        # The inset the text is pushed away from by its anchor.
+        inset_v = inset_unten if anker == "b" else inset_oben + inset_unten if anker == "ctr" else inset_oben
         roh.append(Feld(pf.idx, "", typ, sh.left, sh.top, sh.width, sh.height,
                         size_pt=size, is_object=typ == "OBJECT", caps=caps, bold=bold,
                         inset_h=inset_h, inset_v=inset_v, anker=anker, inset_oben=inset_oben,

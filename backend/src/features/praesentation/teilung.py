@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from src.features.praesentation.schemas import Body, Column, Slide
+from src.features.praesentation.schemas import BILD_ROLLEN, Body, Column, Slide
 from src.features.praesentation.store import neue_id
 from src.features.praesentation.vorlage import EMU_PER_PT, Analyse, Feld
 from src.services.screencast.pptx import _load_font
@@ -75,7 +75,6 @@ def _felder(s: Slide, a: Analyse, n: int) -> list[Feld] | None:
     return _engste(a, s.role, n)
 
 
-_BILD_ROLLEN = ("text_mit_bild", "bild_gross")
 # A sentence ends behind a word of three or more characters, so abbreviations like "z. B." stay whole.
 _SATZENDE = re.compile(r"(?<=\w{3}[.!?])\s+")
 
@@ -96,7 +95,7 @@ def notizen_teilen(notes: str, anteil: float) -> tuple[str, str]:
 
 def _rest_form(s: Slide, a: Analyse) -> tuple[str, int | None]:
     """Role and layout of a split-off part, a picture slide's rest carries text only."""
-    if s.role not in _BILD_ROLLEN:
+    if s.role not in BILD_ROLLEN:
         return s.role, s.layout
     rolle = "zwei_spalten" if s.columns else "text"
     kandidaten = a.rollen.get(rolle) or []

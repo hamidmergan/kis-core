@@ -77,6 +77,20 @@ class TestParse:
         assert s2.body.kind == "table" and s2.body.rows == [["2020", "1"], ["2021", "2"]]
         assert s3.body.kind == "bullets"  # chart is not an allowed kind for s3
 
+    def test_leere_tabellenzelle_behaelt_ihren_platz(self):
+        raw = _raw([{"id": "s2", "title": "A", "body": {"kind": "table", "header": ["", "A", "B"],
+                                                        "rows": [["Frist", "", "3 Tage"], ["", ""], ["Ort", 1, None]]}},
+                    {"id": "s3", "title": "B"}])
+        s2, _ = folien.parse_answer(raw, ROWS, FORMEN)
+        assert s2.body.header == ["", "A", "B"]
+        assert s2.body.rows == [["Frist", "", "3 Tage"], ["Ort", "1", ""]]
+
+    def test_kopf_ohne_inhalt_ist_kein_kopf(self):
+        raw = _raw([{"id": "s2", "title": "A", "body": {"kind": "table", "header": ["", ""], "rows": [["a", "b"]]}},
+                    {"id": "s3", "title": "B"}])
+        s2, _ = folien.parse_answer(raw, ROWS, FORMEN)
+        assert s2.body.header == [] and s2.body.rows == [["a", "b"]]
+
     def test_nicht_erlaubte_art_faellt_auf_stichpunkte(self):
         raw = _raw([{"id": "s2", "title": "A", "body": {"kind": "image", "prompt": "x", "items": ["p"]}},
                     {"id": "s3", "title": "B", "body": "nur Text"}])

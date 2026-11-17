@@ -9,8 +9,8 @@ from io import BytesIO
 
 from babel.dates import format_date
 from loguru import logger
-from PIL import Image
 from lxml import etree
+from PIL import Image
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import PP_PLACEHOLDER
@@ -21,22 +21,23 @@ from src.features.praesentation import abbildungen, aufzaehlung, elemente, farbe
 from src.features.praesentation.farben import Farben
 from src.features.praesentation.schemas import Body, Slide
 from src.features.praesentation.teilung import schriftgrad, zeilen
-from src.features.praesentation.vorlage import EMU_PER_PT, Analyse, Feld, Layout
+from src.features.praesentation.vorlage import EMU_PER_INCH, EMU_PER_PT, Analyse, Feld, Layout
 from src.services.screencast.pptx import _load_font
 from src.utils import local_date
 
 _OHNE_RANDTEXT = ("deckblatt", "abschluss")
 # The AI notice in the bottom right corner: a fixed size, in dark grey.
 HINWEIS_PT = 10.0
-HINWEIS_GRAU = RGBColor(0x59, 0x59, 0x59)
-_HINWEIS_BREITE = Emu(3 * 914400)
-_HINWEIS_HOEHE = Emu(int(0.25 * 914400))
-_HINWEIS_RAND = Emu(int(0.3 * 914400))
+HINWEIS_GRAU = RGBColor.from_string(farben.NEBENTEXT)
+_HINWEIS_BREITE = Emu(3 * EMU_PER_INCH)
+_HINWEIS_HOEHE = Emu(int(0.25 * EMU_PER_INCH))
+_HINWEIS_RAND = Emu(int(0.3 * EMU_PER_INCH))
 BILD_QUALITAET = 90
 # A heading may lose at most this much of its size, a longer title is the only cure below that.
 _MIN_ANTEIL = 0.6
 # A text field starting further right than this from the heading is indented on purpose, not by rounding.
 _EINZUG = 12 * EMU_PER_PT
+_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
 
 def bild_schluessel(slide_id: str, slot: int | str) -> str:
@@ -243,9 +244,6 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
 def datum_text(sprache: str, tag: date | None = None) -> str:
     """The day the deck is built, written the way its language writes dates."""
     return format_date(tag or local_date.today(), format="medium", locale=sprache or "de")
-
-
-_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
 
 def _aus_vorlage(slide, typ):

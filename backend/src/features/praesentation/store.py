@@ -5,12 +5,9 @@ from __future__ import annotations
 import json
 import re
 
-
 from src.features.praesentation import vorlage
 from src.features.praesentation.schemas import Outline, PraesentationParams, Slide
-from src.storage import (
-    get_job_file, job_file_exists, save_job_file,
-)
+from src.storage import get_job_file, job_file_exists, save_job_file
 
 MAP_FILE = "grundlage.json"
 PARAMS_FILE = "params.json"
@@ -35,6 +32,14 @@ def preview_name(slide_id: str) -> str:
 
 def slide_source_name(slide_id: str) -> str:
     return f"{SLIDE_SOURCE_DIR}/{slide_id}.txt"
+
+
+def _read(user_id: int, job_uuid: str, name: str) -> bytes | None:
+    """A file of the job folder, None when it is missing or unreadable."""
+    try:
+        return get_job_file(user_id, job_uuid, name)
+    except Exception:
+        return None
 
 
 def _read_json(user_id: int, job_uuid: str, name: str):
@@ -79,10 +84,7 @@ def save_template(user_id: int, job_uuid: str, data: bytes) -> None:
 
 
 def load_template(user_id: int, job_uuid: str) -> bytes | None:
-    try:
-        return get_job_file(user_id, job_uuid, TEMPLATE_FILE)
-    except Exception:
-        return None
+    return _read(user_id, job_uuid, TEMPLATE_FILE)
 
 
 def save_template_meta(user_id: int, job_uuid: str, analyse: vorlage.Analyse) -> None:
@@ -131,10 +133,7 @@ def save_image(user_id: int, job_uuid: str, slide_id: str, slot: int | str, data
 
 
 def get_image(user_id: int, job_uuid: str, slide_id: str, slot: int | str) -> bytes | None:
-    try:
-        return get_job_file(user_id, job_uuid, image_name(slide_id, slot))
-    except Exception:
-        return None
+    return _read(user_id, job_uuid, image_name(slide_id, slot))
 
 
 def has_image(user_id: int, job_uuid: str, slide_id: str, slot: int | str) -> bool:
@@ -147,10 +146,7 @@ def save_deck(user_id: int, job_uuid: str, data: bytes) -> str:
 
 
 def get_deck(user_id: int, job_uuid: str) -> bytes | None:
-    try:
-        return get_job_file(user_id, job_uuid, DECK_FILE)
-    except Exception:
-        return None
+    return _read(user_id, job_uuid, DECK_FILE)
 
 
 def has_deck(user_id: int, job_uuid: str) -> bool:
@@ -162,10 +158,7 @@ def save_preview(user_id: int, job_uuid: str, slide_id: str, data: bytes) -> Non
 
 
 def get_preview(user_id: int, job_uuid: str, slide_id: str) -> bytes | None:
-    try:
-        return get_job_file(user_id, job_uuid, preview_name(slide_id))
-    except Exception:
-        return None
+    return _read(user_id, job_uuid, preview_name(slide_id))
 
 
 def has_preview(user_id: int, job_uuid: str, slide_id: str) -> bool:

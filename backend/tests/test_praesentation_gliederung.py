@@ -97,6 +97,10 @@ class TestIds:
         rows = gliederung.mit_ids([OutlineRow(id="s1", title="a"), OutlineRow(id="s1", title="b")])
         assert [r.id for r in rows] == ["s1", "s2"]
 
+    def test_wunsch_einer_von_hand_ergaenzten_folie_bleibt(self):
+        rows = gliederung.mit_ids([OutlineRow(id="s1", title="a"), OutlineRow(id="", title="b", wunsch="mehr zu X")])
+        assert [r.wunsch for r in rows] == ["", "mehr zu X"]
+
 
 class TestRegen:
     def test_regen_liefert_titel_und_satz(self):

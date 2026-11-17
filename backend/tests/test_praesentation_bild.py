@@ -106,3 +106,30 @@ def test_eine_klammer_ohne_zitat_davor_bleibt():
 
 def test_apostroph_im_englischen_bleibt():
     assert bild.ohne_zitate("the teacher's desk and the students' chairs") == "the teacher's desk and the students' chairs"
+
+
+class _Datei:
+    def __init__(self, status, content):
+        self.status_code = status
+        self.content = content
+
+
+class _ClientMitDatei(_Client):
+    def __init__(self, antworten, datei):
+        super().__init__(antworten)
+        self.datei = datei
+
+    def get(self, url):
+        return self.datei
+
+
+def test_bild_hinter_einer_adresse_wird_geholt(anbieter):
+    anbieter["client"] = _ClientMitDatei([_Antwort(200, {"data": [{"url": "http://bild/x.png"}]})], _Datei(200, b"png"))
+    assert bild.erzeuge("a lab", "1024x1024") == b"png"
+
+
+def test_fehlerseite_statt_bild_ist_kein_bild(anbieter):
+    anbieter["client"] = _ClientMitDatei([_Antwort(200, {"data": [{"url": "http://bild/x.png"}]})],
+                                         _Datei(404, b"<html>not found</html>"))
+    with pytest.raises(RuntimeError):
+        bild.erzeuge("a lab", "1024x1024")

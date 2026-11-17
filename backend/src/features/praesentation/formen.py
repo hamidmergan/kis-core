@@ -13,7 +13,7 @@ from src.features.praesentation import icons, raster
 from src.features.praesentation.elemente import _SPIEL, MIN_PT, ZEILE, schrift, setze_lauf, zeilen_hart
 from src.features.praesentation.farben import Farben
 from src.features.praesentation.schemas import Bar, Body, Card
-from src.features.praesentation.vorlage import EMU_PER_PT, Feld
+from src.features.praesentation.vorlage import EMU_PER_PT, STANDARD_SCHRIFT, Feld
 
 # Corner radius of a card as a share of its shorter side, as in the example deck.
 _ECKE = 0.06
@@ -81,7 +81,7 @@ def _zeilen(text: str, typeface: str, groesse: float, breite: float, fett: bool 
 
 def karten(slide, feld: Feld, karten_: list[Card], f: Farben, typeface: str) -> None:
     """Rows of equal cards in the grid that keeps the text largest, the last row centred."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     breite = feld.width / EMU_PER_PT
     abstand = raster.ABSTAND * g
@@ -184,7 +184,7 @@ def _basis(werte: list[float]) -> float:
 
 def balken(slide, feld: Feld, balken_: list[Bar], f: Farben, typeface: str) -> None:
     """Label left, a track in the light tint, the bar in full colour, its length measured on the largest value."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     breite, hoehe = feld.width / EMU_PER_PT, feld.height / EMU_PER_PT
     links, oben = feld.left / EMU_PER_PT, feld.top / EMU_PER_PT
@@ -234,7 +234,7 @@ def balken(slide, feld: Feld, balken_: list[Bar], f: Farben, typeface: str) -> N
 
 def hervorhebung(slide, feld: Feld, body: Body, f: Farben, typeface: str) -> None:
     """A box in full colour with the key word, beside it the sentence with its one term in colour."""
-    typeface = typeface or "Calibri"
+    typeface = typeface or STANDARD_SCHRIFT
     g = raster.grund_pt(feld.size_pt)
     breite, hoehe = feld.width / EMU_PER_PT, feld.height / EMU_PER_PT
     links, oben = feld.left / EMU_PER_PT, feld.top / EMU_PER_PT

@@ -94,7 +94,7 @@ def parts(page: dict) -> list[Part]:
     for s in schema.for_viewers(page)["sections"]:
         if s.get("id") in ("map", "words"):
             continue
-        zeilen = [x for x in (s.get("lead"), s.get("meta") if not s.get("hero") else "") if x]
+        zeilen = [s["lead"]] if s.get("lead") else []
         for b in s.get("blocks") or []:
             zeilen += [z for z in _block(b) if z]
         text = "\n".join(zeilen).strip()

@@ -42,6 +42,7 @@ PipelineInterrupted = summary_pipeline.PipelineInterrupted
 class NoPlan(RuntimeError):
     """No planning call came back usable, the task names it in the person's language."""
 
+
 # The build plan the summary's planner reads for a page, overridable in the prompt table.
 TEMPLATE = Template(
     slug="pages",
@@ -83,6 +84,8 @@ MIN_SENTENCES = 2
 # About six sentences, the most a section's text keeps when it is written anew.
 PROSE_CHARS = 900
 CLOUD_WORDS = 20
+# Fields of a block that hold no running text, they are neither counted nor cleaned.
+_NO_TEXT_KEYS = ("src", "prompt", "kind", "id", "to", "icon", "chart_type")
 
 
 def default_image_style() -> str:
@@ -388,8 +391,7 @@ def drop_citations(value, namen: set[str]):
     if isinstance(value, list):
         return [drop_citations(x, namen) for x in value]
     if isinstance(value, dict):
-        return {k: (x if k in ("src", "prompt", "kind", "id", "to", "icon", "chart_type") else drop_citations(x, namen))
-                for k, x in value.items()}
+        return {k: (x if k in _NO_TEXT_KEYS else drop_citations(x, namen)) for k, x in value.items()}
     return value
 
 
@@ -432,7 +434,7 @@ def _words_on(page: dict) -> int:
                 zaehle(x)
         elif isinstance(v, dict):
             for k, x in v.items():
-                if k not in ("src", "prompt", "kind", "id", "icon", "to", "chart_type"):
+                if k not in _NO_TEXT_KEYS:
                     zaehle(x)
 
     zaehle(page.get("sections"))

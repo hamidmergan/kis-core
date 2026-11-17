@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from loguru import logger
 
+from src.features.summary import concurrency
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.features.summary.writing import _strip_thinking, loose_json
 from src.limits import SUMMARY_WRITE_MAX_TOKENS
@@ -256,7 +257,6 @@ async def write_frame(caller: Caller, *, language: str, plan: Outline,
             temperature=0.3, name="frame", max_tokens=2_000,
         )
     except Exception as e:  # noqa: BLE001 - a page without its frame still has its sections
-        from src.features.summary import concurrency
         if concurrency.overloaded(e) or is_provider_refusal(e):
             raise
         logger.warning("Pages: Rahmen nicht geschrieben ({})", e)
