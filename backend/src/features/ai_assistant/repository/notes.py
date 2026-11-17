@@ -3,7 +3,6 @@ from typing import Optional
 
 from psycopg2.extras import RealDictCursor
 
-
 from src.core.db.pool import get_connection
 
 
@@ -88,7 +87,4 @@ def delete_aia_note(note_id: int, user_id: int) -> bool:
             deleted = cur.rowcount > 0
         conn.commit()
         return deleted
-
-
-# --- KI Tutor: Paragraph Summaries ---
 

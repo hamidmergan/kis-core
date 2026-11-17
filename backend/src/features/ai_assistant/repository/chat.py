@@ -1,13 +1,11 @@
 import json
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
 
+from src.core.db.pool import get_connection
 
 # This many messages are read to find the last usable round.
 _LAST_ROUND_SCAN = 8
-from src.core.db.pool import get_connection
 
 
 def save_aia_message(
@@ -175,7 +173,4 @@ def upsert_aia_user_settings(
                 (workspace_id, user_id, chat_lang, studio_enabled, popup_translate_lang),
             )
         conn.commit()
-
-
-# --- KI Tutor: Notes ---
 

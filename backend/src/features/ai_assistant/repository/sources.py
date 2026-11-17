@@ -1,9 +1,6 @@
 import json
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -234,6 +231,3 @@ def reset_aia_source_for_retry(uuid: str) -> None:
                 (uuid,),
             )
         conn.commit()
-
-
-# --- KI Tutor: Chunks ---

@@ -1,16 +1,13 @@
 import json
+import uuid as _uuid
 from datetime import datetime
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
 
 def create_aia_workspace(user_id: int, title: str, description: str | None) -> str:
-    import uuid as _uuid
     workspace_uuid = str(_uuid.uuid4())
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -273,7 +270,4 @@ def set_workspace_favorite(user_id: int, workspace_id: int, favorite: bool) -> N
                     (user_id, workspace_id),
                 )
         conn.commit()
-
-
-# --- KI Tutor: Access Links ---
 

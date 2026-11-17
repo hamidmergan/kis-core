@@ -1,11 +1,10 @@
 import json
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 from psycopg2.extras import RealDictCursor
 
-
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
 from src.core.db.pool import get_connection
+from src.utils.local_date import today as local_today
 
 
 def create_exercise_set(
@@ -372,7 +371,7 @@ def hat_heute_geuebt(workspace_id: int, user_id: int) -> bool:
                    JOIN aia_exercise_sets s ON s.id = ep.set_id
                    WHERE s.workspace_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
-                       = (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
+                       = (NOW() AT TIME ZONE 'Europe/Berlin')::date
                    LIMIT 1""",
                 (workspace_id, user_id),
             )
@@ -405,8 +404,7 @@ def prune_old_exercise_progress() -> int:
 
 def update_streak(workspace_id: int, user_id: int) -> dict:
     """Update streak for today (Berlin timezone). Returns current and max streak."""
-    from datetime import timedelta, datetime
-    today = datetime.now(_TZ_BERLIN).date()
+    today = local_today()
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(

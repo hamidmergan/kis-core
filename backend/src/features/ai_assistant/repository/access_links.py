@@ -1,9 +1,6 @@
 from datetime import datetime
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -62,7 +59,4 @@ def get_workspace_by_access_link_code(code: str) -> tuple[dict, dict] | None:
     row = dict(row)
     link = {"id": row.pop("link_id"), "expires_at": row.pop("link_expires_at")}
     return row, link
-
-
-# --- KI Tutor: Enrollments ---
 

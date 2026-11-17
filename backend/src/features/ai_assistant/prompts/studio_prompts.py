@@ -135,46 +135,6 @@ AIA_DATENTABELLE_WEITERE_PAKETE = (
     "A text that adds nothing gives an empty 'rows' list."
 )
 
-# Step one when the material does not fit: columns and row labels come from the summaries.
-AIA_DATENTABELLE_GERUEST_PROMPT = (
-    "You are an expert in data extraction. Below is one short summary per source. "
-    "Design the SKELETON of a data table that covers ALL of them.\n\n"
-    "Respond ONLY with a JSON object in exactly this format. Title, columns and rows MUST be "
-    "in {language}:\n"
-    "{\n"
-    '  "title": "Descriptive table title",\n'
-    '  "columns": ["Column1", "Column2", "Column3"],\n'
-    '  "rows": ["What row 1 is about", "What row 2 is about"]\n'
-    "}\n\n"
-    "Rules:\n"
-    "- Minimum 3, maximum 8 columns, chosen so every summary has something to say in them\n"
-    "- The first column names the subject of the row\n"
-    "- Here a row is only its SUBJECT as a short line, no cell values yet\n"
-    "- Every summary must be reflected in at least one row, at most 40 rows\n"
-    "- Only use what the summaries say, invent nothing\n"
-    "- Respond ONLY with the JSON object, no other text."
-)
-
-# Step two: the columns plus the passages found for the rows become the finished table.
-AIA_DATENTABELLE_FUELLUNG_PROMPT = (
-    "You are an expert in data extraction. You are given the columns of a table, the "
-    "subjects of its rows, and passages from the sources. Fill the table.\n\n"
-    "Respond ONLY with a JSON object in exactly this format. Cell values MUST be in "
-    "{language}:\n"
-    "{\n"
-    '  "rows": [ { "cells": ["Value1", "Value2", "Value3"] } ]\n'
-    "}\n\n"
-    "Rules:\n"
-    "- KEEP the columns exactly as given, same order, same number\n"
-    "- One row per given subject, in the given order, cells as many as there are columns\n"
-    "- Fill a cell from the SUMMARIES and the passages together. The summaries say what a "
-    "source is about, the passages carry the detail\n"
-    "- When neither says anything about a cell, write an empty string. An invented value is "
-    "worse than an empty cell\n"
-    "- Short cell values, a few words, no sentences\n"
-    "- Respond ONLY with the JSON object, no other text."
-)
-
 # No sources per row: the attribution sets them after the call, a filename, page and quote per row only cost writing.
 AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "

@@ -1,4 +1,4 @@
-"""KI-Assistent repository - schedule entries + processed sources."""
+"""Schedule entries, private appointments and calendar colours, the generation side lives in schedule_jobs."""
 
 import json
 from datetime import date, datetime, time
@@ -7,6 +7,19 @@ from typing import Any, Optional
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
+from src.features.ai_assistant.repository.schedule_jobs import (  # noqa: F401
+    clear_source_extractions,
+    clear_workspace_source_extractions,
+    count_source_extractions,
+    create_schedule_job,
+    get_active_schedule_job,
+    get_processed_source_ids,
+    get_schedule_job,
+    get_source_extraction,
+    mark_source_processed,
+    update_schedule_job,
+    upsert_source_extraction,
+)
 
 
 _ENTRY_COLS = (
@@ -15,6 +28,24 @@ _ENTRY_COLS = (
     "is_optional, is_checked, checked_at, origin, "
     "source_refs, year_assumed, created_at, updated_at"
 )
+
+
+def _assign(sets: list[str], params: list, column: str, value, clear: bool = False) -> None:
+    """Adds one column to a partial update, clear writes NULL, None leaves it alone."""
+    if clear:
+        sets.append(f"{column} = NULL")
+    elif value is not None:
+        sets.append(f"{column} = %s")
+        params.append(value)
+
+
+def _assign_checked(sets: list[str], params: list, is_checked: Optional[bool]) -> None:
+    """Ticks or unticks an entry, the time of the tick is stored in UTC like every timestamp."""
+    if is_checked is not None:
+        sets.append("is_checked = %s")
+        params.append(is_checked)
+        sets.append("checked_at = %s")
+        params.append(datetime.utcnow() if is_checked else None)
 
 
 # ─── Entries ────────────────────────────────────────────────────────────────
@@ -197,49 +228,18 @@ def update_schedule_entry(
     sets: list[str] = []
     params: list[Any] = []
 
-    if type is not None:
-        sets.append("type = %s")
-        params.append(type)
-    if title is not None:
-        sets.append("title = %s")
-        params.append(title)
-    if description is not None:
-        sets.append("description = %s")
-        params.append(description)
-    if clear_date:
-        sets.append("due_date = NULL")
-    elif due_date is not None:
-        sets.append("due_date = %s")
-        params.append(due_date)
-    if clear_time:
-        sets.append("due_time = NULL")
-    elif due_time is not None:
-        sets.append("due_time = %s")
-        params.append(due_time)
-    if clear_end_date:
-        sets.append("end_date = NULL")
-    elif end_date is not None:
-        sets.append("end_date = %s")
-        params.append(end_date)
-    if clear_end_time:
-        sets.append("end_time = NULL")
-    elif end_time is not None:
-        sets.append("end_time = %s")
-        params.append(end_time)
+    _assign(sets, params, "type", type)
+    _assign(sets, params, "title", title)
+    _assign(sets, params, "description", description)
+    _assign(sets, params, "due_date", due_date, clear_date)
+    _assign(sets, params, "due_time", due_time, clear_time)
+    _assign(sets, params, "end_date", end_date, clear_end_date)
+    _assign(sets, params, "end_time", end_time, clear_end_time)
     if date_precision in ("day", "month"):
-        sets.append("date_precision = %s")
-        params.append(date_precision)
-    if is_open_ended is not None:
-        sets.append("is_open_ended = %s")
-        params.append(is_open_ended)
-    if is_optional is not None:
-        sets.append("is_optional = %s")
-        params.append(is_optional)
-    if is_checked is not None:
-        sets.append("is_checked = %s")
-        params.append(is_checked)
-        sets.append("checked_at = %s")
-        params.append(datetime.utcnow() if is_checked else None)
+        _assign(sets, params, "date_precision", date_precision)
+    _assign(sets, params, "is_open_ended", is_open_ended)
+    _assign(sets, params, "is_optional", is_optional)
+    _assign_checked(sets, params, is_checked)
     if source_refs is not None:
         sets.append("source_refs = %s")
         params.append(json.dumps(source_refs))
@@ -350,186 +350,6 @@ def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:
         return count
 
 
-# ─── Processed sources ──────────────────────────────────────────────────────
-
-def get_processed_source_ids(workspace_id: int, user_id: int) -> list[int]:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT source_id
-                  FROM aia_schedule_processed_sources
-                 WHERE workspace_id = %s AND user_id = %s
-                """,
-                (workspace_id, user_id),
-            )
-            return [r["source_id"] for r in cur.fetchall()]
-
-
-def mark_source_processed(workspace_id: int, user_id: int, source_id: int) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO aia_schedule_processed_sources (workspace_id, user_id, source_id)
-                VALUES (%s, %s, %s)
-                ON CONFLICT DO NOTHING
-                """,
-                (workspace_id, user_id, source_id),
-            )
-        conn.commit()
-
-
-# ─── Generation Jobs ────────────────────────────────────────────────────────
-
-def create_schedule_job(workspace_id: int, user_id: int, source_uuids: list[str]) -> dict:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                INSERT INTO aia_schedule_jobs (workspace_id, user_id, source_uuids, status)
-                VALUES (%s, %s, %s, 'pending')
-                RETURNING id, workspace_id, user_id, source_uuids, status, error, added_count,
-                          created_at, updated_at
-                """,
-                (workspace_id, user_id, json.dumps(source_uuids)),
-            )
-            row = dict(cur.fetchone())
-        conn.commit()
-        return row
-
-
-def get_active_schedule_job(workspace_id: int, user_id: int) -> Optional[dict]:
-    """Return the newest pending/running schedule job for this workspace+user, if any."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT id, workspace_id, user_id, source_uuids, status, error, added_count,
-                       created_at, updated_at
-                  FROM aia_schedule_jobs
-                 WHERE workspace_id = %s AND user_id = %s
-                   AND status IN ('pending', 'running')
-                 ORDER BY id DESC
-                 LIMIT 1
-                """,
-                (workspace_id, user_id),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-
-
-def get_schedule_job(job_id: int, user_id: int) -> Optional[dict]:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT id, workspace_id, user_id, source_uuids, status, error, added_count,
-                       created_at, updated_at
-                  FROM aia_schedule_jobs
-                 WHERE id = %s AND user_id = %s
-                """,
-                (job_id, user_id),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-
-
-def update_schedule_job(
-    job_id: int,
-    status: str,
-    *,
-    error: Optional[str] = None,
-    added_count: Optional[int] = None,
-) -> None:
-    sets = ["status = %s", "updated_at = NOW()"]
-    params: list[Any] = [status]
-    if error is not None:
-        sets.append("error = %s")
-        params.append(error)
-    if added_count is not None:
-        sets.append("added_count = %s")
-        params.append(added_count)
-    params.append(job_id)
-    sql = "UPDATE aia_schedule_jobs SET " + ", ".join(sets) + " WHERE id = %s"
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, params)
-        conn.commit()
-
-
-# ─── Source Extractions (workspace-shared) ──────────────────────────────────
-
-def get_source_extraction(source_id: int) -> Optional[dict]:
-    """The stored analysis of a source, or None."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT candidates, classifications, extracted_at
-                  FROM aia_schedule_source_extractions
-                 WHERE source_id = %s
-                """,
-                (source_id,),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-
-
-def upsert_source_extraction(
-    source_id: int,
-    candidates: list[dict],
-    classifications: list[dict],
-) -> None:
-    """Stores the analysis of a source, repeatable without error."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO aia_schedule_source_extractions
-                       (source_id, candidates, classifications)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (source_id) DO NOTHING
-                """,
-                (source_id, json.dumps(candidates), json.dumps(classifications)),
-            )
-        conn.commit()
-
-
-def clear_workspace_source_extractions(workspace_id: int) -> int:
-    """Throws away the stored analyses of one course room's sources."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                DELETE FROM aia_schedule_source_extractions
-                 WHERE source_id IN (SELECT id FROM aia_sources WHERE workspace_id = %s)
-                """,
-                (workspace_id,),
-            )
-            geloescht = cur.rowcount
-        conn.commit()
-    return geloescht
-
-
-def count_source_extractions() -> int:
-    """How many sources have a stored analysis, across all course rooms."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM aia_schedule_source_extractions")
-            return cur.fetchone()[0]
-
-
-def clear_source_extractions() -> int:
-    """Throws away the stored analyses, the marker stays."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM aia_schedule_source_extractions")
-            geloescht = cur.rowcount
-        conn.commit()
-    return geloescht
-
-
 # ─── Eigene Termine ─────────────────────────────────────────────────────────
 
 def create_personal_entry(
@@ -556,8 +376,9 @@ def create_personal_entry(
                 """,
                 (user_id, title, description, due_date, end_date, due_time),
             )
-            conn.commit()
-            return dict(cur.fetchone())
+            row = dict(cur.fetchone())
+        conn.commit()
+    return row
 
 
 def update_personal_entry(
@@ -576,30 +397,12 @@ def update_personal_entry(
     """Changes a private entry, other people's and workspace entries stay untouched."""
     sets: list[str] = []
     vals: list[Any] = []
-    if title is not None:
-        sets.append("title = %s")
-        vals.append(title)
-    if description is not None:
-        sets.append("description = %s")
-        vals.append(description)
-    if due_date is not None:
-        sets.append("due_date = %s")
-        vals.append(due_date)
-    if clear_end_date:
-        sets.append("end_date = NULL")
-    elif end_date is not None:
-        sets.append("end_date = %s")
-        vals.append(end_date)
-    if clear_time:
-        sets.append("due_time = NULL")
-    elif due_time is not None:
-        sets.append("due_time = %s")
-        vals.append(due_time)
-    if is_checked is not None:
-        sets.append("is_checked = %s")
-        vals.append(is_checked)
-        sets.append("checked_at = %s")
-        vals.append(datetime.now() if is_checked else None)
+    _assign(sets, vals, "title", title)
+    _assign(sets, vals, "description", description)
+    _assign(sets, vals, "due_date", due_date)
+    _assign(sets, vals, "end_date", end_date, clear_end_date)
+    _assign(sets, vals, "due_time", due_time, clear_time)
+    _assign_checked(sets, vals, is_checked)
     if not sets:
         return get_schedule_entry(entry_id, user_id)
     sets.append("updated_at = NOW()")

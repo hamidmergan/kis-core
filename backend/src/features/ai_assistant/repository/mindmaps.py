@@ -1,8 +1,6 @@
+import json
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -10,14 +8,13 @@ from src.core.db.pool import get_connection
 def create_aia_mindmap(workspace_id: int, user_id: int, source_ids: list[int],
                        user_instruction: str | None = None) -> int:
     """Create a pending mindmap record, return its id."""
-    import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_mindmaps (workspace_id, user_id, source_ids, status,
                                              user_instruction)
                    VALUES (%s, %s, %s, 'pending', %s) RETURNING id""",
-                (workspace_id, user_id, _json.dumps(source_ids), user_instruction or None),
+                (workspace_id, user_id, json.dumps(source_ids), user_instruction or None),
             )
             row = cur.fetchone()
         conn.commit()
@@ -26,9 +23,8 @@ def create_aia_mindmap(workspace_id: int, user_id: int, source_ids: list[int],
 def update_aia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None,
                        error: str | None = None, title: str | None = None) -> None:
     """Writes status and result, the title only when one is passed."""
-    import json as _json
     zusatz = ", title = %s" if title is not None else ""
-    werte: list = [status, _json.dumps(mindmap) if mindmap else None, error]
+    werte: list = [status, json.dumps(mindmap) if mindmap else None, error]
     if title is not None:
         werte.append(title)
     werte.append(mindmap_id)
@@ -82,7 +78,4 @@ def delete_aia_mindmap(mindmap_id: int) -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_mindmaps WHERE id = %s", (mindmap_id,))
         conn.commit()
-
-
-# --- KI Tutor: DataTables ---
 

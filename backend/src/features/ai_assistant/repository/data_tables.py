@@ -1,8 +1,6 @@
+import json
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -10,14 +8,13 @@ from src.core.db.pool import get_connection
 def create_aia_data_table(workspace_id: int, user_id: int, source_ids: list[int],
                           user_instruction: str | None = None) -> int:
     """Create a pending data_table record, return its id."""
-    import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_data_tables (workspace_id, user_id, source_ids, status,
                                                 user_instruction)
                    VALUES (%s, %s, %s, 'pending', %s) RETURNING id""",
-                (workspace_id, user_id, _json.dumps(source_ids), user_instruction or None),
+                (workspace_id, user_id, json.dumps(source_ids), user_instruction or None),
             )
             row = cur.fetchone()
         conn.commit()
@@ -31,7 +28,6 @@ def update_aia_data_table(
     sources: list | None = None,
     error: str | None = None,
 ) -> None:
-    import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -39,8 +35,8 @@ def update_aia_data_table(
                    SET status = %s, title = %s, table_data = %s, sources = %s, error = %s, updated_at = NOW()
                    WHERE id = %s""",
                 (status, title,
-                 _json.dumps(table_data) if table_data else None,
-                 _json.dumps(sources) if sources else None,
+                 json.dumps(table_data) if table_data else None,
+                 json.dumps(sources) if sources else None,
                  error, data_table_id),
             )
         conn.commit()
@@ -84,7 +80,4 @@ def delete_aia_data_table(data_table_id: int) -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_data_tables WHERE id = %s", (data_table_id,))
         conn.commit()
-
-
-# --- KI Tutor: Chunks by Source ---
 

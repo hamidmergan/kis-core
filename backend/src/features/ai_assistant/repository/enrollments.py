@@ -1,9 +1,6 @@
 from datetime import datetime
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
-
 
 from src.core.db.pool import get_connection
 
@@ -152,7 +149,4 @@ def get_workspace_by_enroll_code(code: str) -> dict | None:
             )
             row = cur.fetchone()
     return dict(row) if row else None
-
-
-# --- KI Tutor: Sources ---
 

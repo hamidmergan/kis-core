@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.features.ai_assistant.repository import exercise_pool as pool_repo
 from src.features.ai_assistant.repository import schedule as schedule_repo
+from src.features.ai_assistant.repository import schedule_jobs as schedule_jobs_repo
 
 
 class _FakeCursor:
@@ -62,7 +63,7 @@ def fake_pool_db(monkeypatch):
 def fake_schedule_db(monkeypatch):
     def _apply(rows=()):
         calls: list[tuple] = []
-        monkeypatch.setattr(schedule_repo, "get_connection", lambda: _FakeConn(rows, calls))
+        monkeypatch.setattr(schedule_jobs_repo, "get_connection", lambda: _FakeConn(rows, calls))
         return calls
     return _apply
 

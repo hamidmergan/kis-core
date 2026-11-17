@@ -1,15 +1,13 @@
 import math
+import time
 
-import psycopg2
 import psycopg2.extras
-import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
+from src.core.db.pool import get_connection
 
 # Minimum similarity for the typo tolerant fallback.
 _FUZZY_WORD_SIM = 0.45
-from src.core.db.pool import get_connection
-
 # The hnsw index sits on halfvec(2560), queries must use the same form.
 _EMBED_INDEX_DIM = 2560
 # Incremental scanning so the filtered search gets its full 80 hits.
@@ -44,8 +42,7 @@ _IDF_N_CACHE: dict[int, tuple[float, int]] = {}
 
 def _term_idf(cur, workspace_id: int, terms: list[str]) -> list[tuple[str, float]]:
     """Weight per query word across the whole workspace, the missing piece of BM25."""
-    import time as _time
-    jetzt = _time.monotonic()
+    jetzt = time.monotonic()
 
     n_eintrag = _IDF_N_CACHE.get(workspace_id)
     if n_eintrag is None or jetzt - n_eintrag[0] > _IDF_TTL_SECONDS:
@@ -56,7 +53,9 @@ def _term_idf(cur, workspace_id: int, terms: list[str]) -> list[tuple[str, float
             (workspace_id,),
         )
         n_chunks = int(cur.fetchone()[0] or 0)
-        _IDF_N_CACHE[workspace_id] = (jetzt, n_chunks)
+        # An empty workspace is not cached, its first source would stay invisible to the keyword search.
+        if n_chunks:
+            _IDF_N_CACHE[workspace_id] = (jetzt, n_chunks)
     else:
         n_chunks = n_eintrag[1]
     if not n_chunks:
@@ -420,8 +419,6 @@ def hybrid_search_chunks(
     return results
 
 
-# --- KI Tutor: Messages ---
-
 def get_chunks_by_source(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -433,7 +430,4 @@ def get_chunks_by_source(source_id: int) -> list[dict]:
                 (source_id,),
             )
             return [dict(r) for r in cur.fetchall()]
-
-
-# --- KI Tutor: Glossary ---
 

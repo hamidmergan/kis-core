@@ -92,7 +92,7 @@ def move_aia_chapter(uuid: str, direction: str) -> bool:
             row = cur.fetchone()
             if not row:
                 return False
-            chapter_id, workspace_id, position = row
+            chapter_id, workspace_id, _ = row
             # Renumber before the swap, older rows may have gaps.
             _renumber(cur, workspace_id)
             cur.execute("SELECT position FROM aia_chapters WHERE id = %s", (chapter_id,))
