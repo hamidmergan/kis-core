@@ -163,9 +163,7 @@ def run_screencast_render(
 
     except SoftTimeLimitExceeded:
         logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)
-        job = db.get_job(translate_job_uuid)
-        locale = (job and job.get("creator_locale")) or "de"
-        attempt_failed(translate_job_uuid, t("job.timeoutRetry", locale))
+        attempt_failed(translate_job_uuid, t("job.timeoutRetry", job_locale(translate_job_uuid)))
         _maybe_dispatch_next(translate_job_uuid)
 
     except HTTPException as e:

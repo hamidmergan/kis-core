@@ -1,6 +1,7 @@
 """Celery task: translate PPTX DE->EN, extract slide texts, set awaiting_user."""
 
 import asyncio
+import base64
 import json
 import tempfile
 from pathlib import Path
@@ -25,8 +26,38 @@ from src.utils.heartbeat import job_heartbeat
 
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.tasks._errors import handle_task_exception
+from src.tasks.general_tasks import parse_glossary
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
-from src.tasks.screencast_tasks._shared import _get_screencast_helpers
+
+
+def _translation_service(provider_id: int | None, glossary_json: str):
+    """The translator of this run and the provider it settled on."""
+    from src.dependencies import get_translate_client_for_provider, get_translation_providers
+    from src.services.translation import TranslationService
+
+    # The choice is made here so the admin display names the right provider.
+    if provider_id is None:
+        verfuegbare = get_translation_providers()
+        provider_id = verfuegbare[0]["id"] if verfuegbare else None
+
+    translation_client, glossary = get_translate_client_for_provider(
+        provider_id, glossary_entries=parse_glossary(glossary_json) or None
+    )
+    if translation_client is None:
+        raise RuntimeError("No translation provider configured")
+    return TranslationService(deepl_client=translation_client, glossary=glossary), provider_id
+
+
+def _slide_images_b64(job_uuid: str, translated_bytes: bytes, convert) -> list[str]:
+    """The translated slides as pictures for the review step."""
+    with tempfile.TemporaryDirectory() as tmpdir, job_heartbeat(job_uuid):
+        tmp = Path(tmpdir)
+        pptx_path = tmp / "translated.pptx"
+        pptx_path.write_bytes(translated_bytes)
+        img_dir = tmp / "images"
+        img_dir.mkdir()
+        slide_image_paths = asyncio.run(convert(pptx_path, img_dir))
+        return [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
 
 
 @celery_app.task(
@@ -59,33 +90,9 @@ def run_screencast_translate(
         # Save original DE PPTX immediately
         save_job_file(user_id, job_uuid, "original.pptx", pptx_bytes)
 
-        # Resolve translation provider
-        from src.dependencies import get_translate_client_for_provider
-        from src.services.translation import TranslationService
         from src.translators.pptx import translate_pptx
 
-        glossary_entries: dict = {}
-        if glossary_json:
-            try:
-                entries = json.loads(glossary_json)
-                if isinstance(entries, dict):
-                    glossary_entries = entries
-            except (json.JSONDecodeError, TypeError):
-                pass
-
-        # The choice is made here so the admin display names the right provider.
-        if provider_id is None:
-            from src.dependencies import get_translation_providers
-            verfuegbare = get_translation_providers()
-            provider_id = verfuegbare[0]["id"] if verfuegbare else None
-
-        translation_client, glossary = get_translate_client_for_provider(
-            provider_id, glossary_entries=glossary_entries or None
-        )
-        if translation_client is None:
-            raise RuntimeError("No translation provider configured")
-
-        service = TranslationService(deepl_client=translation_client, glossary=glossary)
+        service, provider_id = _translation_service(provider_id, glossary_json)
         # A heartbeat, otherwise the watchdog takes a slow translation for a crash.
         with job_heartbeat(job_uuid), messe(user_id, job_uuid, "uebersetzung") as zahlen:
             zahlen.update(anbieter_und_modell(provider_id or 0, "doc_translate"))
@@ -93,16 +100,10 @@ def run_screencast_translate(
             zahlen["ziel"] = target_lang
             translated_bytes = translate_pptx(pptx_bytes, source_lang, target_lang, service)
 
-        (
-            IMAGE_TMP_DIR,
-            _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-            _create_slide_video, _concatenate_videos, _apply_faststart,
-            _extract_text_per_slide,
-            _create_outro_image, _get_image_dimensions,
-        ) = _get_screencast_helpers()
+        from src.services.screencast import convert_slides_to_images_async, extract_text_per_slide
 
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
-        slide_texts = _extract_text_per_slide(translated_bytes)
+        slide_texts = extract_text_per_slide(translated_bytes)
         if not slide_texts:
             locale = job_row.get("creator_locale") or "de"
             raise ValueError(t("screencast.noSlides", locale))
@@ -110,7 +111,7 @@ def run_screencast_translate(
         # For the review step: which slides the translation did not touch.
         from src.services.screencast.review import find_unchanged_slides
         unchanged_slides = find_unchanged_slides(
-            _extract_text_per_slide(pptx_bytes), slide_texts
+            extract_text_per_slide(pptx_bytes), slide_texts
         )
         if unchanged_slides:
             logger.info(
@@ -128,15 +129,7 @@ def run_screencast_translate(
         save_job_file(user_id, job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
-        with tempfile.TemporaryDirectory() as tmpdir, job_heartbeat(job_uuid):
-            tmp = Path(tmpdir)
-            pptx_path = tmp / "translated.pptx"
-            pptx_path.write_bytes(translated_bytes)
-            img_dir = tmp / "images"
-            img_dir.mkdir()
-            slide_image_paths = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir))
-            import base64
-            slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
+        slide_images_b64 = _slide_images_b64(job_uuid, translated_bytes, convert_slides_to_images_async)
 
         result = {
             "slide_count": len(slide_texts),

@@ -17,6 +17,7 @@ from src.services.upstream_errors import is_provider_refusal, is_upstream_busy
 from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
 from src.tasks._stage import StageContinue, StageLost, continue_stage
+from src.tasks._window import measured_window
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.tasks.praesentation_tasks._build import run_praesentation_build
 from src.utils.heartbeat import job_heartbeat
@@ -29,15 +30,7 @@ _ZWECK = "a slide deck for university teaching"
 
 def _fenster(provider_id: int | None) -> int:
     """The measured window of the model, 0 if there is none."""
-    from src.services.model_limits import ensure_profile
-
-    try:
-        binding = binding_for("chat", provider_id)
-        profil = ensure_profile(binding.provider, binding.model or "")
-        return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - without a measurement the smallest admitted window applies
-        logger.warning("Präsentation: Modell nicht vermessbar ({})", e)
-        return 0
+    return measured_window(provider_id, "Präsentation")
 
 
 def _weg(llm, g: tm.Grundlage, params, user_id: int, job_uuid: str) -> None:
@@ -155,7 +148,8 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         store.save_user_outline(user_id, job_uuid, outline)
         # The tool has no outline step to stop at, so the slides follow without a further click.
         db.update_job_status(job_uuid, "pending", progress={"step": "texte", "final": False})
-        task = run_praesentation_build.apply_async(args=[job_uuid, user_id, locale, 1, 0, None, False])
+        # The build inherits this run's claim, a resumed outline would otherwise start a build that is not its own.
+        task = run_praesentation_build.apply_async(args=[job_uuid, user_id, locale, 1, versuch, None, False])
         db.set_job_celery_task_id(job_uuid, task.id)
         logger.info("Präsentation {}: Gliederung mit {} Folien, Bau angestossen", job_uuid[:8], len(outline.rows))
         return {"slides": len(outline.rows)}

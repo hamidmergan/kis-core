@@ -221,9 +221,9 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
     async def schreibe(gruppe: list[int], geschrieben: list[tuple[str, str]] | None) -> None:
         abschnitte = [plan.sections[i] for i in gruppe]
         andere = [a for j, a in enumerate(plan.sections) if j not in gruppe]
-        je = tm.schreib_budget(caller.window_tokens) // max(1, len(abschnitte))
+        budget = tm.schreib_budget(caller.window_tokens) // max(1, len(abschnitte))
         stoff = [karte.passagen(a.stellen, vorrang=a.genannt, nachbarn=MAP_PASSAGE_NEIGHBOURS,
-                                budget=je)
+                                budget=budget)
                  for a in abschnitte]
         texte = await writing.write_sections(
             caller, language=language, template_body=template_body(vorlage),

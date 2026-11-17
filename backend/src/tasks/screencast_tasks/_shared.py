@@ -4,9 +4,9 @@ import json
 import uuid
 from loguru import logger
 
-from src.core.redis_url import REDIS_URL
 from src.services import tts_job_provider
 from src.storage import get_job_file, is_missing, save_job_file
+from src.tasks._cancel import is_cancelled
 
 
 class _JobCancelled(Exception):
@@ -15,21 +15,15 @@ class _JobCancelled(Exception):
 
 def _assert_not_cancelled(job_uuid: str) -> None:
     """Raise _JobCancelled if a Redis cancel flag exists for this job."""
-    cancelled = False
+    if not is_cancelled(job_uuid):
+        return
+    logger.info("Job {} cancelled - killing active procs", job_uuid[:8])
     try:
-        import redis as _redis
-        _r = _redis.from_url(REDIS_URL)
-        cancelled = bool(_r.exists(f"job:cancel:{job_uuid}"))
+        from src.services.screencast import kill_job_procs
+        kill_job_procs(job_uuid)
     except Exception as e:
-        logger.warning("Cancel check Redis error: {}", e)
-    if cancelled:
-        logger.info("Job {} cancelled - killing active procs", job_uuid[:8])
-        try:
-            from src.services.screencast import kill_job_procs
-            kill_job_procs(job_uuid)
-        except Exception as e:
-            logger.warning("kill_job_procs error: {}", e)
-        raise _JobCancelled()
+        logger.warning("kill_job_procs error: {}", e)
+    raise _JobCancelled()
 
 
 def _get_screencast_helpers():

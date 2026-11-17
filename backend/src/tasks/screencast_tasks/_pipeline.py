@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import shutil
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,9 +11,9 @@ from pathlib import Path
 from loguru import logger
 
 from src import database as db
-from src.core.redis_url import REDIS_URL
 from src.limits import RENDER_MAX_WORKERS, STAGE_SECONDS
 from src.services.job_recovery import still_mine
+from src.tasks._cancel import mark_is_set
 from src.tasks._stage import StageContinue, StageLost
 from src.utils.heartbeat import job_heartbeat
 from src.storage import (
@@ -92,6 +93,192 @@ def _ton_fuer_ablage(audio_paths: list, plaetze: list[bool], alles_ersetzen: boo
     return ablage
 
 
+def _start_cancel_watcher(job_uuid: str) -> tuple[threading.Event, threading.Event]:
+    """A thread that kills running ffmpeg processes on cancel, returns its stop switch and its cancel sign."""
+    stop = threading.Event()
+    cancelled = threading.Event()
+
+    def _cancel_watcher() -> None:
+        try:
+            while not stop.wait(0.5):
+                if mark_is_set(job_uuid):
+                    logger.info("Cancel watcher: killing procs for {}", job_uuid[:8])
+                    cancelled.set()
+                    from src.services.screencast import kill_job_procs
+                    kill_job_procs(job_uuid)
+                    break
+        except Exception as e:
+            logger.warning("Cancel watcher error: {}", e)
+
+    threading.Thread(target=_cancel_watcher, daemon=True, name=f"cancel-{job_uuid[:8]}").start()
+    return stop, cancelled
+
+
+def _stop_if_cancelled(job_uuid: str, cancelled: threading.Event) -> None:
+    _assert_not_cancelled(job_uuid)
+    if cancelled.is_set():
+        raise _JobCancelled()
+
+
+def _slide_images(user_id: int, job_uuid: str, tmp: Path, dpi: int, override: list[Path] | None,
+                  prerendered_dir: Path, convert) -> list[Path]:
+    """The slide pictures: the given ones, the pre-rendered stock of this resolution, or freshly rendered."""
+    with messe(user_id, job_uuid, "bilder") as bild_zahlen:
+        bild_zahlen["dpi"] = dpi
+        if override is not None:
+            slide_images = override
+            bild_zahlen["vorrat_genutzt"] = False
+        else:
+            dpi_dir = prerendered_dir / f"dpi{dpi}"
+            prerendered_images = sorted(dpi_dir.glob("slide-*.png")) if dpi_dir.exists() else []
+            bild_zahlen["vorrat_genutzt"] = bool(prerendered_images)
+
+            if prerendered_images:
+                logger.info(
+                    "Render {}: using {} pre-rendered images ({} DPI)",
+                    job_uuid, len(prerendered_images), dpi,
+                )
+                slide_images = prerendered_images
+            else:
+                pptx_path = tmp / "render.pptx"
+                pptx_path.write_bytes(_get_pptx_for_render(user_id, job_uuid))
+                img_dir = tmp / "images"
+                img_dir.mkdir()
+                # No units here, so the clock has to speak for this phase.
+                with job_heartbeat(job_uuid):
+                    slide_images = asyncio.run(convert(pptx_path, img_dir, dpi))
+        bild_zahlen["folien"] = len(slide_images)
+    return slide_images
+
+
+def _voice_slides(user_id: int, job_uuid: str, scripts: list[str], auswahl, tts_client, tmp: Path, *,
+                  speed: float, voice_id: str, voice_label: str, provider_id: int, target_lang: str,
+                  clock, token: int, cancelled: threading.Event, generate_all_tts) -> list:
+    """Voices what is still open and reports every finished slide, returns one audio path per slide."""
+    # These slides are already finished and belong in the preview right away.
+    schon_da = audio_folien_mit_ton(user_id, job_uuid) & auswahl.alter_ton_erlaubt
+    zu_sprechen = zu_sprechende_folien(auswahl.clip_folien, scripts, schon_da)
+    fertige_folien: set[int] = set(schon_da)
+    gesprochen = 0
+    db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
+        fertige_folien, zu_sprechen, 0, auswahl.ausgeschlossen))
+
+    def _tts_progress(current: int, total: int, folie: int) -> None:
+        nonlocal gesprochen
+        _stop_if_cancelled(job_uuid, cancelled)
+        if not still_mine(job_uuid, token):
+            raise StageLost(job_uuid)
+        if folie in auswahl.ausgeschlossen:
+            return
+        if folie not in fertige_folien and scripts[folie].strip():
+            gesprochen += 1
+        fertige_folien.add(folie)
+        db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
+            fertige_folien, zu_sprechen, gesprochen, auswahl.ausgeschlossen))
+
+    with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
+        ton_zahlen.update(zeichen_zahlen(scripts))
+        ton_zahlen.update(anbieter_und_modell(provider_id, "tts"))
+        ton_zahlen["stimme"] = voice_id
+        ton_zahlen["stimme_name"] = voice_label
+        ton_zahlen["tempo"] = speed
+        ton_zahlen["sprache"] = target_lang
+        tts_results = asyncio.run(generate_all_tts(
+            scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid,
+            user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen,
+            ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt, clock=clock,
+            on_beat=lambda: db.touch_job_heartbeat(job_uuid)))
+    return [r[0] for r in tts_results]
+
+
+def _render_clips(user_id: int, job_uuid: str, slide_images: list[Path], audio_paths: list, clip_folien: list[int],
+                  clip_paths: list[Path], slide_pause: float, ausgeschlossen: int,
+                  cancelled: threading.Event, create_slide_video) -> None:
+    """One clip per chosen slide, several at once."""
+    def _render_clip_normal(pos: int) -> None:
+        i = clip_folien[pos]
+        # The voice keeps its own tempo, stretching it made it echo.
+        create_slide_video(slide_images[i], audio_paths[i], clip_paths[pos], pause=slide_pause, crf=23, job_uuid=job_uuid)
+
+    db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": len(clip_folien)})
+    with messe(user_id, job_uuid, "clips") as clip_zahlen:
+        clip_zahlen["folien"] = len(clip_folien)
+        clip_zahlen["nicht_dabei"] = ausgeschlossen
+        clip_zahlen["folienpause"] = slide_pause
+        clip_zahlen["gleichzeitig"] = RENDER_MAX_WORKERS
+        with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
+            futures = {executor.submit(_render_clip_normal, pos): pos for pos in range(len(clip_folien))}
+            completed = 0
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception:
+                    # If watcher killed ffmpeg, convert to _JobCancelled
+                    if cancelled.is_set():
+                        raise _JobCancelled()
+                    raise
+                completed += 1
+                db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": len(clip_folien)})
+                _stop_if_cancelled(job_uuid, cancelled)
+
+
+def _notice_clip(job_uuid: str, first_image: Path, tmp: Path, create_slide_video, create_outro_image,
+                 get_image_dimensions) -> Path | None:
+    """The AI notice as a silent clip of 3 s, None when it could not be made."""
+    try:
+        hinweis_w, hinweis_h = get_image_dimensions(first_image)
+        hinweis_img = tmp / "ki_hinweis.png"
+        hinweis_clip = tmp / "clip_ki_hinweis.mp4"
+        create_outro_image(hinweis_w, hinweis_h, hinweis_img)
+        create_slide_video(hinweis_img, None, hinweis_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
+        return hinweis_clip
+    except Exception as e:
+        logger.warning("KI-Hinweis konnte nicht erzeugt werden, das Video laeuft ohne: {}", e)
+        return None
+
+
+def _subtitle_track(user_id: int, job_uuid: str, clip_paths: list[Path], hat_sprache: list[bool], tmp: Path,
+                    target_lang: str) -> tuple[Path | None, str]:
+    """The subtitles as a track of their own, not burned in, with its language code."""
+    db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
+    from src.services.screencast.subtitles import create_subtitle_track, vtt_sprachkennung
+    with messe(user_id, job_uuid, "untertitel") as spur_zahlen:
+        spur_zahlen["folien_mit_ton"] = sum(1 for hat in hat_sprache if hat)
+        spur_pfad = create_subtitle_track(clip_paths, tmp, hat_sprache)
+        spur_sprache = vtt_sprachkennung(target_lang)
+        spur_zahlen["sprache"] = spur_sprache
+        if spur_pfad is not None:
+            save_job_file(user_id, job_uuid, "untertitel.vtt", spur_pfad.read_bytes())
+    return spur_pfad, spur_sprache
+
+
+def _join_clips(user_id: int, job_uuid: str, clip_paths: list[Path], tmp: Path, spur_pfad: Path | None,
+                spur_sprache: str, concatenate_videos, apply_faststart) -> bytes:
+    """All clips as one MP4 that starts playing at once."""
+    db.update_job_status(job_uuid, "running", progress={"step": "concat"})
+    concat_path = tmp / "concat.mp4"
+    # Two long ffmpeg runs without units of their own, so the clock speaks for them.
+    with job_heartbeat(job_uuid), messe(user_id, job_uuid, "zusammenfuegen") as fuege_zahlen:
+        fuege_zahlen["clips"] = len(clip_paths)
+        concatenate_videos(clip_paths, concat_path)
+        db.update_job_status(job_uuid, "running", progress={"step": "faststart"})
+        output_bytes = apply_faststart(concat_path, tmp / "final.mp4", spur_pfad, spur_sprache)
+        fuege_zahlen["video_bytes"] = len(output_bytes)
+    return output_bytes
+
+
+def _clear_prerendered(user_id: int, job_uuid: str, prerendered_dir: Path, is_admin: bool) -> None:
+    """Drops the pre-rendered slide pictures after a finished render, an admin's go to the bucket first."""
+    if not prerendered_dir.exists():
+        return
+    if is_admin:
+        img_paths = sorted(prerendered_dir.glob("dpi*/slide-*.png"))
+        for img_path in img_paths:
+            save_job_file(user_id, job_uuid, f"images/{img_path.name}", img_path.read_bytes())
+        logger.info("Screencast render {}: saved {} slide images to bucket/images/", job_uuid, len(img_paths))
+    shutil.rmtree(prerendered_dir, ignore_errors=True)
+
+
 def _run_render_pipeline(
     job_uuid: str,
     scripts: list[str],
@@ -119,7 +306,6 @@ def _run_render_pipeline(
         _create_outro_image, _get_image_dimensions,
     ) = _get_screencast_helpers()
 
-    # Resolve user_id once for storage keying
     job_row = db.get_job(job_uuid)
     if not job_row:
         raise RuntimeError(f"Job {job_uuid} not found")
@@ -150,240 +336,81 @@ def _run_render_pipeline(
 
     db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
-    # A watcher thread checks for cancellation and kills running ffmpeg processes.
-    _stop_watcher = threading.Event()
-    _cancelled_by_watcher = threading.Event()
-
-    def _cancel_watcher() -> None:
-        try:
-            import redis as _redis
-            _r = _redis.from_url(REDIS_URL)
-            while not _stop_watcher.wait(0.5):
-                exists = bool(_r.exists(f"job:cancel:{job_uuid}"))
-                if exists:
-                    logger.info("Cancel watcher: killing procs for {}", job_uuid[:8])
-                    _cancelled_by_watcher.set()
-                    from src.services.screencast import kill_job_procs
-                    kill_job_procs(job_uuid)
-                    break
-        except Exception as e:
-            logger.warning("Cancel watcher error: {}", e)
-
-    threading.Thread(target=_cancel_watcher, daemon=True, name=f"cancel-{job_uuid[:8]}").start()
+    stop_watcher, cancelled = _start_cancel_watcher(job_uuid)
+    # Pre-rendering happens per resolution, if it does not match it is rendered again.
+    prerendered_dir = IMAGE_TMP_DIR / job_uuid
 
     try:
-      with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            slide_images = _slide_images(user_id, job_uuid, tmp, dpi, slide_images_override,
+                                         prerendered_dir, _convert_slides_to_images_async)
+            _stop_if_cancelled(job_uuid, cancelled)
 
-        # Pre-rendering happens per resolution, if it does not match it is rendered again.
-        prerendered_dir = IMAGE_TMP_DIR / job_uuid
-        with messe(user_id, job_uuid, "bilder") as bild_zahlen:
-            bild_zahlen["dpi"] = dpi
-            if slide_images_override is not None:
-                slide_images = slide_images_override
-                bild_zahlen["vorrat_genutzt"] = False
-            else:
-                dpi_dir = prerendered_dir / f"dpi{dpi}"
-                prerendered_images = sorted(dpi_dir.glob("slide-*.png")) if dpi_dir.exists() else []
-                bild_zahlen["vorrat_genutzt"] = bool(prerendered_images)
+            # Without a known target language it stays empty, then the voicing does not guess.
+            target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
+            audio_paths = _voice_slides(
+                user_id, job_uuid, scripts, auswahl, tts_client, tmp, speed=speed, voice_id=voice_id,
+                voice_label=voice_label, provider_id=provider_id, target_lang=target_lang, clock=clock,
+                token=token, cancelled=cancelled, generate_all_tts=_generate_all_tts)
 
-                if prerendered_images:
-                    logger.info(
-                        "Render {}: using {} pre-rendered images ({} DPI)",
-                        job_uuid, len(prerendered_images), dpi,
-                    )
-                    slide_images = prerendered_images
-                else:
-                    pptx_data = _get_pptx_for_render(user_id, job_uuid)
-                    pptx_path = tmp / "render.pptx"
-                    pptx_path.write_bytes(pptx_data)
-                    img_dir = tmp / "images"
-                    img_dir.mkdir()
-                    # No units here, so the clock has to speak for this phase.
-                    with job_heartbeat(job_uuid):
-                        slide_images = asyncio.run(
-                            _convert_slides_to_images_async(pptx_path, img_dir, dpi))
-            bild_zahlen["folien"] = len(slide_images)
+            # Slides the stage did not reach, plus the montage, belong to the next stage.
+            offen = [i for i, p in enumerate(audio_paths) if p is not None and not p.exists()]
+            if offen or (clock is not None and clock.spent() > STAGE_SECONDS / 2):
+                logger.info("Screencast {}: {} Folien offen, naechste Etappe", job_uuid, len(offen))
+                raise StageContinue
 
-        _assert_not_cancelled(job_uuid)
-        if _cancelled_by_watcher.is_set():
-            raise _JobCancelled()
+            num_slides = min(len(slide_images), len(audio_paths))
+            if num_slides == 0:
+                raise RuntimeError("Keine Slides verarbeitet")
+            if len(slide_images) != len(audio_paths):
+                # Must not happen any more but has to be logged: otherwise audio and image mismatch.
+                logger.error(
+                    "Render {}: {} Bilder, aber {} Skripte. Video wird auf {} Folien gekürzt.",
+                    job_uuid, len(slide_images), len(audio_paths), num_slides,
+                )
+            _stop_if_cancelled(job_uuid, cancelled)
 
-        # These slides are already finished and belong in the preview right away.
-        schon_da = audio_folien_mit_ton(user_id, job_uuid) & auswahl.alter_ton_erlaubt
-        zu_sprechen = zu_sprechende_folien(auswahl.clip_folien, scripts, schon_da)
-        fertige_folien: set[int] = set(schon_da)
-        gesprochen = 0
-        db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
-            fertige_folien, zu_sprechen, 0, auswahl.ausgeschlossen))
+            db.set_render_started_at(job_uuid)
+            # The slide number stays the key, only the selection is built.
+            paare = clip_paare(auswahl.clip_folien, num_slides)
+            if not paare:
+                raise RuntimeError("Keine Folie im Screencast")
+            clip_folien = [i for _, i in paare]
+            clip_paths: list[Path] = [tmp / f"clip_{pos:03d}.mp4" for pos, _ in paare]
+            _render_clips(user_id, job_uuid, slide_images, audio_paths, clip_folien, clip_paths, slide_pause,
+                          len(auswahl.ausgeschlossen), cancelled, _create_slide_video)
+            _stop_if_cancelled(job_uuid, cancelled)
 
-        def _tts_progress(current: int, total: int, folie: int) -> None:
-            nonlocal gesprochen
-            if _cancelled_by_watcher.is_set():
-                raise _JobCancelled()
-            _assert_not_cancelled(job_uuid)
-            if not still_mine(job_uuid, token):
-                raise StageLost(job_uuid)
-            if folie in auswahl.ausgeschlossen:
-                return
-            if folie not in fertige_folien and scripts[folie].strip():
-                gesprochen += 1
-            fertige_folien.add(folie)
-            db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
-                fertige_folien, zu_sprechen, gesprochen, auswahl.ausgeschlossen))
+            from src.services.screencast.outro import rahme_clips
+            hinweis_clip = _notice_clip(job_uuid, slide_images[clip_folien[0]], tmp, _create_slide_video,
+                                        _create_outro_image, _get_image_dimensions)
+            # The notice has to come before the subtitle track, otherwise every timestamp is off.
+            clip_paths, hat_sprache = rahme_clips(
+                clip_paths, [audio_paths[i] is not None for i in clip_folien], hinweis_clip)
 
-        # Without a known target language it stays empty, then the voicing does not guess.
-        target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
-        with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
-            ton_zahlen.update(zeichen_zahlen(scripts))
-            ton_zahlen.update(anbieter_und_modell(provider_id, "tts"))
-            ton_zahlen["stimme"] = voice_id
-            ton_zahlen["stimme_name"] = voice_label
-            ton_zahlen["tempo"] = speed
-            ton_zahlen["sprache"] = target_lang
-            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen, ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt, clock=clock, on_beat=lambda: db.touch_job_heartbeat(job_uuid)))
-        audio_paths = [r[0] for r in tts_results]
+            spur_pfad, spur_sprache = (
+                _subtitle_track(user_id, job_uuid, clip_paths, hat_sprache, tmp, target_lang)
+                if subtitles else (None, ""))
+            _stop_if_cancelled(job_uuid, cancelled)
+            output_bytes = _join_clips(user_id, job_uuid, clip_paths, tmp, spur_pfad, spur_sprache,
+                                       _concatenate_videos, _apply_faststart)
 
-        # Slides the stage did not reach, plus the montage, belong to the next stage.
-        offen = [i for i, p in enumerate(audio_paths) if p is not None and not p.exists()]
-        if offen or (clock is not None and clock.spent() > STAGE_SECONDS / 2):
-            logger.info("Screencast {}: {} Folien offen, naechste Etappe", job_uuid, len(offen))
-            raise StageContinue
-
-        num_slides = min(len(slide_images), len(audio_paths))
-        if num_slides == 0:
-            raise RuntimeError("Keine Slides verarbeitet")
-        if len(slide_images) != len(audio_paths):
-            # Must not happen any more but has to be logged: otherwise audio and image mismatch.
-            logger.error(
-                "Render {}: {} Bilder, aber {} Skripte. Video wird auf {} Folien gekürzt.",
-                job_uuid, len(slide_images), len(audio_paths), num_slides,
-            )
-
-        _assert_not_cancelled(job_uuid)
-        if _cancelled_by_watcher.is_set():
-            raise _JobCancelled()
-
-        # ── Video clips (parallel) ────────────────────────────────────────
-        db.set_render_started_at(job_uuid)
-        # The slide number stays the key, only the selection is built.
-        paare = clip_paare(auswahl.clip_folien, num_slides)
-        if not paare:
-            raise RuntimeError("Keine Folie im Screencast")
-        clip_folien = [i for _, i in paare]
-        clip_paths: list[Path] = [tmp / f"clip_{pos:03d}.mp4" for pos, _ in paare]
-
-        def _render_clip_normal(pos: int) -> None:
-            i = clip_folien[pos]
-            # The voice keeps its own tempo, stretching it made it echo.
-            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[pos], pause=slide_pause, crf=23, job_uuid=job_uuid)
-
-        db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": len(clip_folien)})
-        with messe(user_id, job_uuid, "clips") as clip_zahlen:
-            clip_zahlen["folien"] = len(clip_folien)
-            clip_zahlen["nicht_dabei"] = len(auswahl.ausgeschlossen)
-            clip_zahlen["folienpause"] = slide_pause
-            clip_zahlen["gleichzeitig"] = RENDER_MAX_WORKERS
-            with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
-                futures = {executor.submit(_render_clip_normal, pos): pos for pos in range(len(clip_folien))}
-                completed = 0
-                for future in as_completed(futures):
-                    try:
-                        future.result()
-                    except Exception:
-                        # If watcher killed ffmpeg, convert to _JobCancelled
-                        if _cancelled_by_watcher.is_set():
-                            raise _JobCancelled()
-                        raise
-                    completed += 1
-                    db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": len(clip_folien)})
-                    if _cancelled_by_watcher.is_set():
-                        raise _JobCancelled()
-                    _assert_not_cancelled(job_uuid)
-
-        # ── AI notice (same slide at the start and the end, 3s silent) ────
-        _assert_not_cancelled(job_uuid)
-        if _cancelled_by_watcher.is_set():
-            raise _JobCancelled()
-        from src.services.screencast.outro import rahme_clips
-        hat_sprache = [audio_paths[i] is not None for i in clip_folien]
-        hinweis_clip = None
-        try:
-            hinweis_w, hinweis_h = _get_image_dimensions(slide_images[clip_folien[0]])
-            hinweis_img = tmp / "ki_hinweis.png"
-            hinweis_clip = tmp / "clip_ki_hinweis.mp4"
-            _create_outro_image(hinweis_w, hinweis_h, hinweis_img)
-            _create_slide_video(hinweis_img, None, hinweis_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
-        except Exception as e:
-            hinweis_clip = None
-            logger.warning("KI-Hinweis konnte nicht erzeugt werden, das Video laeuft ohne: {}", e)
-        # The notice has to come before the subtitle track, otherwise every timestamp is off.
-        clip_paths, hat_sprache = rahme_clips(clip_paths, hat_sprache, hinweis_clip)
-
-        # ── Subtitles (own track, not burned in) ──────────────────────────
-        spur_pfad = None
-        spur_sprache = ""
-        if subtitles:
-            db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
-            from src.services.screencast.subtitles import create_subtitle_track, vtt_sprachkennung
-            with messe(user_id, job_uuid, "untertitel") as spur_zahlen:
-                spur_zahlen["folien_mit_ton"] = sum(1 for hat in hat_sprache if hat)
-                spur_pfad = create_subtitle_track(clip_paths, tmp, hat_sprache)
-                spur_sprache = vtt_sprachkennung(target_lang)
-                spur_zahlen["sprache"] = spur_sprache
-                if spur_pfad is not None:
-                    save_job_file(user_id, job_uuid, "untertitel.vtt", spur_pfad.read_bytes())
-
-        # ── Concatenate ───────────────────────────────────────────────────
-        _assert_not_cancelled(job_uuid)
-        if _cancelled_by_watcher.is_set():
-            raise _JobCancelled()
-        db.update_job_status(job_uuid, "running", progress={"step": "concat"})
-        concat_path = tmp / "concat.mp4"
-        # Two long ffmpeg runs without units of their own, so the clock speaks for them.
-        with job_heartbeat(job_uuid), messe(user_id, job_uuid, "zusammenfuegen") as fuege_zahlen:
-            fuege_zahlen["clips"] = len(clip_paths)
-            _concatenate_videos(clip_paths, concat_path)
-
-            # ── Faststart ─────────────────────────────────────────────────
-            db.update_job_status(job_uuid, "running", progress={"step": "faststart"})
-            final_path = tmp / "final.mp4"
-            output_bytes = _apply_faststart(concat_path, final_path, spur_pfad, spur_sprache)
-            fuege_zahlen["video_bytes"] = len(output_bytes)
-
-        # ── Save audio cache ──────────────────────────────────────────────
-        db.update_job_status(job_uuid, "running", progress={"step": "saving"})
-        save_audio_cache(user_id, job_uuid, _ton_fuer_ablage(
-            audio_paths, ton_plaetze(len(scripts), clip_folien), alter_ton_fremd))
-
-        # ── Save result ───────────────────────────────────────────────────
-        result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
-
-        existing_meta = load_result_meta(user_id, job_uuid) or {}
-        meta = {
-            **existing_meta,
-            "audio_id": job_uuid,
-            "audio_count": num_slides,
-            "subtitles": spur_pfad is not None,
-            "video_folien": auswahl.clip_folien,
-        }
-        save_result_meta(user_id, job_uuid, meta)
-
+            db.update_job_status(job_uuid, "running", progress={"step": "saving"})
+            save_audio_cache(user_id, job_uuid, _ton_fuer_ablage(
+                audio_paths, ton_plaetze(len(scripts), clip_folien), alter_ton_fremd))
+            result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
+            save_result_meta(user_id, job_uuid, {
+                **(load_result_meta(user_id, job_uuid) or {}),
+                "audio_id": job_uuid,
+                "audio_count": num_slides,
+                "subtitles": spur_pfad is not None,
+                "video_folien": auswahl.clip_folien,
+            })
     finally:
-        _stop_watcher.set()
+        stop_watcher.set()
 
-    # Save slide images to bucket for admin before cleanup
-    if is_admin and prerendered_dir.exists():
-        img_paths = sorted(prerendered_dir.glob("dpi*/slide-*.png"))
-        for img_path in img_paths:
-            save_job_file(user_id, job_uuid, f"images/{img_path.name}", img_path.read_bytes())
-        logger.info("Screencast render {}: saved {} slide images to bucket/images/", job_uuid, len(img_paths))
-
-    # Clean up pre-rendered images after successful render
-    if prerendered_dir.exists():
-        import shutil
-        shutil.rmtree(prerendered_dir, ignore_errors=True)
-
+    _clear_prerendered(user_id, job_uuid, prerendered_dir, is_admin)
     return {
         "result_path": result_path,
         "audio_id": job_uuid,

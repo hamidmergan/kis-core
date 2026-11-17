@@ -5,8 +5,8 @@ import json
 from loguru import logger
 
 from src import database as db
-from src.core.redis_url import REDIS_URL
 from src.storage import get_job_file
+from src.tasks._cancel import clear_cancel
 
 
 _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render"]
@@ -33,12 +33,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
             ])
         elif dispatch_as == "render":
             scripts = json.loads(get_job_file(user_id, job_uuid, "render_scripts.json"))
-            try:
-                import redis as _redis
-                _r = _redis.from_url(REDIS_URL)
-                _r.delete(f"job:cancel:{job_uuid}")
-            except Exception:
-                pass
+            clear_cancel(job_uuid)
             task = run_screencast_render.apply_async(args=_render_args(
                 job_uuid, scripts, params, job["original_filename"] or "screencast.pptx",
                 job.get("attempts") or 0,

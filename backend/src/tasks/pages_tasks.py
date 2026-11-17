@@ -41,6 +41,7 @@ from src.storage import (
     save_result_and_evict,
 )
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
+from src.tasks.summary_tasks import _MIN_WORDS
 from src.utils import local_date
 
 DRAFT_FILE = "draft.json"
@@ -133,6 +134,26 @@ def webp(data: bytes) -> bytes:
         return raus.getvalue()
 
 
+def _params(user_id: int, job_uuid: str) -> dict:
+    """What the route laid down for this page, empty when the file is gone."""
+    return parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
+
+
+def _caller(job_uuid: str, provider_id: int | None) -> PagesCaller:
+    """The door to the chat model of this provider, booked as pages."""
+    from src.tasks.general_tasks import _get_llm_client
+    from src.tasks.summary_tasks import _fenster
+
+    traeger = _get_llm_client(provider_id)
+    return PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
+                       window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
+                       book=lambda antwort: log_llm_response("pages", traeger, antwort))
+
+
+def _older_than(at: str, minutes: int) -> bool:
+    return datetime.now(timezone.utc) - datetime.fromisoformat(at) > timedelta(minutes=minutes)
+
+
 def _image_wishes(page: dict) -> list[dict]:
     return [b for s in page["sections"] for b in s["blocks"] if b["kind"] == "image"]
 
@@ -190,18 +211,12 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
 
     quellen = sources.load_sources(user_id, job_uuid)
     if not quellen:
-        raise ValueError(t("summary.contentTooShort", locale, words=0, min=20))
+        raise ValueError(t("summary.contentTooShort", locale, words=0, min=_MIN_WORDS))
 
-    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
+    params = _params(user_id, job_uuid)
     entwurf = parse_job_json(job_uuid, DRAFT_FILE, read_job_text(user_id, job_uuid, DRAFT_FILE), None)
     if not entwurf:
-        from src.tasks.general_tasks import _get_llm_client
-        from src.tasks.summary_tasks import _fenster
-
-        traeger = _get_llm_client(provider_id)
-        caller = PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
-                             window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
-                             book=lambda antwort: log_llm_response("pages", traeger, antwort))
+        caller = _caller(job_uuid, provider_id)
         store = _JobStore(user_id, job_uuid, versuch)
         anweisung = (read_job_text(user_id, job_uuid, INSTRUCTIONS_FILE) or "").strip()
         try:
@@ -249,12 +264,10 @@ def run_pages(self, job_uuid: str, provider_id: int | None = None, versuch: int 
         logger.info("Pages {}: Etappe gehoert nicht mehr uns", job_uuid[:8])
     except Exception as e:
         from celery.exceptions import SoftTimeLimitExceeded
+        from src.tasks._errors import handle_task_exception, job_locale
         if isinstance(e, SoftTimeLimitExceeded):
-            auftrag = db.get_job(job_uuid)
-            locale = (auftrag and auftrag.get("creator_locale")) or "de"
-            attempt_failed(job_uuid, t("job.timeoutRetry", locale))
+            attempt_failed(job_uuid, t("job.timeoutRetry", job_locale(job_uuid)))
             return
-        from src.tasks._errors import handle_task_exception
         handle_task_exception(job_uuid, e, task_label="Pages")
         raise
 
@@ -278,8 +291,7 @@ def draw_state(user_id: int, job_uuid: str, name: str) -> str:
     marke = parse_job_json(job_uuid, f"{name}.state", read_job_text(user_id, job_uuid, f"{name}.state"), None)
     if not isinstance(marke, dict) or marke.get("state") == "failed":
         return "failed"
-    seit = datetime.fromisoformat(marke["at"])
-    return "failed" if datetime.now(timezone.utc) - seit > timedelta(minutes=PAGES_DRAW_WAIT_MINUTES) else "pending"
+    return "failed" if _older_than(marke["at"], PAGES_DRAW_WAIT_MINUTES) else "pending"
 
 
 def draws_of(user_id: int, job_uuid: str) -> list[int]:
@@ -365,10 +377,8 @@ def language_states(user_id: int, job_uuid: str) -> dict[str, dict]:
         daten = parse_job_json(job_uuid, _state_file(name), read_job_text(user_id, job_uuid, _state_file(name)), None)
         if not isinstance(daten, dict):
             continue
-        if daten.get("state") == "running":
-            seit = datetime.fromisoformat(daten["at"])
-            if datetime.now(timezone.utc) - seit > timedelta(minutes=PAGES_TRANSLATE_WAIT_MINUTES):
-                daten["state"] = "failed"
+        if daten.get("state") == "running" and _older_than(daten["at"], PAGES_TRANSLATE_WAIT_MINUTES):
+            daten["state"] = "failed"
         raus[name] = daten
     return raus
 
@@ -426,15 +436,7 @@ def drop_language(user_id: int, job_uuid: str, key: str) -> None:
 
 def page_caller(user_id: int, job_uuid: str) -> PagesCaller:
     """The chat model the page was written with, for every later call about it."""
-    from src.tasks.general_tasks import _get_llm_client
-    from src.tasks.summary_tasks import _fenster
-
-    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
-    provider_id = params.get("provider_id")
-    traeger = _get_llm_client(provider_id)
-    return PagesCaller(traeger._async_client, traeger._model, job_uuid=job_uuid,
-                       window_tokens=_fenster(provider_id), extra_body=dict(traeger._extra_body),
-                       book=lambda antwort: log_llm_response("pages", traeger, antwort))
+    return _caller(job_uuid, _params(user_id, job_uuid).get("provider_id"))
 
 
 def _start_other_language(user_id: int, job_uuid: str, page: dict) -> None:

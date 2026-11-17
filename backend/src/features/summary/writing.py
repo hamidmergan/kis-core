@@ -112,7 +112,6 @@ OUTLINE_SCHEMA = {
 }
 
 
-
 def outline_schema(extra: dict | None = None) -> dict:
     """The planning schema, widened by a tool's own fields that come out of the same call."""
     if not extra:
@@ -268,7 +267,6 @@ def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = Non
                    extra={k: roh[k] for k in extra or [] if k in roh})
 
 
-
 def _outline_system(language: str, template_body: str, target: int, sources: int,
                     modus: str = "stellen", span: tuple[int, int] | None = None,
                     fokus: bool = False, extra_rules: str = "") -> str:
@@ -389,14 +387,6 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
     return plan
 
 
-
-
-
-
-
-
-
-
 def _finished(antwort) -> str:
     """The written text, a half line the cap cut off is dropped."""
     wahl = antwort.choices[0]
@@ -417,7 +407,6 @@ def _drop_leading_heading(text: str) -> str:
     while zeilen and not zeilen[0].strip():
         zeilen.pop(0)
     return "\n".join(zeilen)
-
 
 
 def group_sections(sections: list[Section], costs: list[int],

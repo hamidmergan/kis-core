@@ -35,6 +35,7 @@ from src.storage import (
     save_result_file,
 )
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
+from src.tasks._window import measured_window
 from src.services.job_statistik import angaben_merken, wer_antwortete
 from src.services import provider_transport
 
@@ -42,11 +43,6 @@ _MIN_WORDS = 20
 _OUTLINE_FILE = "outline.json"
 _MAP_FILE = "grundlage.json"
 _RESULT_FILE = "summary.md"
-
-
-
-
-
 
 
 class _JobStore(JobState):
@@ -161,20 +157,7 @@ def _result_name(names: list[str], title: str = "") -> str:
 
 def _fenster(provider_id: int | None) -> int:
     """The measured window of this run's model, 0 if there is none."""
-    from src.services.model_limits import ensure_profile
-
-    try:
-        if provider_id is not None:
-            from src.services.feature_provider_choices import resolve_binding
-            binding = resolve_binding("chat", provider_id)
-        else:
-            from src.services import feature_router
-            binding = feature_router.resolve("chat")
-        profil = ensure_profile(binding.provider, binding.model or "")
-        return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - without a measurement the job simply starts
-        logger.warning("Zusammenfassung: Modell nicht vermessbar ({})", e)
-        return 0
+    return measured_window(provider_id, "Zusammenfassung")
 
 
 def _run_summary_inner(job_uuid: str, template_slug: str,
@@ -260,11 +243,9 @@ def run_summary(self, job_uuid: str, template_slug: str,
         logger.info("Zusammenfassung {}: Etappe gehoert nicht mehr uns", job_uuid[:8])
     except Exception as e:
         from celery.exceptions import SoftTimeLimitExceeded
+        from src.tasks._errors import handle_task_exception, job_locale
         if isinstance(e, SoftTimeLimitExceeded):
-            auftrag = db.get_job(job_uuid)
-            locale = (auftrag and auftrag.get("creator_locale")) or "de"
-            attempt_failed(job_uuid, t("job.timeoutRetry", locale))
+            attempt_failed(job_uuid, t("job.timeoutRetry", job_locale(job_uuid)))
             return
-        from src.tasks._errors import handle_task_exception
         handle_task_exception(job_uuid, e, task_label="Summary")
         raise

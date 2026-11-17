@@ -27,6 +27,7 @@ from src.services.job_recovery import attempt_failed, still_mine
 from src.services.upstream_errors import is_provider_refusal, is_upstream_busy
 from src.services.job_statistik import messe, route_kennung
 from src.tasks._stage import StageContinue, StageLost, continue_stage
+from src.tasks._window import measured_window
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.utils.heartbeat import job_heartbeat
 
@@ -44,16 +45,7 @@ _ANFANG_WORTE = 12
 
 def _fenster(provider_id: int | None) -> int:
     """The measured window of the model, 0 if there is none."""
-    from src.services.feature_provider_choices import binding_for
-    from src.services.model_limits import ensure_profile
-
-    try:
-        binding = binding_for("chat", provider_id)
-        profil = ensure_profile(binding.provider, binding.model or "")
-        return profil.window_tokens if profil.measured else 0
-    except Exception as e:  # noqa: BLE001 - without a measurement the smallest admitted window applies
-        logger.warning("Podcast: Modell nicht vermessbar ({})", e)
-        return 0
+    return measured_window(provider_id, "Podcast")
 
 
 def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, params, llm) -> tm.Grundlage:

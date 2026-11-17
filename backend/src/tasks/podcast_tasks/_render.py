@@ -1,6 +1,8 @@
 """Celery task: every contribution gets its voice, then one file to listen to."""
 
+import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from loguru import logger
@@ -109,8 +111,6 @@ def _stimmen_etikett(params: PodcastParams, pin: dict) -> str:
 
 def _behalten_aus_vorlauf(job_uuid: str) -> list[int] | None:
     """What counted as kept when this run started, the stages before overwrote the progress."""
-    import json
-
     job = db.get_job(job_uuid) or {}
     roh = job.get("progress")
     try:
@@ -134,8 +134,6 @@ def _sprich(client, text: str, voice_id: str, sprache: str, tempo: float) -> byt
 
 def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: float,
                       job_uuid: str = "", clock: StageClock | None = None) -> bytes:
-    import time
-
     letzter: Exception | None = None
     for pause in (0.0, *_WIEDERHOLUNGEN):
         if pause:
@@ -156,6 +154,137 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: flo
     raise RuntimeError(str(letzter))
 
 
+class _LineFailed(RuntimeError):
+    """A contribution the provider could not voice, ``index`` names the place to continue from."""
+
+    def __init__(self, index: int) -> None:
+        super().__init__(f"Beitrag {index + 1} konnte nicht vertont werden")
+        self.index = index
+
+
+def _voice_open_lines(job_uuid: str, user_id: int, params: PodcastParams, pin: dict, zeilen: list[Line],
+                      vertont: dict, behalten: list[int], gemerkt: list[int], clock: StageClock,
+                      versuch: int, etappe: int) -> bool:
+    """Voices every contribution without current audio, False when the stage ended before the last one."""
+    offen = [i for i in range(len(zeilen)) if i not in set(behalten)]
+    fertig = set(behalten)
+    # Like the screencast: a contribution is only shown once the ones before it are.
+    gezeigt = set(behalten)
+    freigegeben = 0
+    sperre = threading.Lock()
+
+    def melde() -> None:
+        nonlocal freigegeben
+        while freigegeben < len(offen) and offen[freigegeben] in fertig:
+            gezeigt.add(offen[freigegeben])
+            freigegeben += 1
+        db.update_job_status(job_uuid, "running", progress={
+            "step": "tts",
+            "current": len(gezeigt) - len(gemerkt),
+            "total": len(zeilen) - len(gemerkt),
+            "fertig": sorted(gezeigt),
+            "behalten": sorted(gemerkt),
+        })
+
+    melde()
+    # One client per provider, several voices of one provider share it.
+    clients: dict[int, object] = {}
+
+    def client_fuer(provider_id: int):
+        with sperre:
+            if provider_id not in clients:
+                clients[provider_id] = tts_client(provider_id, user_id)
+            return clients[provider_id]
+
+    def eine(i: int) -> int | None:
+        # The stage is over, this contribution belongs to the next one.
+        if clock.over():
+            return None
+        assert_not_cancelled(job_uuid)
+        if not still_mine(job_uuid, versuch):
+            raise StageLost(job_uuid)
+        line = zeilen[i]
+        if not _person(params, line).voice_id:
+            raise RuntimeError(f"Beitrag {i + 1} hat keine Stimme")
+        anbieter, stimme = _stimme(params, pin, line)
+        ton = _mit_wiederholung(client_fuer(anbieter),
+                                line.text, stimme, params.language, params.speed,
+                                job_uuid, clock)
+        store.save_line_audio(user_id, job_uuid, line.id, ton)
+        with sperre:
+            vertont[line.id] = store.fingerprint(line, stimme, params.speed, anbieter)
+            store.save_voiced(user_id, job_uuid, vertont)
+            fertig.add(i)
+            # A finished contribution is the liveness sign, no clock thread ticks for us.
+            melde()
+        return i
+
+    with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
+        ton_zahlen.update(anbieter_und_modelle(
+            [_gepinnt(params, pin, p)[0] for p in params.persons], "tts"))
+        ton_zahlen["etappe"] = etappe
+        ton_zahlen["sprache"] = params.language
+        ton_zahlen["tempo"] = params.speed
+        ton_zahlen["personen"] = len(params.persons)
+        ton_zahlen["besetzung"] = _besetzung(params, pin)
+        ton_zahlen["stimmen"] = len({_stimme(params, pin, l) for l in zeilen})
+        ton_zahlen["beitraege"] = len(zeilen)
+        ton_zahlen["neu_vertont"] = len(offen)
+        ton_zahlen["behalten"] = len(gemerkt)
+        ton_zahlen["zeichen"] = sum(len(l.text) for l in zeilen)
+        if offen:
+            ton_zahlen["gleichzeitig"] = min(PODCAST_TTS_PARALLELISM, len(offen))
+            # The first failing contribution names the place to continue from.
+            erster, ursache = -1, None
+            with ThreadPoolExecutor(
+                    max_workers=min(PODCAST_TTS_PARALLELISM, len(offen))) as pool:
+                auftraege = {pool.submit(eine, i): i for i in offen}
+                for future, i in auftraege.items():
+                    try:
+                        future.result()
+                    except (JobCancelled, StageLost):
+                        raise
+                    except Exception as fehler:
+                        if erster < 0 or i < erster:
+                            erster, ursache = i, fehler
+            if erster >= 0:
+                raise _LineFailed(erster) from ursache
+
+    # Whatever the stage did not reach goes to the next one, outside the statistics.
+    return all(i in fertig for i in offen)
+
+
+def _montage_and_save(job_uuid: str, user_id: int, params: PodcastParams, pin: dict,
+                      zeilen: list[Line]) -> float:
+    """Joins the audio of all contributions, stores MP3, transcript and details, returns the seconds."""
+    db.update_job_status(job_uuid, "running", progress={"step": "montage"})
+    stuecke = [store.get_line_audio(user_id, job_uuid, l.id) for l in zeilen]
+    with job_heartbeat(job_uuid):
+        with messe(user_id, job_uuid, "montage") as montage_zahlen:
+            ton, dauer = montage.kleben([s for s in stuecke if s], job_uuid)
+            montage_zahlen["stuecke"] = len([s for s in stuecke if s])
+            montage_zahlen["tondauer_s"] = round(dauer, 1)
+            montage_zahlen["mp3_bytes"] = len(ton)
+            montage_zahlen["beitragspause"] = PODCAST_PAUSES[1]
+
+    db.update_job_status(job_uuid, "running", progress={"step": "saving"})
+    store.save_transcript(user_id, job_uuid,
+                          "\n\n".join(f"{_person(params, l).name}: {l.text}" for l in zeilen) + "\n")
+    pfad = save_result_file(user_id, job_uuid, ".mp3", ton)
+    # Load first: the run numbers already sit in this file and must survive.
+    save_result_meta(user_id, job_uuid, {
+        **(load_result_meta(user_id, job_uuid) or {}),
+        "seconds": round(dauer, 1),
+        "lines": len(zeilen),
+        "voices": len({l.speaker for l in zeilen}),
+        "language": params.language,
+        "voice_label": _stimmen_etikett(params, pin),
+    })
+    angaben_merken(user_id, job_uuid, podcast_angaben(params, pin))
+    save_result_and_evict(user_id, job_uuid, pfad, "podcast.mp3")
+    return dauer
+
+
 @celery_app.task(
     bind=True,
     name="podcast.render",
@@ -167,7 +296,6 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: flo
 def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
                        etappe: int = 1, versuch: int = 0):
     """Voices what changed, keeps what did not, and saves the finished MP3."""
-    offen_idx = -1
     try:
         assert_not_cancelled(job_uuid)
         if not still_mine(job_uuid, versuch):
@@ -191,123 +319,15 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         # From the second stage on, what this run already voiced must not count as kept.
         aus_vorlauf = _behalten_aus_vorlauf(job_uuid) if etappe > 1 else None
         gemerkt = aus_vorlauf if aus_vorlauf is not None else behalten
-        offen = [i for i in range(len(zeilen)) if i not in set(behalten)]
-        fertig = set(behalten)
-        # Like the screencast: a contribution is only shown once the ones before it are.
-        gezeigt = set(behalten)
-        freigegeben = 0
-        sperre = threading.Lock()
 
-        def melde() -> None:
-            nonlocal freigegeben
-            while freigegeben < len(offen) and offen[freigegeben] in fertig:
-                gezeigt.add(offen[freigegeben])
-                freigegeben += 1
-            db.update_job_status(job_uuid, "running", progress={
-                "step": "tts",
-                "current": len(gezeigt) - len(gemerkt),
-                "total": len(zeilen) - len(gemerkt),
-                "fertig": sorted(gezeigt),
-                "behalten": sorted(gemerkt),
-            })
-
-        melde()
-        # One client per provider, several voices of one provider share it.
-        clients: dict[int, object] = {}
-
-        def client_fuer(provider_id: int):
-            with sperre:
-                if provider_id not in clients:
-                    clients[provider_id] = tts_client(provider_id, user_id)
-                return clients[provider_id]
-
-        def eine(i: int) -> int | None:
-            # The stage is over, this contribution belongs to the next one.
-            if clock.over():
-                return None
-            assert_not_cancelled(job_uuid)
-            if not still_mine(job_uuid, versuch):
-                raise StageLost(job_uuid)
-            line = zeilen[i]
-            if not _person(params, line).voice_id:
-                raise RuntimeError(f"Beitrag {i + 1} hat keine Stimme")
-            anbieter, stimme = _stimme(params, pin, line)
-            ton = _mit_wiederholung(client_fuer(anbieter),
-                                    line.text, stimme, params.language, params.speed,
-                                    job_uuid, clock)
-            store.save_line_audio(user_id, job_uuid, line.id, ton)
-            with sperre:
-                vertont[line.id] = store.fingerprint(line, stimme, params.speed, anbieter)
-                store.save_voiced(user_id, job_uuid, vertont)
-                fertig.add(i)
-                # A finished contribution is the liveness sign, no clock thread ticks for us.
-                melde()
-            return i
-
-        with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
-            ton_zahlen.update(anbieter_und_modelle(
-                [_gepinnt(params, pin, p)[0] for p in params.persons], "tts"))
-            ton_zahlen["etappe"] = etappe
-            ton_zahlen["sprache"] = params.language
-            ton_zahlen["tempo"] = params.speed
-            ton_zahlen["personen"] = len(params.persons)
-            ton_zahlen["besetzung"] = _besetzung(params, pin)
-            ton_zahlen["stimmen"] = len({_stimme(params, pin, l) for l in zeilen})
-            ton_zahlen["beitraege"] = len(zeilen)
-            ton_zahlen["neu_vertont"] = len(offen)
-            ton_zahlen["behalten"] = len(gemerkt)
-            ton_zahlen["zeichen"] = sum(len(l.text) for l in zeilen)
-            if offen:
-                ton_zahlen["gleichzeitig"] = min(PODCAST_TTS_PARALLELISM, len(offen))
-                with ThreadPoolExecutor(
-                        max_workers=min(PODCAST_TTS_PARALLELISM, len(offen))) as pool:
-                    auftraege = {pool.submit(eine, i): i for i in offen}
-                    for future, i in auftraege.items():
-                        try:
-                            future.result()
-                        except (JobCancelled, StageLost):
-                            raise
-                        except Exception as fehler:
-                            # The first failing contribution names the place to continue from.
-                            if offen_idx < 0 or i < offen_idx:
-                                offen_idx, ursache = i, fehler
-                if offen_idx >= 0:
-                    raise RuntimeError(f"Beitrag {offen_idx + 1} konnte nicht vertont werden") from ursache
-
-        # Whatever the stage did not reach goes to the next one, outside the statistics.
-        if [i for i in offen if i not in fertig]:
+        if not _voice_open_lines(job_uuid, user_id, params, pin, zeilen, vertont, behalten, gemerkt,
+                                 clock, versuch, etappe):
             raise StageContinue
 
         assert_not_cancelled(job_uuid)
         if not still_mine(job_uuid, versuch):
             raise StageLost(job_uuid)
-        db.update_job_status(job_uuid, "running", progress={"step": "montage"})
-        stuecke = [store.get_line_audio(user_id, job_uuid, l.id) for l in zeilen]
-        with job_heartbeat(job_uuid):
-            with messe(user_id, job_uuid, "montage") as montage_zahlen:
-                ton, dauer = montage.kleben([s for s in stuecke if s], job_uuid)
-                montage_zahlen["stuecke"] = len([s for s in stuecke if s])
-                montage_zahlen["tondauer_s"] = round(dauer, 1)
-                montage_zahlen["mp3_bytes"] = len(ton)
-                montage_zahlen["beitragspause"] = PODCAST_PAUSES[1]
-
-        db.update_job_status(job_uuid, "running", progress={"step": "saving"})
-        namen = [params.persons[l.speaker].name if l.speaker < len(params.persons)
-                 else params.persons[0].name for l in zeilen]
-        store.save_transcript(user_id, job_uuid,
-                              "\n\n".join(f"{n}: {l.text}" for n, l in zip(namen, zeilen)) + "\n")
-        pfad = save_result_file(user_id, job_uuid, ".mp3", ton)
-        # Load first: the run numbers already sit in this file and must survive.
-        save_result_meta(user_id, job_uuid, {
-            **(load_result_meta(user_id, job_uuid) or {}),
-            "seconds": round(dauer, 1),
-            "lines": len(zeilen),
-            "voices": len({l.speaker for l in zeilen}),
-            "language": params.language,
-            "voice_label": _stimmen_etikett(params, pin),
-        })
-        angaben_merken(user_id, job_uuid, podcast_angaben(params, pin))
-        save_result_and_evict(user_id, job_uuid, pfad, "podcast.mp3")
+        dauer = _montage_and_save(job_uuid, user_id, params, pin, zeilen)
         db.update_job_status(job_uuid, "success", progress={
             "step": "done", "fertig": sorted(range(len(zeilen))), "behalten": sorted(gemerkt),
         })
@@ -325,7 +345,7 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         return {"cancelled": True}
     except Exception as e:
         logger.error("Podcast-Vertonung {} fehlgeschlagen: {}", job_uuid[:8], e)
-        meldung = (t("podcast.lineFailed", locale, n=offen_idx + 1) if offen_idx >= 0
+        meldung = (t("podcast.lineFailed", locale, n=e.index + 1) if isinstance(e, _LineFailed)
                    else t("podcast.renderFailed", locale))
         # A person's own voice service said why, that tells more than the number of the contribution.
         if hasattr(e.__cause__ or e, "vendor_label"):

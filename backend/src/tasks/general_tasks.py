@@ -10,6 +10,7 @@ from PIL import Image as PILImage
 
 from src.celery_app import celery_app
 from src import database as db
+from src.limits import IMAGE_ANALYZE_MAX_TOKENS
 from src.storage import (delete_file, get_file, open_input_file, save_job_file, save_result_file,
                          save_result_and_evict, save_result_meta)
 from src.utils.heartbeat import job_heartbeat
@@ -18,6 +19,14 @@ from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
 from src.services.translation import TranslationService
 from src.services.job_statistik import angaben_merken, wer_antwortete
 from src.services import provider_transport
+from src.services.provider_transport import INFERENCE_SERVICE_HEADER
+from src.tasks._clients import _get_llm_client, _image_http_client  # noqa: F401 - imported from here by other modules
+from src.tasks._errors import handle_task_exception as _handle_task_exception
+from src.tasks._errors import job_locale
+from src.tool_prompts import IMAGE_ANALYZE_DEFAULT as _IMAGE_ANALYZE_SYSTEM_PROMPT
+
+# A busy provider re-queues the job this often, waiting 30 s, 1 min, then 2 min each time.
+_MAX_REQUEUES = 5
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -38,66 +47,69 @@ def _png_with_notice(img_bytes: bytes) -> bytes:
         return buf.getvalue()
 
 
-def _get_llm_client(provider_id: int | None = None):
-    from src.services.openai_compat_llm import OpenAICompatLLMClient
-    if provider_id is not None:
-        from src.services import feature_provider_choices, feature_router
-        binding = feature_provider_choices.resolve_binding("chat", provider_id)
-        return feature_router.make_llm_client(binding)
-    from src.dependencies import _binding_tuple, _resolve_llm_binding
-    from src.services import provider_transport
-    binding = _resolve_llm_binding()
-    api_key, base_url, model, provider = _binding_tuple(binding)
-    if not api_key:
-        raise RuntimeError("Kein LLM-Provider konfiguriert")
-    client = OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model,
-                                   provider=provider, **provider_transport.sdk_clients(binding))
-    # The admin route needs the same switches as a chosen provider, a thinking model writes nothing otherwise.
-    from src.services import feature_router
-    feature_router._attach_model_profile(client, binding)
-    return client
+def _image_route(feature: str, provider_id: int | None, timeout: float):
+    """Address, model and client of an image route, a route without a model closes its client and fails."""
+    base_url, model, client = _image_http_client(feature, provider_id=provider_id, timeout=timeout)
+    if not model:
+        from src.services.feature_router import FeatureNotConfigured
+        client.close()
+        raise FeatureNotConfigured(f"{feature} route has no model_name")
+    return base_url, model, client
 
 
-def _image_http_client(
-    feature: str,
-    *,
-    provider_id: int | None = None,
-    extra_headers: dict | None = None,
-    timeout: float = 120.0,
-):
-    """Builds address, model and client for an image route."""
-    import httpx
-    from src.services import feature_router
-
-    if provider_id is not None:
-        from src.services import feature_provider_choices
-        binding = feature_provider_choices.resolve_binding(feature, provider_id)
-    else:
-        binding = feature_router.resolve(feature)  # raises FeatureNotConfigured
-
-    provider = binding.provider
-    base = provider["base_url"].rstrip("/")
-    if not base.endswith("/v1"):
-        base = f"{base}/v1"
-
-    headers: dict[str, str] = {}
-    api_key = provider.get("api_key")
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    if extra_headers:
-        headers.update(extra_headers)
-
-    from src.services import provider_transport
-    # The door takes the seat for every picture and falls back when the first choice does not answer.
-    return base, (binding.model or ""), httpx.Client(
-        headers=headers, timeout=timeout, transport=provider_transport.transport_for(binding))
+def _image_mime(ext: str) -> str:
+    return "image/png" if ext == ".png" else "image/jpeg"
 
 
-from src.tasks._errors import handle_task_exception as _handle_task_exception
-from src.services.provider_transport import INFERENCE_SERVICE_HEADER
+def parse_glossary(glossary_json: str) -> dict:
+    """The glossary a route sent as JSON text, empty when it is missing or not an object."""
+    if not glossary_json:
+        return {}
+    try:
+        entries = json.loads(glossary_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return entries if isinstance(entries, dict) else {}
+
+
+def _requeue(task, job_uuid: str, e: Exception, label: str):
+    """Puts the job back in the queue with a growing wait, finished parts stay remembered."""
+    countdown = min(30 * (2 ** task.request.retries), 120)
+    logger.warning(
+        "{} job {} hit a temporary error (attempt {}/{}), retrying in {}s: {}",
+        label, job_uuid, task.request.retries + 1, _MAX_REQUEUES, countdown, e,
+    )
+    raise task.retry(exc=e, countdown=countdown, max_retries=_MAX_REQUEUES)
 
 
 # -- Translation --------------------------------------------------------------
+
+def _translated_bytes(ext: str, content: bytes, source_lang: str, target_lang: str,
+                      service: TranslationService) -> bytes:
+    """The translated file in the format of the upload."""
+    if ext == ".txt":
+        return service.translate_text(content.decode("utf-8"), source_lang, target_lang).encode("utf-8")
+    if ext == ".md":
+        from src.translators.markdown import translate_markdown_preserve_code_blocks
+        return translate_markdown_preserve_code_blocks(
+            content.decode("utf-8"), source_lang, target_lang, service).encode("utf-8")
+    if ext == ".tex":
+        from src.translators.latex import translate_latex_preserve_structure
+        from src.translators.latex_source import read_tex, write_tex
+        # The result keeps the upload's encoding and line endings so it still fits the project files around it.
+        source = read_tex(content)
+        translated_text = translate_latex_preserve_structure(
+            source.text, source_lang, target_lang, service, utf8_output=source.utf8_output
+        )
+        return write_tex(translated_text, source)
+    if ext == ".docx":
+        from src.translators.docx import translate_docx
+        return translate_docx(content, source_lang, target_lang, service)
+    if ext == ".pptx":
+        from src.translators.pptx import translate_pptx
+        return translate_pptx(content, source_lang, target_lang, service)
+    raise ValueError(f"Unsupported format: {ext}")
+
 
 @celery_app.task(bind=True, name="general.translate", queue="general")
 def run_translate(
@@ -117,16 +129,7 @@ def run_translate(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-
-
-        glossary_entries: dict = {}
-        if glossary_json:
-            try:
-                entries = json.loads(glossary_json)
-                if isinstance(entries, dict):
-                    glossary_entries = entries
-            except (json.JSONDecodeError, TypeError):
-                pass
+        glossary_entries = parse_glossary(glossary_json)
 
         translation_client, glossary = get_translate_client_for_provider(
             provider_id, glossary_entries=glossary_entries or None
@@ -139,32 +142,7 @@ def run_translate(
         translated_filename = filename if ext == ".tex" else service.translate_filename(filename, source_lang, target_lang)
 
         with job_heartbeat(job_uuid):
-            if ext == ".txt":
-                text = content.decode("utf-8")
-                translated_text = service.translate_text(text, source_lang, target_lang)
-                result_bytes = translated_text.encode("utf-8")
-            elif ext == ".md":
-                from src.translators.markdown import translate_markdown_preserve_code_blocks
-                text = content.decode("utf-8")
-                translated_text = translate_markdown_preserve_code_blocks(text, source_lang, target_lang, service)
-                result_bytes = translated_text.encode("utf-8")
-            elif ext == ".tex":
-                from src.translators.latex import translate_latex_preserve_structure
-                from src.translators.latex_source import read_tex, write_tex
-                # The result keeps the upload's encoding and line endings so it still fits the project files around it.
-                source = read_tex(content)
-                translated_text = translate_latex_preserve_structure(
-                    source.text, source_lang, target_lang, service, utf8_output=source.utf8_output
-                )
-                result_bytes = write_tex(translated_text, source)
-            elif ext == ".docx":
-                from src.translators.docx import translate_docx
-                result_bytes = translate_docx(content, source_lang, target_lang, service)
-            elif ext == ".pptx":
-                from src.translators.pptx import translate_pptx
-                result_bytes = translate_pptx(content, source_lang, target_lang, service)
-            else:
-                raise ValueError(f"Unsupported format: {ext}")
+            result_bytes = _translated_bytes(ext, content, source_lang, target_lang, service)
 
         result_path = save_result_file(user_id, job_uuid, ext, result_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, translated_filename)
@@ -180,13 +158,8 @@ def run_translate(
         # A full or unreachable provider re-queues like the transcription, a real error fails.
         from src.services.upstream_errors import is_upstream_busy
 
-        if is_upstream_busy(e) and self.request.retries < 5:
-            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
-            logger.warning(
-                "Translate job {} found the provider busy (attempt {}/{}), retrying in {}s: {}",
-                job_uuid, self.request.retries + 1, 5, countdown, e,
-            )
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        if is_upstream_busy(e) and self.request.retries < _MAX_REQUEUES:
+            _requeue(self, job_uuid, e, "Translate")
         _handle_task_exception(job_uuid, e, task_label="Translate")
         raise
 
@@ -255,13 +228,8 @@ def run_transcribe(
         # Temporary disruptions re-queue, finished parts stay remembered.
         from src.services.openai_compat_llm.base import is_transient_error
 
-        if is_transient_error(e) and self.request.retries < 5:
-            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
-            logger.warning(
-                "Transcribe job {} hit a transient error (attempt {}/{}), retrying in {}s: {}",
-                job_uuid, self.request.retries + 1, 5, countdown, e,
-            )
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        if is_transient_error(e) and self.request.retries < _MAX_REQUEUES:
+            _requeue(self, job_uuid, e, "Transcribe")
         _handle_task_exception(job_uuid, e, task_label="Transcribe")
         raise
 
@@ -285,10 +253,7 @@ def run_image_generate(
         user_id = _resolve_user_id(job_uuid)
 
         # A large picture in high quality takes myLab about a minute, 300 s leave room for a busy provider.
-        base_url, model, client = _image_http_client("image_gen", provider_id=provider_id, timeout=300.0)
-        if not model:
-            from src.services.feature_router import FeatureNotConfigured
-            raise FeatureNotConfigured("image_gen route has no model_name")
+        base_url, model, client = _image_route("image_gen", provider_id, 300.0)
         body: dict = {
             "model": model,
             "prompt": prompt,
@@ -342,6 +307,27 @@ def _zuschneiden(inhalt: bytes, zuschnitt: dict) -> bytes:
     return zuschneiden(inhalt, zuschnitt)
 
 
+def _edited_image(response) -> bytes:
+    """The picture of an edit answer, sent either as the image itself or as base64 inside JSON."""
+    content_type = response.headers.get("content-type", "")
+    if content_type.startswith("image/"):
+        return response.content
+    try:
+        resp_data = response.json()
+    except Exception:
+        raise RuntimeError(f"Unerwartetes Antwortformat (Content-Type: {content_type}): {response.text[:300]}")
+    b64 = (
+        (resp_data.get("data") or [{}])[0].get("b64_json")
+        or (resp_data.get("data") or [{}])[0].get("b64")
+        or resp_data.get("b64_json")
+        or resp_data.get("b64")
+    )
+    if not b64:
+        keys = list(resp_data.keys()) if isinstance(resp_data, dict) else type(resp_data).__name__
+        raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
+    return base64.b64decode(b64)
+
+
 @celery_app.task(bind=True, name="general.image_edit", queue="general")
 def run_image_edit(
     self,
@@ -362,13 +348,10 @@ def run_image_edit(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-        mime = "image/png" if ext == ".png" else "image/jpeg"
+        mime = _image_mime(ext)
 
         # The usual transfer, a deviating provider would get its own adapter.
-        base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=300.0)
-        if not edit_model:
-            from src.services.feature_router import FeatureNotConfigured
-            raise FeatureNotConfigured("image_edit route has no model_name")
+        base_url, edit_model, client = _image_route("image_edit", provider_id, 300.0)
 
         # myLab explicitly needs these numbers, otherwise its image processing crashes.
         with job_heartbeat(job_uuid), client:
@@ -392,25 +375,7 @@ def run_image_edit(
         if response.status_code != 200:
             raise RuntimeError(f"Fehler bei der Bildbearbeitung (Status {response.status_code}): {response.text[:300]}")
 
-        content_type = response.headers.get("content-type", "")
-        if content_type.startswith("image/"):
-            img_bytes = response.content
-        else:
-            try:
-                resp_data = response.json()
-            except Exception:
-                raise RuntimeError(f"Unerwartetes Antwortformat (Content-Type: {content_type}): {response.text[:300]}")
-            b64 = (
-                (resp_data.get("data") or [{}])[0].get("b64_json")
-                or (resp_data.get("data") or [{}])[0].get("b64")
-                or resp_data.get("b64_json")
-                or resp_data.get("b64")
-            )
-            if not b64:
-                keys = list(resp_data.keys()) if isinstance(resp_data, dict) else type(resp_data).__name__
-                raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
-            img_bytes = base64.b64decode(b64)
-
+        img_bytes = _edited_image(response)
         if zuschnitt:
             # A padded panorama comes back as the band that was the source.
             img_bytes = _zuschneiden(img_bytes, zuschnitt)
@@ -434,10 +399,6 @@ def run_image_edit(
 
 # -- Image: analyze -----------------------------------------------------------
 
-from src.tool_prompts import IMAGE_ANALYZE_DEFAULT as _IMAGE_ANALYZE_SYSTEM_PROMPT
-from src.limits import IMAGE_ANALYZE_MAX_TOKENS
-
-
 @celery_app.task(bind=True, name="general.image_analyze", queue="general")
 def run_image_analyze(
     self,
@@ -456,7 +417,7 @@ def run_image_analyze(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-        mime = "image/png" if ext == ".png" else "image/jpeg"
+        mime = _image_mime(ext)
         b64_image = base64.b64encode(content).decode("utf-8")
         data_url = f"data:{mime};base64,{b64_image}"
 
@@ -465,7 +426,6 @@ def run_image_analyze(
         # The system instruction is the first text block, this model has no role of its own.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
         # Forces the answer language of the requester.
-        from src.tasks._errors import job_locale
         locale = job_locale(job_uuid)
         target_language = "German" if locale == "de" else "English"
         user_content = (
@@ -478,11 +438,8 @@ def run_image_analyze(
         if anweisung:
             user_content = anweisung
 
-        base_url, model, client = _image_http_client("vision", provider_id=provider_id, timeout=60.0)
-        if not model:
-            # There is no common model name for image description, so nothing but errors.
-            from src.services.feature_router import FeatureNotConfigured
-            raise FeatureNotConfigured("vision route has no model_name")
+        # There is no common model name for image description, so a route without one only fails.
+        base_url, model, client = _image_route("vision", provider_id, 60.0)
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/chat/completions",

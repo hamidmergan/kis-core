@@ -178,12 +178,10 @@ def run_tts(
         return
     except Exception as e:
         from celery.exceptions import SoftTimeLimitExceeded
+        from src.tasks._errors import handle_task_exception, job_locale
         if isinstance(e, SoftTimeLimitExceeded):
             logger.warning("TTS task {} hit soft time limit", job_uuid)
-            job = db.get_job(job_uuid)
-            locale = (job and job.get("creator_locale")) or "de"
-            attempt_failed(job_uuid, t("job.timeoutRetry", locale))
+            attempt_failed(job_uuid, t("job.timeoutRetry", job_locale(job_uuid)))
             return
-        from src.tasks._errors import handle_task_exception
         handle_task_exception(job_uuid, e, task_label="TTS")
         raise

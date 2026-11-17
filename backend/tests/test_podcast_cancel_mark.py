@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.tasks import _cancel
 from src.tasks.podcast_tasks import _shared
 
 
@@ -21,7 +22,7 @@ class _FakeRedis:
 @pytest.fixture
 def _redis(monkeypatch):
     fake = _FakeRedis({"job:cancel:abc"})
-    monkeypatch.setattr(_shared, "_r", fake)
+    monkeypatch.setattr(_cancel, "_r", fake)
     return fake
 
 
@@ -46,5 +47,5 @@ def test_a_broken_redis_does_not_block_the_start(monkeypatch):
             import redis
             raise redis.RedisError("weg")
 
-    monkeypatch.setattr(_shared, "_r", _Kaputt())
+    monkeypatch.setattr(_cancel, "_r", _Kaputt())
     _shared.clear_cancel("abc")

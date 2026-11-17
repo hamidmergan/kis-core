@@ -170,6 +170,16 @@ class TestOutline:
         assert umgebung.gestartet == [[JOB, UID, "de", 1, 0, None, False]]
         assert db.status[-1] == ("pending", {"step": "texte", "final": False})
 
+    def test_resumed_outline_hands_its_claim_to_the_build(self, umgebung):
+        """A build started with token 0 after a resume would fail still_mine and leave the job hanging."""
+        st, db = _Store(None), _Db()
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
+        umgebung.setattr(_outline, "db", db)
+        umgebung.setattr(_outline, "call_json_llm", _Llm([_outline_antwort(6)]))
+        _outline.run_praesentation_outline.run(JOB, UID, "de", 1, 2)
+        assert umgebung.gestartet == [[JOB, UID, "de", 1, 2, None, False]]
+
     def test_zweiter_versuch_nach_unbrauchbarer_antwort(self, umgebung):
         st, db = _Store(None), _Db()
         umgebung.setattr(_outline, "store", st)
