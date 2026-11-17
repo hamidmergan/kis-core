@@ -163,3 +163,40 @@ export async function uploadFile(opts: UploadOptions): Promise<string | null> {
   onPercent(100);
   return token;
 }
+
+/**
+ * Puts one file on a form for a tool route: as the token of a direct upload when possible,
+ * otherwise as the file itself. Returns a function that forgets the token once the route answered.
+ */
+export async function appendFile(
+  formData: FormData,
+  opts: UploadOptions & { field?: string },
+): Promise<() => void> {
+  const token = await uploadFile(opts);
+  if (token) formData.append("upload_token", token);
+  else formData.append(opts.field ?? "file", opts.file);
+  return () => forgetUpload(opts.tool, opts.file, opts.context);
+}
+
+/**
+ * Puts several files on a form: each as a token under upload_tokens when possible, otherwise
+ * under the classic field. A tool's rule takes all of its file types, so in practice all go one way.
+ */
+export async function appendFiles(
+  formData: FormData,
+  opts: Omit<UploadOptions, "file" | "onPercent"> & {
+    files: File[];
+    field?: string;
+    onPercent?: (fileIndex: number, percent: number) => void;
+  },
+): Promise<() => void> {
+  const sent: File[] = [];
+  for (let i = 0; i < opts.files.length; i++) {
+    const file = opts.files[i];
+    const token = await uploadFile({ ...opts, file, onPercent: (p) => opts.onPercent?.(i, p) });
+    if (token) formData.append("upload_tokens", token);
+    else formData.append(opts.field ?? "files", file);
+    sent.push(file);
+  }
+  return () => sent.forEach((file) => forgetUpload(opts.tool, file, opts.context));
+}

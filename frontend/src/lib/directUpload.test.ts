@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { forgetUpload, uploadFile } from "./directUpload";
+import { appendFile, appendFiles, forgetUpload, uploadFile } from "./directUpload";
 
 const BASE = "/api/uploads";
 const PART = 5 * 1024 * 1024;
@@ -133,5 +133,33 @@ describe("forgetUpload", () => {
     expect(Object.keys(store)).toHaveLength(1);
     forgetUpload("transcription", file);
     expect(Object.keys(store)).toHaveLength(0);
+  });
+});
+
+describe("appendFile und appendFiles", () => {
+  it("hängt das Token an, wenn der Teile-Upload klappt", async () => {
+    serverWith({ count: 1 });
+    const fd = new FormData();
+    const forget = await appendFile(fd, { tool: "translation", file: fileOf(10), failedText: "x" });
+    expect(fd.get("upload_token")).toBe("tok");
+    expect(fd.get("file")).toBeNull();
+    forget();
+    expect(Object.keys(store)).toHaveLength(0);
+  });
+
+  it("hängt die Datei klassisch an, wenn der Server das will", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ direct: false })));
+    const fd = new FormData();
+    await appendFile(fd, { tool: "translation", file: fileOf(10), failedText: "x" });
+    expect(fd.get("upload_token")).toBeNull();
+    expect(fd.get("file")).toBeInstanceOf(File);
+  });
+
+  it("schickt mehrere Dateien je als Token", async () => {
+    serverWith({ count: 1 });
+    const fd = new FormData();
+    await appendFiles(fd, { tool: "summary", files: [fileOf(10, "a.pdf"), fileOf(12, "b.pdf")], failedText: "x" });
+    expect(fd.getAll("upload_tokens")).toEqual(["tok", "tok"]);
+    expect(fd.getAll("files")).toEqual([]);
   });
 });

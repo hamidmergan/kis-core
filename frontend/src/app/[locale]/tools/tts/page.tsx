@@ -25,6 +25,7 @@ import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 import { cancelJob } from "@/components/jobs/JobCancelButton";
 import { triggerBlobDownload } from "@/lib/download";
 import { notifyJobsChanged } from "@/lib/jobs-events";
+import { appendFile } from "@/lib/directUpload";
 
 type InputMode = "text" | "file";
 
@@ -151,8 +152,12 @@ function TtsPageInner() {
         : voiceId;
 
       const formData = new FormData();
+      let forgetUpload = () => {};
       if (inputMode === "file" && pendingFile) {
-        formData.append("file", pendingFile);
+        // A large document goes in parts straight into the bucket, a small one with the request.
+        forgetUpload = await appendFile(formData, {
+          tool: "tts", file: pendingFile, failedText: tCommon("unknownError"), signal,
+        });
       } else {
         formData.append("text", pendingText);
       }
@@ -166,6 +171,7 @@ function TtsPageInner() {
         credentials: "include",
         signal,
       });
+      forgetUpload();
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: tCommon("unknownError") }));
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));

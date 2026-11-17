@@ -31,9 +31,13 @@ from src.utils.file_validation import (
 )
 from src.translators.latex_source import TEX_BYTES_PER_CHAR, tex_plain_text
 from src.utils.text_extraction import EXTRACTORS
-from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
-from src.routes._shared import enforce_upload_size
+from src.routes._shared import enforce_upload_size, input_name, stage_input
+from src.routes.uploads import tool_access
+from src.services import direct_upload
+
+direct_upload.register("translation", direct_upload.UploadRule(
+    ALLOWED_EXTENSIONS, lambda: max_upload_bytes(), tool_access("translation"), self_checked={".tex"}))
 
 router = APIRouter(
     tags=["translate"],
@@ -109,17 +113,18 @@ def _stage_text(text: str, tmpdir: str, locale: str) -> tuple[str, int]:
     return tmp_path, len(cleaned)
 
 
-async def _stage_file(file: UploadFile, tmpdir: str, locale: str) -> tuple[str, str, int | None, int | None]:
-    """Streams the upload to disk and checks it, returns ending, path, characters and pages."""
-    if not file.filename:
+async def _stage_file(filename: str, file: UploadFile | None, upload_token: str | None, user_id: int,
+                      tmpdir: str, locale: str) -> tuple[str, str, int | None, int | None]:
+    """Puts the upload on disk and checks it, returns ending, path, characters and pages."""
+    if not filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
-    ext = Path(file.filename).suffix.lower()
+    ext = Path(filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
 
     tmp_path = os.path.join(tmpdir, f"input{ext}")
-    total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+    total, head = await stage_input(file, upload_token, "translation", user_id, tmp_path, max_upload_bytes(), locale)
     if not total:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     extracted: str | None = None
@@ -154,6 +159,7 @@ async def _stage_file(file: UploadFile, tmpdir: str, locale: str) -> tuple[str, 
 async def translate(
     request: Request,
     file: UploadFile | None = File(None),
+    upload_token: str | None = Form(None),
     text: str = Form(""),
     glossary: str = Form(""),
     provider_id: int | None = Form(None),
@@ -162,7 +168,10 @@ async def translate(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    has_file = bool(file and file.filename)
+    # A large file arrives as the token of a direct upload, a small one as the file itself.
+    user_id = current_user.get("user_id", 0)
+    incoming = await asyncio.to_thread(input_name, file, upload_token, "translation", user_id, locale)
+    has_file = bool(incoming)
     has_text = bool(text and text.strip())
     if has_file and has_text:
         raise HTTPException(status_code=400, detail=t("translate.bothInputs", locale))
@@ -178,9 +187,8 @@ async def translate(
             ext, filename = ".txt", "text.txt"
             tmp_path, zeichen = _stage_text(text, tmpdir, locale)
         else:
-            assert file is not None
-            filename = file.filename
-            ext, tmp_path, zeichen, seiten = await _stage_file(file, tmpdir, locale)
+            filename = incoming
+            ext, tmp_path, zeichen, seiten = await _stage_file(incoming, file, upload_token, user_id, tmpdir, locale)
 
         effective_source = source_lang or ""
         effective_target = target_lang or DEFAULT_TRANSLATE_TARGET

@@ -56,12 +56,18 @@ def enforce_upload_size(request: Request, locale: str) -> None:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=limit // (1024 * 1024)))
 
 
+def _token(upload_token) -> str | None:
+    """Only a real text counts as a token, a route called directly passes FastAPI's empty default."""
+    return upload_token if isinstance(upload_token, str) and upload_token else None
+
+
 def input_name(file, upload_token: str | None, tools, user_id: int, locale: str) -> str | None:
     """Name of the incoming file, from the classic upload or from a finished direct upload."""
+    upload_token = _token(upload_token)
     if upload_token:
         from src.services import direct_upload
         return direct_upload.take(upload_token, tools, user_id, locale)["filename"]
-    return file.filename if file is not None else None
+    return getattr(file, "filename", None) or None
 
 
 async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_path: str,
@@ -74,6 +80,7 @@ async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_
     import asyncio
 
     from src.utils.upload_stream import HEAD_BYTES, stream_upload_to_path
+    upload_token = _token(upload_token)
     if not upload_token:
         return await stream_upload_to_path(file, dest_path, max_bytes, locale)
 
@@ -82,8 +89,14 @@ async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_
     session = direct_upload.take(upload_token, tools, user_id, locale)
     if session["size"] > max_bytes:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)))
-    await asyncio.to_thread(download_to_path, session["key"], dest_path)
+    # Claimed in one step, two requests with the same token never both get the file.
+    session = await asyncio.to_thread(direct_upload.claim, upload_token, tools, user_id, locale)
+    try:
+        await asyncio.to_thread(download_to_path, session["key"], dest_path)
+    except Exception:
+        direct_upload.unclaim(upload_token, session)
+        raise
     with open(dest_path, "rb") as f:
         head = f.read(HEAD_BYTES)
-    await asyncio.to_thread(direct_upload.release, upload_token, session)
+    await asyncio.to_thread(direct_upload.delete_file, session["key"])
     return session["size"], head

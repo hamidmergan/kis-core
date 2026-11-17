@@ -28,6 +28,7 @@ import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
 import JobSubmitRow from "@/components/jobs/JobSubmitRow";
 import { triggerBlobDownload } from "@/lib/download";
 import { notifyJobsChanged } from "@/lib/jobs-events";
+import { appendFile } from "@/lib/directUpload";
 
 type InputMode = "text" | "file";
 
@@ -146,8 +147,12 @@ function UebersetzungPageInner() {
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
       const formData = new FormData();
+      let forgetUpload = () => {};
       if (inputMode === "file" && pendingFile) {
-        formData.append("file", pendingFile);
+        // A large document goes in parts straight into the bucket, a small one with the request.
+        forgetUpload = await appendFile(formData, {
+          tool: "translation", file: pendingFile, failedText: tCommon("unknownError"), signal: controller.signal,
+        });
       } else {
         formData.append("text", pendingText);
       }
@@ -156,6 +161,7 @@ function UebersetzungPageInner() {
       // Source language is always auto-detected (no source_lang sent).
       if (targetLang) formData.append("target_lang", targetLang);
       const response = await api.fetch("/translate", { method: "POST", body: formData });
+      forgetUpload();
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));

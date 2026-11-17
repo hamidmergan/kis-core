@@ -27,6 +27,23 @@ class _FakeRedis:
     def delete(self, key):
         self._store.pop(key, None)
 
+    def pipeline(self, transaction=True):
+        store, ops = self._store, []
+
+        class _Pipe:
+            def get(self, key):
+                ops.append(("get", key))
+
+            def delete(self, key):
+                ops.append(("delete", key))
+
+            def execute(self):
+                out = []
+                for op, key in ops:
+                    out.append(store.get(key) if op == "get" else int(store.pop(key, None) is not None))
+                return out
+        return _Pipe()
+
 
 @pytest.fixture
 def bucket(monkeypatch):
@@ -286,3 +303,15 @@ def test_unbekanntes_werkzeug_ist_verboten():
 def test_transkription_hat_eine_regel():
     rule = routes.rule_for("transcription", "de")
     assert ".mp3" in rule.extensions
+
+
+def test_ein_token_wird_nur_einmal_vergeben(bucket):
+    token = _finished(bucket)
+    session = du.claim(token, "transcription", 42, "de")
+    assert session["filename"] == "vortrag.mp3"
+    with pytest.raises(HTTPException) as err:
+        du.claim(token, "transcription", 42, "de")
+    assert err.value.status_code == 404
+    # Put back after a refusal, the person can try again.
+    du.unclaim(token, session)
+    assert du.claim(token, "transcription", 42, "de")

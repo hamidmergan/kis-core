@@ -25,9 +25,13 @@ from src.utils.file_validation import (
 )
 from src.services.tool_limits import max_upload_bytes
 from src.utils.text_extraction import EXTRACTORS
-from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
-from src.routes._shared import enforce_upload_size
+from src.routes._shared import enforce_upload_size, input_name, stage_input
+from src.routes.uploads import tool_access
+from src.services import direct_upload
+
+direct_upload.register("tts", direct_upload.UploadRule(
+    TTS_EXTENSIONS, lambda: max_upload_bytes(), tool_access("tts")))
 
 router = APIRouter(
     tags=["tts"],
@@ -119,16 +123,17 @@ def _stage_text(text: str, tmpdir: str, locale: str) -> str:
     return tmp_path
 
 
-async def _stage_file(file: UploadFile, request: Request, tmpdir: str, locale: str) -> tuple[str, str]:
-    """Streams the upload to disk and checks it, returns its ending and its path."""
-    ext = Path(file.filename).suffix.lower()
+async def _stage_file(filename: str, file: UploadFile | None, upload_token: str | None, user_id: int,
+                      request: Request, tmpdir: str, locale: str) -> tuple[str, str]:
+    """Puts the upload on disk and checks it, returns its ending and its path."""
+    ext = Path(filename).suffix.lower()
     if ext not in TTS_EXTENSIONS:
         raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
 
     enforce_upload_size(request, locale)
 
     tmp_path = os.path.join(tmpdir, f"input{ext}")
-    total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+    total, head = await stage_input(file, upload_token, "tts", user_id, tmp_path, max_upload_bytes(), locale)
     if not total:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     validate_or_raise(head, ext, locale)
@@ -165,6 +170,7 @@ async def _check_provider(provider_id: int, voice_id: str, current_user: dict, l
 async def text_to_speech(
     request: Request,
     file: UploadFile | None = File(None),
+    upload_token: str | None = Form(None),
     text: str = Form(""),
     voice_id: str = Form(""),
     speed: float = Form(1.0),
@@ -174,7 +180,9 @@ async def text_to_speech(
     locale: str = Depends(get_locale),
 ):
     """Queue a TTS job: synthesize uploaded document or pasted text to MP3."""
-    has_file = bool(file and file.filename)
+    # A large file arrives as the token of a direct upload, a small one as the file itself.
+    incoming = await asyncio.to_thread(input_name, file, upload_token, "tts", current_user.get("user_id", 0), locale)
+    has_file = bool(incoming)
     has_text = bool(text and text.strip())
     if has_file and has_text:
         raise HTTPException(status_code=400, detail=t("tts.bothInputs", locale))
@@ -187,9 +195,9 @@ async def text_to_speech(
             ext, source_filename = ".txt", "text.txt"
             tmp_path = _stage_text(text, tmpdir, locale)
         else:
-            assert file is not None
-            source_filename = file.filename
-            ext, tmp_path = await _stage_file(file, request, tmpdir, locale)
+            source_filename = incoming
+            ext, tmp_path = await _stage_file(incoming, file, upload_token, current_user.get("user_id", 0),
+                                              request, tmpdir, locale)
 
         await _check_provider(provider_id, voice_id, current_user, locale)
 

@@ -14,7 +14,7 @@ SESSION = {"tool": "aia", "user_id": 42, "context": {"workspace_uuid": "w1"}, "k
 def room(monkeypatch):
     """Database, storage and queue stubbed, every call recorded."""
     state = {"existing": [], "created": [], "copied": [], "released": [], "enqueued": [], "recorded": [],
-             "session": dict(SESSION), "manage": []}
+             "session": dict(SESSION), "manage": [], "unclaimed": []}
 
     def manage(workspace_uuid, user_id, locale="de"):
         state["manage"].append((workspace_uuid, user_id))
@@ -29,7 +29,9 @@ def room(monkeypatch):
     monkeypatch.setattr(fu, "copy_key", lambda src, dst: state["copied"].append((src, dst)))
     monkeypatch.setattr(fu, "_enqueue_index_source", lambda *a: state["enqueued"].append(a[0]))
     monkeypatch.setattr(fu.direct_upload, "take", lambda token, tool, uid, loc: state["session"])
-    monkeypatch.setattr(fu.direct_upload, "release", lambda token, session: state["released"].append(token))
+    monkeypatch.setattr(fu.direct_upload, "claim", lambda token, tool, uid, loc: state["session"])
+    monkeypatch.setattr(fu.direct_upload, "unclaim", lambda token, session: state["unclaimed"].append(token))
+    monkeypatch.setattr(fu.direct_upload, "delete_file", lambda key: state["released"].append(key))
     return state
 
 
@@ -64,7 +66,7 @@ def test_fertiger_upload_wird_zur_quelle(room):
     src, dst = room["copied"][0]
     assert src == "tmp/uploads/42/tok.webm"
     assert dst.startswith("users/42/aia/workspaces/w1/sources/") and dst.endswith(".webm")
-    assert room["released"] == ["tok"]
+    assert room["released"] == ["tmp/uploads/42/tok.webm"]
     assert room["created"][0]["file_path"] == dst and room["created"][0]["file_type"] == "webm"
     assert room["enqueued"] == [answer["uuid"]]
 
@@ -83,3 +85,5 @@ def test_inzwischen_gleicher_name_legt_nichts_an(room):
         _from_upload()
     assert err.value.status_code == 409
     assert room["created"] == [] and room["released"] == []
+    # The refused upload is put back, a rename and a second try still work.
+    assert room["unclaimed"] == ["tok"]

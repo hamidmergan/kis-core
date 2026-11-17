@@ -51,6 +51,8 @@ class UploadRule:
     authorize: Callable = field(default=lambda *a: None)
     # Raises when the file does not fit, gets user, context, filename, size, locale.
     precheck: Callable = field(default=lambda *a: None)
+    # Endings whose content the tool checks itself instead of the leading bytes check here.
+    self_checked: Collection[str] = ()
 
 
 # Every tool that takes large files registers its rule here, its own module does that on import.
@@ -215,8 +217,10 @@ def complete(token: str, user_id: int, locale: str) -> dict:
     if not parts_complete(parts, session["size"]):
         raise HTTPException(status_code=409, detail=t("ai.source.uploadIncomplete", locale))
     multipart_complete(key, upload_id, sorted(parts, key=lambda p: p["PartNumber"]))
+    rule = RULES.get(session["tool"])
     try:
-        validate_or_raise(get_range(key, 0, HEAD_BYTES), session["ext"], locale)
+        if rule is None or session["ext"] not in rule.self_checked:
+            validate_or_raise(get_range(key, 0, HEAD_BYTES), session["ext"], locale)
     except HTTPException:
         delete_file(key)
         _drop(token)
@@ -237,6 +241,23 @@ def take(token: str, tool: str | Collection[str], user_id: int, locale: str) -> 
     if session["tool"] not in tools or not session["done"]:
         raise HTTPException(status_code=404, detail=t("ai.source.uploadExpired", locale))
     return session
+
+
+def claim(token: str, tool: str | Collection[str], user_id: int, locale: str) -> dict:
+    """Takes a finished upload for good in one step, a second caller with the same token gets a not found."""
+    session = take(token, tool, user_id, locale)
+    pipe = _redis().pipeline(transaction=True)
+    pipe.get(_SESSION_PREFIX + token)
+    pipe.delete(_SESSION_PREFIX + token)
+    raw, _ = pipe.execute()
+    if not raw:
+        raise HTTPException(status_code=404, detail=t("ai.source.uploadExpired", locale))
+    return session
+
+
+def unclaim(token: str, session: dict) -> None:
+    """Puts a claimed upload back when the tool refused it, so the person can try again."""
+    _save(token, session)
 
 
 def release(token: str, session: dict) -> None:

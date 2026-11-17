@@ -68,14 +68,19 @@ def source_from_upload(
     session = direct_upload.take(body.upload_token, TOOL, user_id, locale)
     if session["context"].get("workspace_uuid") != workspace_uuid:
         raise HTTPException(status_code=404, detail=t("ai.source.uploadExpired", locale))
-    # Someone may have added the same name or filled the room meanwhile.
-    _check_room(workspace, session["filename"], locale)
-
-    source_uuid = uuid.uuid4().hex
-    # The file hangs off the owner, not off the person adding it.
-    key = aia_source_key(workspace["user_id"], workspace_uuid, source_uuid, session["ext"])
-    copy_key(session["key"], key)
-    direct_upload.release(body.upload_token, session)
+    # Claimed in one step, two requests with the same token never make two sources.
+    session = direct_upload.claim(body.upload_token, TOOL, user_id, locale)
+    try:
+        # Someone may have added the same name or filled the room meanwhile.
+        _check_room(workspace, session["filename"], locale)
+        source_uuid = uuid.uuid4().hex
+        # The file hangs off the owner, not off the person adding it.
+        key = aia_source_key(workspace["user_id"], workspace_uuid, source_uuid, session["ext"])
+        copy_key(session["key"], key)
+    except Exception:
+        direct_upload.unclaim(body.upload_token, session)
+        raise
+    direct_upload.delete_file(session["key"])
 
     db.create_aia_source(
         workspace_id=workspace["id"],
