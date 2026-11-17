@@ -15,6 +15,7 @@ import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
 import { Link, useRouter } from "@/i18n/navigation";
 import { backendApi, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
+import { appendFiles } from "@/lib/directUpload";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
@@ -139,8 +140,9 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
     try {
       const form = new FormData();
       form.append("mode", mode);
-      if (mode === "files") files.forEach((f) => form.append("files", f));
-      else {
+      // Large files go in parts straight into the bucket, small ones with the request.
+      const forgetUploads = mode === "files" ? await appendFiles(form, { tool: "pages", files }) : () => {};
+      if (mode !== "files") {
         form.append("workspace_uuid", moduleId);
         form.append("source_uuids", JSON.stringify(sourceIds));
       }
@@ -148,6 +150,7 @@ export default function PagesSeite({ demo = false }: { demo?: boolean }) {
       if (instructions.trim()) form.append("instructions", instructions.trim());
       if (imageStyle?.trim()) form.append("image_style", imageStyle.trim());
       const res = await backendApi.fetch("/pages", { method: "POST", body: form });
+      forgetUploads();
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: tCommon("unknownError") }));
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));

@@ -32,6 +32,7 @@ async def material_setzen(
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
     files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -43,7 +44,8 @@ async def material_setzen(
             locale=locale, hoechstens=SCREENCAST_MAX_SOURCES, schluessel="screencast")
     elif mode == "files":
         gelesen = await quellen.read_uploads(files, locale=locale, hoechstens=SCREENCAST_MAX_SOURCES,
-                                             schluessel="screencast")
+                                             schluessel="screencast", tokens=upload_tokens,
+                                             tool="screencast", user_id=user_id)
     else:
         raise HTTPException(status_code=422, detail=t("screencast.noContent", locale))
     await asyncio.to_thread(quellen.save_sources, user_id, job_uuid, gelesen)

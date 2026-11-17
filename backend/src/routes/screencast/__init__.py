@@ -25,3 +25,12 @@ router.include_router(_material_router)
 router.include_router(measure_router("screencast"))
 
 __all__ = ["router"]
+
+# Slides and extra material may exceed the proxy limit, both go through the shared direct upload.
+from src.routes.uploads import tool_access  # noqa: E402
+from src.services import direct_upload  # noqa: E402
+from src.services.source_reading import EXTENSIONS as _SOURCE_EXTENSIONS  # noqa: E402
+from src.services.tool_limits import max_upload_bytes as _max_upload_bytes  # noqa: E402
+
+direct_upload.register("screencast", direct_upload.UploadRule(
+    _SOURCE_EXTENSIONS, lambda: _max_upload_bytes(), tool_access("screencast")))

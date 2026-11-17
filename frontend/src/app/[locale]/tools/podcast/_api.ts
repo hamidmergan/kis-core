@@ -1,6 +1,7 @@
 "use client";
 
 import { defaultPersons } from "./_reducer";
+import { appendFiles } from "@/lib/directUpload";
 import type { JobProgress, JobStatus, Line, Person, PodcastState } from "./_types";
 
 interface PodcastParamsView {
@@ -77,12 +78,15 @@ export async function startPodcast(state: PodcastState, llmProviderId: number | 
     llm_provider_id: llmProviderId,
   }));
   form.append("mode", state.source.mode);
-  if (state.source.mode === "files") state.source.files.forEach((f) => form.append("files", f));
+  // Large files go in parts straight into the bucket, small ones with the request.
+  const forgetUploads = state.source.mode === "files"
+    ? await appendFiles(form, { tool: "podcast", files: state.source.files }) : () => {};
   if (state.source.mode === "module") {
     form.append("workspace_uuid", state.source.moduleId);
     form.append("source_uuids", JSON.stringify(state.source.sourceIds));
   }
   const res = await fetch("/api/podcast/start", { method: "POST", body: form, credentials: "include" });
+  forgetUploads();
   if (!res.ok) throw new Error(await fehlerText(res));
   return (await res.json()).job_uuid as string;
 }

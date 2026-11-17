@@ -1,4 +1,5 @@
 import type { JobProgress, JobStatus, Outline, OutlineRow, PraesentationState, Slide, Vorlage } from "./_types";
+import { appendFiles } from "@/lib/directUpload";
 import type { DemoView } from "./_demo";
 
 export interface PraesentationView {
@@ -52,13 +53,16 @@ export async function startPraesentation(state: PraesentationState, llmProviderI
     ...(state.imageStyle !== null ? { style_text: state.imageStyle } : {}),
   }));
   form.append("mode", state.source.mode);
+  let forgetUploads = () => {};
   if (state.source.mode === "module") {
     form.append("workspace_uuid", state.source.moduleId);
     form.append("source_uuids", JSON.stringify(state.source.sourceIds));
   } else {
-    for (const f of state.source.files) form.append("files", f);
+    // Large files go in parts straight into the bucket, small ones with the request.
+    forgetUploads = await appendFiles(form, { tool: "praesentation", files: state.source.files });
   }
   const res = await fetch("/api/praesentation/start", { method: "POST", credentials: "include", body: form });
+  forgetUploads();
   return (await json<{ job_uuid: string }>(res)).job_uuid;
 }
 

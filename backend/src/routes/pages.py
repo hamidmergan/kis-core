@@ -48,6 +48,14 @@ from src.tasks import pages_tasks as pt
 from src.tasks.pages_tasks import PARAMS_FILE, USER_PAGE_FILE, load_page
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
+from src.routes.uploads import tool_access
+from src.services import direct_upload
+from src.services.source_reading import EXTENSIONS as _SOURCE_EXTENSIONS
+from src.services.tool_limits import max_upload_bytes as _max_upload_bytes
+
+direct_upload.register("pages", direct_upload.UploadRule(
+    _SOURCE_EXTENSIONS, lambda: _max_upload_bytes(), tool_access("pages")))
+
 router = APIRouter(tags=["pages"], dependencies=[Depends(require_tool_access("pages"))])
 router.include_router(measure_router("pages", "summary"))
 
@@ -147,6 +155,7 @@ def share_collection(body: CollectionShareBody, current_user: dict = Depends(get
 async def create_page(
     request: Request,
     files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
     mode: str = Form("files"),
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
@@ -177,7 +186,8 @@ async def create_page(
         workspace_title = (db.get_aia_workspace(workspace_uuid) or {}).get("title") or ""
     else:
         gelesen = await sources.read_uploads(files, locale=locale, hoechstens=SUMMARY_MAX_SOURCES,
-                                             schluessel="summary")
+                                             schluessel="summary", tokens=upload_tokens,
+                                             tool="pages", user_id=user_id)
 
     enforce_quota(user_id, "pages", is_admin_user(current_user), locale)
     job_uuid = uuid.uuid4().hex

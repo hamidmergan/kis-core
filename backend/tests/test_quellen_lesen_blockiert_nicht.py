@@ -22,7 +22,7 @@ async def test_andere_anfragen_laufen_waehrend_eine_datei_gelesen_wird(monkeypat
         open(ziel, "wb").write(b"%PDF-1.4")
         return 8, b"%PDF-1.4"
 
-    monkeypatch.setattr(sources, "stream_upload_to_path", strom)
+    monkeypatch.setattr("src.utils.upload_stream.stream_upload_to_path", strom)
     monkeypatch.setattr(sources, "validate_or_raise", lambda *a: None)
     monkeypatch.setattr(sources, "pages_or_raise", lambda *a: time.sleep(0.3))
     monkeypatch.setattr(sources, "read_file", lambda pfad, name: time.sleep(0.3) or "gelesen")

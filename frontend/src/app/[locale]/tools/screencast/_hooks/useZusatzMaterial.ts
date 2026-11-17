@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { parseDetail } from "@/lib/api";
+import { appendFiles } from "@/lib/directUpload";
 import { hatMaterial, KEIN_MATERIAL, type MaterialWahl } from "../_components/ZusatzMaterial";
 
 /** The extra material of one job: what is picked, what the job already carries, and the way in. */
@@ -41,12 +42,15 @@ export function useZusatzMaterial(jobUuid: string, aktiv: boolean, fallback: str
       if (neu) {
         const body = new FormData();
         body.append("mode", wahl.mode);
-        if (wahl.mode === "files") wahl.files.forEach((f) => body.append("files", f));
-        else {
+        // Large files go in parts straight into the bucket, small ones with the request.
+        const forgetUploads = wahl.mode === "files"
+          ? await appendFiles(body, { tool: "screencast", files: wahl.files }) : () => {};
+        if (wahl.mode !== "files") {
           body.append("workspace_uuid", wahl.moduleId);
           body.append("source_uuids", JSON.stringify(wahl.sourceIds));
         }
         res = await fetch(`/api/screencast/${jobUuid}/material`, { method: "POST", body, credentials: "include" });
+        forgetUploads();
       } else {
         res = await fetch(`/api/screencast/${jobUuid}/material`, { method: "DELETE", credentials: "include" });
       }

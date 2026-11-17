@@ -15,6 +15,7 @@ import JobCancelButton, { cancelJob } from "@/components/jobs/JobCancelButton";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
+import { appendFiles } from "@/lib/directUpload";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
@@ -267,7 +268,8 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
     try {
       const formData = new FormData();
       formData.append("mode", mode);
-      if (mode === "files") files.forEach((f) => formData.append("files", f));
+      // Large files go in parts straight into the bucket, small ones with the request.
+      const forgetUploads = mode === "files" ? await appendFiles(formData, { tool: "summary", files }) : () => {};
       if (mode === "module") {
         formData.append("workspace_uuid", moduleId);
         formData.append("source_uuids", JSON.stringify(sourceIds));
@@ -276,6 +278,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
       if (providerId != null) formData.append("provider_id", String(providerId));
       if (instructions.trim()) formData.append("instructions", instructions.trim());
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
+      forgetUploads();
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));

@@ -264,3 +264,58 @@ def release(token: str, session: dict) -> None:
     """Forgets a used upload and deletes its file, the tool keeps its own copy."""
     delete_file(session["key"])
     _drop(token)
+
+
+# --- receiving a file in a tool route -----------------------------------------
+
+def _token(upload_token) -> str | None:
+    """Only a real text counts as a token, a route called directly passes FastAPI's empty default."""
+    return upload_token if isinstance(upload_token, str) and upload_token else None
+
+
+def input_name(file, upload_token: str | None, tools, user_id: int, locale: str) -> str | None:
+    """Name of the incoming file, from the classic upload or from a finished direct upload."""
+    upload_token = _token(upload_token)
+    if upload_token:
+        return take(upload_token, tools, user_id, locale)["filename"]
+    return getattr(file, "filename", None) or None
+
+
+async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_path: str,
+                      max_bytes: int, locale: str, keep: bool = False) -> tuple[int, bytes]:
+    """Puts the incoming file at dest_path and returns its size and leading bytes.
+
+    A classic upload is streamed, a direct upload is fetched from the bucket and then released,
+    so every tool route continues the same way after this call. With keep the upload stays for
+    a later request, a measurement before the start uses that.
+    """
+    import asyncio
+
+    from src.utils.upload_stream import HEAD_BYTES, stream_upload_to_path
+    upload_token = _token(upload_token)
+    if not upload_token:
+        return await stream_upload_to_path(file, dest_path, max_bytes, locale)
+
+    from src.storage import download_to_path
+    session = take(upload_token, tools, user_id, locale)
+    if session["size"] > max_bytes:
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)))
+    if keep:
+        await asyncio.to_thread(download_to_path, session["key"], dest_path)
+    else:
+        # Claimed in one step, two requests with the same token never both get the file.
+        session = await asyncio.to_thread(claim, upload_token, tools, user_id, locale)
+        try:
+            await asyncio.to_thread(download_to_path, session["key"], dest_path)
+        except Exception:
+            unclaim(upload_token, session)
+            raise
+        await asyncio.to_thread(delete_file, session["key"])
+    with open(dest_path, "rb") as f:
+        head = f.read(HEAD_BYTES)
+    return session["size"], head
+
+
+def total_size(tokens, tools, user_id: int, locale: str) -> int:
+    """Bytes of several finished uploads together, for limits that apply to all files at once."""
+    return sum(take(tok, tools, user_id, locale)["size"] for tok in tokens or [])

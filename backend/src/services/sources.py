@@ -22,7 +22,6 @@ from src.services.job_files import parse_job_json, read_job_text, write_job_text
 from src.services.source_reading import EXTENSIONS, NoReadableText, Source, from_dict, read_file
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import pages_or_raise, validate_or_raise
-from src.utils.upload_stream import stream_upload_to_path
 
 SOURCES_FILE = "sources.json"
 
@@ -87,15 +86,18 @@ def check_total(sources: list[Source], locale: str, schluessel: str) -> None:
             chars=_zahl(zeichen), max=_zahl(grenze)))
 
 
-async def _read_upload(datei: UploadFile, tmpdir: str, locale: str, schluessel: str) -> Source:
-    """One uploaded file through every check and the reader."""
-    name = datei.filename or "?"
+async def _read_upload(datei: UploadFile | None, tmpdir: str, locale: str, schluessel: str, *,
+                       token: str | None = None, tool: str | None = None, user_id: int = 0,
+                       keep: bool = False) -> Source:
+    """One uploaded file through every check and the reader, sent classically or as a direct upload."""
+    from src.services.direct_upload import input_name, stage_input
+    name = await asyncio.to_thread(input_name, datei, token, tool, user_id, locale) or "?"
     ext = Path(name).suffix.lower()
     if ext not in EXTENSIONS:
         raise HTTPException(status_code=400, detail=t(
             f"{schluessel}.unsupportedFormat", locale, formats=", ".join(EXTENSIONS)))
     ziel = os.path.join(tmpdir, f"{uuid.uuid4().hex}{ext}")
-    groesse, kopf = await stream_upload_to_path(datei, ziel, max_upload_bytes(), locale)
+    groesse, kopf = await stage_input(datei, token, tool, user_id, ziel, max_upload_bytes(), locale, keep=keep)
     if not groesse:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     validate_or_raise(kopf, ext, locale)
@@ -112,24 +114,35 @@ async def _read_upload(datei: UploadFile, tmpdir: str, locale: str, schluessel: 
             f"{schluessel}.fileUnreadable", locale, name=name)) from e
 
 
-async def measure_upload(datei: UploadFile, *, locale: str, schluessel: str) -> int:
-    """The characters one file brings, counted exactly as the start will count them."""
+async def measure_upload(datei: UploadFile | None, *, locale: str, schluessel: str, token: str | None = None,
+                         tool: str | None = None, user_id: int = 0) -> int:
+    """The characters one file brings, counted exactly as the start will count them.
+
+    A direct upload stays in place, the start that follows takes the same token.
+    """
     with tempfile.TemporaryDirectory(prefix="messen_") as tmpdir:
-        return len((await _read_upload(datei, tmpdir, locale, schluessel)).text)
+        return len((await _read_upload(datei, tmpdir, locale, schluessel, token=token, tool=tool,
+                                       user_id=user_id, keep=True)).text)
 
 
 async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
-                       schluessel: str) -> list[Source]:
+                       schluessel: str, tokens: list[str] | None = None, tool: str | None = None,
+                       user_id: int = 0) -> list[Source]:
     """Every uploaded file read once. The file itself does not outlive this request.
 
     What survives is the canonical text with its pieces, nothing is indexed and no
     workspace is created behind the person's back.
     """
-    _check_count(len(files or []), hoechstens, locale, schluessel)
+    # Large files arrive as tokens of direct uploads, small ones as files, both count alike.
+    tokens = [tok for tok in (tokens if isinstance(tokens, (list, tuple)) else []) if isinstance(tok, str) and tok]
+    _check_count(len(files or []) + len(tokens), hoechstens, locale, schluessel)
     gelesen: list[Source] = []
     with tempfile.TemporaryDirectory(prefix="quellen_") as tmpdir:
-        for datei in files:
+        for datei in files or []:
             gelesen.append(await _read_upload(datei, tmpdir, locale, schluessel))
+        for tok in tokens:
+            gelesen.append(await _read_upload(None, tmpdir, locale, schluessel, token=tok, tool=tool,
+                                              user_id=user_id))
     check_total(gelesen, locale, schluessel)
     zeichen = sum(len(q.text) for q in gelesen)
     logger.info("{}: {} Quelle(n) gelesen, {} Zeichen, {} Stueck(e)",

@@ -56,47 +56,6 @@ def enforce_upload_size(request: Request, locale: str) -> None:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=limit // (1024 * 1024)))
 
 
-def _token(upload_token) -> str | None:
-    """Only a real text counts as a token, a route called directly passes FastAPI's empty default."""
-    return upload_token if isinstance(upload_token, str) and upload_token else None
 
-
-def input_name(file, upload_token: str | None, tools, user_id: int, locale: str) -> str | None:
-    """Name of the incoming file, from the classic upload or from a finished direct upload."""
-    upload_token = _token(upload_token)
-    if upload_token:
-        from src.services import direct_upload
-        return direct_upload.take(upload_token, tools, user_id, locale)["filename"]
-    return getattr(file, "filename", None) or None
-
-
-async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_path: str,
-                      max_bytes: int, locale: str) -> tuple[int, bytes]:
-    """Puts the incoming file at dest_path and returns its size and leading bytes.
-
-    A classic upload is streamed, a direct upload is fetched from the bucket and then released,
-    so every tool route continues the same way after this call.
-    """
-    import asyncio
-
-    from src.utils.upload_stream import HEAD_BYTES, stream_upload_to_path
-    upload_token = _token(upload_token)
-    if not upload_token:
-        return await stream_upload_to_path(file, dest_path, max_bytes, locale)
-
-    from src.services import direct_upload
-    from src.storage import download_to_path
-    session = direct_upload.take(upload_token, tools, user_id, locale)
-    if session["size"] > max_bytes:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)))
-    # Claimed in one step, two requests with the same token never both get the file.
-    session = await asyncio.to_thread(direct_upload.claim, upload_token, tools, user_id, locale)
-    try:
-        await asyncio.to_thread(download_to_path, session["key"], dest_path)
-    except Exception:
-        direct_upload.unclaim(upload_token, session)
-        raise
-    with open(dest_path, "rb") as f:
-        head = f.read(HEAD_BYTES)
-    await asyncio.to_thread(direct_upload.delete_file, session["key"])
-    return session["size"], head
+# Kept here for the routes, the receiving of a file lives in the upload core.
+from src.services.direct_upload import input_name, stage_input  # noqa: E402,F401

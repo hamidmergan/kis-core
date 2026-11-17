@@ -72,7 +72,7 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
 
 
 async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: str,
-                         user_id: int, locale: str) -> list:
+                         user_id: int, locale: str, tokens: list[str] | None = None) -> list:
     """A run's sources, uploaded or fetched from a workspace.
 
     Both paths end in the same record; the workspace supplies only the file, no index,
@@ -86,8 +86,11 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: st
             locale=locale, hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
     if mode != "files":
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-    return await quellen.read_uploads(files, locale=locale,
-                                      hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
+    if tokens and direct_upload.total_size(tokens, "podcast", user_id, locale) > max_upload_bytes():
+        grenze = max_upload_bytes()
+        raise HTTPException(status_code=413, detail=t("podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
+    return await quellen.read_uploads(files, locale=locale, hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast",
+                                      tokens=tokens, tool="podcast", user_id=user_id)
 
 
 @router.get("/podcast/providers")
@@ -104,6 +107,7 @@ async def start_podcast(
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
     files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -116,7 +120,8 @@ async def start_podcast(
     from src.services import sources as quellen
 
     _pruefe_gesamtgroesse(request, locale)
-    gelesen = await _quellen_lesen(mode, files, workspace_uuid, source_uuids, user_id, locale)
+    gelesen = await _quellen_lesen(mode, files, workspace_uuid, source_uuids, user_id, locale,
+                                   tokens=upload_tokens)
     gesamt = quellen.as_block(gelesen)
     label = quellen.label(gelesen)
     if not gesamt.strip():
@@ -149,3 +154,11 @@ async def start_podcast(
     db.update_job_status(job_uuid, "pending", progress={"step": "script"})
     logger.info("Podcast {} gestartet, {} Zeichen Material", job_uuid[:8], len(gesamt))
     return {"job_uuid": job_uuid}
+
+
+from src.routes.uploads import tool_access  # noqa: E402
+from src.services import direct_upload  # noqa: E402
+from src.services.source_reading import EXTENSIONS as _SOURCE_EXTENSIONS  # noqa: E402
+
+direct_upload.register("podcast", direct_upload.UploadRule(
+    _SOURCE_EXTENSIONS, lambda: max_upload_bytes(), tool_access("podcast")))

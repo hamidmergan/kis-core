@@ -1,4 +1,4 @@
-import { parseDetail } from "@/lib/api";
+import { genericErrorMessage, parseDetail } from "@/lib/api";
 
 // Sends a file in parts straight into the bucket, every request stays small enough for any proxy.
 // One core for every tool and the AI assistant: start, signed part URLs, parts, complete.
@@ -22,7 +22,8 @@ export interface UploadOptions {
   tool: string;
   file: File;
   onPercent?: (percent: number) => void;
-  failedText: string;
+  // Shown when the server gives no reason, the locale's generic error text by default.
+  failedText?: string;
   signal?: AbortSignal;
   // Extra facts the tool's rule checks, for example the workspace of the AI assistant.
   context?: Record<string, string>;
@@ -91,7 +92,8 @@ export function forgetUpload(tool: string, file: File, context?: Record<string, 
  * Null means the classic upload fits better: no bucket, or a file type the tool takes directly.
  */
 export async function uploadFile(opts: UploadOptions): Promise<string | null> {
-  const { tool, file, failedText, signal, context } = opts;
+  const { tool, file, signal, context } = opts;
+  const failedText = opts.failedText ?? genericErrorMessage();
   const onPercent = opts.onPercent ?? (() => {});
   const key = storageKey(tool, file, context);
 

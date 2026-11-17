@@ -24,6 +24,14 @@ from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.storage import save_job_file
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
+from src.routes.uploads import tool_access
+from src.services import direct_upload
+from src.services.source_reading import EXTENSIONS as _SOURCE_EXTENSIONS
+from src.services.tool_limits import max_upload_bytes as _max_upload_bytes
+
+direct_upload.register("summary", direct_upload.UploadRule(
+    _SOURCE_EXTENSIONS, lambda: _max_upload_bytes(), tool_access("summary")))
+
 router = APIRouter(tags=["summary"], dependencies=[Depends(require_tool_access("summary"))])
 router.include_router(measure_router("summary"))
 
@@ -53,6 +61,7 @@ def list_templates(_user: dict = Depends(get_current_user)):
 async def summarize(
     request: Request,
     files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
     mode: str = Form("files"),
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
@@ -87,7 +96,8 @@ async def summarize(
     else:
         gelesen = await sources.read_uploads(files, locale=locale,
                                              hoechstens=SUMMARY_MAX_SOURCES,
-                                             schluessel="summary")
+                                             schluessel="summary", tokens=upload_tokens,
+                                             tool="summary", user_id=user_id)
 
     # Quota is charged only once every source has cleared reading, so a refused start costs nothing.
     enforce_quota(user_id, "summary", is_admin_user(current_user), locale)

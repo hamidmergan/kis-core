@@ -36,7 +36,7 @@ def _pruefe_params(roh: str, locale: str) -> PraesentationParams:
 
 
 async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: list[str],
-                         user_id: int, locale: str) -> list:
+                         user_id: int, locale: str, tokens: list[str] | None = None) -> list:
     """A run's sources, uploaded or fetched from a workspace.
 
     Both paths end in the same record; the workspace supplies only the file, no index,
@@ -52,7 +52,8 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: li
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
     return await quellen.read_uploads(files, locale=locale,
                                       hoechstens=PRAESENTATION_MAX_SOURCES,
-                                      schluessel="praesentation")
+                                      schluessel="praesentation", tokens=tokens,
+                                      tool="praesentation", user_id=user_id)
 
 
 @router.get("/praesentation/providers")
@@ -68,6 +69,7 @@ async def start_praesentation(
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
     files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -80,7 +82,7 @@ async def start_praesentation(
     from src.services import sources as quellen, workspace_sources as arbeitsraum
 
     gewaehlt = arbeitsraum.parse_uuids(source_uuids) if mode == "module" else []
-    gelesen = await _quellen_lesen(mode, files, workspace_uuid, gewaehlt, user_id, locale)
+    gelesen = await _quellen_lesen(mode, files, workspace_uuid, gewaehlt, user_id, locale, tokens=upload_tokens)
     text = quellen.as_block(gelesen)
     label = quellen.label(gelesen)
     if not text.strip():
@@ -115,3 +117,12 @@ async def start_praesentation(
     logger.info("Präsentation {} gestartet, {} Zeichen Material",
                 job_uuid[:8], len(text))
     return {"job_uuid": job_uuid}
+
+
+from src.routes.uploads import tool_access  # noqa: E402
+from src.services import direct_upload  # noqa: E402
+from src.services.source_reading import EXTENSIONS as _SOURCE_EXTENSIONS  # noqa: E402
+from src.services.tool_limits import max_upload_bytes as _max_upload_bytes  # noqa: E402
+
+direct_upload.register("praesentation", direct_upload.UploadRule(
+    _SOURCE_EXTENSIONS, lambda: _max_upload_bytes(), tool_access("praesentation")))
