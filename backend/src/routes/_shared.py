@@ -54,3 +54,36 @@ def enforce_upload_size(request: Request, locale: str) -> None:
     limit = tool_limits.max_upload_bytes()
     if announced is not None and int(announced) > limit:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=limit // (1024 * 1024)))
+
+
+def input_name(file, upload_token: str | None, tools, user_id: int, locale: str) -> str | None:
+    """Name of the incoming file, from the classic upload or from a finished direct upload."""
+    if upload_token:
+        from src.services import direct_upload
+        return direct_upload.take(upload_token, tools, user_id, locale)["filename"]
+    return file.filename if file is not None else None
+
+
+async def stage_input(file, upload_token: str | None, tools, user_id: int, dest_path: str,
+                      max_bytes: int, locale: str) -> tuple[int, bytes]:
+    """Puts the incoming file at dest_path and returns its size and leading bytes.
+
+    A classic upload is streamed, a direct upload is fetched from the bucket and then released,
+    so every tool route continues the same way after this call.
+    """
+    import asyncio
+
+    from src.utils.upload_stream import HEAD_BYTES, stream_upload_to_path
+    if not upload_token:
+        return await stream_upload_to_path(file, dest_path, max_bytes, locale)
+
+    from src.services import direct_upload
+    from src.storage import download_to_path
+    session = direct_upload.take(upload_token, tools, user_id, locale)
+    if session["size"] > max_bytes:
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)))
+    await asyncio.to_thread(download_to_path, session["key"], dest_path)
+    with open(dest_path, "rb") as f:
+        head = f.read(HEAD_BYTES)
+    await asyncio.to_thread(direct_upload.release, upload_token, session)
+    return session["size"], head

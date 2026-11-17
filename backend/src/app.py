@@ -19,6 +19,7 @@ from src.limits import REQUEST_THREAD_LIMIT
 from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
 from src.storage import USE_S3, init_storage
+from src.routes import uploads
 from src.routes import access_codes, admin, auth, evaluation, event, event_tasks, feedback, glossaries, health, image, interpreter, invites, password_reset, jobs, aia, ki_status, me, own_interfaces, pages, pages_demo, podcast, podcast_demo, praesentation, praesentation_demo, providers_status, screencast, screencast_demo, summary, summary_demo, transcription, translate, tts
 
 # Routes that stay reachable during maintenance.
@@ -233,6 +234,7 @@ def create_app(modules=None) -> FastAPI:
     application.include_router(access_codes.router)
     application.include_router(health.router)
     application.include_router(jobs.router)
+    application.include_router(uploads.router)
     # The shared view first, it needs only a login and must not fall under the tool check.
     application.include_router(pages.shared_router)
     application.include_router(pages.router)

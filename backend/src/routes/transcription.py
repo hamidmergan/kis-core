@@ -20,9 +20,8 @@ from src.services import feature_provider_choices
 from src.storage import save_queue_file_from_path
 from src.utils.file_validation import TRANSCRIPTION_EXTENSIONS, validate_or_raise
 from src.services.tool_limits import max_upload_bytes
-from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
-from src.routes._shared import enforce_upload_size
+from src.routes._shared import enforce_upload_size, input_name, stage_input
 
 router = APIRouter(
     tags=["transcription"],
@@ -42,21 +41,25 @@ async def list_transcription_providers(current_user: dict = Depends(get_current_
 @router.post("/transcription")
 async def transcribe(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    upload_token: str | None = Form(None),
     task: str = Form("transcribe"),
     response_format: str = Form("text"),
     provider_id: int | None = Form(None),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    if not file.filename:
+    # A file sent in parts straight into the bucket arrives as a token, a small one as the file itself.
+    user_id = current_user.get("user_id", 0)
+    filename = await asyncio.to_thread(input_name, file, upload_token, "transcription", user_id, locale)
+    if not filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     # A chosen provider must be set up by the admin.
     if provider_id is not None and not feature_provider_choices.is_eligible("stt", provider_id):
         raise HTTPException(status_code=400, detail=t("transcription.invalidProvider", locale))
 
-    ext = Path(file.filename).suffix.lower()
+    ext = Path(filename).suffix.lower()
     if ext not in TRANSCRIPTION_EXTENSIONS:
         raise HTTPException(
             status_code=400,
@@ -80,28 +83,33 @@ async def transcribe(
     # Stream to a temp file, media quickly reach hundreds of MB.
     with tempfile.TemporaryDirectory(prefix="stt_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, f"input{ext}")
-        total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+        total, head = await stage_input(file, upload_token, "transcription", user_id, tmp_path, max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ext, locale)
         sekunden = await asyncio.to_thread(media_seconds, tmp_path)
 
         job_uuid = uuid.uuid4().hex
-        user_id = current_user.get("user_id", 0)
         enforce_open_jobs(user_id, locale, "transcription")
         enforce_tool_burst(user_id, "transcription", locale)
         enforce_quota(user_id, "transcription", is_admin_user(current_user), locale)
 
-        create_counted_job(job_uuid, user_id, "transcription", file.filename, locale=locale)
+        create_counted_job(job_uuid, user_id, "transcription", filename, locale=locale)
         input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
+    return _enqueue(job_uuid, input_path, filename, task, response_format, provider_id, sekunden)
+
+
+def _enqueue(job_uuid, input_path, filename, task, response_format, provider_id, sekunden):
+    """Hands the stored file to a worker and answers with the job."""
     from src.tasks.general_tasks import run_transcribe
     celery_task = run_transcribe.apply_async(
-        args=[job_uuid, input_path, file.filename, task, response_format, provider_id],
+        args=[job_uuid, input_path, filename, task, response_format, provider_id],
         **transcribe_route(sekunden),
     )
     db.set_job_celery_task_id(job_uuid, celery_task.id)
 
-    logger.info("Transcribe job {} queued for '{}'", job_uuid, file.filename)
+    logger.info("Transcribe job {} queued for '{}'", job_uuid, filename)
     return {"job_uuid": job_uuid, "status": "pending"}
+

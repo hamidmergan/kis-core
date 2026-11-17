@@ -22,6 +22,7 @@ import { DownloadButton, ResetButton } from "@/components/jobs/ResultButtons";
 import JobSubmitRow from "@/components/jobs/JobSubmitRow";
 import { triggerBlobDownload } from "@/lib/download";
 import { notifyJobsChanged } from "@/lib/jobs-events";
+import { forgetUpload, uploadFile } from "@/lib/directUpload";
 
 function formatFromFilename(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -51,6 +52,8 @@ function TranscriptionPageInner() {
   const [transcriptFilename, setTranscriptFilename] = useState<string>("");
   // Long recordings run in parts, every finished part is reported.
   const [chunkProgress, setChunkProgress] = useState<{ current: number; total: number } | null>(null);
+  // Share of the recording that reached the server, null once it is there.
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
 
   const [responseFormat, setResponseFormat] = useState("text");
 
@@ -95,6 +98,7 @@ function TranscriptionPageInner() {
     jobUuidRef.current = null;
     setStallMessage("");
     setChunkProgress(null);
+    setUploadPercent(null);
     setProcessing(false);
   };
 
@@ -108,16 +112,31 @@ function TranscriptionPageInner() {
     setDoneJobUuid(null);
     setChunkProgress(null);
     try {
+      setUploadPercent(0);
+      // Recordings go in parts straight into the bucket, so no proxy in front sees the whole file.
+      const token = await uploadFile({
+        tool: "transcription",
+        file: pendingFile,
+        onPercent: setUploadPercent,
+        failedText: tCommon("unknownError"),
+        signal: controller.signal,
+      });
+      setUploadPercent(null);
       const formData = new FormData();
-      formData.append("file", pendingFile);
+      // Null means the classic way fits better, the file itself travels with the request.
+      if (token) formData.append("upload_token", token);
+      else formData.append("file", pendingFile);
       formData.append("task", "transcribe");
       formData.append("response_format", responseFormat);
       if (providerId != null) formData.append("provider_id", String(providerId));
-      const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
+      const response = await backendApi.fetch("/transcription", { method: "POST", body: formData, signal: controller.signal });
       if (!response.ok) {
+        // The server took or refused the upload, the next try starts fresh.
+        forgetUpload("transcription", pendingFile);
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
         throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
+      forgetUpload("transcription", pendingFile);
       const data = await response.json();
       // A cancel during the upload stops the job as soon as its id is known.
       if (controller.signal.aborted) { cancelJob(data.job_uuid); return; }
@@ -149,7 +168,7 @@ function TranscriptionPageInner() {
       if (controller.signal.aborted) return;
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
-      if (abortRef.current === controller) setProcessing(false);
+      if (abortRef.current === controller) { setProcessing(false); setUploadPercent(null); }
     }
   };
 
@@ -226,9 +245,10 @@ function TranscriptionPageInner() {
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {processing ? (
               <>
-                <BackgroundHint />
+                {/* Leaving the page stops an upload, only the job that follows runs on without the page. */}
+                {uploadPercent === null && <BackgroundHint />}
                 <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-                  <Spinner label={chunkProgress ? t("chunkProgress", chunkProgress) : tCommon("processing")} />
+                  <Spinner label={uploadPercent !== null ? t("uploadProgress", { percent: uploadPercent }) : chunkProgress ? t("chunkProgress", chunkProgress) : tCommon("processing")} />
                 </div>
               </>
             ) : doneJobUuid ? (

@@ -70,6 +70,7 @@ def _call(upload, request=None):
         route.transcribe(
             request=request or _Request(),
             file=upload,
+            upload_token=None,
             task="transcribe",
             response_format="text",
             provider_id=None,

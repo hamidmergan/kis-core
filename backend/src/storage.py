@@ -558,13 +558,18 @@ def delete_feedback_attachments(feedback_id: int) -> int:
 
 # --- Job file I/O ---
 
+def queue_file_key(user_id: int, job_uuid: str, ext: str) -> str:
+    """Key of the input file of a job, a direct upload writes straight to it."""
+    return f"{job_prefix(user_id, job_uuid)}/input{ext}"
+
+
 def save_queue_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
-    return _store_bytes(f"{job_prefix(user_id, job_uuid)}/input{ext}", data)
+    return _store_bytes(queue_file_key(user_id, job_uuid, ext), data)
 
 
 def save_queue_file_from_path(user_id: int, job_uuid: str, ext: str, local_path: str) -> str:
     """Same as :func:`save_queue_file`, but takes a path instead of bytes."""
-    return _store_from_path(f"{job_prefix(user_id, job_uuid)}/input{ext}", local_path)
+    return _store_from_path(queue_file_key(user_id, job_uuid, ext), local_path)
 
 
 def save_job_file_from_path(user_id: int, job_uuid: str, filename: str, local_path: str) -> str:
@@ -624,6 +629,14 @@ def load_result_meta(user_id: int, job_uuid: str) -> dict | None:
     if not meta_path.exists():
         return None
     return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def download_to_path(key: str, local_path: str) -> None:
+    """Copies an object to a local file, streamed so a large file never sits in memory."""
+    if USE_S3:
+        _s3().download_file(_S3_BUCKET, key, local_path)
+    else:
+        shutil.copyfile(_local_path(key), local_path)
 
 
 @contextmanager

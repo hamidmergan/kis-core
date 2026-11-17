@@ -300,6 +300,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/transcription`,
       },
       {
+        source: "/api/uploads",
+        destination: `${backendUrl}/uploads`,
+      },
+      {
+        source: "/api/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
+      },
+      {
         source: "/api/summary/providers",
         destination: `${backendUrl}/summary/providers`,
       },

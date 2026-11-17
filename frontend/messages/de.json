@@ -502,6 +502,7 @@
       "editorAria": "Transkript bearbeiten",
       "providerLabel": "STT-Anbieter",
       "chunkProgress": "Teil {current} von {total}",
+      "uploadProgress": "Datei wird hochgeladen… {percent} %",
       "tooLong": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten.",
       "newTranscript": "Neues Transkript"
     },

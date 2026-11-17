@@ -502,6 +502,7 @@
       "editorAria": "Edit transcript",
       "providerLabel": "STT provider",
       "chunkProgress": "Part {current} of {total}",
+      "uploadProgress": "Uploading file… {percent}%",
       "tooLong": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes.",
       "newTranscript": "New transcript"
     },
